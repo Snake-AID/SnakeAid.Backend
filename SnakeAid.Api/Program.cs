@@ -1,0 +1,157 @@
+
+using Mapster;
+using MapsterMapper;
+using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.Mvc;
+using SnakeAid.Core.Mappings;
+using SnakeAid.Core.Middlewares;
+using System.Text.Json.Serialization;
+using SnakeAid.Api.DI;
+using SnakeAid.Core.Extensions;
+
+namespace SnakeAid.Api
+{
+    public class Program
+    {
+        public static void Main(string[] args)
+        {
+            var builder = WebApplication.CreateBuilder(args);
+
+            // builder.Services.AddDbContext<SnakeAidDbContext>(options =>
+            // {
+            //     options.UseNpgsql(builder.Configuration.GetConnectionString("SupabaseConnection"),
+            //         sqlOptions =>
+            //         {
+            //             sqlOptions.EnableRetryOnFailure(
+            //                 5,
+            //                 TimeSpan.FromSeconds(30),
+            //                 null);
+            //         });
+            // });
+
+
+            // // Add IUnitOfWork and UnitOfWork
+            // builder.Services.AddScoped<IUnitOfWork<SnakeAidDbContext>, UnitOfWork<SnakeAidDbContext>>();
+
+            // Register Mapster
+            var config = TypeAdapterConfig.GlobalSettings;
+            MapsterConfig.RegisterMappings();
+            builder.Services.AddSingleton(config);
+            builder.Services.AddScoped<IMapper, ServiceMapper>();
+
+            builder.Services.AddServices();
+            builder.Services.AddMemoryCache();
+
+            builder.Services.AddCors(options =>
+            {
+                options.AddPolicy("AllowAll", policy =>
+                {
+                    policy.AllowAnyOrigin()
+                        .AllowAnyMethod()
+                        .AllowAnyHeader();
+                });
+            });
+
+            builder.Services.AddHttpContextAccessor();
+
+            builder.Services.AddControllers().AddJsonOptions(options =>
+            {
+                options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+            });
+
+            builder.Services.AddControllers();
+
+            builder.Services.AddAuthenticateAuthor(builder.Configuration);
+
+            // Add Swagger with JWT support
+            builder.Services.AddSwagger();
+
+            // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
+            builder.Services.AddEndpointsApiExplorer();
+            builder.Services.AddSwaggerGen();
+
+
+            // Bind Kestrel to all network interfaces
+            builder.WebHost.ConfigureKestrel((context, options) =>
+            {
+                if (context.HostingEnvironment.IsDevelopment())
+                {
+                    // Local dev: both HTTP and HTTPS
+                    options.ListenAnyIP(5009);
+                    // options.ListenLocalhost(5009); // HTTP
+                    options.ListenLocalhost(7026, listenOptions => listenOptions.UseHttps());
+                }
+                else
+                {
+                    // Docker/Production: HTTP only
+                    options.ListenAnyIP(5009);
+                }
+            });
+
+            builder.Services.Configure<ApiBehaviorOptions>(options => { options.SuppressModelStateInvalidFilter = true; });
+
+            // // Firebase
+            // try
+            // {
+            //     // Use fixed path for Firebase credentials - works for both development and production
+            //     var credentialsPath = File.Exists("/app/firebase-service-account.json")
+            //         ? "/app/firebase-service-account.json"
+            //         : "firebase-service-account.json";
+
+            //     var firebaseApp = FirebaseApp.Create(new AppOptions
+            //     {
+            //         Credential = GoogleCredential.FromFile(credentialsPath)
+            //     });
+
+            //     builder.Services.AddSingleton(firebaseApp);
+            // }
+            // catch (Exception ex)
+            // {
+            //     throw new FileNotFoundException("Failed to initialize Firebase", ex);
+            // }
+
+            builder.Services.Configure<RouteOptions>(options =>
+            {
+                options.LowercaseUrls = true; // Forces lowercase routes
+            });
+
+            // Cấu hình để nhận IP từ header X-Forwarded-For nếu chạy sau proxy
+            builder.Services.Configure<ForwardedHeadersOptions>(options =>
+            {
+                options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+            });
+
+            var app = builder.Build();
+
+            // Thêm middleware xử lý IP từ proxy
+            app.UseForwardedHeaders();
+
+            app.UseCors("AllowAll");
+
+            app.UseApiExceptionHandler();
+
+
+            // Configure the HTTP request pipeline.
+            if (app.Environment.IsDevelopment())
+            {
+                var applyMigration = app.Configuration.GetValue<bool>("ApplyMigrationOnStartup");
+                if (applyMigration)
+                {
+                    // app.ApplyMigrations<SnakeAidDbContext>();
+                }
+            }
+
+            app.UseSwagger();
+            app.UseSwaggerUI();
+
+            app.UseHttpsRedirection();
+
+            app.UseAuthorization();
+
+
+            app.MapControllers();
+
+            app.Run();
+        }
+    }
+}
