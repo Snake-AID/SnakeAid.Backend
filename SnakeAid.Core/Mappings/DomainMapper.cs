@@ -11,7 +11,7 @@ namespace SnakeAid.Core.Mappings
         public void Register(TypeAdapterConfig config)
         {
             // sẽ implement các mapper ở đây
-            throw new NotImplementedException();
+
         }
     }
 }

@@ -101,11 +101,11 @@ public static class DependencyInjection
                 Description = "Development"
             });
 
-            c.AddServer(new OpenApiServer
-            {
-                Url = "http://localhost:8386",
-                Description = "Development Docker"
-            });
+            // c.AddServer(new OpenApiServer
+            // {
+            //     Url = "http://localhost:8386",
+            //     Description = "Development Docker"
+            // });
 
             c.AddServer(new OpenApiServer
             {
@@ -113,17 +113,17 @@ public static class DependencyInjection
                 Description = "Local HTTPS"
             });
 
-            c.AddServer(new OpenApiServer
-            {
-                Url = "https://snakeaid.com.vn",
-                Description = "Production Phake"
-            });
+            // c.AddServer(new OpenApiServer
+            // {
+            //     Url = "https://snakeaid.com.vn",
+            //     Description = "Production Phake"
+            // });
 
-            c.AddServer(new OpenApiServer
-            {
-                Url = "https://tgx.lch.id.vn",
-                Description = "Production Real"
-            });
+            // c.AddServer(new OpenApiServer
+            // {
+            //     Url = "https://tgx.lch.id.vn",
+            //     Description = "Production Real"
+            // });
         });
         return services;
     }

@@ -105,7 +105,7 @@ public class ApiExceptionHandlerMiddleware
             error);
     }
 
-    // Update HandleExceptionAsync to use the new ErrorResponse format
+    // Update HandleExceptionAsync to use the new ApiResponse format
     private async Task HandleExceptionAsync(HttpContext context, string errorId, Exception exception)
     {
         var statusCode = exception switch
@@ -136,63 +136,78 @@ public class ApiExceptionHandlerMiddleware
             }
         }
 
-        // Generate a general message based on status code
-        var generalMessage = statusCode switch
+        // Generate error message and code based on exception type
+        var (errorMessage, errorCode, validationErrors) = exception switch
         {
-            400 => "Bad Request - The request was invalid or cannot be served",
-            401 => "Unauthorized - Authentication credentials are missing or invalid",
-            403 => "Forbidden - You don't have permission to access this resource",
-            404 => "Not Found - The requested resource does not exist",
-            409 => "Conflict - The request conflicts with current state",
-            429 => "Too Many Requests - Rate limit exceeded",
-            500 => "Internal Server Error - Something went wrong on our end",
-            _ => "An error occurred"
+            ValidationException validationEx => (
+                validationEx.Message,
+                "VALIDATION_ERROR",
+                validationEx.ValidationErrors.Any() ? validationEx.ValidationErrors : null
+            ),
+            NotFoundException notFoundEx => (
+                notFoundEx.Message,
+                "NOT_FOUND",
+                null
+            ),
+            BusinessException businessEx => (
+                businessEx.Message,
+                "BUSINESS_ERROR",
+                null
+            ),
+            TooManyRequestsException rateLimitEx => (
+                rateLimitEx.Message,
+                "RATE_LIMIT_EXCEEDED",
+                null
+            ),
+            UnauthorizedException => (
+                "Unauthorized access",
+                "UNAUTHORIZED",
+                null
+            ),
+            _ => (
+                _env.IsDevelopment() ? exception.Message : "An unexpected error occurred",
+                "INTERNAL_SERVER_ERROR",
+                null
+            )
         };
 
-        // Get specific error message from the exception
-        var errorMessage = _env.IsDevelopment() || exception is ApiException
-            ? exception.Message
-            : "An unexpected error occurred";
-
-        // Collect specific error details
-        var errors = new List<string>();
-
-        // Add rate limiting specific errors
-        if (exception is TooManyRequestsException tooManyReq && tooManyReq.RetryAfter.HasValue)
+        // Create the new ApiResponse format
+        var apiResponse = new ApiResponse<object>
         {
-            var retryAfterSeconds = Math.Max(1, (int)(tooManyReq.RetryAfter.Value - DateTime.UtcNow).TotalSeconds);
-
-            if (tooManyReq.Limit.HasValue && !string.IsNullOrEmpty(tooManyReq.Period))
+            StatusCode = statusCode,
+            Message = errorMessage,
+            IsSuccess = false,
+            Data = null,
+            Error = new ClientErrorResponse
             {
-                errors.Add($"Rate limit of {tooManyReq.Limit} requests per {tooManyReq.Period} exceeded. Please retry after {retryAfterSeconds} seconds.");
+                ErrorCode = errorCode,
+                Timestamp = DateTime.UtcNow,
+                ValidationErrors = validationErrors
+            }
+        };
 
-                if (!string.IsNullOrEmpty(tooManyReq.Endpoint))
-                {
-                    _logger.LogDebug("Rate limit exceeded for endpoint: {Endpoint}", tooManyReq.Endpoint);
-                }
-            }
-            else
+        // Add development-specific details
+        if (_env.IsDevelopment())
+        {
+            // In development, we can add more details to help debugging
+            var devDetails = new
             {
-                errors.Add($"Too many requests. Please retry after {retryAfterSeconds} seconds.");
-            }
+                ErrorId = errorId,
+                ExceptionType = exception.GetType().Name,
+                StackTrace = exception.StackTrace,
+                InnerException = exception.InnerException?.Message
+            };
+
+            // Note: You might want to add a Details property to ClientErrorResponse for this
+            // For now, we'll log it and keep the response clean
+            _logger.LogDebug("Development error details: {@DevDetails}", devDetails);
         }
-
-        // Add validation errors if present
-        if (exception is ValidationException validationEx && validationEx.Errors != null && validationEx.Errors.Any())
-            errors.AddRange(validationEx.Errors);
-
-        // Create the enhanced ErrorResponse format
-        var errorResponse = new ErrorResponse
-        {
-            Message = generalMessage,
-            Reason = errorMessage,
-            Errors = errors.Count > 0 ? errors : new List<string>()
-        };
 
         context.Response.ContentType = "application/json";
         context.Response.StatusCode = statusCode;
 
-        if (!context.Response.HasStarted) await context.Response.WriteAsJsonAsync(errorResponse);
+        if (!context.Response.HasStarted)
+            await context.Response.WriteAsJsonAsync(apiResponse);
     }
 }
 

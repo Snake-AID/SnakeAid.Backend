@@ -50,11 +50,27 @@ public class BusinessException : ApiException
 public class ValidationException : ApiException
 {
     public List<string> Errors { get; }
+    public Dictionary<string, string[]> ValidationErrors { get; }
 
     public ValidationException(string reason, List<string>? errors = null)
         : base(reason, HttpStatusCode.UnprocessableEntity)
     {
         Errors = errors ?? new List<string>();
+        ValidationErrors = new Dictionary<string, string[]>();
+    }
+
+    public ValidationException(string reason, Dictionary<string, string[]> validationErrors)
+        : base(reason, HttpStatusCode.UnprocessableEntity)
+    {
+        ValidationErrors = validationErrors ?? new Dictionary<string, string[]>();
+        Errors = validationErrors?.SelectMany(x => x.Value).ToList() ?? new List<string>();
+    }
+
+    public ValidationException(string reason, List<string>? errors, Dictionary<string, string[]>? validationErrors)
+        : base(reason, HttpStatusCode.UnprocessableEntity)
+    {
+        Errors = errors ?? new List<string>();
+        ValidationErrors = validationErrors ?? new Dictionary<string, string[]>();
     }
 }
 

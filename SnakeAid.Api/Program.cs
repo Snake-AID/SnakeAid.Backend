@@ -7,7 +7,6 @@ using SnakeAid.Core.Mappings;
 using SnakeAid.Core.Middlewares;
 using System.Text.Json.Serialization;
 using SnakeAid.Api.DI;
-using SnakeAid.Core.Extensions;
 
 namespace SnakeAid.Api
 {
@@ -128,8 +127,13 @@ namespace SnakeAid.Api
 
             app.UseCors("AllowAll");
 
-            app.UseApiExceptionHandler();
 
+
+            // Handle authorization responses (401/403) before authentication
+            app.UseAuthorizationResponseHandler();
+
+            // handle other api response  middleware
+            app.UseApiExceptionHandler();
 
             // Configure the HTTP request pipeline.
             if (app.Environment.IsDevelopment())
@@ -140,12 +144,16 @@ namespace SnakeAid.Api
                     // app.ApplyMigrations<SnakeAidDbContext>();
                 }
             }
-
             app.UseSwagger();
-            app.UseSwaggerUI();
+            app.UseSwaggerUI(c =>
+            {
+                c.SwaggerEndpoint("/swagger/v1/swagger.json", "SnakeAid API V1");
+                c.RoutePrefix = string.Empty; // Set Swagger UI at the app's root
+            });
 
             app.UseHttpsRedirection();
 
+            app.UseAuthentication();
             app.UseAuthorization();
 
 
