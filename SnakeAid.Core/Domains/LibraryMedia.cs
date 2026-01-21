@@ -1,0 +1,22 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+
+namespace SnakeAid.Core.Domains
+{
+    public class LibraryMedia : BaseEntity
+    {
+        public Guid Id { get; set; }
+        public int SnakeSpeciesId { get; set; }
+        public string MediaUrl { get; set; }
+        public MediaType MediaType { get; set; }
+    }
+
+    public enum MediaType
+    {
+        Image,
+        Video,
+        Document
+    }
+}

@@ -1,0 +1,19 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+
+namespace SnakeAid.Core.Domains
+{
+    public class SpeciesFilterMapping
+    {
+        public int Id { get; set; }
+        public int AnswerOptionId { get; set; }
+        public int SnakeSpeciesId { get; set; }
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+        public bool IsActive { get; set; } = true;
+
+        public AnswerOption AnswerOption { get; set; }
+        public SnakeSpecies SnakeSpecies { get; set; }
+    }
+}

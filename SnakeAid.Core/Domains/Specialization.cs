@@ -5,8 +5,9 @@ using System.Threading.Tasks;
 
 namespace SnakeAid.Core.Domains
 {
-    public class DomainModels
+    public class Specialization : BaseEntity
     {
-        
+        public int Id { get; set; }
+        public string Name { get; set; }
     }
 }
