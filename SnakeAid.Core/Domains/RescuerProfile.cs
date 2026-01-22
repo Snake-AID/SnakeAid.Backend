@@ -10,6 +10,7 @@ namespace SnakeAid.Core.Domains
         public bool IsOnline { get; set; }
         public float Rating { get; set; }
         public int RatingCount { get; set; }
+        public RescuerType Type { get; set; } = RescuerType.Emergency;
     }
 
     public enum RescuerType

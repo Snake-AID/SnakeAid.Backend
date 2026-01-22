@@ -25,6 +25,11 @@ namespace SnakeAid.Repository.Data.Configurations
                 .IsRequired()
                 .HasDefaultValue(0);
 
+            builder.Property(rp => rp.Type)
+                .HasConversion<int>()
+                .IsRequired()
+                .HasDefaultValue(RescuerType.Emergency);
+
             // Index for finding online rescuers
             builder.HasIndex(rp => rp.IsOnline)
                 .HasDatabaseName("IX_RescuerProfiles_IsOnline");
@@ -32,6 +37,10 @@ namespace SnakeAid.Repository.Data.Configurations
             // Index for rating queries
             builder.HasIndex(rp => rp.Rating)
                 .HasDatabaseName("IX_RescuerProfiles_Rating");
+
+            // Index for rescuer type
+            builder.HasIndex(rp => rp.Type)
+                .HasDatabaseName("IX_RescuerProfiles_Type");
         }
     }
 }

@@ -10,12 +10,12 @@ namespace SnakeAid.Core.Domains
         public Guid Id { get; set; }
         public Guid RescuerId { get; set; }
         public Guid SnakeCatchingRequestId { get; set; }
-        public MissionStatus Status { get; set; } = MissionStatus.Pending;
+        public CatchingMissionStatus Status { get; set; } = CatchingMissionStatus.Pending;
 
         public SnakeCatchingRequest SnakeCatchingRequest { get; set; }
     }
 
-    public enum MissionStatus
+    public enum CatchingMissionStatus
     {
         Pending,
         InProgress,

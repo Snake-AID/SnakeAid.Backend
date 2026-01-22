@@ -12,6 +12,8 @@ namespace SnakeAid.Core.Domains
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public string EventType { get; set; }
         public bool IsProcessed { get; set; } = false;
-        public int Points { get; set; }
+        public int ReputationRuleId { get; set; }
+
+        public ReputationRule ReputationRule { get; set; }
     }
 }
