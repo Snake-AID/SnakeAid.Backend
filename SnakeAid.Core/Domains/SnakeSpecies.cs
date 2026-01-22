@@ -21,5 +21,6 @@ namespace SnakeAid.Core.Domains
 
         public ICollection<SpeciesFilterMapping> SpeciesFilterMappings { get; set; }
         public ICollection<SpeciesAntivenom> SpeciesAntivenoms { get; set; }
+        public ICollection<SpeciesVenom> SpeciesVenoms { get; set; }
     }
 }

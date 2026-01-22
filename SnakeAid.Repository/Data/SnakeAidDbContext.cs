@@ -12,6 +12,12 @@ namespace SnakeAid.Repository.Data
         public SnakeAidDbContext(DbContextOptions<SnakeAidDbContext> options) : base(options)
         {
         }
+
+        public DbSet<Account> Accounts { get; set; }
+        public DbSet<MemberProfile> MemberProfiles { get; set; }
+        public DbSet<ExpertProfile> ExpertProfiles { get; set; }
+        public DbSet<RescuerProfile> RescuerProfiles { get; set; }
+        public DbSet<Specialization> Specializations { get; set; }
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
