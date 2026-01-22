@@ -3,6 +3,7 @@ using Mapster;
 using MapsterMapper;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Mvc;
+using Scrutor;
 using SnakeAid.Core.Mappings;
 using SnakeAid.Core.Middlewares;
 using System.Text.Json.Serialization;
@@ -39,6 +40,14 @@ namespace SnakeAid.Api
             builder.Services.AddScoped<IMapper, ServiceMapper>();
 
             builder.Services.AddServices();
+
+            // Register services using Scrutor
+            builder.Services.Scan(scan => scan
+                .FromAssemblies(typeof(Program).Assembly, typeof(SnakeAid.Core.Domains.BaseEntity).Assembly)
+                .AddClasses(classes => classes.Where(type => type.Name.EndsWith("Service") || type.Name.EndsWith("Repository")))
+                .AsImplementedInterfaces()
+                .WithScopedLifetime());
+
             builder.Services.AddMemoryCache();
 
             builder.Services.AddCors(options =>

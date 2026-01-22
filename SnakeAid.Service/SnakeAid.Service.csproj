@@ -7,6 +7,18 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="CloudinaryDotNet" />
+    <PackageReference Include="MailKit" />
+    <PackageReference Include="MimeKit" />
+    <PackageReference Include="NETCore.MailKit" />
+    <PackageReference Include="PreMailer.Net" />
+    <PackageReference Include="RazorLight" />
+    <PackageReference Include="Refit" />
+    <PackageReference Include="Refit.HttpClientFactory" />
+    <PackageReference Include="VietQRHelper" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\SnakeAid.Core\SnakeAid.Core.csproj" />
     <ProjectReference Include="..\SnakeAid.Repository\SnakeAid.Repository.csproj" />
   </ItemGroup>
