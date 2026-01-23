@@ -44,5 +44,6 @@
     <PackageVersion Include="Swashbuckle.AspNetCore.Annotations" Version="8.0.0" />
     <PackageVersion Include="Swashbuckle.AspNetCore.Filters" Version="8.0.0" />
     <PackageVersion Include="Yarp.ReverseProxy" Version="2.3.0" />
+    <PackageVersion Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="8.0.11" />
   </ItemGroup>
 </Project>

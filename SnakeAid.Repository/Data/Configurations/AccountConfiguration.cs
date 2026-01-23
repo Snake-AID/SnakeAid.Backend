@@ -8,47 +8,15 @@ namespace SnakeAid.Repository.Data.Configurations
     {
         public void Configure(EntityTypeBuilder<Account> builder)
         {
-            builder.ToTable("Accounts");
-            builder.HasKey(a => a.Id);
+            // Table name đã được config trong SnakeAidDbContext
+            // builder.ToTable("Accounts");
 
-            builder.Property(a => a.Username)
-                .IsRequired()
-                .HasMaxLength(50);
+            // Index cho Role để query performance tốt hơn
+            builder.HasIndex(a => a.Role)
+                .HasDatabaseName("IX_Accounts_Role");
 
-            builder.Property(a => a.Email)
-                .IsRequired()
-                .HasMaxLength(255);
-
-            builder.Property(a => a.FullName)
-                .IsRequired()
-                .HasMaxLength(100);
-
-            builder.Property(a => a.PasswordHash)
-                .IsRequired()
-                .HasMaxLength(500);
-
-            builder.Property(a => a.PhoneNumber)
-                .HasMaxLength(20);
-
-            builder.Property(a => a.Role)
-                .HasConversion<int>()
-                .IsRequired();
-
-            builder.Property(a => a.IsActive)
-                .IsRequired()
-                .HasDefaultValue(true);
-
-            // Indexes
-            builder.HasIndex(a => a.Username)
-                .IsUnique()
-                .HasDatabaseName("IX_Accounts_Username");
-
-            builder.HasIndex(a => a.Email)
-                .IsUnique()
-                .HasDatabaseName("IX_Accounts_Email");
-
-            builder.HasIndex(a => a.PhoneNumber)
-                .HasDatabaseName("IX_Accounts_PhoneNumber");
+            builder.HasIndex(a => a.IsActive)
+                .HasDatabaseName("IX_Accounts_IsActive");
         }
     }
 }

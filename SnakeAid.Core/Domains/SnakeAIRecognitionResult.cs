@@ -9,7 +9,7 @@ namespace SnakeAid.Core.Domains
     {
         public Guid Id { get; set; }
         public Guid ReportMediaId { get; set; }  // FK to ReportMedia
-        public Guid AIModelId { get; set; }      // FK to AI_Model
+        public int AIModelId { get; set; }      // FK to AI_Model
 
         // Primary detection result
         public int? DetectedSpeciesId { get; set; }  // FK to SnakeSpecies

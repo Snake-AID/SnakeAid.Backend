@@ -10,31 +10,16 @@ namespace SnakeAid.Repository.Data.Configurations
         {
             builder.ToTable("ExpertProfiles");
 
-            // Inherit from Account
-            builder.HasBaseType<Account>();
+            // One-to-One relationship with Account (configured in SnakeAidDbContext)
+            builder.HasOne(ep => ep.Account)
+                .WithOne(a => a.ExpertProfile)
+                .HasForeignKey<ExpertProfile>(ep => ep.AccountId)
+                .OnDelete(DeleteBehavior.Cascade);
 
-            builder.Property(ep => ep.Biography)
-                .HasMaxLength(2000);
-
-            builder.Property(ep => ep.IsOnline)
-                .IsRequired()
-                .HasDefaultValue(false);
-
-            builder.Property(ep => ep.Rating)
-                .HasColumnType("decimal(3,2)")
-                .HasDefaultValue(0.0f);
-
-            builder.Property(ep => ep.RatingCount)
-                .IsRequired()
-                .HasDefaultValue(0);
-
-            // Configure many-to-many relationship with Specialization
+            // One-to-Many relationship with Specializations
             builder.HasMany(ep => ep.Specializations)
                 .WithMany()
-                .UsingEntity("ExpertSpecializations",
-                    l => l.HasOne(typeof(Specialization)).WithMany().HasForeignKey("SpecializationId"),
-                    r => r.HasOne(typeof(ExpertProfile)).WithMany().HasForeignKey("ExpertProfileId"),
-                    j => j.HasKey("ExpertProfileId", "SpecializationId"));
+                .UsingEntity(j => j.ToTable("ExpertSpecializations"));
         }
     }
 }

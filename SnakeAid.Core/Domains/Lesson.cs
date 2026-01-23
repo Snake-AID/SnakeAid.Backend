@@ -6,18 +6,15 @@ using System.Threading.Tasks;
 
 namespace SnakeAid.Core.Domains
 {
-    public class CatchingEnvironment : BaseEntity
+    public class Lesson : BaseEntity
     {
         [Key]
-        public int Id { get; set; }
+        public Guid Id { get; set; }
 
         [Required]
-        public string Name { get; set; }
+        public string Title { get; set; }
 
         [Required]
-        public string Description { get; set; }
-
-        [Required]
-        public float Price { get; set; }
+        public string Content { get; set; }
     }
 }

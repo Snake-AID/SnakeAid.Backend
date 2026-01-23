@@ -10,35 +10,24 @@ namespace SnakeAid.Repository.Data.Configurations
         {
             builder.ToTable("RescuerProfiles");
 
-            // Inherit from Account
-            builder.HasBaseType<Account>();
-
-            builder.Property(rp => rp.IsOnline)
-                .IsRequired()
-                .HasDefaultValue(false);
-
-            builder.Property(rp => rp.Rating)
-                .HasColumnType("decimal(3,2)")
-                .HasDefaultValue(0.0f);
-
-            builder.Property(rp => rp.RatingCount)
-                .IsRequired()
-                .HasDefaultValue(0);
+            // Primary key
+            builder.HasKey(rp => rp.AccountId);
 
             builder.Property(rp => rp.Type)
                 .HasConversion<int>()
                 .IsRequired()
                 .HasDefaultValue(RescuerType.Emergency);
 
-            // Index for finding online rescuers
+            // One-to-One relationship with Account (configured in SnakeAidDbContext)
+            builder.HasOne(rp => rp.Account)
+                .WithOne(a => a.RescuerProfile)
+                .HasForeignKey<RescuerProfile>(rp => rp.AccountId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // Index cho query performance
             builder.HasIndex(rp => rp.IsOnline)
                 .HasDatabaseName("IX_RescuerProfiles_IsOnline");
 
-            // Index for rating queries
-            builder.HasIndex(rp => rp.Rating)
-                .HasDatabaseName("IX_RescuerProfiles_Rating");
-
-            // Index for rescuer type
             builder.HasIndex(rp => rp.Type)
                 .HasDatabaseName("IX_RescuerProfiles_Type");
         }

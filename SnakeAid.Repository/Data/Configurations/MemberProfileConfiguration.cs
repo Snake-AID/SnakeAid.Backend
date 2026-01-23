@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using SnakeAid.Core.Domains;
+using System.Text.Json;
 
 namespace SnakeAid.Repository.Data.Configurations
 {
@@ -10,30 +11,22 @@ namespace SnakeAid.Repository.Data.Configurations
         {
             builder.ToTable("MemberProfiles");
 
-            // Inherit from Account
-            builder.HasBaseType<Account>();
-
-            builder.Property(mp => mp.Rating)
-                .HasColumnType("decimal(3,2)")
-                .HasDefaultValue(0.0f);
-
-            builder.Property(mp => mp.RatingCount)
-                .IsRequired()
-                .HasDefaultValue(0);
-
             builder.Property(mp => mp.HasUnderlyingDisease)
                 .IsRequired()
                 .HasDefaultValue(false);
 
-            // Convert List<string> to JSON or delimited string
+            // Convert List<string> to JSON
             builder.Property(mp => mp.EmergencyContacts)
                 .HasConversion(
-                    v => string.Join(';', v ?? new List<string>()),
-                    v => string.IsNullOrEmpty(v)
-                        ? new List<string>()
-                        : v.Split(';', StringSplitOptions.RemoveEmptyEntries).ToList()
-                )
-                .HasMaxLength(1000);
+                    v => JsonSerializer.Serialize(v, (JsonSerializerOptions)null),
+                    v => JsonSerializer.Deserialize<List<string>>(v, (JsonSerializerOptions)null))
+                .HasColumnType("jsonb");
+
+            // One-to-One relationship with Account (configured in SnakeAidDbContext)
+            builder.HasOne(mp => mp.Account)
+                .WithOne(a => a.MemberProfile)
+                .HasForeignKey<MemberProfile>(mp => mp.AccountId)
+                .OnDelete(DeleteBehavior.Cascade);
         }
     }
 }
