@@ -1,9 +1,7 @@
-﻿using SnakeAid.Core.Exceptions;
-using SnakeAid.Core.Meta;
-using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Http;
+﻿using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
+using SnakeAid.Core.Exceptions;
+using SnakeAid.Core.Meta;
 
 namespace SnakeAid.Core.Middlewares;
 

@@ -1,6 +1,5 @@
-﻿using SnakeAid.Repository.Interfaces;
-using Microsoft.EntityFrameworkCore;
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
+using SnakeAid.Repository.Interfaces;
 
 namespace SnakeAid.Repository.Implements
 {

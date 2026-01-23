@@ -1,6 +1,3 @@
-using System;
-using System.Collections.Generic;
-
 namespace SnakeAid.Core.Domains
 {
     public class ReportMedia : BaseEntity

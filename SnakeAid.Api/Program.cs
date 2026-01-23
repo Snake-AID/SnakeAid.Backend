@@ -1,17 +1,17 @@
+using System.Text.Json.Serialization;
 using Mapster;
 using MapsterMapper;
 using Microsoft.AspNetCore.HttpOverrides;
-using Microsoft.AspNetCore.Mvc;
-using Scrutor;
+using Microsoft.EntityFrameworkCore;
 using Serilog;
 using Serilog.Ui.Core.Extensions;
 using Serilog.Ui.SqliteDataProvider.Extensions;
 using Serilog.Ui.Web.Extensions;
+using SnakeAid.Api.DI;
 using SnakeAid.Core.Mappings;
 using SnakeAid.Core.Middlewares;
-using SnakeAid.Api.DI;
+using SnakeAid.Repository.Data;
 using SQLitePCL;
-using System.Text.Json.Serialization;
 
 namespace SnakeAid.Api
 {
@@ -68,17 +68,17 @@ namespace SnakeAid.Api
                     loggerConfiguration.ReadFrom.Services(services);
                 });
 
-                // builder.Services.AddDbContext<SnakeAidDbContext>(options =>
-                // {
-                //     options.UseNpgsql(builder.Configuration.GetConnectionString("SupabaseConnection"),
-                //         sqlOptions =>
-                //         {
-                //             sqlOptions.EnableRetryOnFailure(
-                //                 5,
-                //                 TimeSpan.FromSeconds(30),
-                //                 null);
-                //         });
-                // });
+                builder.Services.AddDbContext<SnakeAidDbContext>(options =>
+                {
+                    options.UseNpgsql(builder.Configuration.GetConnectionString("SupabaseConnection"),
+                        sqlOptions =>
+                        {
+                            sqlOptions.EnableRetryOnFailure(
+                                5,
+                                TimeSpan.FromSeconds(30),
+                                null);
+                        });
+                });
 
 
                 // // Add IUnitOfWork and UnitOfWork

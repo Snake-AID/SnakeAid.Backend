@@ -1,12 +1,8 @@
-﻿using SnakeAid.Core.Meta;
-using Microsoft.AspNetCore.Http;
+﻿using System.Reflection;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Reflection;
+using SnakeAid.Core.Meta;
 
 namespace SnakeAid.Core.Validators
 {

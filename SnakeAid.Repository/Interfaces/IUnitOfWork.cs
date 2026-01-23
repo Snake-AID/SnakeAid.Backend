@@ -1,6 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
-
-namespace SnakeAid.Repository.Interfaces
+﻿namespace SnakeAid.Repository.Interfaces
 {
     public interface IUnitOfWork : IGenericRepositoryFactory, IDisposable
     {

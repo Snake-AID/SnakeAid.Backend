@@ -1,10 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-using Microsoft.EntityFrameworkCore;
-using SnakeAid.Core.Domains;
-
 namespace SnakeAid.Repository.Data
 {
     public class SnakeAidDbContext : DbContext

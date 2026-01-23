@@ -1,7 +1,6 @@
-using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Http;
-using SnakeAid.Core.Meta;
 using System.Text.Json;
+using Microsoft.AspNetCore.Builder;
+using SnakeAid.Core.Meta;
 
 namespace SnakeAid.Core.Middlewares;
 

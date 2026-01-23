@@ -1,6 +1,4 @@
-using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
-using SnakeAid.Core.Domains;
 
 namespace SnakeAid.Repository.Data.Configurations
 {

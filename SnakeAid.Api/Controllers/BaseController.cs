@@ -1,14 +1,7 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Security.Claims;
-using System.Threading.Tasks;
-using Microsoft.AspNetCore.Mvc;
-using SnakeAid.Core.Exceptions;
-using MapsterMapper;
-using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.Logging;
 using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using MapsterMapper;
+using SnakeAid.Core.Exceptions;
 
 namespace SnakeAid.Api.Controllers
 {

@@ -1,7 +1,4 @@
-using System;
-using System.Collections.Generic;
 using System.Text.Json;
-using SnakeAid.Core.Domains;
 
 namespace SnakeAid.Core.Domains
 {

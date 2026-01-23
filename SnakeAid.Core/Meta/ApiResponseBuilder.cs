@@ -1,5 +1,5 @@
-﻿using SnakeAid.Core.Constants;
-using System.Net;
+﻿using System.Net;
+using SnakeAid.Core.Constants;
 
 namespace SnakeAid.Core.Meta;
 

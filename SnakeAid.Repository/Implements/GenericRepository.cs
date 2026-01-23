@@ -1,8 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Query;
-using SnakeAid.Core.Meta;
+﻿using SnakeAid.Core.Meta;
 using SnakeAid.Repository.Interfaces;
-using System.Linq.Expressions;
 
 namespace SnakeAid.Repository.Implements
 {
