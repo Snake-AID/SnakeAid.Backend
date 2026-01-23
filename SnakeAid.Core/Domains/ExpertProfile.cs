@@ -9,6 +9,7 @@ namespace SnakeAid.Core.Domains
     {
         public string Biography { get; set; }
         public bool IsOnline { get; set; }
+        public decimal ConsultationFee { get; set; }
         public float Rating { get; set; }
         public int RatingCount { get; set; }
 

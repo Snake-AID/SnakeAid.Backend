@@ -12,5 +12,8 @@ namespace SnakeAid.Core.Domains
         public string Message { get; set; }
         public DateTime CreatedAt { get; set; }
         public bool IsRead { get; set; }
+
+        // Navigation property
+        public Account User { get; set; }
     }
 }

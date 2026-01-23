@@ -39,13 +39,14 @@ namespace SnakeAid.Repository.Implements
                 try
                 {
                     var result = await operation();
-                    await Context.SaveChangesAsync(); // Automatically handle validation
+                    await CommitAsync();
                     await transaction.CommitAsync();
                     return result;
                 }
                 catch
                 {
                     await transaction.RollbackAsync();
+                    await RollbackAsync();
                     throw;
                 }
             });
@@ -60,12 +61,13 @@ namespace SnakeAid.Repository.Implements
                 try
                 {
                     await operation();
-                    await Context.SaveChangesAsync(); // Automatically handle validation
+                    await CommitAsync();
                     await transaction.CommitAsync();
                 }
                 catch
                 {
                     await transaction.RollbackAsync();
+                    await RollbackAsync();
                     throw;
                 }
             });
@@ -92,15 +94,25 @@ namespace SnakeAid.Repository.Implements
 
         private void TrackChanges()
         {
-            var validationErrors = Context.ChangeTracker.Entries<IValidatableObject>()
-                .SelectMany(e => e.Entity.Validate(null))
-                .Where(e => e != ValidationResult.Success)
-                .ToArray();
-            if (validationErrors.Any())
+            var validationResults = new List<ValidationResult>();
+
+            var entries = Context.ChangeTracker.Entries()
+                .Where(e => e.State == EntityState.Added || e.State == EntityState.Modified);
+
+            foreach (var entry in entries)
             {
-                var exceptionMessage = string.Join(Environment.NewLine,
-                    validationErrors.Select(error => $"Properties {string.Join(", ", error.MemberNames)} Error: {error.ErrorMessage}"));
-                throw new ValidationException(exceptionMessage);
+                var entity = entry.Entity;
+                var context = new ValidationContext(entity);
+
+                bool isValid = Validator.TryValidateObject(entity, context, validationResults, true);
+
+                if (!isValid)
+                {
+                    var exceptionMessage = string.Join(Environment.NewLine,
+                        validationResults.Select(error => $"Error: {error.ErrorMessage}"));
+
+                    throw new ValidationException(exceptionMessage);
+                }
             }
         }
 

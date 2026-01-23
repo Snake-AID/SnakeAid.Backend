@@ -11,6 +11,7 @@ namespace SnakeAid.Core.Domains
         public Guid IncidentId { get; set; }  // FK to SnakebiteIncident (1-1)
         public Guid RescuerId { get; set; }   // FK to RescuerProfile
         public RescueMissionStatus Status { get; set; } = RescueMissionStatus.Preparing;
+        public decimal Price { get; set; }
         public DateTime? StartedAt { get; set; }
         public DateTime? ArrivedAt { get; set; }
         public DateTime? CompletedAt { get; set; }
