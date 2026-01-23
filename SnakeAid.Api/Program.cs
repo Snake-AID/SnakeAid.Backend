@@ -11,6 +11,7 @@ using SnakeAid.Core.Mappings;
 using SnakeAid.Core.Middlewares;
 using SnakeAid.Api.DI;
 using SQLitePCL;
+using Swashbuckle.AspNetCore.SwaggerUI;
 using System.Text.Json.Serialization;
 
 namespace SnakeAid.Api
@@ -204,6 +205,14 @@ namespace SnakeAid.Api
                 {
                     c.SwaggerEndpoint("/swagger/v1/swagger.json", "SnakeAid API V1");
                     c.RoutePrefix = string.Empty; // Set Swagger UI at the app's root
+                    c.DocumentTitle = "SnakeAid API Hub";
+                    c.DocExpansion(DocExpansion.None);
+                    c.EnableTryItOutByDefault();
+                    c.DisplayRequestDuration();
+                    c.EnablePersistAuthorization();
+                    c.EnableTryItOutByDefault();
+                    c.EnableFilter();
+                    c.EnableDeepLinking();
                 });
 
                 app.UseSerilogRequestLogging();
