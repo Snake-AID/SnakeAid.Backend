@@ -28,15 +28,28 @@ namespace SnakeAid.Api
             {
                 var builder = WebApplication.CreateBuilder(args);
 
-                Batteries_V2.Init();
-
-                var sqliteLogPath = Path.Combine(builder.Environment.ContentRootPath, "logs", "logs.db");
-                Directory.CreateDirectory(Path.GetDirectoryName(sqliteLogPath)!);
-                var hasSerilogConfig = builder.Configuration.GetSection("Serilog").Exists();
-                if (hasSerilogConfig &&
-                    string.Equals(builder.Configuration["Serilog:WriteTo:1:Name"], "SQLite", StringComparison.OrdinalIgnoreCase))
+                var serilogSection = builder.Configuration.GetSection("Serilog");
+                var hasSerilogConfig = serilogSection.Exists();
+                string? sqliteLogPath = null;
+                if (hasSerilogConfig)
                 {
-                    builder.Configuration["Serilog:WriteTo:1:Args:sqliteDbPath"] = sqliteLogPath;
+                    foreach (var sink in builder.Configuration.GetSection("Serilog:WriteTo").GetChildren())
+                    {
+                        var sinkName = sink["Name"];
+                        if (!string.Equals(sinkName, "SQLite", StringComparison.OrdinalIgnoreCase))
+                        {
+                            continue;
+                        }
+
+                        if (sqliteLogPath == null)
+                        {
+                            Batteries_V2.Init();
+                            sqliteLogPath = Path.Combine(builder.Environment.ContentRootPath, "logs", "logs.db");
+                            Directory.CreateDirectory(Path.GetDirectoryName(sqliteLogPath)!);
+                        }
+
+                        builder.Configuration[$"Serilog:WriteTo:{sink.Key}:Args:sqliteDbPath"] = sqliteLogPath;
+                    }
                 }
 
                 builder.Host.UseSerilog((context, services, loggerConfiguration) =>
@@ -116,13 +129,16 @@ namespace SnakeAid.Api
                 builder.Services.AddEndpointsApiExplorer();
                 builder.Services.AddSwaggerGen();
 
-                builder.Services.AddSerilogUi(options =>
+                if (sqliteLogPath != null)
                 {
-                    options.UseSqliteServer(sqliteOptions => sqliteOptions
-                        .WithConnectionString($"Data Source={sqliteLogPath};Cache=Shared")
-                        .WithTable("Logs")
-                        .WithCustomProviderName("SnakeAid Serilogs"));
-                });
+                    builder.Services.AddSerilogUi(options =>
+                    {
+                        options.UseSqliteServer(sqliteOptions => sqliteOptions
+                            .WithConnectionString($"Data Source={sqliteLogPath};Cache=Shared")
+                            .WithTable("Logs")
+                            .WithCustomProviderName("SnakeAid Serilogs"));
+                    });
+                }
 
 
                 // Bind Kestrel to all network interfaces
@@ -213,7 +229,10 @@ namespace SnakeAid.Api
                 app.UseAuthentication();
                 app.UseAuthorization();
 
-                app.UseSerilogUi(options => options.WithRoutePrefix("logs"));
+                if (sqliteLogPath != null)
+                {
+                    app.UseSerilogUi(options => options.WithRoutePrefix("logs"));
+                }
 
                 app.MapControllers();
 

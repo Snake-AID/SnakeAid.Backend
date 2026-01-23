@@ -16,7 +16,7 @@ namespace SnakeAid.Core.Domains
         public string FilePath { get; set; }
         public string ContentType { get; set; }
         public long FileSize { get; set; }
-        public MediaType MediaType { get; set; }
+        public ReportMediaType MediaType { get; set; }
         public MediaPurpose Purpose { get; set; }
 
         // Upload batch info (để group các ảnh upload cùng lúc)
@@ -40,7 +40,7 @@ namespace SnakeAid.Core.Domains
         SnakebiteIncident = 3
     }
 
-    public enum MediaType
+    public enum ReportMediaType
     {
         Image = 0,
         Video = 1

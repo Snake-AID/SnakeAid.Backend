@@ -10,10 +10,10 @@ namespace SnakeAid.Core.Domains
         public Guid Id { get; set; }
         public int SnakeSpeciesId { get; set; }
         public string MediaUrl { get; set; }
-        public MediaType MediaType { get; set; }
+        public LibraryMediaType MediaType { get; set; }
     }
 
-    public enum MediaType
+    public enum LibraryMediaType
     {
         Image,
         Video,
