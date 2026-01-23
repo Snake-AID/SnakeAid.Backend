@@ -4,7 +4,20 @@
     <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <NoWarn>$(NoWarn);NU1701</NoWarn>
   </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="CloudinaryDotNet" />
+    <PackageReference Include="MailKit" />
+    <PackageReference Include="MimeKit" />
+    <PackageReference Include="NETCore.MailKit" />
+    <PackageReference Include="PreMailer.Net" />
+    <PackageReference Include="RazorLight" />
+    <PackageReference Include="Refit" />
+    <PackageReference Include="Refit.HttpClientFactory" />
+    <PackageReference Include="VietQRHelper" />
+  </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\SnakeAid.Core\SnakeAid.Core.csproj" />
