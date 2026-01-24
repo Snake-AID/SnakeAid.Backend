@@ -6,47 +6,21 @@ namespace SnakeAid.Repository.Data.Configurations
     {
         public void Configure(EntityTypeBuilder<Account> builder)
         {
-            builder.ToTable("Accounts");
-            builder.HasKey(a => a.Id);
-
-            builder.Property(a => a.Username)
-                .IsRequired()
-                .HasMaxLength(50);
-
-            builder.Property(a => a.Email)
-                .IsRequired()
-                .HasMaxLength(255);
+            builder.ToTable("AspNetUsers");
 
             builder.Property(a => a.FullName)
-                .IsRequired()
                 .HasMaxLength(100);
 
-            builder.Property(a => a.PasswordHash)
-                .IsRequired()
+            builder.Property(a => a.AvatarUrl)
                 .HasMaxLength(500);
 
-            builder.Property(a => a.PhoneNumber)
-                .HasMaxLength(20);
-
-            builder.Property(a => a.Role)
-                .HasConversion<int>()
-                .IsRequired();
+            builder.Property(a => a.PhoneVerified)
+                .IsRequired()
+                .HasDefaultValue(false);
 
             builder.Property(a => a.IsActive)
                 .IsRequired()
                 .HasDefaultValue(true);
-
-            // Indexes
-            builder.HasIndex(a => a.Username)
-                .IsUnique()
-                .HasDatabaseName("IX_Accounts_Username");
-
-            builder.HasIndex(a => a.Email)
-                .IsUnique()
-                .HasDatabaseName("IX_Accounts_Email");
-
-            builder.HasIndex(a => a.PhoneNumber)
-                .HasDatabaseName("IX_Accounts_PhoneNumber");
         }
     }
 }

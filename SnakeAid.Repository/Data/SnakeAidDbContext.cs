@@ -1,6 +1,9 @@
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
+
 namespace SnakeAid.Repository.Data
 {
-    public class SnakeAidDbContext : DbContext
+    public class SnakeAidDbContext : IdentityDbContext<Account, IdentityRole<Guid>, Guid>
     {
         public SnakeAidDbContext(DbContextOptions<SnakeAidDbContext> options) : base(options)
         {
@@ -35,12 +38,12 @@ namespace SnakeAid.Repository.Data
         {
             var entries = ChangeTracker
                 .Entries()
-                .Where(e => e.Entity is BaseEntity && (e.State == EntityState.Added || e.State == EntityState.Modified));
+                .Where(e => e.Entity is IBaseEntity && (e.State == EntityState.Added || e.State == EntityState.Modified));
 
             foreach (var entityEntry in entries)
             {
                 var now = DateTime.UtcNow;
-                var entity = (BaseEntity)entityEntry.Entity;
+                var entity = (IBaseEntity)entityEntry.Entity;
 
                 if (entityEntry.State == EntityState.Added) entity.CreatedAt = now;
 

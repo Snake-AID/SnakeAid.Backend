@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>SnakeAid Backend Documentation</title>
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" />
+  <meta name="description" content="SnakeAid Backend API Documentation">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0">
+  
+  <!-- Theme: Vue -->
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/docsify@4/lib/themes/vue.css">
+  
+  <!-- Custom styles -->
+  <style>
+    :root {
+      --theme-color: #4caf50;
+      --theme-color-dark: #388e3c;
+    }
+    
+    /* Dark mode variables */
+    body.dark-mode {
+      --theme-color: #66bb6a;
+      --theme-color-dark: #4caf50;
+    }
+    
+    /* Dark mode styles */
+    body.dark-mode {
+      background-color: #1e1e1e !important;
+      color: #e0e0e0 !important;
+    }
+    
+    body.dark-mode .sidebar,
+    body.dark-mode .sidebar-toggle {
+      background-color: #252525 !important;
+    }
+    
+    body.dark-mode .sidebar ul li a {
+      color: #b0b0b0 !important;
+    }
+    
+    body.dark-mode .sidebar ul li a:hover {
+      color: #66bb6a !important;
+    }
+    
+    body.dark-mode .sidebar ul li.active > a {
+      color: #66bb6a !important;
+      border-right-color: #66bb6a !important;
+    }
+    
+    body.dark-mode .markdown-section {
+      color: #e0e0e0 !important;
+    }
+    
+    body.dark-mode .markdown-section h1,
+    body.dark-mode .markdown-section h2,
+    body.dark-mode .markdown-section h3,
+    body.dark-mode .markdown-section h4,
+    body.dark-mode .markdown-section h5,
+    body.dark-mode .markdown-section h6 {
+      color: #ffffff !important;
+    }
+    
+    body.dark-mode .markdown-section a {
+      color: #66bb6a !important;
+    }
+    
+    body.dark-mode .markdown-section code {
+      background-color: #2d2d2d !important;
+      color: #e0e0e0 !important;
+    }
+    
+    body.dark-mode .markdown-section pre {
+      background-color: #2d2d2d !important;
+    }
+    
+    body.dark-mode .markdown-section pre > code {
+      color: #e0e0e0 !important;
+    }
+    
+    body.dark-mode .markdown-section table th,
+    body.dark-mode .markdown-section table td {
+      border-color: #404040 !important;
+    }
+    
+    body.dark-mode .markdown-section table tr:nth-child(2n) {
+      background-color: #252525 !important;
+    }
+    
+    body.dark-mode .search input {
+      background-color: #2d2d2d !important;
+      color: #e0e0e0 !important;
+      border-color: #404040 !important;
+    }
+    
+    /* Dark mode toggle button */
+    .dark-mode-toggle {
+      position: fixed;
+      bottom: 2rem;
+      right: 2rem;
+      z-index: 9999;
+      background: var(--theme-color);
+      border: none;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.2rem;
+      transition: all 0.3s ease;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    }
+    
+    .dark-mode-toggle:hover {
+      transform: scale(1.1);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    }
+    
+    body.dark-mode .dark-mode-toggle {
+      background: #404040;
+    }
+    
+    .sidebar-nav > ul > li > a {
+      font-weight: 600;
+    }
+    
+    .markdown-section code {
+      border-radius: 4px;
+      padding: 2px 6px;
+    }
+    
+    .markdown-section pre > code {
+      padding: 1.2em 1.4em;
+    }
+    
+    /* Split-pane layout for API documentation */
+    .api-section {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 2rem;
+      margin: 2rem 0;
+      align-items: start;
+    }
+    
+    .api-docs {
+      padding-right: 1rem;
+    }
+    
+    .api-example {
+      position: sticky;
+      top: 2rem;
+      background: #f8f9fa;
+      padding: 1.5rem;
+      border-radius: 8px;
+      border-left: 4px solid var(--theme-color, #42b983);
+    }
+    
+    .api-example pre {
+      margin: 0.5rem 0;
+      background: transparent !important;
+      border: none !important;
+      box-shadow: none !important;
+    }
+    
+    .api-example pre code {
+      background: transparent !important;
+      color: inherit;
+    }
+    
+    .api-example h4 {
+      margin-top: 1rem;
+      margin-bottom: 0.5rem;
+      font-size: 0.9rem;
+      color: #495057;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    
+    /* Mobile responsive */
+    @media (max-width: 768px) {
+      .api-section {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+      }
+      
+      .api-example {
+        position: static;
+        margin-top: 1rem;
+      }
+      
+      .dark-mode-toggle {
+        bottom: 0.5rem;
+        right: 0.5rem;
+        width: 36px;
+        height: 36px;
+        font-size: 1rem;
+      }
+      
+      /* Reduce padding on mobile */
+      .markdown-section {
+        padding: 1rem !important;
+        max-width: 100% !important;
+      }
+      
+      .content {
+        padding: 0 !important;
+      }
+    }
+    
+    /* Dark mode support for split-pane */
+    body.dark-mode .api-example {
+      background: #2d2d2d;
+    }
+    
+    body.dark-mode .api-example h4 {
+      color: #b4b4b4;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">Loading...</div>
+  
+  <script>
+    window.$docsify = {
+      name: 'SnakeAid Backend',
+      repo: 'https://github.com/Snake-AID/SnakeAid.Backend',
+      loadSidebar: true,
+      subMaxLevel: 3,
+      auto2top: true,
+      
+      // Flexible Alerts configuration
+      'flexible-alerts': {
+        style: 'flat',
+        note: {
+          label: "Note"
+        },
+        tip: {
+          label: "Tip"
+        },
+        warning: {
+          label: "Warning"
+        },
+        attention: {
+          label: "Attention"
+        }
+      },
+      
+      // Search plugin
+      search: {
+        maxAge: 86400000, // 1 day
+        paths: 'auto',
+        placeholder: 'Search documentation...',
+        noData: 'No results found',
+        depth: 6
+      },
+      
+      // Pagination
+      pagination: {
+        previousText: 'Previous',
+        nextText: 'Next',
+        crossChapter: true,
+        crossChapterText: true,
+      },
+      
+      // Copy code plugin
+      copyCode: {
+        buttonText: 'Copy',
+        errorText: 'Error',
+        successText: 'Copied!'
+      },
+      
+      // Tabs plugin
+      tabs: {
+        persist: true,
+        sync: true,
+        theme: 'classic',
+        tabComments: true,
+        tabHeadings: true
+      },
+      
+      // Mermaid support
+      markdown: {
+        renderer: {
+          code: function(code, lang) {
+            if (lang === "mermaid") {
+              return (
+                '<div class="mermaid">' + code + "</div>"
+              );
+            }
+            return this.origin.code.apply(this, arguments);
+          }
+        }
+      },
+      
+      // Plugins
+      plugins: [
+        // Split-pane layout processor
+        function(hook, vm) {
+          hook.doneEach(function() {
+            setTimeout(() => {
+              const content = document.querySelector('.markdown-section');
+              if (!content) return;
+              
+              let html = content.innerHTML;
+              
+              // Replace comment markers with actual divs
+              html = html
+                .replace(/<!-- api-section:start -->/g, '<div class="api-section">')
+                .replace(/<!-- api-section:end -->/g, '</div>')
+                .replace(/<!-- api-docs:start -->/g, '<div class="api-docs">')
+                .replace(/<!-- api-docs:end -->/g, '</div>')
+                .replace(/<!-- api-example:start -->/g, '<div class="api-example">')
+                .replace(/<!-- api-example:end -->/g, '</div>');
+              
+              content.innerHTML = html;
+            }, 100);
+          });
+        },
+        // Dark mode toggle
+        function(hook, vm) {
+          hook.mounted(function() {
+            // Create toggle button
+            const toggleBtn = document.createElement('button');
+            toggleBtn.className = 'dark-mode-toggle';
+            toggleBtn.innerHTML = '🌙';
+            toggleBtn.setAttribute('aria-label', 'Toggle dark mode');
+            document.body.appendChild(toggleBtn);
+            
+            // Check for saved preference
+            const savedTheme = localStorage.getItem('docsify-theme');
+            if (savedTheme === 'dark') {
+              document.body.classList.add('dark-mode');
+              toggleBtn.innerHTML = '☀️';
+            }
+            
+            // Toggle function
+            toggleBtn.addEventListener('click', function() {
+              document.body.classList.toggle('dark-mode');
+              const isDark = document.body.classList.contains('dark-mode');
+              toggleBtn.innerHTML = isDark ? '☀️' : '🌙';
+              localStorage.setItem('docsify-theme', isDark ? 'dark' : 'light');
+            });
+          });
+        },
+        // Last updated footer
+        function(hook, vm) {
+          hook.beforeEach(function(html) {
+            // Add "Last Updated" timestamp
+            const footer = `
+              <hr/>
+              <footer>
+                <small>Last updated: ${new Date().toLocaleString()}</small>
+              </footer>
+            `;
+            return html + footer;
+          });
+        }
+      ]
+    }
+  </script>
+  
+  <!-- Docsify core -->
+  <script src="//cdn.jsdelivr.net/npm/docsify@4"></script>
+  
+  <!-- Search plugin -->
+  <script src="//cdn.jsdelivr.net/npm/docsify/lib/plugins/search.min.js"></script>
+  
+  <!-- Copy code plugin -->
+  <script src="//cdn.jsdelivr.net/npm/docsify-copy-code@2"></script>
+  
+  <!-- Pagination plugin -->
+  <script src="//cdn.jsdelivr.net/npm/docsify-pagination@2/dist/docsify-pagination.min.js"></script>
+  
+  <!-- Tabs plugin -->
+  <script src="//cdn.jsdelivr.net/npm/docsify-tabs@1"></script>
+  
+  <!-- Zoom image plugin -->
+  <script src="//cdn.jsdelivr.net/npm/docsify/lib/plugins/zoom-image.min.js"></script>
+  
+  <!-- Flexible Alerts plugin -->
+  <script src="https://unpkg.com/docsify-plugin-flexible-alerts"></script>
+  
+  <!-- Syntax highlighting -->
+  <script src="//cdn.jsdelivr.net/npm/prismjs@1/components/prism-bash.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/prismjs@1/components/prism-csharp.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/prismjs@1/components/prism-json.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/prismjs@1/components/prism-sql.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/prismjs@1/components/prism-javascript.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/prismjs@1/components/prism-typescript.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/prismjs@1/components/prism-markdown.min.js"></script>
+  
+  <!-- Mermaid -->
+  <script type="module">
+    import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs";
+    mermaid.initialize({ startOnLoad: true });
+    window.mermaid = mermaid;
+  </script>
+</body>
+</html>

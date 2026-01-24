@@ -2,16 +2,19 @@ using System.Text.Json.Serialization;
 using Mapster;
 using MapsterMapper;
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Serilog;
 using Serilog.Ui.Core.Extensions;
 using Serilog.Ui.SqliteDataProvider.Extensions;
 using Serilog.Ui.Web.Extensions;
 using SnakeAid.Api.DI;
+using SnakeAid.Core.Domains;
 using SnakeAid.Core.Mappings;
 using SnakeAid.Core.Middlewares;
 using SnakeAid.Repository.Data;
 using SQLitePCL;
+using Swashbuckle.AspNetCore.SwaggerUI;
 
 namespace SnakeAid.Api
 {
@@ -193,6 +196,8 @@ namespace SnakeAid.Api
 
                 var app = builder.Build();
 
+                SeedRolesAsync(app).GetAwaiter().GetResult();
+
                 // Thêm middleware xử lý IP từ proxy
                 app.UseForwardedHeaders();
 
@@ -220,6 +225,14 @@ namespace SnakeAid.Api
                 {
                     c.SwaggerEndpoint("/swagger/v1/swagger.json", "SnakeAid API V1");
                     c.RoutePrefix = string.Empty; // Set Swagger UI at the app's root
+                    c.DocumentTitle = "SnakeAid API Hub";
+                    c.DocExpansion(DocExpansion.None);
+                    c.EnableTryItOutByDefault();
+                    c.DisplayRequestDuration();
+                    c.EnablePersistAuthorization();
+                    c.EnableTryItOutByDefault();
+                    c.EnableFilter();
+                    c.EnableDeepLinking();
                 });
 
                 app.UseSerilogRequestLogging();
@@ -246,6 +259,34 @@ namespace SnakeAid.Api
             finally
             {
                 Log.CloseAndFlush();
+            }
+        }
+
+        private static async Task SeedRolesAsync(IHost app)
+        {
+            try
+            {
+                using var scope = app.Services.CreateScope();
+                var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole<Guid>>>();
+
+                foreach (var roleName in Enum.GetNames<AccountRole>())
+                {
+                    if (await roleManager.RoleExistsAsync(roleName))
+                    {
+                        continue;
+                    }
+
+                    var result = await roleManager.CreateAsync(new IdentityRole<Guid>(roleName));
+                    if (!result.Succeeded)
+                    {
+                        var errors = string.Join(", ", result.Errors.Select(e => e.Description));
+                        Log.Warning("Failed to seed role {Role}. Errors: {Errors}", roleName, errors);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Warning(ex, "Role seeding skipped due to startup error.");
             }
         }
     }

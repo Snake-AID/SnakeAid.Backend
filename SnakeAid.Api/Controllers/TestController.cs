@@ -1,9 +1,11 @@
 using System.ComponentModel.DataAnnotations;
 using MapsterMapper;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.EntityFrameworkCore;
 using SnakeAid.Core.Exceptions;
 using SnakeAid.Core.Meta;
 using SnakeAid.Core.Validators;
+using SnakeAid.Repository.Data;
 
 namespace SnakeAid.Api.Controllers
 {
@@ -97,6 +99,47 @@ namespace SnakeAid.Api.Controllers
         public IActionResult TestForbidden()
         {
             return Ok(ApiResponseBuilder.BuildSuccessResponse("You have admin access"));
+        }
+
+        // Test database connection
+        [HttpGet("db-connection")]
+        public async Task<IActionResult> TestDatabaseConnection()
+        {
+            try
+            {
+                // Get DbContext from DI
+                var dbContext = HttpContext.RequestServices.GetRequiredService<SnakeAidDbContext>();
+                
+                // Test connection
+                var canConnect = await dbContext.Database.CanConnectAsync();
+                
+                if (canConnect)
+                {
+                    // Get database info
+                    var connection = dbContext.Database.GetDbConnection();
+                    var dbInfo = new
+                    {
+                        Database = connection.Database,
+                        DataSource = connection.DataSource,
+                        ServerVersion = connection.ServerVersion,
+                        State = connection.State.ToString(),
+                        ConnectionString = connection.ConnectionString?.Split(';')
+                            .Where(s => !s.ToLower().Contains("password"))
+                            .Aggregate((a, b) => $"{a};{b}")
+                    };
+                    
+                    return Ok(ApiResponseBuilder.BuildSuccessResponse(dbInfo, "Database connection successful"));
+                }
+                else
+                {
+                    return StatusCode(500, ApiResponseBuilder.BuildErrorResponse("Cannot connect to database", "DB_CONNECTION_FAILED"));
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Database connection test failed");
+                return StatusCode(500, ApiResponseBuilder.BuildErrorResponse($"Database connection failed: {ex.Message}", "DB_CONNECTION_ERROR"));
+            }
         }
 
         // Test rate limit exception

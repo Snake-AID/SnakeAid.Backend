@@ -2,7 +2,13 @@ using System.ComponentModel.DataAnnotations;
 
 namespace SnakeAid.Core.Domains
 {
-    public class BaseEntity
+    public interface IBaseEntity
+    {
+        DateTime CreatedAt { get; set; }
+        DateTime UpdatedAt { get; set; }
+    }
+
+    public class BaseEntity : IBaseEntity
     {
         [Required]
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

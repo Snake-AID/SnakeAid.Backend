@@ -1,15 +1,19 @@
+using System.ComponentModel.DataAnnotations;
+using Microsoft.AspNetCore.Identity;
+
 namespace SnakeAid.Core.Domains
 {
-    public class Account : BaseEntity
+    public class Account : IdentityUser<Guid>, IBaseEntity
     {
-        public Guid Id { get; set; }
-        public string Username { get; set; }
-        public string FullName { get; set; }
-        public string Email { get; set; }
-        public string PasswordHash { get; set; }
-        public string PhoneNumber { get; set; }
-        public AccountRole Role { get; set; } = AccountRole.User;
+        public string FullName { get; set; } = string.Empty;
+        public string? AvatarUrl { get; set; }
+        public bool PhoneVerified { get; set; }
         public bool IsActive { get; set; } = true;
+
+        [Required]
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+        [Required]
+        public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
     }
 
     public enum AccountRole

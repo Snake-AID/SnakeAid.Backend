@@ -1,7 +1,12 @@
 ﻿using System.Text;
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using SnakeAid.Core.Domains;
+using SnakeAid.Core.Settings;
+using SnakeAid.Repository.Data;
 
 namespace SnakeAid.Api.DI;
 
@@ -23,7 +28,28 @@ public static class DependencyInjection
     public static IServiceCollection AddAuthenticateAuthor(this IServiceCollection services,
         IConfiguration configuration)
     {
-        services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+        services.Configure<JwtSettings>(configuration.GetSection("Jwt"));
+
+        services.AddIdentityCore<Account>(options =>
+            configuration.GetSection("IdentityOptions").Bind(options))
+            .AddRoles<IdentityRole<Guid>>()
+            .AddSignInManager()
+            .AddEntityFrameworkStores<SnakeAidDbContext>()
+            .AddDefaultTokenProviders();
+
+        var jwtSettings = configuration.GetSection("Jwt").Get<JwtSettings>();
+        if (jwtSettings == null || string.IsNullOrWhiteSpace(jwtSettings.SecretKey))
+        {
+            throw new InvalidOperationException("JWT settings are not configured.");
+        }
+
+        var signingKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings.SecretKey));
+
+        services.AddAuthentication(options =>
+            {
+                options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+                options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+            })
             .AddJwtBearer(options =>
             {
                 options.TokenValidationParameters = new TokenValidationParameters
@@ -32,22 +58,17 @@ public static class DependencyInjection
                     ValidateAudience = true,
                     ValidateLifetime = true,
                     ValidateIssuerSigningKey = true,
-                    ValidIssuer = configuration["Jwt:Issuer"],
-                    ValidAudience = configuration["Jwt:Audience"],
-                    IssuerSigningKey = new SymmetricSecurityKey(
-                        Encoding.UTF8.GetBytes(configuration["Jwt:SecretKey"] ?? throw new InvalidOperationException("JWT Secret Key is not configured")))
+                    ValidIssuer = jwtSettings.Issuer,
+                    ValidAudience = jwtSettings.Audience,
+                    IssuerSigningKey = signingKey,
+                    RoleClaimType = ClaimTypes.Role,
+                    NameClaimType = ClaimTypes.NameIdentifier
                 };
-                options.Authority = "https://snakeaid.jp.auth0.com/";
-
-                options.Audience = "https://snakeaid.com/api";
-
                 options.RequireHttpsMetadata = true;
+                options.SaveToken = true;
             });
 
-        // services.AddAuthorizationBuilder()
-        //     .AddPolicy("Admin", policy => policy.RequireClaim(ClaimTypes.Role, UserRole.Admin.ToString()))
-        //     .AddPolicy("User", policy => policy.RequireClaim(ClaimTypes.Role, UserRole.User.ToString()))
-        //     .AddPolicy("Guest", policy => policy.RequireClaim(ClaimTypes.Role, UserRole.Guest.ToString()));
+        services.AddAuthorization();
         return services;
     }
 
