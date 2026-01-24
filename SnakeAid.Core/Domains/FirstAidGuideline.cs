@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 using System.Linq;
 using System.Text.Json.Serialization;
 using System.Threading.Tasks;
@@ -12,20 +13,30 @@ namespace SnakeAid.Core.Domains
         [Key]
         public int Id { get; set; }
 
+        [ForeignKey(nameof(VenomType))]
+        public int? VenomTypeId { get; set; }
+
         [Required]
+        [MaxLength(255)]
         public string Name { get; set; }
 
         [Required]
-        public FirstAidContent Content { get; set; }
+        [Column(TypeName = "jsonb")]
+        public string Content { get; set; }
 
+        [Required]
+        public GuidelineType Type { get; set; }
+
+        [MaxLength(500)]
+        public string? Summary { get; set; }  // Tóm tắt ngắn
+
+        // Navigation properties
+        public VenomType? VenomType { get; set; }
     }
 
-    public class FirstAidContent
+    public enum GuidelineType
     {
-        public List<string> DoList { get; set; } = new();
-
-        public List<string> DontList { get; set; } = new();
-
-        public List<string> ImageExamples { get; set; } = new();  // URLs or base64 strings
+        General = 0,
+        SpeciesSpecific = 1
     }
 }

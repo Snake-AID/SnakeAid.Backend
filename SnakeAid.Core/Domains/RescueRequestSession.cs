@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 using System.Linq;
 using System.Threading.Tasks;
 
@@ -7,21 +9,36 @@ namespace SnakeAid.Core.Domains
 {
     public class RescueRequestSession : BaseEntity
     {
+        [Key]
         public Guid Id { get; set; }
+
+        [Required]
+        [ForeignKey(nameof(Incident))]
         public Guid IncidentId { get; set; }
+
+        [Required]
         public int SessionNumber { get; set; }        // 1, 2, 3, 4, 5, 6
-        public int RadiusKm { get; set; }             // 5, 10, 20
-        public int AttemptInRadius { get; set; }      // 1 hoặc 2
-        public SessionStatus Status { get; set; }     // Active, Completed, Failed
+
+        [Required]
+        public int RadiusKm { get; set; }             // 5, 10, 20 - radius hiện tại đang quét
+
+        [Required]
+        public SessionStatus Status { get; set; } = SessionStatus.Active;
+
+        [Required]
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
         public DateTime? CompletedAt { get; set; }
 
-        // các field tracking lại session
+        // Tracking fields
+        [Required]
         public SessionTrigger TriggerType { get; set; } = SessionTrigger.Initial;
-        public int RescuersPinged { get; set; } = 0;  // Số lượng rescuers được ping
-        public Guid? CancelledMissionId { get; set; }  // Nếu session này do mission bị cancel
 
-        // Navigation
+        [Required]
+        public int RescuersPinged { get; set; } = 0;  // Số lượng rescuers được ping
+
+
+        // Navigation properties
         public SnakebiteIncident Incident { get; set; }
         public ICollection<RescuerRequest> Requests { get; set; } = new List<RescuerRequest>();
     }

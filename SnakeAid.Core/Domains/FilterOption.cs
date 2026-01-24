@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace SnakeAid.Core.Domains
 {
-    public class AnswerOption : BaseEntity
+    public class FilterOption : BaseEntity
     {
         [Key]
         public int Id { get; set; }
@@ -28,6 +28,6 @@ namespace SnakeAid.Core.Domains
         public bool IsActive { get; set; } = true;
 
         public FilterQuestion Question { get; set; }
-        public ICollection<SpeciesFilterMapping> SpeciesFilterMappings { get; set; }
+        public ICollection<FilterSnakeMapping> FilterSnakeMappings { get; set; } = new List<FilterSnakeMapping>();
     }
 }

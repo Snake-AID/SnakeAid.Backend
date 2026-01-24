@@ -18,7 +18,7 @@ namespace SnakeAid.Core.Domains
         public string FileName { get; set; }
 
         [Required]
-        public string FilePath { get; set; }
+        public string MediaUrl { get; set; }
 
         [Required]
         public string ContentType { get; set; }

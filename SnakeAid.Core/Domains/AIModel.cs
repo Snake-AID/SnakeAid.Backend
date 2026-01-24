@@ -1,8 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
-using System.Linq;
-using System.Threading.Tasks;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace SnakeAid.Core.Domains
 {
@@ -12,21 +11,27 @@ namespace SnakeAid.Core.Domains
         public int Id { get; set; }
 
         [Required]
+        [MaxLength(100)]
         public string Version { get; set; }
 
         [MaxLength(1000)]
-        public string Description { get; set; }
+        public string? Description { get; set; }
 
         [Required]
+        [MaxLength(500)]
         public string EndpointUrl { get; set; }
 
+        [MaxLength(200)]
         public string? ApiKey { get; set; }
 
+        [Column(TypeName = "jsonb")]
         public string? ModelParameters { get; set; }  // JSON config
 
         // Model status
+        [Required]
         public bool IsActive { get; set; } = true;
 
+        [Required]
         public bool IsDefault { get; set; } = false;
 
         public DateTime? DeployedAt { get; set; }

@@ -52,9 +52,10 @@ namespace SnakeAid.Core.Domains
         public bool IsActive { get; set; } = true;
 
 
-        public ICollection<SpeciesFilterMapping> SpeciesFilterMappings { get; set; }
+        public ICollection<FilterSnakeMapping> FilterSnakeMappings { get; set; }
         public ICollection<SpeciesAntivenom> SpeciesAntivenoms { get; set; }
         public ICollection<SpeciesVenom> SpeciesVenoms { get; set; }
+        public ICollection<SnakeCatchingTariff> SnakeCatchingTariffs { get; set; }
     }
 
     public enum PrimaryVenomType

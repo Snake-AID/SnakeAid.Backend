@@ -7,26 +7,31 @@ using System.Threading.Tasks;
 
 namespace SnakeAid.Core.Domains
 {
-    public class SnakeSpeciesName : BaseEntity
+    public class FilterSnakeMapping
     {
         [Key]
         public int Id { get; set; }
 
         [Required]
-        [MaxLength(500)]
-        public string Name { get; set; }
-
-        [Required]
-        [MaxLength(500)]
-        public string Slug { get; set; }
+        [ForeignKey(nameof(FilterOption))]
+        public int FilterOptionId { get; set; }
 
         [Required]
         [ForeignKey(nameof(SnakeSpecies))]
         public int SnakeSpeciesId { get; set; }
 
+        [Required]
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+        [Required]
+        public bool IsActive { get; set; } = true;
+
+
+        [MaxLength(500)]
+        public string? Notes { get; set; }
 
         // Navigation properties
+        public FilterOption FilterOption { get; set; }
         public SnakeSpecies SnakeSpecies { get; set; }
-
     }
 }

@@ -14,21 +14,31 @@ namespace SnakeAid.Core.Domains
         public Guid AccountId { get; set; }
 
         [Required]
+        [MaxLength(2000)]
         public string Biography { get; set; }
 
-        public bool IsOnline { get; set; }
+        [Required]
+        public bool IsOnline { get; set; } = false;
 
-        [Range(0, double.MaxValue)]
+        [Required]
+        public bool IsAvailable { get; set; } = true;
+
+        [Range(0, 999999.99)]
+        [Column(TypeName = "numeric(18,2)")]
         public decimal ConsultationFee { get; set; }
 
         [Range(0.0, 5.0)]
-        public float Rating { get; set; }
+        [Column(TypeName = "numeric(3,2)")]
+        public decimal Rating { get; set; } = 0;
 
         [Range(0, int.MaxValue)]
-        public int RatingCount { get; set; }
+        public int RatingCount { get; set; } = 0;
+
+        [MaxLength(500)]
+        public string? UnavailableReason { get; set; }
 
         // Navigation properties
         public Account Account { get; set; }
-        public List<Specialization> Specializations { get; set; } = new List<Specialization>();
+        public ICollection<ExpertSpecialization> Specializations { get; set; } = new List<ExpertSpecialization>();
     }
 }

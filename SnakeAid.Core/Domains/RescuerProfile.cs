@@ -2,8 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-using System.Linq;
-using System.Threading.Tasks;
+using NetTopologySuite.Geometries;
 
 namespace SnakeAid.Core.Domains
 {
@@ -12,16 +11,44 @@ namespace SnakeAid.Core.Domains
         [Key]
         [ForeignKey(nameof(Account))]
         public Guid AccountId { get; set; }
-        public bool IsOnline { get; set; }
+
+        [Required]
+        public bool IsOnline { get; set; } = false;
+
+        [Required]
         [Range(0.0, 5.0)]
-        public float Rating { get; set; }
+        [Column(TypeName = "numeric(3,2)")]
+        public decimal Rating { get; set; } = 0;
+
+        [Required]
         [Range(0, int.MaxValue)]
-        public int RatingCount { get; set; }
+        public int RatingCount { get; set; } = 0;
+
         [Required]
         public RescuerType Type { get; set; } = RescuerType.Emergency;
 
+        // PostGIS Location tracking
+        [Column(TypeName = "geometry(Point, 4326)")]
+        public Point? LastLocation { get; set; }
+
+        public DateTime? LastLocationUpdate { get; set; }
+
+
+        [Required]
+        public bool IsAvailable { get; set; } = true; // sẵn sàng nhận mission
+
+
+        // Statistics
+        [Required]
+        public int TotalMissions { get; set; } = 0;
+
+        [Required]
+        public int CompletedMissions { get; set; } = 0;
+
+
         // Navigation property
         public Account Account { get; set; }
+        public ICollection<RescueMission> Missions { get; set; } = new List<RescueMission>();
     }
 
     public enum RescuerType

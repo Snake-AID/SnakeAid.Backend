@@ -17,6 +17,6 @@ namespace SnakeAid.Core.Domains
         [Required]
         public bool IsActive { get; set; }
 
-        public ICollection<AnswerOption> AnswerOptions { get; set; } = new List<AnswerOption>();
+        public ICollection<FilterOption> FilterOptions { get; set; } = new List<FilterOption>();
     }
 }
