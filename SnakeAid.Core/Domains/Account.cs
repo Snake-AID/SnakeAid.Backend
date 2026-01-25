@@ -14,7 +14,7 @@ namespace SnakeAid.Core.Domains
         public string FullName { get; set; }
 
         [MaxLength(1000)]
-        public string AvatarUrl { get; set; }
+        public string? AvatarUrl { get; set; }
 
         [Required]
         public AccountRole Role { get; set; } = AccountRole.User;
@@ -42,12 +42,6 @@ namespace SnakeAid.Core.Domains
         public MemberProfile MemberProfile { get; set; }
         public ExpertProfile ExpertProfile { get; set; }
         public RescuerProfile RescuerProfile { get; set; }
-    }
-
-    public class ApplicationRole : IdentityRole<Guid>
-    {
-        public ApplicationRole() { }
-        public ApplicationRole(string roleName) : base(roleName) { }
     }
 
     public enum AccountRole

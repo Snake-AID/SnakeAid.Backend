@@ -2,6 +2,7 @@ using Mapster;
 using MapsterMapper;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Scrutor;
 using Serilog;
 using Serilog.Ui.Core.Extensions;
@@ -10,6 +11,7 @@ using Serilog.Ui.Web.Extensions;
 using SnakeAid.Core.Mappings;
 using SnakeAid.Core.Middlewares;
 using SnakeAid.Api.DI;
+using SnakeAid.Repository.Data;
 using SQLitePCL;
 using Swashbuckle.AspNetCore.SwaggerUI;
 using System.Text.Json.Serialization;
@@ -56,18 +58,17 @@ namespace SnakeAid.Api
                     loggerConfiguration.ReadFrom.Services(services);
                 });
 
-                // builder.Services.AddDbContext<SnakeAidDbContext>(options =>
-                // {
-                //     options.UseNpgsql(builder.Configuration.GetConnectionString("SupabaseConnection"),
-                //         sqlOptions =>
-                //         {
-                //             sqlOptions.EnableRetryOnFailure(
-                //                 5,
-                //                 TimeSpan.FromSeconds(30),
-                //                 null);
-                //         });
-                // });
-
+                builder.Services.AddDbContext<SnakeAidDbContext>(options =>
+                {
+                    options.UseNpgsql(builder.Configuration.GetConnectionString("SupabaseConnection"),
+                        sqlOptions =>
+                        {
+                            sqlOptions.EnableRetryOnFailure(
+                                5,
+                                TimeSpan.FromSeconds(30),
+                                null);
+                        });
+                });
 
                 // // Add IUnitOfWork and UnitOfWork
                 // builder.Services.AddScoped<IUnitOfWork<SnakeAidDbContext>, UnitOfWork<SnakeAidDbContext>>();
@@ -82,7 +83,11 @@ namespace SnakeAid.Api
 
                 // Register services using Scrutor
                 builder.Services.Scan(scan => scan
-                    .FromAssemblies(typeof(Program).Assembly, typeof(SnakeAid.Core.Domains.BaseEntity).Assembly)
+                    .FromAssemblies(
+                        typeof(Program).Assembly,                               // SnakeAid.Api
+                        typeof(SnakeAid.Core.Domains.BaseEntity).Assembly,     // SnakeAid.Core
+                        typeof(SnakeAid.Service.Interfaces.IAuthService).Assembly,  // SnakeAid.Service
+                        typeof(SnakeAid.Repository.Interfaces.IGenericRepository<>).Assembly) // SnakeAid.Repository
                     .AddClasses(classes => classes.Where(type => type.Name.EndsWith("Service") || type.Name.EndsWith("Repository")))
                     .AsImplementedInterfaces()
                     .WithScopedLifetime());

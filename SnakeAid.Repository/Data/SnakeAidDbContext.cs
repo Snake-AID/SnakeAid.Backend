@@ -11,7 +11,7 @@ using SnakeAid.Core.Domains;
 
 namespace SnakeAid.Repository.Data
 {
-    public class SnakeAidDbContext : IdentityDbContext<Account, ApplicationRole, Guid>
+    public class SnakeAidDbContext : IdentityDbContext<Account, IdentityRole<Guid>, Guid>
     {
         public SnakeAidDbContext(DbContextOptions<SnakeAidDbContext> options) : base(options)
         {
@@ -76,16 +76,18 @@ namespace SnakeAid.Repository.Data
             base.OnModelCreating(modelBuilder);
             modelBuilder.HasDefaultSchema("SnakeAidDb");
 
+            // Ignore role-related entities to prevent creating role tables
+            modelBuilder.Ignore<IdentityRole<Guid>>();
+            modelBuilder.Ignore<IdentityUserRole<Guid>>();
+            modelBuilder.Ignore<IdentityRoleClaim<Guid>>();
+
             // Ignore UserData property from NetTopologySuite Point
             modelBuilder.Ignore<NetTopologySuite.Geometries.Point>();
 
             // Identity tables configuration
             modelBuilder.Entity<Account>().ToTable("Accounts");
-            modelBuilder.Entity<ApplicationRole>().ToTable("Roles");
-            modelBuilder.Entity<IdentityUserRole<Guid>>().ToTable("UserRoles");
             modelBuilder.Entity<IdentityUserClaim<Guid>>().ToTable("UserClaims");
             modelBuilder.Entity<IdentityUserLogin<Guid>>().ToTable("UserLogins");
-            modelBuilder.Entity<IdentityRoleClaim<Guid>>().ToTable("RoleClaims");
             modelBuilder.Entity<IdentityUserToken<Guid>>().ToTable("UserTokens");
 
             // Apply configurations from assembly - relationships được config trong các file riêng

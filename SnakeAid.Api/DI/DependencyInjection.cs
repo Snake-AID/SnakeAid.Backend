@@ -1,9 +1,10 @@
 ﻿using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
-using System;
-using System.Collections.Generic;
-using System.Linq;
+using SnakeAid.Core.Domains;
+using SnakeAid.Core.Settings;
+using SnakeAid.Repository.Data;
 using System.Security.Claims;
 using System.Text;
 
@@ -27,7 +28,52 @@ public static class DependencyInjection
     public static IServiceCollection AddAuthenticateAuthor(this IServiceCollection services,
         IConfiguration configuration)
     {
-        services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+        // Bind JwtSettings from configuration
+        services.Configure<JwtSettings>(configuration.GetSection("Jwt"));
+
+        // Add Identity Core services (without roles management)
+        services.AddIdentityCore<Account>(options =>
+            {
+                // Password settings
+                var passwordSection = configuration.GetSection("IdentityOptions:Password");
+                options.Password.RequiredLength = passwordSection.GetValue<int>("RequiredLength", 8);
+                options.Password.RequireDigit = passwordSection.GetValue<bool>("RequireDigit", true);
+                options.Password.RequireLowercase = passwordSection.GetValue<bool>("RequireLowercase", true);
+                options.Password.RequireUppercase = passwordSection.GetValue<bool>("RequireUppercase", true);
+                options.Password.RequireNonAlphanumeric = passwordSection.GetValue<bool>("RequireNonAlphanumeric", false);
+
+                // Lockout settings
+                var lockoutSection = configuration.GetSection("IdentityOptions:Lockout");
+                options.Lockout.MaxFailedAccessAttempts = lockoutSection.GetValue<int>("MaxFailedAccessAttempts", 5);
+                options.Lockout.DefaultLockoutTimeSpan = lockoutSection.GetValue<TimeSpan>("DefaultLockoutTimeSpan", TimeSpan.FromMinutes(15));
+                options.Lockout.AllowedForNewUsers = lockoutSection.GetValue<bool>("AllowedForNewUsers", true);
+
+                // SignIn settings
+                var signInSection = configuration.GetSection("IdentityOptions:SignIn");
+                options.SignIn.RequireConfirmedEmail = signInSection.GetValue<bool>("RequireConfirmedEmail", false);
+
+                // User settings
+                options.User.RequireUniqueEmail = true;
+            })
+            .AddSignInManager()
+            .AddEntityFrameworkStores<SnakeAidDbContext>()
+            .AddDefaultTokenProviders();
+
+        // Validate JWT settings
+        var jwtSettings = configuration.GetSection("Jwt").Get<JwtSettings>();
+        if (jwtSettings == null || string.IsNullOrWhiteSpace(jwtSettings.SecretKey))
+        {
+            throw new InvalidOperationException("JWT settings are not configured properly.");
+        }
+
+        var signingKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings.SecretKey));
+
+        // Add JWT Authentication
+        services.AddAuthentication(options =>
+            {
+                options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+                options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+            })
             .AddJwtBearer(options =>
             {
                 options.TokenValidationParameters = new TokenValidationParameters
@@ -36,22 +82,18 @@ public static class DependencyInjection
                     ValidateAudience = true,
                     ValidateLifetime = true,
                     ValidateIssuerSigningKey = true,
-                    ValidIssuer = configuration["Jwt:Issuer"],
-                    ValidAudience = configuration["Jwt:Audience"],
-                    IssuerSigningKey = new SymmetricSecurityKey(
-                        Encoding.UTF8.GetBytes(configuration["Jwt:SecretKey"] ?? throw new InvalidOperationException("JWT Secret Key is not configured")))
+                    ValidIssuer = jwtSettings.Issuer,
+                    ValidAudience = jwtSettings.Audience,
+                    IssuerSigningKey = signingKey,
+                    RoleClaimType = ClaimTypes.Role,
+                    NameClaimType = ClaimTypes.NameIdentifier
                 };
-                options.Authority = "https://snakeaid.jp.auth0.com/";
-
-                options.Audience = "https://snakeaid.com/api";
-
                 options.RequireHttpsMetadata = true;
+                options.SaveToken = true;
             });
 
-        // services.AddAuthorizationBuilder()
-        //     .AddPolicy("Admin", policy => policy.RequireClaim(ClaimTypes.Role, UserRole.Admin.ToString()))
-        //     .AddPolicy("User", policy => policy.RequireClaim(ClaimTypes.Role, UserRole.User.ToString()))
-        //     .AddPolicy("Guest", policy => policy.RequireClaim(ClaimTypes.Role, UserRole.Guest.ToString()));
+        services.AddAuthorization();
+
         return services;
     }
 
