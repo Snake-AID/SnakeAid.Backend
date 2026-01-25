@@ -2,8 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-using System.Linq;
-using System.Threading.Tasks;
 
 namespace SnakeAid.Core.Domains
 {
@@ -25,7 +23,9 @@ namespace SnakeAid.Core.Domains
         public bool HasUnderlyingDisease { get; set; }
 
 
-        // Navigation property
+        // Navigation properties
         public Account Account { get; set; }
+        public ICollection<SnakebiteIncident> SnakebiteIncidents { get; set; } = new List<SnakebiteIncident>();
+        public ICollection<SnakeCatchingRequest> SnakeCatchingRequests { get; set; } = new List<SnakeCatchingRequest>();
     }
 }

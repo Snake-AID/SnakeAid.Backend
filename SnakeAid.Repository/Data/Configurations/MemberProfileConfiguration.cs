@@ -22,11 +22,23 @@ namespace SnakeAid.Repository.Data.Configurations
                     v => JsonSerializer.Deserialize<List<string>>(v, (JsonSerializerOptions)null))
                 .HasColumnType("jsonb");
 
-            // One-to-One relationship with Account (configured in SnakeAidDbContext)
+            // One-to-One relationship with Account
             builder.HasOne(mp => mp.Account)
                 .WithOne(a => a.MemberProfile)
                 .HasForeignKey<MemberProfile>(mp => mp.AccountId)
                 .OnDelete(DeleteBehavior.Cascade);
+
+            // One-to-Many: MemberProfile -> SnakebiteIncidents
+            builder.HasMany(mp => mp.SnakebiteIncidents)
+                .WithOne(i => i.User)
+                .HasForeignKey(i => i.UserId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // One-to-Many: MemberProfile -> SnakeCatchingRequests
+            builder.HasMany(mp => mp.SnakeCatchingRequests)
+                .WithOne(r => r.User)
+                .HasForeignKey(r => r.UserId)
+                .OnDelete(DeleteBehavior.Restrict);
         }
     }
 }

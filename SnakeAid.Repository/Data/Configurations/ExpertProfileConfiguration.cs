@@ -10,16 +10,14 @@ namespace SnakeAid.Repository.Data.Configurations
         {
             builder.ToTable("ExpertProfiles");
 
-            // One-to-One relationship with Account (configured in SnakeAidDbContext)
+            // One-to-One relationship with Account
             builder.HasOne(ep => ep.Account)
                 .WithOne(a => a.ExpertProfile)
                 .HasForeignKey<ExpertProfile>(ep => ep.AccountId)
                 .OnDelete(DeleteBehavior.Cascade);
 
-            // One-to-Many relationship with Specializations
-            builder.HasMany(ep => ep.Specializations)
-                .WithMany()
-                .UsingEntity(j => j.ToTable("ExpertSpecializations"));
+            // Relationship với Specializations đã được config tại ExpertSpecializationConfiguration
+            // (ExpertSpecialization là explicit join entity, không dùng implicit many-to-many)
         }
     }
 }

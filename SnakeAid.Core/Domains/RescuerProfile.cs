@@ -46,9 +46,11 @@ namespace SnakeAid.Core.Domains
         public int CompletedMissions { get; set; } = 0;
 
 
-        // Navigation property
+        // Navigation properties
         public Account Account { get; set; }
         public ICollection<RescueMission> Missions { get; set; } = new List<RescueMission>();
+        public ICollection<SnakeCatchingMission> CatchingMissions { get; set; } = new List<SnakeCatchingMission>();
+        public ICollection<RescuerRequest> RescuerRequests { get; set; } = new List<RescuerRequest>();
     }
 
     public enum RescuerType

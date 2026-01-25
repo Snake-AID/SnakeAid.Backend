@@ -52,10 +52,13 @@ namespace SnakeAid.Core.Domains
         public bool IsActive { get; set; } = true;
 
 
-        public ICollection<FilterSnakeMapping> FilterSnakeMappings { get; set; }
-        public ICollection<SpeciesAntivenom> SpeciesAntivenoms { get; set; }
-        public ICollection<SpeciesVenom> SpeciesVenoms { get; set; }
-        public ICollection<SnakeCatchingTariff> SnakeCatchingTariffs { get; set; }
+        // Navigation properties
+        public ICollection<FilterSnakeMapping> FilterSnakeMappings { get; set; } = new List<FilterSnakeMapping>();
+        public ICollection<SpeciesAntivenom> SpeciesAntivenoms { get; set; } = new List<SpeciesAntivenom>();
+        public ICollection<SpeciesVenom> SpeciesVenoms { get; set; } = new List<SpeciesVenom>();
+        public ICollection<SnakeCatchingTariff> SnakeCatchingTariffs { get; set; } = new List<SnakeCatchingTariff>();
+        public ICollection<LibraryMedia> LibraryMedias { get; set; } = new List<LibraryMedia>();
+        public ICollection<SnakeSpeciesName> AlternativeNames { get; set; } = new List<SnakeSpeciesName>();
     }
 
     public enum PrimaryVenomType

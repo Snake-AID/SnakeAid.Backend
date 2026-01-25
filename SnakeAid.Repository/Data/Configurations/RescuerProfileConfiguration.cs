@@ -24,6 +24,18 @@ namespace SnakeAid.Repository.Data.Configurations
                 .HasForeignKey<RescuerProfile>(rp => rp.AccountId)
                 .OnDelete(DeleteBehavior.Cascade);
 
+            // One-to-Many: RescuerProfile -> CatchingMissions
+            builder.HasMany(rp => rp.CatchingMissions)
+                .WithOne(m => m.Rescuer)
+                .HasForeignKey(m => m.RescuerId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // One-to-Many: RescuerProfile -> RescuerRequests
+            builder.HasMany(rp => rp.RescuerRequests)
+                .WithOne(r => r.Rescuer)
+                .HasForeignKey(r => r.RescuerId)
+                .OnDelete(DeleteBehavior.Restrict);
+
             // Index cho query performance
             builder.HasIndex(rp => rp.IsOnline)
                 .HasDatabaseName("IX_RescuerProfiles_IsOnline");

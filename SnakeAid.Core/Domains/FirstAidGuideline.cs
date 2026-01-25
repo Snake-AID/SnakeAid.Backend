@@ -13,9 +13,6 @@ namespace SnakeAid.Core.Domains
         [Key]
         public int Id { get; set; }
 
-        [ForeignKey(nameof(VenomType))]
-        public int? VenomTypeId { get; set; }
-
         [Required]
         [MaxLength(255)]
         public string Name { get; set; }
@@ -30,8 +27,6 @@ namespace SnakeAid.Core.Domains
         [MaxLength(500)]
         public string? Summary { get; set; }  // Tóm tắt ngắn
 
-        // Navigation properties
-        public VenomType? VenomType { get; set; }
     }
 
     public enum GuidelineType
