@@ -15,6 +15,7 @@ using SnakeAid.Core.Meta;
 using SnakeAid.Core.Requests.Auth;
 using SnakeAid.Core.Responses.Auth;
 using SnakeAid.Core.Settings;
+using SnakeAid.Core.Utils;
 using SnakeAid.Service.Interfaces;
 
 namespace SnakeAid.Service.Implements;
@@ -30,19 +31,27 @@ public class AuthService : IAuthService
     private readonly JwtSettings _jwtSettings;
     private readonly IConfiguration _configuration;
     private readonly ILogger<AuthService> _logger;
+    private readonly IOtpService _otpService;
+    private readonly OtpUtil _otpUtil;
+    
 
     public AuthService(
         UserManager<Account> userManager,
         SignInManager<Account> signInManager,
         IOptions<JwtSettings> jwtSettings,
         IConfiguration configuration,
-        ILogger<AuthService> logger)
+        ILogger<AuthService> logger,
+        IOtpService otpService,
+        IEmailService emailService,
+        OtpUtil otpUtil)
     {
         _userManager = userManager;
         _signInManager = signInManager;
         _jwtSettings = jwtSettings.Value;
         _configuration = configuration;
         _logger = logger;
+        _otpService = otpService;
+        
     }
 
     #region Public Methods
@@ -65,7 +74,7 @@ public class AuthService : IAuthService
             Email = request.Email,
             FullName = request.FullName ?? string.Empty,
             PhoneNumber = request.PhoneNumber,
-            IsActive = true,
+            IsActive = false,
             Role = AccountRole.User,
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow
@@ -270,6 +279,70 @@ public class AuthService : IAuthService
         _logger.LogInformation("User logged out: {Email}", user.Email);
 
         return ApiResponseBuilder.BuildSuccessResponse("Logged out successfully.");
+    }
+
+    public async Task<ApiResponse<VerifyAccountResponse>> VerifyAccountAsync(VerifyAccountRequest request)
+    {
+        // Find user by email
+        var user = await _userManager.FindByEmailAsync(request.Email);
+        if (user == null)
+        {
+            return ApiResponseBuilder.CreateResponse<VerifyAccountResponse>(
+                null, false, "User not found.", HttpStatusCode.NotFound, "USER_NOT_FOUND");
+        }
+
+        // Check if already active
+        if (user.IsActive)
+        {
+            var response = new VerifyAccountResponse
+            {
+                Success = true,
+                Message = "Account is already verified and active."
+            };
+            return ApiResponseBuilder.BuildSuccessResponse(response, response.Message);
+        }
+
+        // Validate OTP
+        var otpValidation = await _otpService.ValidateOtp(request.Email, request.Otp);
+        if (!otpValidation.Success)
+        {
+            return ApiResponseBuilder.CreateResponse(
+                new VerifyAccountResponse
+                {
+                    Success = false,
+                    Message = otpValidation.Message,
+                    AuthData = null
+                },
+                false,
+                otpValidation.Message,
+                HttpStatusCode.BadRequest,
+                "OTP_VALIDATION_FAILED");
+        }
+
+        // Activate user account
+        user.IsActive = true;
+        user.UpdatedAt = DateTime.UtcNow;
+        var updateResult = await _userManager.UpdateAsync(user);
+
+        if (!updateResult.Succeeded)
+        {
+            _logger.LogError("Failed to activate user {Email}", request.Email);
+            return ApiResponseBuilder.CreateResponse<VerifyAccountResponse>(
+                null, false, "Failed to activate account.", HttpStatusCode.InternalServerError, "ACTIVATION_FAILED");
+        }
+
+        _logger.LogInformation("User account verified and activated successfully: {Email}", request.Email);
+
+        // Generate tokens for immediate login
+        var authTokens = await GenerateTokensAsync(user);
+        var verifyResponse = new VerifyAccountResponse
+        {
+            Success = true,
+            Message = "Account verified and activated successfully.",
+            AuthData = authTokens
+        };
+
+        return ApiResponseBuilder.BuildSuccessResponse(verifyResponse, verifyResponse.Message);
     }
 
     #endregion

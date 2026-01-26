@@ -99,6 +99,21 @@ public class AuthController : BaseController<AuthController>
     }
 
     /// <summary>
+    /// Verify account with OTP
+    /// </summary>
+    [HttpPost("verify-account")]
+    [SwaggerOperation(Summary = "Verify account", Description = "Verify user account with OTP code and activate it.")]
+    [SwaggerResponse(200, "Account verified successfully", typeof(ApiResponse<VerifyAccountResponse>))]
+    [SwaggerResponse(400, "Invalid OTP or validation error")]
+    [SwaggerResponse(404, "User not found")]
+    [SwaggerResponse(500, "Failed to activate account")]
+    public async Task<IActionResult> VerifyAccount([FromBody] VerifyAccountRequest request)
+    {
+        var result = await _authService.VerifyAccountAsync(request);
+        return StatusCode(result.StatusCode, result);
+    }
+
+    /// <summary>
     /// Get current user info
     /// </summary>
     [Authorize]
