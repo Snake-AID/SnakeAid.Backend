@@ -30,4 +30,9 @@ public interface IAuthService
     /// Logout - invalidate refresh token
     /// </summary>
     Task<ApiResponse<object>> LogoutAsync(Guid userId);
+
+    /// <summary>
+    /// Verify account with OTP and activate user
+    /// </summary>
+    Task<ApiResponse<VerifyAccountResponse>> VerifyAccountAsync(VerifyAccountRequest request);
 }
