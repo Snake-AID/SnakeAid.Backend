@@ -33,6 +33,14 @@ namespace SnakeAid.Service.Implements.Email
 
             // Initialize RazorLight engine
             _templateRoot = Path.Combine(AppContext.BaseDirectory, "Services", "Implements", "Email", "Templates");
+            
+            // Create directory if it doesn't exist
+            if (!Directory.Exists(_templateRoot))
+            {
+                _logger.LogWarning("Template directory not found, creating: {TemplateRoot}", _templateRoot);
+                Directory.CreateDirectory(_templateRoot);
+            }
+            
             _razorEngine = new RazorLightEngineBuilder()
                 .UseFileSystemProject(_templateRoot)
                 .UseMemoryCachingProvider()

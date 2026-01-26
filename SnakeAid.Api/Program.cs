@@ -79,14 +79,24 @@ namespace SnakeAid.Api
                         });
                 });
 
-                // // Add IUnitOfWork and UnitOfWork
-                // builder.Services.AddScoped<IUnitOfWork<SnakeAidDbContext>, UnitOfWork<SnakeAidDbContext>>();
+                // Add IUnitOfWork and UnitOfWork
+                builder.Services.AddScoped<SnakeAid.Repository.Interfaces.IUnitOfWork<SnakeAidDbContext>, SnakeAid.Repository.Implements.UnitOfWork<SnakeAidDbContext>>();
 
                 // Register Mapster
                 var config = TypeAdapterConfig.GlobalSettings;
                 MapsterConfig.RegisterMappings();
                 builder.Services.AddSingleton(config);
                 builder.Services.AddScoped<IMapper, ServiceMapper>();
+
+                // Register OtpUtil
+                builder.Services.AddScoped<SnakeAid.Core.Utils.OtpUtil>();
+
+                // Register Email services
+                builder.Services.AddHttpClient(); // For ResendEmailSender
+                builder.Services.AddScoped<SnakeAid.Service.Implements.Email.Providers.ResendEmailSender>();
+                builder.Services.AddScoped<SnakeAid.Service.Implements.Email.Providers.SmtpEmailSender>();
+                builder.Services.AddScoped<SnakeAid.Service.Implements.Email.Providers.EmailProviderService>();
+                builder.Services.AddScoped<SnakeAid.Service.Implements.Email.EmailTemplateService>();
 
                 builder.Services.AddServices();
 

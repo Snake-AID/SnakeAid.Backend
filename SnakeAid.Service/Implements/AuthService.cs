@@ -32,8 +32,7 @@ public class AuthService : IAuthService
     private readonly IConfiguration _configuration;
     private readonly ILogger<AuthService> _logger;
     private readonly IOtpService _otpService;
-    private readonly IEmailService _emailService;
-    private readonly OtpUtil _otpUtil;
+    
 
     public AuthService(
         UserManager<Account> userManager,
@@ -51,8 +50,7 @@ public class AuthService : IAuthService
         _configuration = configuration;
         _logger = logger;
         _otpService = otpService;
-        _emailService = emailService;
-        _otpUtil = otpUtil;
+        
     }
 
     #region Public Methods
@@ -67,7 +65,7 @@ public class AuthService : IAuthService
                 null, false, "Email is already in use.", HttpStatusCode.BadRequest, "EMAIL_IN_USE");
         }
 
-        // Create new account with IsActive = false
+        // Create new account
         var user = new Account
         {
             Id = Guid.NewGuid(),
@@ -75,7 +73,7 @@ public class AuthService : IAuthService
             Email = request.Email,
             FullName = request.FullName ?? string.Empty,
             PhoneNumber = request.PhoneNumber,
-            IsActive = false, // Set to false - user must verify OTP
+            IsActive = true,
             Role = AccountRole.User,
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow
@@ -92,24 +90,11 @@ public class AuthService : IAuthService
                 null, false, "Registration failed.", HttpStatusCode.UnprocessableEntity, "VALIDATION_ERROR", errors);
         }
 
-        // Generate and send OTP
-        try
-        {
-            var otp = _otpUtil.GenerateOtp(request.Email);
-            await _otpService.CreateOtpEntity(request.Email, otp);
-            await _emailService.SendOtpEmailAsync(new Core.Requests.Email.SendOtpEmailRequest { Email = request.Email });
+        _logger.LogInformation("User registered successfully: {Email}", request.Email);
 
-            _logger.LogInformation("User registered successfully with IsActive=false. OTP sent to: {Email}", request.Email);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to send OTP email after registration for {Email}", request.Email);
-            // Continue - user is created, they can request OTP resend
-        }
-
-        // Return success message without tokens - user must verify OTP first
-        return ApiResponseBuilder.CreateResponse<AuthResponse>(
-            null, true, "Registration successful. Please check your email for OTP verification code.", HttpStatusCode.OK, "REGISTRATION_PENDING_VERIFICATION");
+        // Generate tokens
+        var tokens = await GenerateTokensAsync(user);
+        return ApiResponseBuilder.BuildSuccessResponse(tokens, "Registration successful.");
     }
 
     public async Task<ApiResponse<AuthResponse>> LoginAsync(LoginRequest request)
