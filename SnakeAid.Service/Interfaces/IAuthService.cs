@@ -34,5 +34,5 @@ public interface IAuthService
     /// <summary>
     /// Verify account with OTP and activate user
     /// </summary>
-    //Task<ApiResponse<VerifyAccountResponse>> VerifyAccountAsync(VerifyAccountRequest request);
+    Task<ApiResponse<VerifyAccountResponse>> VerifyAccountAsync(VerifyAccountRequest request);
 }

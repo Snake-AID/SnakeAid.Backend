@@ -32,6 +32,7 @@ public class AuthService : IAuthService
     private readonly IConfiguration _configuration;
     private readonly ILogger<AuthService> _logger;
     private readonly IOtpService _otpService;
+    private readonly OtpUtil _otpUtil;
     
 
     public AuthService(
@@ -305,8 +306,17 @@ public class AuthService : IAuthService
         var otpValidation = await _otpService.ValidateOtp(request.Email, request.Otp);
         if (!otpValidation.Success)
         {
-            return ApiResponseBuilder.CreateResponse<VerifyAccountResponse>(
-                null, false, otpValidation.Message, HttpStatusCode.BadRequest, "OTP_VALIDATION_FAILED");
+            return ApiResponseBuilder.CreateResponse(
+                new VerifyAccountResponse
+                {
+                    Success = false,
+                    Message = otpValidation.Message,
+                    AuthData = null
+                },
+                false,
+                otpValidation.Message,
+                HttpStatusCode.BadRequest,
+                "OTP_VALIDATION_FAILED");
         }
 
         // Activate user account
