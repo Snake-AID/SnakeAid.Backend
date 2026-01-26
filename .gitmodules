@@ -1,0 +1,3 @@
+[submodule "SnakeAid.Docs"]
+	path = SnakeAid.Docs
+	url = https://github.com/Snake-AID/SnakeAid.Docs.git
