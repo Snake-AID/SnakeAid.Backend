@@ -7,6 +7,7 @@ COPY ["SnakeAid.Api/SnakeAid.Api.csproj", "SnakeAid.Api/"]
 COPY ["SnakeAid.Core/SnakeAid.Core.csproj", "SnakeAid.Core/"]
 COPY ["SnakeAid.Repository/SnakeAid.Repository.csproj", "SnakeAid.Repository/"]
 COPY ["SnakeAid.Service/SnakeAid.Service.csproj", "SnakeAid.Service/"]
+COPY ["Directory.Packages.props", "."]
 
 RUN dotnet restore "SnakeAid.Api/SnakeAid.Api.csproj"
 
