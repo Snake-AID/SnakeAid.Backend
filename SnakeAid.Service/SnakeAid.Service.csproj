@@ -9,13 +9,16 @@
 
   <ItemGroup>
     <PackageReference Include="CloudinaryDotNet" />
+    <PackageReference Include="Google.Apis.Auth" />
     <PackageReference Include="MailKit" />
+    <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" />
     <PackageReference Include="MimeKit" />
     <PackageReference Include="NETCore.MailKit" />
     <PackageReference Include="PreMailer.Net" />
     <PackageReference Include="RazorLight" />
     <PackageReference Include="Refit" />
     <PackageReference Include="Refit.HttpClientFactory" />
+    <PackageReference Include="System.IdentityModel.Tokens.Jwt" />
     <PackageReference Include="VietQRHelper" />
   </ItemGroup>
 

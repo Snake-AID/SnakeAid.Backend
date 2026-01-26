@@ -2,6 +2,7 @@ using Mapster;
 using MapsterMapper;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Scrutor;
 using Serilog;
 using Serilog.Ui.Core.Extensions;
@@ -10,6 +11,7 @@ using Serilog.Ui.Web.Extensions;
 using SnakeAid.Core.Mappings;
 using SnakeAid.Core.Middlewares;
 using SnakeAid.Api.DI;
+using SnakeAid.Repository.Data;
 using SQLitePCL;
 using Swashbuckle.AspNetCore.SwaggerUI;
 using System.Text.Json.Serialization;
@@ -34,10 +36,19 @@ namespace SnakeAid.Api
                 var sqliteLogPath = Path.Combine(builder.Environment.ContentRootPath, "logs", "logs.db");
                 Directory.CreateDirectory(Path.GetDirectoryName(sqliteLogPath)!);
                 var hasSerilogConfig = builder.Configuration.GetSection("Serilog").Exists();
-                if (hasSerilogConfig &&
-                    string.Equals(builder.Configuration["Serilog:WriteTo:1:Name"], "SQLite", StringComparison.OrdinalIgnoreCase))
+                if (hasSerilogConfig)
                 {
-                    builder.Configuration["Serilog:WriteTo:1:Args:sqliteDbPath"] = sqliteLogPath;
+                    foreach (var sink in builder.Configuration.GetSection("Serilog:WriteTo").GetChildren())
+                    {
+                        var sinkName = sink["Name"];
+                        if (!string.Equals(sinkName, "SQLite", StringComparison.OrdinalIgnoreCase))
+                        {
+                            continue;
+                        }
+
+                        builder.Configuration[$"Serilog:WriteTo:{sink.Key}:Args:sqliteDbPath"] = sqliteLogPath;
+                        break; // Only set for the first SQLite sink found
+                    }
                 }
 
                 builder.Host.UseSerilog((context, services, loggerConfiguration) =>
@@ -56,18 +67,17 @@ namespace SnakeAid.Api
                     loggerConfiguration.ReadFrom.Services(services);
                 });
 
-                // builder.Services.AddDbContext<SnakeAidDbContext>(options =>
-                // {
-                //     options.UseNpgsql(builder.Configuration.GetConnectionString("SupabaseConnection"),
-                //         sqlOptions =>
-                //         {
-                //             sqlOptions.EnableRetryOnFailure(
-                //                 5,
-                //                 TimeSpan.FromSeconds(30),
-                //                 null);
-                //         });
-                // });
-
+                builder.Services.AddDbContext<SnakeAidDbContext>(options =>
+                {
+                    options.UseNpgsql(builder.Configuration.GetConnectionString("SupabaseConnection"),
+                        sqlOptions =>
+                        {
+                            sqlOptions.EnableRetryOnFailure(
+                                5,
+                                TimeSpan.FromSeconds(30),
+                                null);
+                        });
+                });
 
                 // // Add IUnitOfWork and UnitOfWork
                 // builder.Services.AddScoped<IUnitOfWork<SnakeAidDbContext>, UnitOfWork<SnakeAidDbContext>>();
@@ -82,7 +92,11 @@ namespace SnakeAid.Api
 
                 // Register services using Scrutor
                 builder.Services.Scan(scan => scan
-                    .FromAssemblies(typeof(Program).Assembly, typeof(SnakeAid.Core.Domains.BaseEntity).Assembly)
+                    .FromAssemblies(
+                        typeof(Program).Assembly,                               // SnakeAid.Api
+                        typeof(SnakeAid.Core.Domains.BaseEntity).Assembly,     // SnakeAid.Core
+                        typeof(SnakeAid.Service.Interfaces.IAuthService).Assembly,  // SnakeAid.Service
+                        typeof(SnakeAid.Repository.Interfaces.IGenericRepository<>).Assembly) // SnakeAid.Repository
                     .AddClasses(classes => classes.Where(type => type.Name.EndsWith("Service") || type.Name.EndsWith("Repository")))
                     .AsImplementedInterfaces()
                     .WithScopedLifetime());
