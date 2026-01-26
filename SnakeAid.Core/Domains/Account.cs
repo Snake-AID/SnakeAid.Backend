@@ -42,6 +42,7 @@ namespace SnakeAid.Core.Domains
         public MemberProfile MemberProfile { get; set; }
         public ExpertProfile ExpertProfile { get; set; }
         public RescuerProfile RescuerProfile { get; set; }
+        public ICollection<Otp> Otps { get; set; } = new List<Otp>();
     }
 
     public enum AccountRole
