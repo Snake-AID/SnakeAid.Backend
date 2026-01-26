@@ -74,7 +74,7 @@ namespace SnakeAid.Repository.Data
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
-            modelBuilder.HasDefaultSchema("SnakeAidDb");
+            modelBuilder.HasDefaultSchema("SnakeAid");
 
             // Ignore role-related entities to prevent creating role tables
             modelBuilder.Ignore<IdentityRole<Guid>>();
@@ -85,10 +85,10 @@ namespace SnakeAid.Repository.Data
             modelBuilder.Ignore<NetTopologySuite.Geometries.Point>();
 
             // Identity tables configuration
-            modelBuilder.Entity<Account>().ToTable("Accounts");
-            modelBuilder.Entity<IdentityUserClaim<Guid>>().ToTable("UserClaims");
-            modelBuilder.Entity<IdentityUserLogin<Guid>>().ToTable("UserLogins");
-            modelBuilder.Entity<IdentityUserToken<Guid>>().ToTable("UserTokens");
+            modelBuilder.Entity<Account>().ToTable("Accounts", "AspNetIdentity");
+            modelBuilder.Entity<IdentityUserClaim<Guid>>().ToTable("UserClaims", "AspNetIdentity");
+            modelBuilder.Entity<IdentityUserLogin<Guid>>().ToTable("UserLogins", "AspNetIdentity");
+            modelBuilder.Entity<IdentityUserToken<Guid>>().ToTable("UserTokens", "AspNetIdentity");
 
             // Apply configurations from assembly - relationships được config trong các file riêng
             modelBuilder.ApplyConfigurationsFromAssembly(typeof(SnakeAidDbContext).Assembly);
