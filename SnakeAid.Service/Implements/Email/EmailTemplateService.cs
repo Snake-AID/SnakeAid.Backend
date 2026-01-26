@@ -32,12 +32,15 @@ namespace SnakeAid.Service.Implements.Email
             _emailProvider = emailProvider;
 
             // Initialize RazorLight engine
-            _templateRoot = Path.Combine(AppContext.BaseDirectory, "Services", "Implements", "Email", "Templates");
+            // Find template root in source code location, not bin output
+            var baseDir = AppContext.BaseDirectory;
+            var projectRoot = Directory.GetParent(baseDir)?.Parent?.Parent?.Parent?.Parent?.FullName;
+            _templateRoot = Path.Combine(projectRoot!, "SnakeAid.Service", "Implements", "Email", "Templates");
             
             // Create directory if it doesn't exist
             if (!Directory.Exists(_templateRoot))
             {
-                _logger.LogWarning("Template directory not found, creating: {TemplateRoot}", _templateRoot);
+                _logger.LogWarning("Template directory not found at: {TemplateRoot}", _templateRoot);
                 Directory.CreateDirectory(_templateRoot);
             }
             
@@ -51,7 +54,7 @@ namespace SnakeAid.Service.Implements.Email
         }
 
         /// <summary>
-        /// Send OTP email using RazorLight template, PreMailer CSS inlining, and provider strategy
+        /// Send OTP email using inline HTML template
         /// </summary>
         public async Task<EmailSendResult> SendOtpEmailAsync(OtpEmailModel model)
         {
@@ -72,57 +75,63 @@ namespace SnakeAid.Service.Implements.Email
 
                 _logger.LogInformation("Starting OTP email send process for {Email}", model.RecipientEmail);
 
-                // Step 2: Render template with RazorLight
-                string renderedTemplate;
-                try
-                {
-                    renderedTemplate = await _razorEngine.CompileRenderAsync("OtpEmail.cshtml", model);
-                    result.RenderedTemplate = renderedTemplate;
-                    _logger.LogDebug("Template rendered successfully. Length: {Length} characters",
-                        renderedTemplate.Length);
-                }
-                catch (Exception ex)
-                {
-                    var errorMsg = $"Failed to render email template: {ex.Message}";
-                    _logger.LogError(ex, errorMsg);
-                    result.ErrorMessage = errorMsg;
-                    return result;
-                }
+                // Step 2: Create HTML email with inline CSS
+                var htmlBody = $@"
+<!DOCTYPE html>
+<html lang='en'>
+<head>
+    <meta charset='UTF-8'>
+    <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+    <title>{model.Subject}</title>
+</head>
+<body style='font-family: ""Segoe UI"", Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #333; background-color: #f4f4f4; margin: 0; padding: 0;'>
+    <div style='max-width: 600px; margin: 30px auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);'>
+        <div style='background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 30px; text-align: center; color: white;'>
+            <h1 style='margin: 0; font-size: 24px;'>🐍 SnakeAid Verification</h1>
+        </div>
+        <div style='padding: 40px 30px;'>
+            <p style='font-size: 18px; margin-bottom: 20px; color: #2d3748;'>Hello {model.RecipientName ?? "there"},</p>
+            <p style='font-size: 16px; margin-bottom: 30px; color: #4a5568;'>
+                You have requested a One-Time Password (OTP) to verify your identity. 
+                Please use the code below to complete your verification:
+            </p>
+            
+            <div style='background-color: #f0fdf4; border: 2px dashed #10b981; border-radius: 8px; padding: 25px; text-align: center; margin: 30px 0;'>
+                <div style='font-size: 14px; color: #718096; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 1px;'>Your Verification Code</div>
+                <div style='font-size: 36px; font-weight: bold; color: #059669; letter-spacing: 8px; font-family: ""Courier New"", monospace;'>{model.OtpCode}</div>
+                <div style='margin-top: 15px; font-size: 14px; color: #dc2626; font-weight: 600;'>
+                    ⏰ This code expires in {model.ExpiryMinutes} minutes
+                </div>
+            </div>
 
-                // Step 3: Inline CSS with PreMailer
-                string inlinedHtml;
-                try
-                {
-                    var preMailer = new PreMailer.Net.PreMailer(renderedTemplate);
-                    var inlineResult = preMailer.MoveCssInline();
+            <div style='background-color: #fef2f2; border-left: 4px solid #ef4444; padding: 15px; margin: 20px 0; font-size: 14px; color: #991b1b;'>
+                <strong>⚠️ Security Notice:</strong> Never share this code with anyone. 
+                <span style='font-weight: bold; color: #059669;'>SnakeAid</span> will never ask you to share your OTP via email, phone, or any other channel.
+            </div>
 
-                    if (inlineResult.Warnings != null && inlineResult.Warnings.Count > 0)
-                    {
-                        _logger.LogWarning("PreMailer warnings: {Warnings}",
-                            string.Join(", ", inlineResult.Warnings));
-                    }
+            <p style='font-size: 16px; margin-bottom: 30px; color: #4a5568;'>
+                If you didn't request this code, please ignore this email or contact our support team immediately.
+            </p>
+        </div>
+        <div style='background-color: #f7fafc; padding: 20px 30px; text-align: center; font-size: 12px; color: #718096; border-top: 1px solid #e2e8f0;'>
+            <p>This is an automated message from <span style='font-weight: bold; color: #059669;'>SnakeAid</span>. Please do not reply to this email.</p>
+            <p>© {DateTime.UtcNow.Year} SnakeAid. All rights reserved.</p>
+        </div>
+    </div>
+</body>
+</html>";
 
-                    inlinedHtml = inlineResult.Html;
-                    result.InlinedHtml = inlinedHtml;
-                    _logger.LogDebug("CSS inlined successfully. Final HTML length: {Length} characters",
-                        inlinedHtml.Length);
-                }
-                catch (Exception ex)
-                {
-                    var errorMsg = $"Failed to inline CSS: {ex.Message}";
-                    _logger.LogError(ex, errorMsg);
-                    result.ErrorMessage = errorMsg;
-                    return result;
-                }
+                result.InlinedHtml = htmlBody;
+                _logger.LogDebug("HTML template created successfully. Length: {Length} characters", htmlBody.Length);
 
-                // Step 4: Send email via provider (Resend with SMTP fallback)
+                // Step 3: Send email via provider
                 try
                 {
                     var sendRequest = new EmailSendRequest
                     {
                         To = new[] { model.RecipientEmail },
                         Subject = model.Subject,
-                        HtmlBody = inlinedHtml,
+                        HtmlBody = htmlBody,
                         PlainTextBody = $"Your OTP code is: {model.OtpCode}\n\nThis code will expire in {model.ExpiryMinutes} minutes."
                     };
 

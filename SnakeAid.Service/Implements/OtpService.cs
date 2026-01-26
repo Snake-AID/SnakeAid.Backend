@@ -1,177 +1,173 @@
-﻿using SnakeAid.Core.Domains;
+﻿using Microsoft.Extensions.Caching.Memory;
 using SnakeAid.Core.Responses.Otp;
-using SnakeAid.Repository.Data;
-using SnakeAid.Repository.Interfaces;
 using SnakeAid.Service.Interfaces;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using static System.Net.WebRequestMethods;
 
 namespace SnakeAid.Service.Implements
 {
     public class OtpService : IOtpService
     {
-        private readonly IUnitOfWork<SnakeAidDbContext> _unitOfWork;
+        private readonly IMemoryCache _cache;
+        private const int OTP_EXPIRY_MINUTES = 5;
+        private const int MAX_ATTEMPTS = 3;
 
-        public OtpService(IUnitOfWork<SnakeAidDbContext> unitOfWork)
+        public OtpService(IMemoryCache cache)
         {
-            _unitOfWork = unitOfWork;
+            _cache = cache;
         }
 
-        public async Task CreateOtpEntity(string email, string otp)
+        private class OtpData
         {
-            var otpRepository = _unitOfWork.GetRepository<Otp>();
+            public string OtpCode { get; set; } = string.Empty;
+            public DateTime ExpirationTime { get; set; }
+            public int AttemptsLeft { get; set; }
+        }
 
-            var existingOtp = await otpRepository.FirstOrDefaultAsync(predicate: o => o.Email == email);
-            if (existingOtp != null)
+        public Task CreateOtpEntity(string email, string otp)
+        {
+            var cacheKey = $"otp_{email.ToLowerInvariant()}";
+            
+            var otpData = new OtpData
             {
-                otpRepository.Delete(existingOtp);
-                await _unitOfWork.CommitAsync();
-            }
-
-            var otpEntity = new Otp
-            {
-                Id = Guid.NewGuid(),
-                Email = email,
                 OtpCode = otp,
-                ExpirationTime = DateTime.UtcNow.AddMinutes(5),
-                AttemptLeft = 3
+                ExpirationTime = DateTime.UtcNow.AddMinutes(OTP_EXPIRY_MINUTES),
+                AttemptsLeft = MAX_ATTEMPTS
             };
 
-            await otpRepository.InsertAsync(otpEntity);
-            await _unitOfWork.CommitAsync();
+            var cacheOptions = new MemoryCacheEntryOptions()
+                .SetAbsoluteExpiration(TimeSpan.FromMinutes(OTP_EXPIRY_MINUTES));
+
+            _cache.Set(cacheKey, otpData, cacheOptions);
+            
+            return Task.CompletedTask;
         }
 
-        public async Task<ValidateOtpResponse> CheckOtp(string email, string otp)
+        public Task<ValidateOtpResponse> CheckOtp(string email, string otp)
         {
-            var otpRepository = _unitOfWork.GetRepository<Otp>();
-            var otpEntity = await otpRepository.FirstOrDefaultAsync(predicate: o => o.Email == email);
-
-            if (otpEntity == null)
+            var cacheKey = $"otp_{email.ToLowerInvariant()}";
+            
+            if (!_cache.TryGetValue<OtpData>(cacheKey, out var otpData) || otpData == null)
             {
-                return new ValidateOtpResponse
+                return Task.FromResult(new ValidateOtpResponse
                 {
                     Success = false,
                     AttemptsLeft = 0,
                     Message = "No OTP found for this email. Please request a new OTP."
-                };
+                });
             }
 
-            if (otpEntity.ExpirationTime < DateTime.UtcNow)
+            if (otpData.ExpirationTime < DateTime.UtcNow)
             {
-                otpRepository.Delete(otpEntity);
-                await _unitOfWork.CommitAsync();
-                return new ValidateOtpResponse
+                _cache.Remove(cacheKey);
+                return Task.FromResult(new ValidateOtpResponse
                 {
                     Success = false,
                     AttemptsLeft = 0,
                     Message = "OTP has expired. Please request a new OTP."
-                };
+                });
             }
 
-            if (otpEntity.OtpCode != otp)
+            if (otpData.OtpCode != otp)
             {
-                otpEntity.AttemptLeft--;
+                otpData.AttemptsLeft--;
 
-                if (otpEntity.AttemptLeft <= 0)
+                if (otpData.AttemptsLeft <= 0)
                 {
-                    otpRepository.Delete(otpEntity);
-                    await _unitOfWork.CommitAsync();
-                    return new ValidateOtpResponse
+                    _cache.Remove(cacheKey);
+                    return Task.FromResult(new ValidateOtpResponse
                     {
                         Success = false,
                         AttemptsLeft = 0,
                         Message = "Invalid OTP. Maximum attempts exceeded. Please request a new OTP."
-                    };
+                    });
                 }
                 else
                 {
-                    otpRepository.Update(otpEntity);
-                    await _unitOfWork.CommitAsync();
-                    return new ValidateOtpResponse
+                    // Update attempts left in cache
+                    var cacheOptions = new MemoryCacheEntryOptions()
+                        .SetAbsoluteExpiration(otpData.ExpirationTime);
+                    _cache.Set(cacheKey, otpData, cacheOptions);
+                    
+                    return Task.FromResult(new ValidateOtpResponse
                     {
                         Success = false,
-                        AttemptsLeft = otpEntity.AttemptLeft,
-                        Message = $"Invalid OTP. You have {otpEntity.AttemptLeft} attempt(s) left."
-                    };
+                        AttemptsLeft = otpData.AttemptsLeft,
+                        Message = $"Invalid OTP. You have {otpData.AttemptsLeft} attempt(s) left."
+                    });
                 }
             }
 
-            return new ValidateOtpResponse
+            return Task.FromResult(new ValidateOtpResponse
             {
                 Success = true,
-                AttemptsLeft = otpEntity.AttemptLeft,
+                AttemptsLeft = otpData.AttemptsLeft,
                 Message = "OTP validated successfully."
-            };
+            });
         }
 
-        public async Task<ValidateOtpResponse> ValidateOtp(string email, string otp)
+        public Task<ValidateOtpResponse> ValidateOtp(string email, string otp)
         {
-            var otpRepository = _unitOfWork.GetRepository<Otp>();
-            var otpEntity = await otpRepository.FirstOrDefaultAsync(predicate: o => o.Email == email);
-
-            if (otpEntity == null)
+            var cacheKey = $"otp_{email.ToLowerInvariant()}";
+            
+            if (!_cache.TryGetValue<OtpData>(cacheKey, out var otpData) || otpData == null)
             {
-                return new ValidateOtpResponse
+                return Task.FromResult(new ValidateOtpResponse
                 {
                     Success = false,
                     AttemptsLeft = 0,
                     Message = "No OTP found for this email. Please request a new OTP."
-                };
+                });
             }
 
-            if (otpEntity.ExpirationTime < DateTime.UtcNow)
+            if (otpData.ExpirationTime < DateTime.UtcNow)
             {
-                otpRepository.Delete(otpEntity);
-                await _unitOfWork.CommitAsync();
-                return new ValidateOtpResponse
+                _cache.Remove(cacheKey);
+                return Task.FromResult(new ValidateOtpResponse
                 {
                     Success = false,
                     AttemptsLeft = 0,
                     Message = "OTP has expired. Please request a new OTP."
-                };
+                });
             }
 
-            if (otpEntity.OtpCode != otp)
+            if (otpData.OtpCode != otp)
             {
-                otpEntity.AttemptLeft--;
+                otpData.AttemptsLeft--;
 
-                if (otpEntity.AttemptLeft <= 0)
+                if (otpData.AttemptsLeft <= 0)
                 {
-                    otpRepository.Delete(otpEntity);
-                    await _unitOfWork.CommitAsync();
-                    return new ValidateOtpResponse
+                    _cache.Remove(cacheKey);
+                    return Task.FromResult(new ValidateOtpResponse
                     {
                         Success = false,
                         AttemptsLeft = 0,
                         Message = "Invalid OTP. Maximum attempts exceeded. Please request a new OTP."
-                    };
+                    });
                 }
                 else
                 {
-                    otpRepository.Update(otpEntity);
-                    await _unitOfWork.CommitAsync();
-                    return new ValidateOtpResponse
+                    // Update attempts left in cache
+                    var cacheOptions = new MemoryCacheEntryOptions()
+                        .SetAbsoluteExpiration(otpData.ExpirationTime);
+                    _cache.Set(cacheKey, otpData, cacheOptions);
+                    
+                    return Task.FromResult(new ValidateOtpResponse
                     {
                         Success = false,
-                        AttemptsLeft = otpEntity.AttemptLeft,
-                        Message = $"Invalid OTP. You have {otpEntity.AttemptLeft} attempt(s) left."
-                    };
+                        AttemptsLeft = otpData.AttemptsLeft,
+                        Message = $"Invalid OTP. You have {otpData.AttemptsLeft} attempt(s) left."
+                    });
                 }
             }
 
-            otpRepository.Delete(otpEntity);
-            await _unitOfWork.CommitAsync();
+            // OTP is valid - remove from cache (consume it)
+            _cache.Remove(cacheKey);
 
-            return new ValidateOtpResponse
+            return Task.FromResult(new ValidateOtpResponse
             {
                 Success = true,
-                AttemptsLeft = otpEntity.AttemptLeft,
+                AttemptsLeft = otpData.AttemptsLeft,
                 Message = "OTP validated successfully."
-            };
+            });
         }
     }
 }

@@ -58,7 +58,7 @@ public class EmailController : BaseController<EmailController>
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to send OTP to {Email}", request.Email);
+            _logger.LogError(ex, "Failed to send OTP to {Email}", request?.Email ?? "unknown");
             return StatusCode(StatusCodes.Status500InternalServerError,
                 ApiResponseBuilder.CreateResponse<SendOtpEmailResponse>(
                     null,

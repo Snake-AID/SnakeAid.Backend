@@ -73,7 +73,7 @@ public class AuthService : IAuthService
             Email = request.Email,
             FullName = request.FullName ?? string.Empty,
             PhoneNumber = request.PhoneNumber,
-            IsActive = true,
+            IsActive = false,
             Role = AccountRole.User,
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow
