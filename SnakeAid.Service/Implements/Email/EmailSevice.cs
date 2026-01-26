@@ -69,7 +69,7 @@ namespace SnakeAid.Service.Implements.Email
                     RecipientEmail = request.Email,
                     OtpCode = otp,
                     Expiration = expirationTime,
-                    Subject = "Your EzyFix Verification Code",
+                    Subject = "Your SnakeAid Verification Code",
                     RecipientName = recipientName,
                     ExpiryMinutes = 5
                 };

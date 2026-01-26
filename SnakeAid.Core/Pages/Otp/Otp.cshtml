@@ -1,0 +1,79 @@
+@page "/admin/otp"
+@model EzyFix.API.Pages.Admin.OtpCenterModel
+@{
+    ViewData["Title"] = "OTP center";
+}
+
+@await Html.PartialAsync("_AdminHero", new AdminHeroModel
+{
+    Title = "EzyFix OTP management",
+    Subtitle = "Inspect OTP codes, recipients, and expiry windows. Use this view to validate flows before merging UI changes or to troubleshoot user reports.",
+    Tags = new[] { "Security", "OTP issuance" },
+    Chips = new[]
+    {
+        new AdminHeroModel.HeroChip("Snapshot", Model.RetrievedAt.ToLocalTime().ToString("HH:mm:ss")),
+        new AdminHeroModel.HeroChip("Active", Model.ActiveCount.ToString()),
+        new AdminHeroModel.HeroChip("Expired", Model.ExpiredCount.ToString())
+    },
+    Stats = new[]
+    {
+        new AdminHeroModel.HeroStat("Total OTPs", Model.Otps.Count.ToString()),
+        new AdminHeroModel.HeroStat("Active", Model.ActiveCount.ToString()),
+        new AdminHeroModel.HeroStat("Expired", Model.ExpiredCount.ToString()),
+        new AdminHeroModel.HeroStat("Users", Model.Otps.Count(o => o.UserId.HasValue).ToString())
+    }
+})
+
+<div class="glass-card">
+    <div class="inline-actions" style="justify-content: space-between; align-items: baseline;">
+        <div>
+            <h3 style="margin:0;">OTP records</h3>
+            <p class="meta">Ordered by expiration time (UTC).</p>
+        </div>
+        <span class="chip">Refresh by reloading</span>
+    </div>
+
+    @if (Model.Otps.Count == 0)
+    {
+        <p class="meta">No OTP records found.</p>
+    }
+    else
+    {
+        var now = DateTime.UtcNow;
+
+        <table class="table-modern" style="margin-top: 1rem;">
+            <thead>
+                <tr>
+                    <th>OTP Code</th>
+                    <th>Email</th>
+                    <th>User</th>
+                    <th>User ID</th>
+                    <th>Expires (UTC)</th>
+                    <th>Status</th>
+                    <th>Attempts</th>
+                    <th>Record ID</th>
+                </tr>
+            </thead>
+            <tbody>
+            @foreach (var otp in Model.Otps)
+            {
+                var expired = otp.ExpirationTime <= now;
+                <tr>
+                    <td><strong>@otp.OtpCode</strong></td>
+                    <td class="text-muted">@otp.Email</td>
+                    <td>@Model.FormatFullName(otp.UserFirstName, otp.UserLastName)</td>
+                    <td>@(otp.UserId?.ToString() ?? "-")</td>
+                    <td>@otp.ExpirationTime.ToString("yyyy-MM-dd HH:mm:ss")</td>
+                    <td>
+                        <status-pill status="@(expired ? "Expired" : "Active")"></status-pill>
+                    </td>
+                    <td>
+                        <span class="badge @(Model.AttemptTone(otp.AttemptLeft))">@otp.AttemptLeft</span>
+                    </td>
+                    <td class="text-muted">@otp.Id.ToString().Substring(0, 8)…</td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    }
+</div>

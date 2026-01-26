@@ -2,14 +2,13 @@
 using Microsoft.Extensions.Logging;
 using SnakeAid.Service.Implements.Email.Cores;
 using SnakeAid.Service.Implements.Email.Models;
-using SnakeAid.Service.Implements.Email.Providers;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace SnakeAid.Service.Implements.Email
+namespace SnakeAid.Service.Implements.Email.Providers
 {
     /// <summary>
     /// Email service with provider strategy and automatic fallback

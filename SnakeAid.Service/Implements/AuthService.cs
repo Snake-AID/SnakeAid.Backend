@@ -15,6 +15,7 @@ using SnakeAid.Core.Meta;
 using SnakeAid.Core.Requests.Auth;
 using SnakeAid.Core.Responses.Auth;
 using SnakeAid.Core.Settings;
+using SnakeAid.Core.Utils;
 using SnakeAid.Service.Interfaces;
 
 namespace SnakeAid.Service.Implements;
