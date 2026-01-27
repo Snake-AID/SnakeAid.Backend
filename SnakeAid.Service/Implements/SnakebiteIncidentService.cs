@@ -46,10 +46,10 @@ namespace SnakeAid.Service.Implements
                             include: m => m.Include(i => i.MemberProfile)
                         );
 
-                    //if (existingAccount.MemberProfile == null)
-                    //{
-                    //    throw new BadRequestException("Member information could not be found for the current account.");
-                    //}
+                    if (existingAccount.MemberProfile == null)
+                    {
+                        throw new BadRequestException("Member information could not be found for the current account.");
+                    }
 
                     // Create Point from lng/lat (PostGIS uses SRID 4326 - WGS84)
                     var geometryFactory = NetTopologySuite.NtsGeometryServices.Instance.CreateGeometryFactory(srid: 4326);
