@@ -156,15 +156,25 @@ namespace SnakeAid.Api
                 {
                     if (context.HostingEnvironment.IsDevelopment())
                     {
-                        // Local dev: both HTTP and HTTPS
-                        options.ListenAnyIP(5009);
-                        // options.ListenLocalhost(5009); // HTTP
-                        options.ListenLocalhost(7026, listenOptions => listenOptions.UseHttps());
+                        // Check if running in container
+                        var isContainer = Environment.GetEnvironmentVariable("DOTNET_RUNNING_IN_CONTAINER") == "true";
+                        
+                        if (isContainer)
+                        {
+                            // Docker container: HTTP only
+                            options.ListenAnyIP(8080);
+                        }
+                        else
+                        {
+                            // Local dev: both HTTP and HTTPS
+                            options.ListenAnyIP(5009);
+                            options.ListenLocalhost(7026, listenOptions => listenOptions.UseHttps());
+                        }
                     }
                     else
                     {
-                        // Docker/Production: HTTP only
-                        options.ListenAnyIP(5009);
+                        // Production: HTTP only (HTTPS termination at reverse proxy)
+                        options.ListenAnyIP(8080);
                     }
                 });
 
