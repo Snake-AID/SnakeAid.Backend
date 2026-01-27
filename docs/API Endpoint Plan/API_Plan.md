@@ -159,8 +159,8 @@ This document outlines the proposed API endpoints for the SnakeAid platform, der
 
 | | | | | |
 | :--- | :--- | :--- | :--- | :--- |
-| **POST** | `/api/identification/predict` | Upload image(s) for AI snake identification. Returns `ai_results`. | 📝 Planned | - |
-| **GET** | `/api/identification/{id}` | Get result of a specific identification session. | 📝 Planned | - |
+| **POST** | `/api/identification/predict` | Upload image(s) for AI snake identification. Returns `ai_results`. | 📝 Planned | feature/SA004-SnakeAI_Intergration |
+| **GET** | `/api/identification/{id}` | Get result of a specific identification session. | 📝 Planned | feature/SA004-SnakeAI_Intergration |
 
 ### Expert Verification
 
