@@ -154,7 +154,123 @@ Content-Type: application/json
 <!-- api-example:end -->
 <!-- api-section:end -->
 
-### 2) Login
+### 2) Send OTP
+
+<!-- api-section:start -->
+<!-- api-docs:start -->
+
+**Endpoint**: `POST /api/email/send-otp`
+
+**Description**: Send an OTP verification code to the user's email address.
+
+**Request Body**:
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `email` | string | ✅ | Email address to receive OTP |
+
+**Response**: Success message indicating OTP sent.
+
+<!-- api-docs:end -->
+<!-- api-example:start -->
+
+#### Request
+
+```http
+POST /api/email/send-otp HTTP/1.1
+Host: localhost:5009
+Content-Type: application/json
+
+{
+  "email": "user@example.com"
+}
+```
+
+#### Response
+
+```json
+{
+  "status_code": 200,
+  "message": "OTP has been sent to your email. Please check your inbox.",
+  "is_success": true,
+  "data": {
+    "success": true,
+    "message": "OTP has been sent to your email.",
+    "authData": null
+  }
+}
+```
+
+<!-- api-example:end -->
+<!-- api-section:end -->
+
+### 3) Verify Account
+
+<!-- api-section:start -->
+<!-- api-docs:start -->
+
+**Endpoint**: `POST /api/auth/verify-account`
+
+**Description**: Verify the OTP code and activate the user account. Returns authentication tokens upon success.
+
+**Request Body**:
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `email` | string | ✅ | User's email address |
+| `otp` | string | ✅ | The 6-digit OTP code received |
+
+**Response**: Returns `VerifyAccountResponse` containing auth tokens.
+
+**Error Cases**:
+- `400 Bad Request`: Invalid OTP or validation error
+- `404 Not Found`: User not found
+
+<!-- api-docs:end -->
+<!-- api-example:start -->
+
+#### Request
+
+```http
+POST /api/auth/verify-account HTTP/1.1
+Host: localhost:5009
+Content-Type: application/json
+
+{
+  "email": "user@example.com",
+  "otp": "123456"
+}
+```
+
+#### Response
+
+```json
+{
+  "status_code": 200,
+  "message": "Account verified and activated successfully.",
+  "is_success": true,
+  "data": {
+    "success": true,
+    "message": "Account verified and activated successfully.",
+    "authData": {
+      "accessToken": "eyJhbGc...",
+      "refreshToken": "base64...",
+      "accessTokenExpiresAt": "2026-01-24T18:00:00Z",
+      "refreshTokenExpiresAt": "2026-02-23T17:00:00Z",
+      "user": {
+        "id": "...",
+        "email": "...",
+        "isActive": true
+      }
+    }
+  }
+}
+```
+
+<!-- api-example:end -->
+<!-- api-section:end -->
+
+### 4) Login
 
 <!-- api-section:start -->
 <!-- api-docs:start -->
@@ -219,7 +335,7 @@ Content-Type: application/json
 <!-- api-example:end -->
 <!-- api-section:end -->
 
-### 3) Refresh Tokens
+### 5) Refresh Tokens
 
 <!-- api-section:start -->
 <!-- api-docs:start -->
@@ -286,7 +402,7 @@ Content-Type: application/json
 <!-- api-example:end -->
 <!-- api-section:end -->
 
-### 4) Google Sign-In
+### 6) Google Sign-In
 
 <!-- api-section:start -->
 <!-- api-docs:start -->
@@ -354,7 +470,7 @@ Content-Type: application/json
 <!-- api-example:end -->
 <!-- api-section:end -->
 
-### 5) Logout
+### 7) Logout
 
 <!-- api-section:start -->
 <!-- api-docs:start -->
@@ -401,7 +517,7 @@ Authorization: Bearer eyJhbGc...
 <!-- api-example:end -->
 <!-- api-section:end -->
 
-### 6) Get Current User Info
+### 8) Get Current User Info
 
 <!-- api-section:start -->
 <!-- api-docs:start -->
@@ -467,13 +583,15 @@ The access token includes these claims:
 - `role` (one or more)
 
 ## Typical Client Flow
-1) Register or login to obtain access + refresh tokens.
-2) Store tokens securely.
-3) Call protected APIs with `Authorization: Bearer <access_token>`.
-4) Optionally, call `/api/auth/me` to get current user information.
-5) When access token expires, call `/api/auth/refresh` to rotate tokens.
-6) Retry the failed request with the new access token.
-7) When logging out, call `/api/auth/logout` to invalidate refresh token.
+1) Register (tokens received, account created as Inactive).
+2) Send OTP (`/api/email/send-otp`) to verify email ownership.
+3) Verify Account (`/api/auth/verify-account`) to activate account and receive new tokens.
+4) Store tokens securely.
+5) Call protected APIs with `Authorization: Bearer <access_token>`.
+6) Optionally, call `/api/auth/me` to get current user information.
+7) When access token expires, call `/api/auth/refresh` to rotate tokens.
+8) Retry the failed request with the new access token.
+9) When logging out, call `/api/auth/logout` to invalidate refresh token.
 
 > [!TIP]
 > **Token Storage Best Practices**
