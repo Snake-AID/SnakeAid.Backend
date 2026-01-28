@@ -1,5 +1,5 @@
 
-# Mapping Flow F1: Cứu hộ - Nhận diện rắn (Emergency Rescue)
+# Mapping Flow P1: Cứu hộ - Nhận diện rắn (Emergency Rescue)
 
 Dưới đây là các bước trong Flow F1, mỗi bước tương ứng với một endpoint và quy trình backend:
 
@@ -69,8 +69,3 @@ Dưới đây là các bước trong Flow F1, mỗi bước tương ứng với 
 **Endpoint:** `/api/incidents/{id}`  
 **Method:** `GET`  
 **Note:** Lấy lại thông tin incident đã được update.
-
-## Thêm mới Endpoint vào API_Plan.md
-Để hỗ trợ flow nhập triệu chứng sau khi đã tạo SOS (bước 1 -> bước 6), cần bổ sung endpoint update incident:
-
-- **PUT** `/api/incidents/{id}/symptoms` - Update symptoms and recalculate severity for an existing incident.
