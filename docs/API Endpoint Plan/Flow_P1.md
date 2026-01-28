@@ -1,0 +1,71 @@
+
+# Mapping Flow P1: Cứu hộ - Nhận diện rắn (Emergency Rescue)
+
+Dưới đây là các bước trong Flow F1, mỗi bước tương ứng với một endpoint và quy trình backend:
+
+## 1. Trang chủ
+**Screen:** Trang chủ  
+**Action:** Member bấm SOS  
+**Backend Process:**
+- Tạo `SnakebiteIncident`
+- Tạo `RescuerRequest`
+**Endpoint:** `/api/incidents/sos`  
+**Method:** `POST`  
+**Note:** Tạo incident với Location trước.
+
+## 2. Cảnh báo khẩn cấp
+**Screen:** Cảnh báo khẩn cấp  
+**Action:** Member thấy Rescuer trên map  
+**Backend Process:**
+- Theo dõi vị trí Rescuer
+**Endpoint:** `/api/missions/{id}/tracking`  
+**Method:** `GET`  
+**Note:** Stream vị trí rescuer.
+
+## 3. Chụp ảnh rắn
+**Screen:** Chụp ảnh rắn  
+**Action:** Member chụp ảnh rắn  
+**Backend Process:**
+- Upload Cloudinary
+- Gọi YOLO Model
+**Endpoint:** `/api/aivision/detect`  
+**Method:** `POST`  
+**Note:** Trả về `ai_results` (species, confidence). Wraps SnakeAI `/detect` endpoint.
+
+## 4. Kết quả nhận diện
+**Screen:** Kết quả nhận diện  
+**Action:** System trả kết quả  
+**Backend Process:**
+- Lấy thông tin loài
+- Lấy `FirstAidGuidelineOverride`
+**Endpoint:** *(Included in predict response)* hoặc `/api/snakes/{slug}`
+**Method:** `POST` / `GET`  
+**Note:** Response của predict nên trả kèm sơ bộ thông tin loài.
+
+## 5. Hướng dẫn sơ cứu
+**Screen:** Hướng dẫn sơ cứu  
+**Action:** User xem cách sơ cứu  
+**Backend Process:**
+- Lấy hướng dẫn theo `Species` + `Venom`
+**Endpoint:** `/api/first-aid/species/{slug}`  
+**Method:** `GET`
+
+## 6. Nhập triệu chứng
+**Screen:** Nhập triệu chứng  
+**Action:** User nhập triệu chứng & chụp vết cắn  
+**Backend Process:**
+- Cập nhật `Symptoms` vào Incident
+- Tính `SeverityLevel`
+**Endpoint:** `/api/incidents/{id}/symptoms`  
+**Method:** `PUT`  
+**Note:** *New Endpoint needed*
+
+## 7. Hướng dẫn chi tiết
+**Screen:** Hướng dẫn chi tiết  
+**Action:** System hiện đánh giá  
+**Backend Process:**
+- Trả về `SeverityLevel`
+- Lấy hướng dẫn chi tiết
+**Endpoint:** `/api/incidents/{id}`  
+**Method:** `GET`  
+**Note:** Lấy lại thông tin incident đã được update.

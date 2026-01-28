@@ -4,6 +4,11 @@
 
 * **Documentation Guide**
   * [How to Organize Docs](README.md)
+  * [Docsify Configuration](DOCSIFY.md)
+
+* **API Endpoint Plan**
+  - [API Plan](API%20Endpoint%20Plan/API_Plan.md)
+  - [F1](API%20Endpoint%20Plan/F1.md)
 
 * **ASP.NET Identity**
   - [Introduction](ASP%20Identity/aspnet-identity.introduction.md)
@@ -12,6 +17,13 @@
   - [Agent Prompt](ASP%20Identity/aspnet-identity.prompt.md)
   - [Source Code Reference](ASP%20Identity/aspnet-identity.sourcecode.md)
   - [Usage Guide](ASP%20Identity/aspnet-identity.usageguilde.md)
+
+* **Cloudinary**
+  - [Introduction](Coudinary/cloudinary.introduction.md)
+  - [Implementation Plan](Coudinary/cloudinary.plan.md)
+  - [Agent Prompt](Coudinary/cloudinary.prompt.md)
+  - [Source Code Reference](Coudinary/cloudinary.sourcecode.md)
+  - [Usage Guide](Coudinary/cloudinary.usageguilde.md)
 
 * **Domain Driven Design**
   - [Introduction](Domain%20Driven%20Design/ddd-migration.introduction.md)
@@ -34,3 +46,6 @@
 * **NuGet**
   - [NuGet Upgrade Documentation](NuGet/NuGet_Upgrade_Doc.md)
   - [Nuget Toys Tracker](NuGet/Nuget%20Toys%20Tracker.md)
+
+* **SnakeAI**
+  - [Introduction](SnakeAI/SankeAi.introduction.md)

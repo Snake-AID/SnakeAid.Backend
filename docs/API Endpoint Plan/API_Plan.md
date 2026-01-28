@@ -159,15 +159,16 @@ This document outlines the proposed API endpoints for the SnakeAid platform, der
 
 | | | | | |
 | :--- | :--- | :--- | :--- | :--- |
-| **POST** | `/api/identification/predict` | Upload image(s) for AI snake identification. Returns `ai_results`. | 📝 Planned | - |
-| **GET** | `/api/identification/{id}` | Get result of a specific identification session. | 📝 Planned | - |
+| **GET** | `/api/aivision/health` | Check SnakeAI service status & model info. | 📝 Planned | feature/SA005-SnakeAI_Intergration |
+| **POST** | `/api/aivision/detect` | Upload image for identification (Wraps SnakeAI). | 📝 Planned | feature/SA005-SnakeAI_Intergration |
+| **GET** | `/api/aivision/{id}` | Get result of a specific identification session. | 📝 Planned | feature/SA005-SnakeAI_Intergration |
 
 ### Expert Verification
 
 | | | | | |
 | :--- | :--- | :--- | :--- | :--- |
-| **POST** | `/api/identification/{id}/request-verification` | Request expert review for an AI result. | 📝 Planned | - |
-| **POST** | `/api/identification/{id}/verify` | Confirm or correct the species (Expert Only). | 📝 Planned | - |
+| **POST** | `/api/aivision/{id}/request-verification` | Request expert review for an AI result. | 📝 Planned | - |
+| **POST** | `/api/aivision/{id}/verify` | Confirm or correct the species (Expert Only). | 📝 Planned | - |
 
 ---
 
@@ -210,3 +211,13 @@ This document outlines the proposed API endpoints for the SnakeAid platform, der
 | **GET** | `/api/wallet/transactions` | History. | 📝 Planned | - |
 | **POST** | `/api/wallet/deposit` | Initiate deposit (Momo/ZaloPay/Bank). | 📝 Planned | - |
 | **POST** | `/api/wallet/withdraw` | Request withdrawal (Experts/Rescuers). | 📝 Planned | - |
+
+---
+
+## 10. Media & Uploads
+*File and image management.*
+
+| | | | | |
+| :--- | :--- | :--- | :--- | :--- |
+| **POST** | `/api/media/upload-image` | Upload an image. | ✅ Implemented | feature/SA004-Cloudinary_Intergration |
+| **POST** | `/api/media/upload-file` | Upload a file. | ✅ Implemented | feature/SA004-Cloudinary_Intergration |

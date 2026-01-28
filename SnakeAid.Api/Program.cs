@@ -98,7 +98,7 @@ namespace SnakeAid.Api
                 builder.Services.AddScoped<SnakeAid.Service.Implements.Email.Providers.EmailProviderService>();
                 builder.Services.AddScoped<SnakeAid.Service.Implements.Email.EmailTemplateService>();
 
-                builder.Services.AddServices();
+                builder.Services.AddServices(builder.Configuration);
 
                 // Register services using Scrutor
                 builder.Services.Scan(scan => scan
