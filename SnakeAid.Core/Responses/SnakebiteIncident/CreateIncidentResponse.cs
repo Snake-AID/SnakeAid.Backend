@@ -1,5 +1,6 @@
 ﻿using NetTopologySuite.Geometries;
 using SnakeAid.Core.Domains;
+using SnakeAid.Core.Responses.RescueRequestSession;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
@@ -40,6 +41,6 @@ namespace SnakeAid.Core.Responses.SnakebiteIncident
 
         public DateTime? IncidentOccurredAt { get; set; }  // Khi nào bị cắn
 
-        
+        public List<CreateRescueRequestSessionResponse> Sessions { get; set; } = new List<CreateRescueRequestSessionResponse>();
     }
 }

@@ -15,6 +15,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Mapster;
+using SnakeAid.Core.Responses.RescueRequestSession;
 
 namespace SnakeAid.Service.Implements
 {
@@ -62,15 +63,33 @@ namespace SnakeAid.Service.Implements
                         UserId = existingAccount.Id,
                         LocationCoordinates = locationPoint,
                         Status = SnakebiteIncidentStatus.Pending,
-                        CurrentSessionNumber = 0,
+                        CurrentSessionNumber = 1,
                         CurrentRadiusKm = 5,
+                        LastSessionAt = DateTime.UtcNow,
                         IncidentOccurredAt = DateTime.UtcNow
                     };
 
+                    var firstRescueSession = new RescueRequestSession
+                    {
+                        Id = Guid.NewGuid(),
+                        IncidentId = newIncident.Id,
+                        SessionNumber = newIncident.CurrentSessionNumber,
+                        RadiusKm = newIncident.CurrentRadiusKm,
+                        Status = SessionStatus.Active,
+                        CreatedAt = DateTime.UtcNow,
+                        TriggerType = SessionTrigger.Initial,
+                        RescuersPinged = 0
+                    };
+
                     await _unitOfWork.GetRepository<SnakebiteIncident>().InsertAsync(newIncident);
+                    await _unitOfWork.GetRepository<RescueRequestSession>().InsertAsync(firstRescueSession);
                     await _unitOfWork.CommitAsync();
 
                     var responseData = newIncident.Adapt<CreateIncidentResponse>();
+                    responseData.Sessions = new List<CreateRescueRequestSessionResponse>
+                    {
+                        firstRescueSession.Adapt<CreateRescueRequestSessionResponse>()
+                    };
 
                     return ApiResponseBuilder.BuildSuccessResponse(responseData, "Snakebite Incident created successfully!");
                 });
