@@ -104,6 +104,10 @@ This document outlines the proposed API endpoints for the SnakeAid platform, der
 | :--- | :--- | :--- | :--- | :--- |
 | **POST** | `/api/catching/requests` | Request snake removal (Location, Declared Species/Size). | 📝 Planned | - |
 | **GET** | `/api/catching/requests/me` | List my requests. | 📝 Planned | - |
+| **GET** | `/api/catching/requests/{id}` | Get request details. | 📝 Planned | - |
+| **PUT** | `/api/catching/requests/{id}` | Update request details. | 📝 Planned | - |
+| **PUT** | `/api/catching/requests/{id}/confirm` | Confirm and submit request. | 📝 Planned | - |
+| **PUT** | `/api/catching/requests/{id}/cancel` | Cancel a request. | 📝 Planned | - |
 | **GET** | `/api/catching/requests/nearby` | Find removal jobs (Rescuer). | 📝 Planned | - |
 
 ### Missions
@@ -111,8 +115,12 @@ This document outlines the proposed API endpoints for the SnakeAid platform, der
 | | | | | |
 | :--- | :--- | :--- | :--- | :--- |
 | **POST** | `/api/catching/requests/{id}/accept` | Accept removal job. | 📝 Planned | - |
+| **GET** | `/api/catching/missions/{id}` | Get mission details. | 📝 Planned | - |
+| **GET** | `/api/catching/missions/{id}/tracking` | Stream rescuer location (Member). | 📝 Planned | - |
+| **PUT** | `/api/catching/missions/{id}/status` | Update mission status (EnRoute, Arrived, Completed). | 📝 Planned | - |
 | **PUT** | `/api/catching/missions/{id}/report` | Report actual species/size found (Rescuer). | 📝 Planned | - |
 | **PUT** | `/api/catching/missions/{id}/complete` | Mark job as completed. | 📝 Planned | - |
+| **POST** | `/api/catching/missions/{id}/review` | Rate and review the service (Member). | 📝 Planned | - |
 
 ---
 
@@ -126,6 +134,7 @@ This document outlines the proposed API endpoints for the SnakeAid platform, der
 | **GET** | `/api/snakes` | List/Search snakes (filters: venomous, family, location). | 📝 Planned | - |
 | **GET** | `/api/snakes/{slug}` | Get details of a specific snake (info, images, venom). | 📝 Planned | - |
 | **GET** | `/api/snakes/{slug}/distribution` | Get distribution map/polygon data. | 📝 Planned | - |
+| **POST** | `/api/snakes/identify` | Identify snake via questionnaire (Q&A flow). | 📝 Planned | - |
 
 ### First Aid
 

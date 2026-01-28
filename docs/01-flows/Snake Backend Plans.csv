@@ -1,0 +1,56 @@
+Flow ID,Role,Flow Name,SubFlow,Screen,Figma Title,Status,Done Endpoint,UI Interactive,Backend Process,Entity Graph,HTTPS,Endpoint,Expected Output,System Response,Notes / Bugs Found,Validation Type,Test Data Example
+P1,Member,Cứu hộ,Nhận diện được rắn,1-1,Trang chủ,⚠️,⚠️,Member bấm SOS,"- Tạo SnakebiteIncident
+- Tạo RescuerRequest","SnakebiteIncident
+RescuerRequest",POST,/api/incidents/sos,,,,,—
+P1,Member,Cứu hộ,Nhận diện được rắn,1-2,Cảnh báo khẩn cấp,⚠️,⚠️,Member thấy các Rescuer khác trên map,- Theo dõi vị trí Rescuer nhận nhiệm vụ,"RescueMission
+LocationEvent",GET,/api/missions/{id}/tracking,,,,,
+P1,Member,Cứu hộ,Nhận diện được rắn,1-3,chụp ảnh rắn để AI nhận diện,⚠️,⚠️,Member chụp ảnh rắn,"- Lưu vào Cloudinary
+- Lấy url call api YOLO
+     + Nhận reponse -> fill vào feild
+     + Querry ngược về loài rắn","Report_Media.MediaUrl
+.
+SnakeAIRecognitionResult.AIModelId YoloClassName Confidence
+AiModel -> AISnakeClassMapping -> SnakeSpecies.CommonName => SnakeAIRecognitionResult.DetectedSpeciesId",POST,/api/aivision/detect,,,,,
+P1,Member,Cứu hộ,Nhận diện được rắn,1-4,kết quả nhận diện loài rắn bằng AI,⚠️,⚠️,System trả kết quả sau khi chụp,"- Lấy snake_specie từ model
+- Lấy thông tin ""Cần làm ngay"" từ thư viện rắn
+     + Check: `FirstAidGuidelineOverride`
+     + Nếu ko có thì tìm:","SnakeSpecies
+.
+SnakeSpecies.FirstAidGuidelineOverride
+SnakeSpecies -> SpeciesVenom -> VenomType -> FirstAidGuideline.Content",RESPONSE,/api/aivision/detect,,,,,
+P1,Member,Cứu hộ,Nhận diện được rắn,1-5,hướng dẫn sơ cứu theo loài,⚠️,⚠️,User bấm xem cách sơ cứu,- Lấy hướng dẫn sơ cứu,SnakeSpecies.SpeciesVenom.VenomType.FirstAidGuideline,GET,/api/first-aid/species/{slug},,,,,
+P1,Member,Cứu hộ,Nhận diện được rắn,1-6,nhập triệu chứng và chụp vết cắn,⚠️,⚠️,User nhập các yếu tố về vết cắn,"- Fill jsonB triệu chứng
+- Tính severity point cho incident","SnakebiteIncident.SeverityLevel
+SnakebiteIncident.SymptomsReport",PUT,/api/incidents/{id}/symptoms,,,,,
+P1,Member,Cứu hộ,Nhận diện được rắn,1-7,hướng dẫn sơ cứu,⚠️,⚠️,System hiện thông tin triệu chứng,"- Lấy điểm mức độ nghiêm trọng
+- Lấy thông tin triệu chứng ","SnakebiteIncident.SeverityLevel
+SnakebiteIncident.SymptomsReport",GET,/api/incidents/{id},,,,,
+P1,Member,Cứu hộ,Nhận diện được rắn,1-8,theo dõi sos khẩn cấp,⚠️,⚠️,,,,,,,,,,
+P1,Member,Cứu hộ,Nhận diện được rắn,1-9,cứu hộ đã đến,⚠️,⚠️,,,,,,,,,,
+P1,Member,Cứu hộ,Nhận diện được rắn,1-10,thanh toán và đánh giá sau cấp cứu,⚠️,⚠️,,,,,,,,,,
+P1,Member,Cứu hộ,Nhận diện được rắn,1-11,thanh toán thành công,⚠️,⚠️,,,,,,,,,,
+P1,Member,Cứu hộ,Nhận diện được rắn,1-12,bản đồ tìm kiếm bệnh viện có huyết thanh,⚠️,⚠️,,,,,,,,,,
+P1,Member,Cứu hộ,Không nhận điện,2-1,chọn rắn theo vị trí,⚠️,⚠️,,,,,,,,,,
+P1,Member,Cứu hộ,Không nhận điện,2-2,xác nhận loài rắn,⚠️,⚠️,,,,,,,,,,
+P1,Member,Cứu hộ,Không nhận điện,2-3,nhận dạng qua câu hỏi,⚠️,⚠️,,,,,,,,,,
+P1,Member,Cứu hộ,Không nhận điện,2-4,chọn rắn theo vị trí,⚠️,⚠️,,,,,,,,,,
+P1,Member,Cứu hộ,Không nhận điện,2-5,hướng dẫn sơ cứu chung,⚠️,⚠️,,,,,,,,,,
+P2,Member,Bắt rắn,Bắt 1 con rắn,3-1,Chọn số lượng rắn,⚠️,⚠️,,,,,,,,,,
+P2,Member,Bắt rắn,Bắt 1 con rắn,3-2,Báo cáo 1 con rắn,⚠️,⚠️,,,,,,,,,,
+P2,Member,Bắt rắn,Bắt 1 con rắn,3-3,Chọn loài rắn,⚠️,⚠️,,,,,,,,,,
+P2,Member,Bắt rắn,Bắt 1 con rắn,3-4,Kết quả rắn AI,⚠️,⚠️,,,,,,,,,,
+P2,Member,Bắt rắn,Bắt 1 con rắn,3-5,Xác nhận yêu cầu cứu hộ,⚠️,⚠️,,,,,,,,,,
+P2,Member,Bắt rắn,Bắt 1 con rắn,3-6,Đang tìm đội cứu hộ,⚠️,⚠️,,,,,,,,,,
+P2,Member,Bắt rắn,Bắt 1 con rắn,3-7,Theo dõi cứu hộ trực tiếp,⚠️,⚠️,,,,,,,,,,
+P2,Member,Bắt rắn,Bắt 1 con rắn,3-8,Đội cứu hộ đã đến,⚠️,⚠️,,,,,,,,,,
+P2,Member,Bắt rắn,Bắt 1 con rắn,3-9,Thanh toán tiền còn lại và đánh giá,⚠️,⚠️,,,,,,,,,,
+P2,Member,Bắt rắn,Bắt 1 con rắn,3-10,thanh toán thành công,⚠️,⚠️,,,,,,,,,,
+P2,Member,Bắt rắn,Bắt nhiều rắn,4-1,Báo cáo 2-5 Con rắn,⚠️,⚠️,,,,,,,,,,
+P2,Member,Bắt rắn,Bắt nhiều rắn,4-2,Chọn loài rắn (2-5 con),⚠️,⚠️,,,,,,,,,,
+P2,Member,Bắt rắn,Bắt nhiều rắn,4-3,Kết quả nhận diện nhiều rắn AI,⚠️,⚠️,,,,,,,,,,
+P2,Member,Bắt rắn,Bắt cả ổ rắn,5-1,Báo cáo ổ rắn / Nhiều con,⚠️,⚠️,,,,,,,,,,
+P2,Member,Bắt rắn,Bắt cả ổ rắn,5-2,Chọn loài rắn (ổ rắn / nhiều con),⚠️,⚠️,,,,,,,,,,
+P2,Member,Bắt rắn,Bắt cả ổ rắn,5-3,Kết quả phân tích ổ rắn / nhiều con,⚠️,⚠️,,,,,,,,,,
+P2,Member,Bắt rắn,,6-1,xác nhận cảnh báo cộng đồng,⚠️,⚠️,,,,,,,,,,
+P2,Member,Bắt rắn,,6-2,không tìm thấy đội cứu hộ,⚠️,⚠️,,,,,,,,,,
+P2,Member,Bắt rắn,,6-3,hủy cứu hộ,⚠️,⚠️,,,,,,,,,,

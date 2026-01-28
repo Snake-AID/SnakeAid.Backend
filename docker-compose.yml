@@ -1,6 +1,7 @@
 services:
   snakeaid-api:
     image: thekhiem7/snakeaid-api:latest
+    pull_policy: always
     # build:
     #   context: .
     #   dockerfile: Dockerfile
