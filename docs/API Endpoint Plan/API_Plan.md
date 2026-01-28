@@ -159,16 +159,16 @@ This document outlines the proposed API endpoints for the SnakeAid platform, der
 
 | | | | | |
 | :--- | :--- | :--- | :--- | :--- |
-| **GET** | `/api/identification/health` | Check SnakeAI service status & model info. | 📝 Planned | feature/SA004-SnakeAI_Intergration |
-| **POST** | `/api/identification/detect` | Upload image for identification (Wraps SnakeAI). | 📝 Planned | feature/SA004-SnakeAI_Intergration |
-| **GET** | `/api/identification/{id}` | Get result of a specific identification session. | 📝 Planned | feature/SA004-SnakeAI_Intergration |
+| **GET** | `/api/aivision/health` | Check SnakeAI service status & model info. | 📝 Planned | feature/SA004-SnakeAI_Intergration |
+| **POST** | `/api/aivision/detect` | Upload image for identification (Wraps SnakeAI). | 📝 Planned | feature/SA004-SnakeAI_Intergration |
+| **GET** | `/api/aivision/{id}` | Get result of a specific identification session. | 📝 Planned | feature/SA004-SnakeAI_Intergration |
 
 ### Expert Verification
 
 | | | | | |
 | :--- | :--- | :--- | :--- | :--- |
-| **POST** | `/api/identification/{id}/request-verification` | Request expert review for an AI result. | 📝 Planned | - |
-| **POST** | `/api/identification/{id}/verify` | Confirm or correct the species (Expert Only). | 📝 Planned | - |
+| **POST** | `/api/aivision/{id}/request-verification` | Request expert review for an AI result. | 📝 Planned | - |
+| **POST** | `/api/aivision/{id}/verify` | Confirm or correct the species (Expert Only). | 📝 Planned | - |
 
 ---
 
