@@ -2,9 +2,14 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using Polly;
+using Polly.Extensions.Http;
+using Refit;
 using SnakeAid.Core.Domains;
 using SnakeAid.Core.Settings;
 using SnakeAid.Repository.Data;
+using SnakeAid.Service.Implements;
+using SnakeAid.Service.Interfaces;
 using System.Security.Claims;
 using System.Text;
 
@@ -31,7 +36,37 @@ public static class DependencyInjection
             }
         }
 
+        // Register SnakeAI Service with Refit and Polly
+        var snakeAIBaseUrl = configuration["SnakeAI:BaseUrl"] ?? "http://localhost:8000";
+
+        services
+            .AddRefitClient<ISnakeAIApi>()
+            .ConfigureHttpClient(c =>
+            {
+                c.BaseAddress = new Uri(snakeAIBaseUrl);
+                c.Timeout = TimeSpan.FromSeconds(30);
+            })
+            .AddPolicyHandler(GetRetryPolicy())
+            .AddPolicyHandler(GetCircuitBreakerPolicy());
+
+        services.AddScoped<ISnakeAIService, SnakeAIService>();
+
         return services;
+    }
+
+    private static IAsyncPolicy<HttpResponseMessage> GetRetryPolicy()
+    {
+        return HttpPolicyExtensions
+            .HandleTransientHttpError()
+            .WaitAndRetryAsync(3, retryAttempt =>
+                TimeSpan.FromSeconds(Math.Pow(2, retryAttempt)));
+    }
+
+    private static IAsyncPolicy<HttpResponseMessage> GetCircuitBreakerPolicy()
+    {
+        return HttpPolicyExtensions
+            .HandleTransientHttpError()
+            .CircuitBreakerAsync(5, TimeSpan.FromSeconds(30));
     }
 
     #endregion
@@ -103,6 +138,24 @@ public static class DependencyInjection
                 };
                 options.RequireHttpsMetadata = true;
                 options.SaveToken = true;
+
+                // Auto-add "Bearer " prefix if missing
+                options.Events = new JwtBearerEvents
+                {
+                    OnMessageReceived = context =>
+                    {
+                        var authHeader = context.Request.Headers["Authorization"].FirstOrDefault();
+                        if (!string.IsNullOrEmpty(authHeader))
+                        {
+                            // If token doesn't start with "Bearer ", add it
+                            if (!authHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+                            {
+                                context.Token = authHeader;
+                            }
+                        }
+                        return Task.CompletedTask;
+                    }
+                };
             });
 
         services.AddAuthorization();
