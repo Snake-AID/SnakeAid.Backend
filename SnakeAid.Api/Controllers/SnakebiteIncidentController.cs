@@ -30,7 +30,7 @@ namespace SnakeAid.Api.Controllers
         }
 
         /// <summary>
-        /// Create first snakebite incident report
+        /// Create first snakebite incident report and first rescue request session before dispatching rescuers
         /// </summary>
         [HttpPost("sos")]
         [SwaggerOperation(Summary = "Create Snakebite Incident", Description = "Report Snakebite Incident Emergency Rescue")]
@@ -41,8 +41,14 @@ namespace SnakeAid.Api.Controllers
         {
             var userId = GetCurrentUserId();
 
+            // Create incident and first rescue request session
             var result = await _incidentService.CreateIncidentAsync(request, userId);
             return StatusCode(result.StatusCode, result);
         }
+
+        /// <summary>
+        /// Update snakebite incident report and rescue request session while dispatching rescuers
+        /// </summary>
+        
     }
 }
