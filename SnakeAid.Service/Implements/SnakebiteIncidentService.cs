@@ -14,6 +14,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Mapster;
 
 namespace SnakeAid.Service.Implements
 {
@@ -69,17 +70,7 @@ namespace SnakeAid.Service.Implements
                     await _unitOfWork.GetRepository<SnakebiteIncident>().InsertAsync(newIncident);
                     await _unitOfWork.CommitAsync();
 
-                    var responseData = new CreateIncidentResponse
-                    {
-                        Id = newIncident.Id,
-                        UserId = newIncident.UserId,
-                        Location = newIncident.Location,
-                        LocationCoordinates = newIncident.LocationCoordinates,
-                        Status = newIncident.Status,
-                        CurrentSessionNumber = newIncident.CurrentSessionNumber,
-                        CurrentRadiusKm = newIncident.CurrentRadiusKm,
-                        IncidentOccurredAt = newIncident.IncidentOccurredAt
-                    };
+                    var responseData = newIncident.Adapt<CreateIncidentResponse>();
 
                     return ApiResponseBuilder.BuildSuccessResponse(responseData, "Snakebite Incident created successfully!");
                 });
