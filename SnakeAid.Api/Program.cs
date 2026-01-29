@@ -11,6 +11,7 @@ using Serilog.Ui.Web.Extensions;
 using SnakeAid.Core.Mappings;
 using SnakeAid.Core.Middlewares;
 using SnakeAid.Api.DI;
+using SnakeAid.Api.Hubs;
 using SnakeAid.Repository.Data;
 using SQLitePCL;
 using Swashbuckle.AspNetCore.SwaggerUI;
@@ -107,9 +108,20 @@ namespace SnakeAid.Api
                 {
                     options.AddPolicy("AllowAll", policy =>
                     {
-                        policy.AllowAnyOrigin()
+                        policy.SetIsOriginAllowed(_ => true)
                             .AllowAnyMethod()
-                            .AllowAnyHeader();
+                            .AllowAnyHeader()
+                            .AllowCredentials(); // Required for SignalR
+                    });
+
+                    // Specific policy for SignalR
+                    options.AddPolicy("SignalRCorsPolicy", policy =>
+                    {
+                        policy.SetIsOriginAllowed(_ => true)
+                            .AllowAnyMethod()
+                            .AllowAnyHeader()
+                            .AllowCredentials()
+                            .WithExposedHeaders("Access-Control-Allow-Origin");
                     });
                 });
 
@@ -121,6 +133,20 @@ namespace SnakeAid.Api
                 });
 
                 builder.Services.AddControllers();
+
+                // Add SignalR
+                builder.Services.AddSignalR(options =>
+                {
+                    options.EnableDetailedErrors = builder.Environment.IsDevelopment();
+                    options.KeepAliveInterval = TimeSpan.FromMinutes(1);
+                    options.ClientTimeoutInterval = TimeSpan.FromMinutes(2);
+                    options.HandshakeTimeout = TimeSpan.FromSeconds(30);
+                    options.MaximumReceiveMessageSize = 64 * 1024; // 64KB
+                    options.StreamBufferCapacity = 10;
+                }).AddJsonProtocol(options =>
+                {
+                    options.PayloadSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
+                });
 
                 builder.Services.AddAuthenticateAuthor(builder.Configuration);
 
@@ -231,12 +257,19 @@ namespace SnakeAid.Api
 
                 app.UseSerilogRequestLogging();
 
-                app.UseHttpsRedirection();
+                // Only use HTTPS redirection in production
+                if (!app.Environment.IsDevelopment())
+                {
+                    app.UseHttpsRedirection();
+                }
 
                 app.UseAuthentication();
                 app.UseAuthorization();
 
                 app.UseSerilogUi(options => options.WithRoutePrefix("logs"));
+
+                // Map SignalR Hub with specific CORS policy
+                app.MapHub<TestChatHub>("/chat-hub").RequireCors("SignalRCorsPolicy");
 
                 app.MapControllers();
 
