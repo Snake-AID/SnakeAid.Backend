@@ -1,6 +1,6 @@
-# AI Vision Detection - Usage Guide
+# Snake Detection API - Usage Guide
 
-> **Endpoint:** `POST /api/aivision/detect`  
+> **Endpoint:** `POST /api/detection/detect`  
 > **Auth:** Bearer Token required
 
 ---
@@ -10,24 +10,27 @@
 ### Request
 
 ```http
-POST /api/aivision/detect
+POST /api/detection/detect
 Content-Type: application/json
 Authorization: Bearer {your_token}
 
 {
-  "imageUrl": "https://res.cloudinary.com/snakeaid/image/upload/v123/snake.jpg",
-  "confidence": 0.25
+  "imageUrl": "https://res.cloudinary.com/snakeaid/image/upload/v123/snake.jpg"
 }
 ```
 
-### Response
+### Response Format
 
 ```json
 {
-  "modelVersion": "snake-yolo12-v1.0",
-  "imageWidth": 640,
-  "imageHeight": 480,
-  "topClassName": "naja_kaouthia",
+  "statusCode": 200,
+  "message": "Snake detection completed successfully.",
+  "isSuccess": true,
+  "data": {
+    "modelVersion": "snake-yolo12-v1.0",
+    "imageWidth": 640,
+    "imageHeight": 480,
+    "topClassName": "naja_kaouthia",
   "topConfidence": 0.89,
   "detectionCount": 1,
   "detections": [

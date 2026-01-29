@@ -1,8 +1,8 @@
-# Snake Detection - Giới thiệu
+# AI Vision Detection - Giới thiệu
 
 ## Tổng quan
 
-`POST /api/detection/detect` là endpoint cho phép nhận diện loài rắn từ ảnh sử dụng YOLO model. Endpoint này đóng vai trò **wrapper** cho SnakeAI FastAPI service (`/detect/url`).
+`POST /api/aivision/detect` là endpoint cho phép nhận diện loài rắn từ ảnh sử dụng YOLO model. Endpoint này đóng vai trò **wrapper** cho SnakeAI FastAPI service (`/detect/url`).
 
 ## Vị trí trong User Flow
 
@@ -17,7 +17,7 @@ Chọn phương án **tách riêng** upload và AI detection:
 | Endpoint | Mục đích |
 |----------|----------|
 | `POST /api/media/upload-image` | Upload ảnh lên Cloudinary → trả về `imageUrl` |
-| `POST /api/detection/detect` | Nhận `imageUrl` → gọi SnakeAI → trả về kết quả |
+| `POST /api/aivision/detect` | Nhận `imageUrl` → gọi SnakeAI → trả về kết quả |
 
 **Lợi ích:**
 - ✅ Reusable: upload endpoint dùng cho nhiều mục đích khác

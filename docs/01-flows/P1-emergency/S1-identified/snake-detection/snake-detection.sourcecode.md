@@ -1,7 +1,21 @@
-# AI Vision Detection - Source Code Reference
+# Snake Detection - Source Code Reference
 
 > **Status:** ✅ Implemented  
 > **Last Updated:** 2026-01-29
+
+---
+
+## Architecture Overview
+
+**Frontend-facing API:**
+- `SnakeDetectionController` at `/api/detection`
+- Simple `SnakeDetectionRequest` with just `ImageUrl`
+- Returns `ApiResponse<SnakeDetectionResponse>` wrapper
+
+**External ML Integration:**
+- `SnakeAIService` calls external SnakeAI FastAPI
+- Detailed `SnakeAIDetectRequest` with ML parameters
+- Data mapping between frontend ↔ external formats
 
 ---
 
@@ -10,43 +24,23 @@
 ```
 SnakeAid.Backend/
 ├── SnakeAid.Core/
-│   ├── Requests/AIVision/
-│   │   └── SnakeAIDetectRequest.cs
-│   └── Responses/AIVision/
-│       └── SnakeAIDetectResponse.cs
+│   ├── Requests/SnakeDetection/
+│   │   └── SnakeDetectionRequest.cs       (Frontend)
+│   ├── Requests/SnakeAI/
+│   │   └── SnakeAIDetectRequest.cs         (External)
+│   ├── Responses/SnakeDetection/
+│   │   └── SnakeDetectionResponse.cs       (Frontend)
+│   └── Responses/SnakeAI/
+│       └── SnakeAIDetectResponse.cs        (External)
 ├── SnakeAid.Service/
-│   ├── Interfaces/External/
-│   │   ├── ISnakeAIApi.cs
-│   │   └── ISnakeAIService.cs
-│   └── Implements/External/
-│       └── SnakeAIService.cs
+│   ├── Interfaces/
+│   │   ├── ISnakeAIApi.cs                  (Refit interface)
+│   │   └── ISnakeAIService.cs              (Service interface)
+│   └── Implements/
+│       └── SnakeAIService.cs               (Data mapping)
 └── SnakeAid.Api/
-    ├── Controllers/
-    │   └── AIVisionController.cs
-    ├── DI/
-    │   └── DependencyInjection.cs (updated)
-    └── appsettings.json (updated)
-```
-
----
-
-## DTOs
-
-### [SnakeAIDetectRequest.cs](file:///d:/SourceCode/Snake_AID/SnakeAid.Backend/SnakeAid.Core/Requests/AIVision/SnakeAIDetectRequest.cs)
-
-Request DTO for SnakeAI FastAPI `/detect/url` endpoint.
-
-```csharp
-public class SnakeAIDetectRequest
-{
-    [JsonPropertyName("image_url")]
-    public required string ImageUrl { get; set; }
-    
-    [JsonPropertyName("conf")]
-    public float Confidence { get; set; } = 0.25f; // Note: populated by server from SnakeAI settings; not supplied by client
-    
-    // ... other properties
-}
+    └── Controllers/
+        └── SnakeDetectionController.cs     (BaseController pattern)
 ```
 
 ### [SnakeAIDetectResponse.cs](file:///d:/SourceCode/Snake_AID/SnakeAid.Backend/SnakeAid.Core/Responses/AIVision/SnakeAIDetectResponse.cs)

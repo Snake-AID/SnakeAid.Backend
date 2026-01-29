@@ -1,17 +1,38 @@
-# AI Vision Detection - Implementation Prompt
+# Snake Detection API - Implementation Prompt
 
-> **Dành cho:** AI Agent (Antigravity, Copilot)  
-> **Mục tiêu:** Implement endpoints `POST /api/aivision/detect` và `GET /api/aivision/{id}`
+> **Dành cho:** AI Agent (Copilot)  
+> **Mục tiêu:** Implement endpoint `POST /api/detection/detect`
 
 ---
 
 ## Context
 
-Bạn đang implement endpoint nhận diện rắn bằng AI cho SnakeAid Backend. Endpoint này nhận `imageUrl` từ Cloudinary và gọi SnakeAI FastAPI service để detect.
+Endpoint nhận diện rắn bằng AI cho SnakeAid Backend. Endpoint nhận `imageUrl` từ Cloudinary và gọi SnakeAI FastAPI service.
+
+**Architecture:**
+- **Frontend API**: `SnakeDetectionController` with BaseController pattern
+- **External Integration**: `SnakeAIService` with data mapping  
+- **DTOs**: Separate namespaces for frontend vs external
 
 **Tham khảo:**
-- [Implementation Plan](aivision-detect.plan.md) - Architecture, entity, packages
-- [SnakeAI API Reference](../../../02-layers/ai/SankeAi.introduction.md) - FastAPI endpoint details
+- [Implementation Plan](snake-detection.plan.md) - Architecture details
+- [SnakeAI API Reference](../../../02-layers/ai/SankeAi.introduction.md) - External API
+
+---
+
+## Key Requirements
+
+### 1. Naming Convention
+- **Frontend**: SnakeDetection (simple, user-facing)
+- **External**: SnakeAI (detailed, ML-specific)
+
+### 2. Response Format
+- Use `ApiResponse<SnakeDetectionResponse>` wrapper
+- Follow `StatusCode(result.StatusCode, result)` pattern
+
+### 3. Data Mapping
+- Map between SnakeAI response → SnakeDetection response
+- Transform bounding box format: `{x1,y1,x2,y2}` → `{x,y,width,height}`
 
 ---
 

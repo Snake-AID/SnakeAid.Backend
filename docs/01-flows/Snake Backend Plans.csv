@@ -10,14 +10,14 @@ P1,Member,Cứu hộ,Nhận diện được rắn,1-3,chụp ảnh rắn để A
      + Querry ngược về loài rắn","Report_Media.MediaUrl
 .
 SnakeAIRecognitionResult.AIModelId YoloClassName Confidence
-AiModel -> AISnakeClassMapping -> SnakeSpecies.CommonName => SnakeAIRecognitionResult.DetectedSpeciesId",POST,/api/aivision/detect,,,,,
+AiModel -> AISnakeClassMapping -> SnakeSpecies.CommonName => SnakeAIRecognitionResult.DetectedSpeciesId",POST,/api/detection/detect,,,,,
 P1,Member,Cứu hộ,Nhận diện được rắn,1-4,kết quả nhận diện loài rắn bằng AI,⚠️,⚠️,System trả kết quả sau khi chụp,"- Lấy snake_specie từ model
 - Lấy thông tin ""Cần làm ngay"" từ thư viện rắn
      + Check: `FirstAidGuidelineOverride`
      + Nếu ko có thì tìm:","SnakeSpecies
 .
 SnakeSpecies.FirstAidGuidelineOverride
-SnakeSpecies -> SpeciesVenom -> VenomType -> FirstAidGuideline.Content",RESPONSE,/api/aivision/detect,,,,,
+SnakeSpecies -> SpeciesVenom -> VenomType -> FirstAidGuideline.Content",RESPONSE,/api/detection/detect,,,,,
 P1,Member,Cứu hộ,Nhận diện được rắn,1-5,hướng dẫn sơ cứu theo loài,⚠️,⚠️,User bấm xem cách sơ cứu,- Lấy hướng dẫn sơ cứu,SnakeSpecies.SpeciesVenom.VenomType.FirstAidGuideline,GET,/api/first-aid/species/{slug},,,,,
 P1,Member,Cứu hộ,Nhận diện được rắn,1-6,nhập triệu chứng và chụp vết cắn,⚠️,⚠️,User nhập các yếu tố về vết cắn,"- Fill jsonB triệu chứng
 - Tính severity point cho incident","SnakebiteIncident.SeverityLevel

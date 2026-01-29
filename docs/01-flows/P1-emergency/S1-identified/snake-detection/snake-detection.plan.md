@@ -1,4 +1,4 @@
-# AI Vision Detection - Implementation Plan
+# Snake Detection - Implementation Plan
 
 ## Phân tích hiện trạng
 
@@ -10,8 +10,8 @@
 - Package `Refit` + `Refit.HttpClientFactory` đã cài sẵn
 
 ### Cần implement 📝
-- `POST /api/aivision/detect` - Wrapper endpoint trong ASP.NET backend
-- `GET /api/aivision/{id}` - Lấy kết quả detection đã lưu
+- `POST /api/detection/detect` - Wrapper endpoint trong ASP.NET backend
+- `GET /api/detection/{id}` - Lấy kết quả detection đã lưu
 - Service layer gọi SnakeAI FastAPI (sử dụng Refit)
 
 > **Note:** `/health` endpoint từ FastAPI chỉ dùng nội bộ trong service layer để kiểm tra trước khi gọi AI, không expose ra client.
@@ -21,7 +21,7 @@
 ```
 ┌─────────────┐      ┌──────────────────┐      ┌─────────────────┐
 │   Client    │ ---> │  ASP.NET Backend │ ---> │  SnakeAI FastAPI│
-│  (Mobile)   │      │  /api/aivision   │      │  /detect/url    │
+│  (Mobile)   │      │ /api/detection│     │  /detect/url    │
 └─────────────┘      └──────────────────┘      └─────────────────┘
                               │                        │
                               v                        v
