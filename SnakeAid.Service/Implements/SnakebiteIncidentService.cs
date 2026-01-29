@@ -114,9 +114,12 @@ namespace SnakeAid.Service.Implements
 
                 return await _unitOfWork.ExecuteInTransactionAsync(async () =>
                 {
+                    // Load incident with all required navigation properties
                     var existingIncident = await _unitOfWork.GetRepository<SnakebiteIncident>().FirstOrDefaultAsync(
                             predicate: s => s.Id == request.IncidentId,
-                            include: m => m.Include(i => i.Sessions)
+                            include: query => query
+                                .Include(i => i.Sessions)
+                                .Include(i => i.User)
                         );
 
                     if (existingIncident == null)
@@ -183,13 +186,20 @@ namespace SnakeAid.Service.Implements
                     };
 
                     await _unitOfWork.GetRepository<RescueRequestSession>().InsertAsync(newSession);
-                    existingIncident.Sessions.Add(newSession);
-
-                    _unitOfWork.GetRepository<SnakebiteIncident>().Update(existingIncident);
+                    
+                    // No need to call Update() - entity is already tracked and EF Core will auto-detect changes
                     await _unitOfWork.CommitAsync();
 
+                    // Reload sessions collection from DB to ensure consistency and proper order
+                    await _unitOfWork.Context.Entry(existingIncident)
+                        .Collection(i => i.Sessions)
+                        .LoadAsync();
+
                     var responseData = existingIncident.Adapt<CreateIncidentResponse>();
+                    // Manually set LocationCoordinates since Mapster doesn't handle NetTopologySuite Point
+                    responseData.LocationCoordinates = existingIncident.LocationCoordinates;
                     responseData.Sessions = existingIncident.Sessions
+                        .OrderBy(s => s.SessionNumber)
                         .Select(s => s.Adapt<CreateRescueRequestSessionResponse>())
                         .ToList();
 
