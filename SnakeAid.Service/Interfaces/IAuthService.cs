@@ -1,3 +1,4 @@
+using SnakeAid.Core.Enums;
 using SnakeAid.Core.Meta;
 using SnakeAid.Core.Requests.Auth;
 using SnakeAid.Core.Responses.Auth;
@@ -9,7 +10,7 @@ public interface IAuthService
     /// <summary>
     /// Register a new user account
     /// </summary>
-    Task<ApiResponse<AuthResponse>> RegisterAsync(RegisterRequest request);
+    Task<ApiResponse<AuthResponse>> RegisterAsync(RegisterRequest request, RegisterRole? targetRole);
 
     /// <summary>
     /// Login with email and password
@@ -30,4 +31,9 @@ public interface IAuthService
     /// Logout - invalidate refresh token
     /// </summary>
     Task<ApiResponse<object>> LogoutAsync(Guid userId);
+
+    /// <summary>
+    /// Verify account with OTP and activate user
+    /// </summary>
+    Task<ApiResponse<VerifyAccountResponse>> VerifyAccountAsync(VerifyAccountRequest request);
 }

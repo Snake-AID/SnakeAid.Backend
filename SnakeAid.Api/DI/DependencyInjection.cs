@@ -14,9 +14,22 @@ public static class DependencyInjection
 {
     #region service he thong
 
-    public static IServiceCollection AddServices(this IServiceCollection services)
+    public static IServiceCollection AddServices(this IServiceCollection services, IConfiguration configuration)
     {
+        var cloudinarySection = configuration.GetSection("Cloudinary");
+        services.Configure<CloudinarySettings>(cloudinarySection);
 
+        if (cloudinarySection.Exists())
+        {
+            var cloudinarySettings = cloudinarySection.Get<CloudinarySettings>();
+            if (cloudinarySettings is null ||
+                string.IsNullOrWhiteSpace(cloudinarySettings.CloudName) ||
+                string.IsNullOrWhiteSpace(cloudinarySettings.ApiKey) ||
+                string.IsNullOrWhiteSpace(cloudinarySettings.ApiSecret))
+            {
+                throw new InvalidOperationException("Cloudinary settings are not configured properly.");
+            }
+        }
 
         return services;
     }

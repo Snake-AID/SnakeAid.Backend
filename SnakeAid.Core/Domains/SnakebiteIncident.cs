@@ -19,7 +19,7 @@ namespace SnakeAid.Core.Domains
 
         [Required]
         [MaxLength(1000)]
-        public string Location { get; set; }
+        public string Location { get; set; } = "location not set";
 
         [Required]
         [Column(TypeName = "geometry(Point, 4326)")]

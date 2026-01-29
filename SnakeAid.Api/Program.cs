@@ -80,8 +80,8 @@ namespace SnakeAid.Api
                         });
                 });
 
-                // // Add IUnitOfWork and UnitOfWork
-                // builder.Services.AddScoped<IUnitOfWork<SnakeAidDbContext>, UnitOfWork<SnakeAidDbContext>>();
+                // Add IUnitOfWork and UnitOfWork
+                builder.Services.AddScoped<SnakeAid.Repository.Interfaces.IUnitOfWork<SnakeAidDbContext>, SnakeAid.Repository.Implements.UnitOfWork<SnakeAidDbContext>>();
 
                 // Register Mapster
                 var config = TypeAdapterConfig.GlobalSettings;
@@ -89,7 +89,17 @@ namespace SnakeAid.Api
                 builder.Services.AddSingleton(config);
                 builder.Services.AddScoped<IMapper, ServiceMapper>();
 
-                builder.Services.AddServices();
+                // Register OtpUtil
+                builder.Services.AddScoped<SnakeAid.Core.Utils.OtpUtil>();
+
+                // Register Email services
+                builder.Services.AddHttpClient(); // For ResendEmailSender
+                builder.Services.AddScoped<SnakeAid.Service.Implements.Email.Providers.ResendEmailSender>();
+                builder.Services.AddScoped<SnakeAid.Service.Implements.Email.Providers.SmtpEmailSender>();
+                builder.Services.AddScoped<SnakeAid.Service.Implements.Email.Providers.EmailProviderService>();
+                builder.Services.AddScoped<SnakeAid.Service.Implements.Email.EmailTemplateService>();
+
+                builder.Services.AddServices(builder.Configuration);
 
                 // Register services using Scrutor
                 builder.Services.Scan(scan => scan
@@ -130,6 +140,7 @@ namespace SnakeAid.Api
                 builder.Services.AddControllers().AddJsonOptions(options =>
                 {
                     options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+                    options.JsonSerializerOptions.Converters.Add(new SnakeAid.Core.Converters.PointJsonConverter());
                 });
 
                 builder.Services.AddControllers();
@@ -171,15 +182,25 @@ namespace SnakeAid.Api
                 {
                     if (context.HostingEnvironment.IsDevelopment())
                     {
-                        // Local dev: both HTTP and HTTPS
-                        options.ListenAnyIP(5009);
-                        // options.ListenLocalhost(5009); // HTTP
-                        options.ListenLocalhost(7026, listenOptions => listenOptions.UseHttps());
+                        // Check if running in container
+                        var isContainer = Environment.GetEnvironmentVariable("DOTNET_RUNNING_IN_CONTAINER") == "true";
+                        
+                        if (isContainer)
+                        {
+                            // Docker container: HTTP only
+                            options.ListenAnyIP(8080);
+                        }
+                        else
+                        {
+                            // Local dev: both HTTP and HTTPS
+                            options.ListenAnyIP(5009);
+                            options.ListenLocalhost(7026, listenOptions => listenOptions.UseHttps());
+                        }
                     }
                     else
                     {
-                        // Docker/Production: HTTP only
-                        options.ListenAnyIP(5009);
+                        // Production: HTTP only (HTTPS termination at reverse proxy)
+                        options.ListenAnyIP(8080);
                     }
                 });
 

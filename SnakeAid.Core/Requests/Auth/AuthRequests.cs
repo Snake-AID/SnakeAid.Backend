@@ -1,3 +1,4 @@
+using SnakeAid.Core.Domains;
 using System.ComponentModel.DataAnnotations;
 
 namespace SnakeAid.Core.Requests.Auth;
@@ -17,6 +18,10 @@ public class RegisterRequest
 
     [Phone(ErrorMessage = "Invalid phone number format")]
     public string? PhoneNumber { get; set; }
+    public RescuerType? Type { get; set; }
+
+    [MaxLength(2000)]
+    public string? Biography { get; set; }
 }
 
 public class LoginRequest

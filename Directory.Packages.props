@@ -24,6 +24,7 @@
     <PackageVersion Include="MailKit" Version="4.11.0" />
     <PackageVersion Include="MimeKit" Version="4.11.0" />
     <PackageVersion Include="NETCore.MailKit" Version="2.1.0" />
+    <PackageVersion Include="Otp.NET" Version="1.4.1" />
     <PackageVersion Include="PreMailer.Net" Version="2.6.0" />
     <PackageVersion Include="RazorLight" Version="2.3.1" />
     <PackageVersion Include="Refit" Version="7.2.22" />
