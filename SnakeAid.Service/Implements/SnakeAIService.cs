@@ -1,6 +1,8 @@
+using System.Net;
 using Microsoft.Extensions.Logging;
-using SnakeAid.Core.Requests.AIVision;
-using SnakeAid.Core.Responses.AIVision;
+using SnakeAid.Core.Meta;
+using SnakeAid.Core.Requests.SnakeAI;
+using SnakeAid.Core.Responses.SnakeDetection;
 using SnakeAid.Core.Settings;
 using SnakeAid.Service.Interfaces;
 
@@ -23,7 +25,7 @@ public class SnakeAIService : ISnakeAIService
     }
 
     /// <inheritdoc />
-    public async Task<SnakeAIDetectResponse> DetectAsync(string imageUrl)
+    public async Task<ApiResponse<SnakeDetectionResponse>> DetectAsync(string imageUrl)
     {
         var request = new SnakeAIDetectRequest
         {
@@ -40,20 +42,55 @@ public class SnakeAIService : ISnakeAIService
 
         try
         {
-            var response = await _api.DetectByUrlAsync(request);
+            var result = await _api.DetectByUrlAsync(request);
+
+            var topDetection = result.Detections
+                .OrderByDescending(d => d.Confidence)
+                .FirstOrDefault();
 
             _logger.LogInformation(
                 "SnakeAI detected {Count} objects. Top: {TopClass} ({TopConfidence:P0})",
-                response.Detections.Count,
-                response.Detections.FirstOrDefault()?.ClassName ?? "none",
-                response.Detections.FirstOrDefault()?.Confidence ?? 0);
+                result.Detections.Count,
+                topDetection?.ClassName ?? "none",
+                topDetection?.Confidence ?? 0);
 
-            return response;
+            var response = new SnakeDetectionResponse
+            {
+                ModelVersion = result.ModelVersion,
+                ImageWidth = result.ImageWidth,
+                ImageHeight = result.ImageHeight,
+                TopClassName = topDetection?.ClassName,
+                TopConfidence = topDetection?.Confidence,
+                DetectionCount = result.Detections.Count,
+                Detections = result.Detections.Select(d => new Core.Responses.SnakeDetection.SnakeAIDetection
+                {
+                    ClassId = d.ClassId,
+                    ClassName = d.ClassName,
+                    Confidence = d.Confidence,
+                    X = d.Bbox.X1,
+                    Y = d.Bbox.Y1,
+                    Width = d.Bbox.X2 - d.Bbox.X1,
+                    Height = d.Bbox.Y2 - d.Bbox.Y1
+                }).ToList(),
+                Warnings = result.Warnings != null ? new Core.Responses.SnakeDetection.SnakeAIWarnings
+                {
+                    Blur = result.Warnings.Blur,
+                    Brightness = result.Warnings.Brightness,
+                    TooSmall = result.Warnings.TooSmall
+                } : null
+            };
+
+            return ApiResponseBuilder.BuildSuccessResponse(response, "Snake detection completed successfully.");
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "SnakeAI detection failed for URL: {Url}", imageUrl);
-            throw;
+            return ApiResponseBuilder.CreateResponse<SnakeDetectionResponse>(
+                null,
+                false,
+                "Snake detection failed. Please try again later.",
+                HttpStatusCode.InternalServerError,
+                "DETECTION_FAILED");
         }
     }
 

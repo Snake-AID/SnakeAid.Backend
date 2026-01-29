@@ -1,4 +1,5 @@
-using SnakeAid.Core.Responses.AIVision;
+using SnakeAid.Core.Meta;
+using SnakeAid.Core.Responses.SnakeDetection;
 
 namespace SnakeAid.Service.Interfaces;
 
@@ -11,8 +12,8 @@ public interface ISnakeAIService
     /// Detect snake from image URL. Confidence threshold is taken from configured SnakeAI settings.
     /// </summary>
     /// <param name="imageUrl">Public URL of the image (Cloudinary)</param>
-    /// <returns>Detection response with results</returns>
-    Task<SnakeAIDetectResponse> DetectAsync(string imageUrl);
+    /// <returns>API response with detection results</returns>
+    Task<ApiResponse<SnakeDetectionResponse>> DetectAsync(string imageUrl);
 
     /// <summary>
     /// Check if SnakeAI service is healthy (internal use)

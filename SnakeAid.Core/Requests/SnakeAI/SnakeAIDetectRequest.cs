@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace SnakeAid.Core.Requests.AIVision;
+namespace SnakeAid.Core.Requests.SnakeAI;
 
 /// <summary>
 /// Request DTO for SnakeAI FastAPI /detect/url endpoint

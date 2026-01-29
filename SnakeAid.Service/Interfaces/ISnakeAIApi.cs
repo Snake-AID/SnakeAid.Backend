@@ -1,6 +1,6 @@
 using Refit;
-using SnakeAid.Core.Requests.AIVision;
-using SnakeAid.Core.Responses.AIVision;
+using SnakeAid.Core.Requests.SnakeAI;
+using SnakeAid.Core.Responses.SnakeAI;
 
 namespace SnakeAid.Service.Interfaces;
 

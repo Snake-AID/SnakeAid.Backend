@@ -1,10 +1,7 @@
 using System.Text.Json.Serialization;
 
-namespace SnakeAid.Core.Responses.AIVision;
+namespace SnakeAid.Core.Responses.SnakeAI;
 
-/// <summary>
-/// Response from SnakeAI FastAPI /detect/url endpoint
-/// </summary>
 public class SnakeAIDetectResponse
 {
     [JsonPropertyName("model_version")]
@@ -65,9 +62,6 @@ public class BoundingBox
     public int Y2 { get; set; }
 }
 
-/// <summary>
-/// Response from SnakeAI FastAPI /health endpoint
-/// </summary>
 public class SnakeAIHealthResponse
 {
     [JsonPropertyName("status")]
@@ -78,7 +72,4 @@ public class SnakeAIHealthResponse
 
     [JsonPropertyName("model_version")]
     public string ModelVersion { get; set; } = string.Empty;
-
-    [JsonPropertyName("uptime_s")]
-    public int UptimeSeconds { get; set; }
 }
