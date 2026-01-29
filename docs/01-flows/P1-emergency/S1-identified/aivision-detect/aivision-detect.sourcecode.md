@@ -43,7 +43,7 @@ public class SnakeAIDetectRequest
     public required string ImageUrl { get; set; }
     
     [JsonPropertyName("conf")]
-    public float Confidence { get; set; } = 0.25f;
+    public float Confidence { get; set; } = 0.25f; // Note: populated by server from SnakeAI settings; not supplied by client
     
     // ... other properties
 }
@@ -96,9 +96,9 @@ Service interface with business logic.
 ```csharp
 public interface ISnakeAIService
 {
-    Task<SnakeAIDetectResponse> DetectAsync(string imageUrl, float confidence = 0.25f);
+    Task<SnakeAIDetectResponse> DetectAsync(string imageUrl);
     Task<bool> IsHealthyAsync();
-}
+} 
 ```
 
 ### [SnakeAIService.cs](file:///d:/SourceCode/Snake_AID/SnakeAid.Backend/SnakeAid.Service/Implements/External/SnakeAIService.cs)
@@ -108,9 +108,26 @@ Implementation with logging and error handling.
 ```csharp
 public class SnakeAIService : ISnakeAIService
 {
-    public async Task<SnakeAIDetectResponse> DetectAsync(string imageUrl, float confidence = 0.25f)
+    private readonly SnakeAISettings _settings;
+
+    public SnakeAIService(ISnakeAIApi api, ILogger<SnakeAIService> logger, SnakeAISettings settings)
     {
-        _logger.LogInformation("Calling SnakeAI detect for URL: {Url}", imageUrl);
+        _api = api;
+        _logger = logger;
+        _settings = settings;
+    }
+
+    public async Task<SnakeAIDetectResponse> DetectAsync(string imageUrl)
+    {
+        var request = new SnakeAIDetectRequest
+        {
+            ImageUrl = imageUrl,
+            Confidence = _settings.Confidence,
+            ImageSize = _settings.ImageSize,
+            Iou = _settings.IouThreshold
+        };
+
+        _logger.LogInformation("Calling SnakeAI detect for URL: {Url} with confidence {Conf}", imageUrl, _settings.Confidence);
         var response = await _api.DetectByUrlAsync(request);
         return response;
     }
@@ -147,7 +164,7 @@ public class AIVisionController : ControllerBase
             return StatusCode(503, ...);
 
         // 2. Call detection
-        var result = await _snakeAIService.DetectAsync(request.ImageUrl, request.Confidence);
+        var result = await _snakeAIService.DetectAsync(request.ImageUrl);
 
         // 3. Return response
         return Ok(new AIVisionDetectResponse { ... });

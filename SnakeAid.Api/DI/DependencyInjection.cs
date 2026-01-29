@@ -36,15 +36,21 @@ public static class DependencyInjection
             }
         }
 
-        // Register SnakeAI Service with Refit and Polly
-        var snakeAIBaseUrl = configuration["SnakeAI:BaseUrl"] ?? "http://localhost:8000";
+        // Configure SnakeAI Settings (Type-safe)
+        var snakeAISettings = configuration.GetSection("SnakeAI").Get<SnakeAISettings>();
+        if (snakeAISettings is null)
+        {
+            throw new InvalidOperationException("SnakeAI settings are not configured properly.");
+        }
+        services.AddSingleton(snakeAISettings);
 
+        // Register SnakeAI Service with Refit and Polly
         services
             .AddRefitClient<ISnakeAIApi>()
             .ConfigureHttpClient(c =>
             {
-                c.BaseAddress = new Uri(snakeAIBaseUrl);
-                c.Timeout = TimeSpan.FromSeconds(30);
+                c.BaseAddress = new Uri(snakeAISettings.BaseUrl);
+                c.Timeout = TimeSpan.FromSeconds(snakeAISettings.TimeoutSeconds);
             })
             .AddPolicyHandler(GetRetryPolicy())
             .AddPolicyHandler(GetCircuitBreakerPolicy());

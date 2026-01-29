@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Logging;
 using SnakeAid.Core.Requests.AIVision;
 using SnakeAid.Core.Responses.AIVision;
+using SnakeAid.Core.Settings;
 using SnakeAid.Service.Interfaces;
 
 namespace SnakeAid.Service.Implements;
@@ -12,24 +13,30 @@ public class SnakeAIService : ISnakeAIService
 {
     private readonly ISnakeAIApi _api;
     private readonly ILogger<SnakeAIService> _logger;
+    private readonly SnakeAISettings _settings;
 
-    public SnakeAIService(ISnakeAIApi api, ILogger<SnakeAIService> logger)
+    public SnakeAIService(ISnakeAIApi api, ILogger<SnakeAIService> logger, SnakeAISettings settings)
     {
         _api = api;
         _logger = logger;
+        _settings = settings;
     }
 
     /// <inheritdoc />
-    public async Task<SnakeAIDetectResponse> DetectAsync(string imageUrl, float confidence = 0.25f)
+    public async Task<SnakeAIDetectResponse> DetectAsync(string imageUrl)
     {
         var request = new SnakeAIDetectRequest
         {
             ImageUrl = imageUrl,
-            Confidence = confidence
+            Confidence = _settings.Confidence,
+            ImageSize = _settings.ImageSize,
+            Iou = _settings.IouThreshold,
+            TopK = _settings.TopK,
+            SaveImage = _settings.SaveImage
         };
 
         _logger.LogInformation("Calling SnakeAI detect for URL: {Url} with confidence: {Confidence}",
-            imageUrl, confidence);
+            imageUrl, _settings.Confidence);
 
         try
         {

@@ -43,20 +43,6 @@ public class AIVisionController : ControllerBase
             return BadRequest(new { error = "ImageUrl is required" });
         }
 
-        // Normalize confidence: if > 1, assume percentage and convert to ratio
-        var confidence = request.Confidence;
-        if (confidence > 1)
-        {
-            confidence = confidence / 100f;
-            _logger.LogInformation("Confidence normalized from {Original} to {Normalized}", request.Confidence, confidence);
-        }
-
-        // Validate confidence range
-        if (confidence < 0 || confidence > 1)
-        {
-            return BadRequest(new { error = "Confidence must be between 0.0 and 1.0" });
-        }
-
         // Check if AI service is available
         if (!await _snakeAIService.IsHealthyAsync())
         {
@@ -70,7 +56,7 @@ public class AIVisionController : ControllerBase
 
         try
         {
-            var result = await _snakeAIService.DetectAsync(request.ImageUrl, confidence);
+            var result = await _snakeAIService.DetectAsync(request.ImageUrl);
 
             var topDetection = result.Detections
                 .OrderByDescending(d => d.Confidence)

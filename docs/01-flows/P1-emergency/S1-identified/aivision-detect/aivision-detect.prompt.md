@@ -168,30 +168,34 @@ namespace SnakeAid.Infrastructure.External;
 
 public interface ISnakeAIService
 {
-    Task<SnakeAIDetectResponse> DetectAsync(string imageUrl, float confidence = 0.25f);
+    Task<SnakeAIDetectResponse> DetectAsync(string imageUrl);
     Task<bool> IsHealthyAsync();
-}
+} 
 
 public class SnakeAIService : ISnakeAIService
 {
     private readonly ISnakeAIApi _api;
     private readonly ILogger<SnakeAIService> _logger;
+    private readonly SnakeAISettings _settings;
 
-    public SnakeAIService(ISnakeAIApi api, ILogger<SnakeAIService> logger)
+    public SnakeAIService(ISnakeAIApi api, ILogger<SnakeAIService> logger, SnakeAISettings settings)
     {
         _api = api;
         _logger = logger;
+        _settings = settings;
     }
 
-    public async Task<SnakeAIDetectResponse> DetectAsync(string imageUrl, float confidence = 0.25f)
+    public async Task<SnakeAIDetectResponse> DetectAsync(string imageUrl)
     {
         var request = new SnakeAIDetectRequest
         {
             ImageUrl = imageUrl,
-            Confidence = confidence
+            Confidence = _settings.Confidence,
+            ImageSize = _settings.ImageSize,
+            Iou = _settings.IouThreshold
         };
 
-        _logger.LogInformation("Calling SnakeAI detect for URL: {Url}", imageUrl);
+        _logger.LogInformation("Calling SnakeAI detect for URL: {Url} with confidence {Conf}", imageUrl, _settings.Confidence);
         
         var response = await _api.DetectByUrlAsync(request);
         
@@ -318,7 +322,7 @@ public class AIVisionEndpoints : ICarterModule
         }
 
         // 2. Call SnakeAI
-        var aiResponse = await snakeAIService.DetectAsync(request.ImageUrl, request.Confidence);
+        var aiResponse = await snakeAIService.DetectAsync(request.ImageUrl);
 
         // 3. Get top detection
         var topDetection = aiResponse.Detections
