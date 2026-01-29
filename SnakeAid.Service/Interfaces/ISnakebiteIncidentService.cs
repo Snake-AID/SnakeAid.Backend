@@ -1,4 +1,5 @@
 ﻿using SnakeAid.Core.Meta;
+using SnakeAid.Core.Requests.RescueRequestSession;
 using SnakeAid.Core.Requests.SnakebiteIncident;
 using SnakeAid.Core.Responses.Auth;
 using SnakeAid.Core.Responses.SnakebiteIncident;
@@ -13,5 +14,8 @@ namespace SnakeAid.Service.Interfaces
     public interface ISnakebiteIncidentService
     {
         Task<ApiResponse<CreateIncidentResponse>> CreateIncidentAsync(CreateIncidentRequest request, Guid userId);
+
+        Task<ApiResponse<CreateIncidentResponse>> RaiseSessionRangeAsync(RaiseSessionRangeRequest request);
+
     }
 }

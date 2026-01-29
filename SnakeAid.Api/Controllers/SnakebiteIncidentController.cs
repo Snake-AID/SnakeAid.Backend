@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using SnakeAid.Core.Meta;
+using SnakeAid.Core.Requests.RescueRequestSession;
 using SnakeAid.Core.Requests.SnakebiteIncident;
 using SnakeAid.Core.Responses.Auth;
 using SnakeAid.Core.Responses.SnakebiteIncident;
@@ -47,8 +48,18 @@ namespace SnakeAid.Api.Controllers
         }
 
         /// <summary>
-        /// Update snakebite incident report and rescue request session while dispatching rescuers
+        /// Raise/expand the search range by creating a new rescue request session with larger radius
         /// </summary>
-        
+        [HttpPost("{incidentId}/raise-range")]
+        [SwaggerOperation(Summary = "Raise Session Range", Description = "Expand search radius when no rescuers accept current session")]
+        [SwaggerResponse(200, "Range expanded successfully", typeof(ApiResponse<CreateIncidentResponse>))]
+        [SwaggerResponse(400, "Maximum sessions reached or invalid status")]
+        [SwaggerResponse(404, "Incident not found")]
+        public async Task<IActionResult> RaiseSessionRange(Guid incidentId)
+        {
+            var request = new RaiseSessionRangeRequest { IncidentId = incidentId };
+            var result = await _incidentService.RaiseSessionRangeAsync(request);
+            return StatusCode(result.StatusCode, result);
+        }
     }
 }
