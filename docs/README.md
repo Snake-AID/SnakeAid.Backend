@@ -2,26 +2,80 @@
 
 ## Folder Structure
 
-Tài liệu được tổ chức theo **Hạng mục / Công nghệ**, mỗi folder đại diện cho một feature hoặc technology stack.
+Tài liệu được tổ chức theo **2 chiều**:
+
+| Dimension | Folder | Mô tả |
+|-----------|--------|-------|
+| **Vertical** | `01-flows/` | User journeys - theo flow nghiệp vụ |
+| **Horizontal** | `02-layers/` | System layers - lát cắt hạ tầng |
 
 ```
 docs/
-├── ASP Identity/
-│   ├── aspnet-identity.introduction.md
-│   ├── aspnet-identity.plan.md
-│   ├── aspnet-identity.prompt.md
-│   ├── aspnet-identity.sourcecode.md
-│   └── aspnet-identity.usageguilde.md
-├── NuGet/
-│   └── NuGet_Upgrade_Doc.md
-└── README.md (this file)
+├── README.md                    # File này
+├── _sidebar.md                  # Docsify navigation
+│
+├── 01-flows/                    # 📱 VERTICAL: User Flows
+│   ├── _API_Plan.md             # Roadmap tổng hợp tất cả endpoints
+│   │
+│   ├── P1-emergency/            # Flow P1: Cứu hộ khẩn cấp
+│   │   ├── S1-identified/       # SubFlow: Nhận diện được rắn
+│   │   │   └── _flow.md         # Các bước trong subflow
+│   │   └── S2-not-identified/   # SubFlow: Không nhận điện
+│   │
+│   └── P2-catching/             # Flow P2: Bắt rắn
+│       ├── S1-single-snake/     # SubFlow: Bắt 1 con
+│       └── ...
+│
+└── 02-layers/                   # 🔧 HORIZONTAL: System Layers
+    ├── aspnet identity/         # Authentication (ASP.NET Identity)
+    ├── cloudinary/              # Media storage (Cloudinary)
+    ├── ai/                      # AI services (SnakeAI)
+    ├── docker/                  # Docker containerization
+    ├── jenkins/                 # CI/CD pipeline
+    ├── domain driven design/    # Architecture patterns (DDD)
+    └── nuget/                   # Package management (NuGet)
 ```
+
+---
+
+## Hierarchy Explanation
+
+### Flows (Vertical - 01-flows/)
+
+Tổ chức theo **user journey**, xuyên qua nhiều layer của hệ thống.
+
+```
+Flow (P1, P2...)           # Feature chính (Cứu hộ, Bắt rắn...)
+  └── SubFlow (S1, S2...)  # Nhánh con trong flow
+       └── Screen/Step     # Màn hình / bước cụ thể
+            └── Endpoint   # API endpoint (nếu có)
+```
+
+**Naming convention:**
+| Level | Format | Ví dụ |
+|-------|--------|-------|
+| Flow | `P{n}-{name}/` | `P1-emergency/` |
+| SubFlow | `S{n}-{name}/` | `S1-identified/` |
+| Flow overview | `_flow.md` | Liệt kê tất cả screens |
+
+### Layers (Horizontal - 02-layers/)
+
+Tổ chức theo **system infrastructure**, phục vụ xuyên suốt nhiều flows.
+
+| Layer | Mục đích | Ví dụ |
+|-------|----------|-------|
+| `auth/` | Authentication & Authorization | ASP Identity, JWT |
+| `media/` | File & Image storage | Cloudinary |
+| `ai/` | AI/ML services | SnakeAI YOLO model |
+| `devops/` | CI/CD, Containerization | Docker, Jenkins |
+| `architecture/` | Design patterns | Domain Driven Design |
+| `packages/` | Dependency management | NuGet |
 
 ---
 
 ## File Naming Convention
 
-Mỗi hạng mục/công nghệ có **5 loại file** theo quy ước:
+Mỗi hạng mục (trong cả flows và layers) có **5 loại file** theo quy ước:
 
 ### 1. `*.introduction.md` - Giới thiệu
 
@@ -36,24 +90,6 @@ Mỗi hạng mục/công nghệ có **5 loại file** theo quy ước:
 - Use cases chính
 - Lợi ích và trade-offs
 - Tham khảo tài liệu gốc
-
-**Ví dụ**: `aspnet-identity.introduction.md`
-```markdown
-# ASP.NET Identity - Introduction
-
-## What is it?
-ASP.NET Core Identity is a membership system that adds login functionality...
-
-## Why use it?
-- Replace Auth0 to reduce external dependencies
-- Full control over user data
-- Support JWT tokens for mobile/web clients
-
-## Use Cases
-- User registration and login
-- Role-based authorization
-- External authentication (Google, Facebook)
-```
 
 ---
 
@@ -71,30 +107,6 @@ ASP.NET Core Identity is a membership system that adds login functionality...
 - Migration plan (nếu có)
 - Risks và mitigation
 - Timeline ước tính
-
-**Ví dụ**: `aspnet-identity.plan.md`
-```markdown
-# ASP.NET Identity - Implementation Plan
-
-## Current State
-- Using Auth0 for authentication
-- JWT tokens issued by Auth0
-
-## Proposed Changes
-1. Remove Auth0 dependencies
-2. Add Microsoft.AspNetCore.Identity.EntityFrameworkCore
-3. Update DbContext to inherit IdentityDbContext
-4. Create AuthController with register/login endpoints
-
-## Files to Modify
-- SnakeAidDbContext.cs
-- DependencyInjection.cs
-- Program.cs
-
-## Files to Create
-- Controllers/AuthController.cs
-- Domains/Account.cs
-```
 
 ---
 
@@ -116,29 +128,6 @@ ASP.NET Core Identity is a membership system that adds login functionality...
 - Viết dưới dạng instructions/commands
 - Bao gồm tất cả context cần thiết
 - Có thể copy-paste trực tiếp cho agent
-
-**Ví dụ**: `aspnet-identity.prompt.md`
-```markdown
-# Implementation Plan - ASP.NET Core Identity (Prompt)
-
-## Sprint Goals
-- Replace Auth0 with ASP.NET Core Identity
-- Ensure register/login/refresh works with JWT tokens
-
-## Implementation Steps
-
-1) Add Identity to the project
-- Add Microsoft.AspNetCore.Identity.EntityFrameworkCore package
-- Update Account to inherit IdentityUser<Guid>
-
-2) Configure DbContext
-- Update SnakeAidDbContext to inherit IdentityDbContext<Account, IdentityRole<Guid>, Guid>
-- Register AddIdentityCore<Account>() in DI
-
-3) Add Auth Endpoints
-- Create AuthController with register/login/refresh endpoints
-- Issue JWT tokens using JwtSecurityTokenHandler
-```
 
 ---
 
@@ -162,40 +151,9 @@ ASP.NET Core Identity is a membership system that adds login functionality...
 - ✅ **Không cần crawl lại codebase → tiết kiệm token**
 - ✅ **Onboarding developer mới nhanh hơn**
 
-**Ví dụ**: `aspnet-identity.sourcecode.md`
-````markdown
-# ASP.NET Identity - Source Code Documentation
-
-## AuthController
-
-### Register Endpoint
-**Location**: AuthController.cs:46-80
-**Route**: POST /api/auth/register
-
-```csharp
-public async Task<IActionResult> Register([FromBody] RegisterRequest request)
-{
-    // Step 1: Check email uniqueness
-    var existingUser = await _userManager.FindByEmailAsync(request.Email);
-    if (existingUser != null)
-        return BadRequest(...);
-    
-    // Step 2: Create Account entity
-    var user = new Account { ... };
-    
-    // Step 3: Create user with password
-    var result = await _userManager.CreateAsync(user, request.Password);
-    ...
-}
-```
-**Request Model**:
-- Email (required, EmailAddress)
-- Password (required, MinLength 6)
-````
-
 ---
 
-### 5. `*.usageguilde.md` - Hướng dẫn Sử dụng
+### 5. `*.usageguide.md` - Hướng dẫn Sử dụng
 
 **Mục đích**: Hướng dẫn sử dụng API/chức năng sau khi implement  
 **Thời điểm**: Sau khi implement và test xong  
@@ -210,50 +168,6 @@ public async Task<IActionResult> Register([FromBody] RegisterRequest request)
 - Code examples (JavaScript/TypeScript/Dart)
 - Postman collection (nếu có)
 
-**Ví dụ**: `aspnet-identity.usageguilde.md`
-```markdown
-# ASP.NET Identity - Usage Guide for Frontend Developers
-
-## Authentication Flow
-
-### 1. Register New User
-
-**Endpoint**: `POST /api/auth/register`
-
-**Request**:
-````javascript
-const response = await fetch('https://api.snakeaid.com/api/auth/register', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({
-    email: 'user@example.com',
-    password: 'SecurePass123',
-    fullName: 'John Doe'
-  })
-});
-
-const data = await response.json();
-console.log(data.data.accessToken);
-```
-
-**Response**:
-```json
-{
-  "success": true,
-  "message": "Registration successful",
-  "data": {
-    "accessToken": "eyJhbGc...",
-    "refreshToken": "base64...",
-    "accessTokenExpiresAt": "2026-01-24T18:00:00Z",
-    "refreshTokenExpiresAt": "2026-02-23T17:00:00Z"
-  }
-}
-```
-
-### 2. Login
-...
-```
-
 ---
 
 ## Workflow Timeline
@@ -264,7 +178,7 @@ graph LR
     B --> C[prompt.md]
     C --> D[Implementation]
     D --> E[sourcecode.md]
-    E --> F[usageguilde.md]
+    E --> F[usageguide.md]
     
     style A fill:#e1f5ff
     style B fill:#fff9c4
@@ -272,7 +186,7 @@ graph LR
     style D fill:#c8e6c9
     style E fill:#ffccbc
     style F fill:#d1c4e9
-````
+```
 
 | Phase | File | Status | Purpose |
 |-------|------|--------|---------|
@@ -281,7 +195,40 @@ graph LR
 | **Execution** | `prompt.md` | Before coding | Agent instructions |
 | **Coding** | *(actual code)* | During coding | Implementation |
 | **Documentation** | `sourcecode.md` | After coding | Code reference |
-| **Integration** | `usageguilde.md` | After coding | API documentation |
+| **Integration** | `usageguide.md` | After coding | API documentation |
+
+---
+
+## Relationship Between Flows and Layers
+
+```mermaid
+flowchart TB
+    subgraph flows["📱 USER FLOWS (Vertical)"]
+        P1["P1-Emergency"]
+        P2["P2-Catching"]
+        P3["P3-Consultation"]
+    end
+
+    subgraph layers["🔧 LAYERS (Horizontal)"]
+        L1["aspnet identity"]
+        L2["cloudinary"]
+        L3["ai"]
+        L4["docker"]
+        L5["jenkins"]
+        L6["domain driven design"]
+        L7["nuget"]
+    end
+
+    P1 --> L1 & L2 & L3
+    P2 --> L1 & L2 & L3
+    P3 --> L1 & L2
+
+    style flows fill:#e3f2fd,stroke:#1976d2
+    style layers fill:#fff3e0,stroke:#f57c00
+```
+
+- **Flows** reference **Layers** khi cần sử dụng infrastructure
+- **Layers** được implement một lần, phục vụ nhiều flows
 
 ---
 
@@ -289,22 +236,16 @@ graph LR
 
 ### 1. Keep Files Updated
 - ✅ Update `sourcecode.md` whenever code changes significantly
-- ✅ Update `usageguilde.md` when API contract changes
+- ✅ Update `usageguide.md` when API contract changes
 - ❌ Don't update `prompt.md` after implementation (it's historical)
 
-### 2. File Relationships
-- `introduction.md` → `plan.md`: Requirements to design
-- `plan.md` → `prompt.md`: Design to actionable steps
-- `prompt.md` → `sourcecode.md`: Instructions to actual implementation
-- `sourcecode.md` → `usageguilde.md`: Implementation to usage
-
-### 3. Audience Awareness
+### 2. Audience Awareness
 - **Backend team**: All files
-- **Frontend team**: `introduction.md` + `usageguilde.md`
+- **Frontend team**: `introduction.md` + `usageguide.md`
 - **AI Agents**: `prompt.md` (before) + `sourcecode.md` (after)
 - **New developers**: `introduction.md` + `sourcecode.md`
 
-### 4. Token Optimization
+### 3. Token Optimization
 - `sourcecode.md` should be **detailed enough** to avoid crawling codebase
 - Include:
   - ✅ Function signatures
@@ -319,48 +260,31 @@ graph LR
 
 ---
 
-## Example: ASP Identity Folder
-
-```
-docs/ASP Identity/
-├── aspnet-identity.introduction.md      # What is ASP.NET Identity?
-├── aspnet-identity.plan.md           # How to replace Auth0?
-├── aspnet-identity.prompt.md         # Agent: implement these steps
-├── aspnet-identity.sourcecode.md     # Code reference (700+ lines)
-└── aspnet-identity.usageguilde.md    # Frontend: how to call APIs?
-```
-
-**Flow**:
-1. PM writes `introduction.md` from SRS
-2. Tech Lead writes `plan.md` after analyzing codebase
-3. Developer writes `prompt.md` for AI agent
-4. AI Agent implements code
-5. Developer writes `sourcecode.md` documenting implementation
-6. Developer writes `usageguilde.md` for frontend team
-
----
-
 ## Creating New Documentation
 
-When adding a new feature/technology:
+### For a new Flow:
 
-1. Create folder: `docs/[Feature Name]/`
+1. Create folder: `01-flows/P{n}-{flow-name}/`
+2. Create subflow folders: `S{n}-{subflow-name}/`
+3. Create `_flow.md` in each subflow with screen/step details
+
+### For a new Layer:
+
+1. Create folder: `02-layers/{layer-name}/`
 2. Create 5 files with naming convention:
-   - `[feature-name].introduction.md`
-   - `[feature-name].plan.md`
-   - `[feature-name].prompt.md`
-   - `[feature-name].sourcecode.md`
-   - `[feature-name].usageguilde.md`
-3. Follow the content guidelines above
-4. Update this README if needed
+   - `{layer-name}.introduction.md`
+   - `{layer-name}.plan.md`
+   - `{layer-name}.prompt.md`
+   - `{layer-name}.sourcecode.md`
+   - `{layer-name}.usageguide.md`
 
 ---
 
 ## Benefits
 
 ### For Developers
-- 📚 Clear documentation structure
-- 🔍 Easy to find information
+- 📚 Clear separation between vertical (flows) and horizontal (layers)
+- 🔍 Easy to find information by user journey or by technology
 - 🚀 Faster onboarding
 
 ### For AI Agents
@@ -369,11 +293,11 @@ When adding a new feature/technology:
 - 💰 **Saves thousands of tokens** per query
 
 ### For Frontend Team
-- 📱 `usageguilde.md`: Ready-to-use API examples
-- 🎯 No need to read backend code
+- 📱 `usageguide.md`: Ready-to-use API examples
+- 🎯 Follow flow documentation to understand API sequence
 - ⚡ Faster integration
 
 ---
 
-**Last Updated**: 2026-01-24  
+**Last Updated**: 2026-01-29  
 **Maintained By**: Backend Team

@@ -1,5 +1,19 @@
 {
     "version": "2.0.0",
+    "inputs": [
+        {
+            "id": "dockerHubUsername",
+            "type": "promptString",
+            "description": "Docker Hub Username",
+            "default": "thekhiem7"
+        },
+        {
+            "id": "imageTag",
+            "type": "promptString",
+            "description": "Image Tag (e.g., latest, v1.0.0)",
+            "default": "latest"
+        }
+    ],
     "tasks": [
         {
             "label": "build",
@@ -36,6 +50,67 @@
                 "${workspaceFolder}/SnakeAid.Api/SnakeAid.Api.csproj"
             ],
             "problemMatcher": "$msCompile"
+        },
+        {
+            "label": "🐳 Docker: Build Image",
+            "type": "shell",
+            "command": "docker build -t ${input:dockerHubUsername}/snakeaid-api:${input:imageTag} .",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "group": {
+                "kind": "build",
+                "isDefault": false
+            },
+            "presentation": {
+                "reveal": "always",
+                "panel": "new",
+                "focus": true
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "🐳 Docker: Push to Hub",
+            "type": "shell",
+            "command": "docker push ${input:dockerHubUsername}/snakeaid-api:${input:imageTag}",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "presentation": {
+                "reveal": "always",
+                "panel": "new",
+                "focus": true
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "🐳 Docker: Build & Push",
+            "dependsOn": [
+                "🐳 Docker: Build Image",
+                "🐳 Docker: Push to Hub"
+            ],
+            "dependsOrder": "sequence",
+            "group": {
+                "kind": "build",
+                "isDefault": false
+            },
+            "presentation": {
+                "reveal": "always",
+                "panel": "new",
+                "focus": true
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "🐳 Docker: Login to Hub",
+            "type": "shell",
+            "command": "docker login",
+            "presentation": {
+                "reveal": "always",
+                "panel": "new",
+                "focus": true
+            },
+            "problemMatcher": []
         }
     ]
 }
