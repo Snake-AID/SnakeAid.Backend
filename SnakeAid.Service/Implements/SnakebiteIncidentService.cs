@@ -187,7 +187,7 @@ namespace SnakeAid.Service.Implements
 
                     await _unitOfWork.GetRepository<RescueRequestSession>().InsertAsync(newSession);
                     
-                    // No need to call Update() - entity is already tracked and EF Core will auto-detect changes
+                    
                     await _unitOfWork.CommitAsync();
 
                     // Reload sessions collection from DB to ensure consistency and proper order
