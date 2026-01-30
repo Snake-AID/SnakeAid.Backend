@@ -19,7 +19,7 @@ namespace SnakeAid.Service.Interfaces
         /// <summary>
         /// Get list of symptom configurations with pagination and filters
         /// </summary>
-        Task<ApiResponse<PagedData<SymptomConfigResponse>>> GetSymptomConfigsAsync(GetSymptomConfigRequest request);
+        Task<ApiResponse<PagedData<SymptomConfigResponse>>> FilterSymptomConfigsAsync(GetSymptomConfigRequest request);
 
         /// <summary>
         /// Update an existing symptom configuration
@@ -35,5 +35,10 @@ namespace SnakeAid.Service.Interfaces
         /// Get symptom configurations grouped by AttributeKey
         /// </summary>
         Task<ApiResponse<Dictionary<string, List<SymptomConfigResponse>>>> GetSymptomConfigsGroupedByKeyAsync();
+
+        /// <summary>
+        /// Get all symptom configurations without pagination
+        /// </summary>
+        Task<ApiResponse<List<SymptomConfigResponse>>> GetAllSymptomConfigAsync();
     }
 }

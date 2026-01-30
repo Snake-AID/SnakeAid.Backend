@@ -61,11 +61,23 @@ namespace SnakeAid.Api.Controllers
         /// Get list of symptom configurations with pagination and filters
         /// </summary>
         [HttpGet]
-        [SwaggerOperation(Summary = "Get Symptom Configurations", Description = "Get paginated list of symptom configurations with optional filters")]
+        [SwaggerOperation(Summary = "Filter Symptom Configurations", Description = "Get paginated list of symptom configurations with optional filters")]
         [SwaggerResponse(200, "Success", typeof(ApiResponse<PagedData<SymptomConfigResponse>>))]
-        public async Task<IActionResult> GetSymptomConfigs([FromQuery] GetSymptomConfigRequest request)
+        public async Task<IActionResult> FilterSymptomConfigs([FromQuery] GetSymptomConfigRequest request)
         {
-            var result = await _symptomConfigService.GetSymptomConfigsAsync(request);
+            var result = await _symptomConfigService.FilterSymptomConfigsAsync(request);
+            return StatusCode(result.StatusCode, result);
+        }
+
+        /// <summary>
+        /// Get all symptom configurations without pagination
+        /// </summary>
+        [HttpGet("all")]
+        [SwaggerOperation(Summary = "Get All Symptom Configurations", Description = "Get all symptom configurations without pagination")]
+        [SwaggerResponse(200, "Success", typeof(ApiResponse<List<SymptomConfigResponse>>))]
+        public async Task<IActionResult> GetAllSymptomConfig()
+        {
+            var result = await _symptomConfigService.GetAllSymptomConfigAsync();
             return StatusCode(result.StatusCode, result);
         }
 

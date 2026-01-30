@@ -117,7 +117,7 @@ namespace SnakeAid.Service.Implements
             }
         }
 
-        public async Task<ApiResponse<PagedData<SymptomConfigResponse>>> GetSymptomConfigsAsync(GetSymptomConfigRequest request)
+        public async Task<ApiResponse<PagedData<SymptomConfigResponse>>> FilterSymptomConfigsAsync(GetSymptomConfigRequest request)
         {
             try
             {
@@ -356,6 +356,26 @@ namespace SnakeAid.Service.Implements
             {
                 _logger.LogError(ex, "Error getting symptom configurations grouped by key");
                 return ApiResponseBuilder.BuildFailureResponse<Dictionary<string, List<SymptomConfigResponse>>>(ex.Message);
+            }
+        }
+
+        public async Task<ApiResponse<List<SymptomConfigResponse>>> GetAllSymptomConfigAsync()
+        {
+            try
+            {
+                var symptomConfigs = await _unitOfWork.GetRepository<Core.Domains.SymptomConfig>()
+                    .GetListAsync(
+                        orderBy: o => o.OrderBy(sc => sc.DisplayOrder).ThenBy(sc => sc.Name),
+                        include: q => q.Include(sc => sc.VenomType)
+                    );
+
+                var response = symptomConfigs.Select(MapToResponse).ToList();
+                return ApiResponseBuilder.BuildSuccessResponse(response);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting all symptom configurations");
+                return ApiResponseBuilder.BuildFailureResponse<List<SymptomConfigResponse>>(ex.Message);
             }
         }
 

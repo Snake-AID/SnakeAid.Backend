@@ -82,7 +82,7 @@ namespace SnakeAid.Service.Implements
             }
         }
 
-        public async Task<ApiResponse<PagedData<FirstAidGuidelineResponse>>> GetFirstAidGuidelinesAsync(GetFirstAidGuidelineRequest request)
+        public async Task<ApiResponse<PagedData<FirstAidGuidelineResponse>>> FilterFirstAidGuidelinesAsync(GetFirstAidGuidelineRequest request)
         {
             try
             {
@@ -207,6 +207,23 @@ namespace SnakeAid.Service.Implements
             {
                 _logger.LogError(ex, "Error deleting first aid guideline with ID {Id}", id);
                 return ApiResponseBuilder.BuildFailureResponse<bool>(ex.Message);
+            }
+        }
+
+        public async Task<ApiResponse<List<FirstAidGuidelineResponse>>> GetAllFirstAidGuidelineAsync()
+        {
+            try
+            {
+                var guidelines = await _unitOfWork.GetRepository<FirstAidGuideline>()
+                    .GetListAsync(orderBy: o => o.OrderBy(g => g.Name));
+
+                var response = guidelines.Adapt<List<FirstAidGuidelineResponse>>();
+                return ApiResponseBuilder.BuildSuccessResponse(response);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting all first aid guidelines");
+                return ApiResponseBuilder.BuildFailureResponse<List<FirstAidGuidelineResponse>>(ex.Message);
             }
         }
     }

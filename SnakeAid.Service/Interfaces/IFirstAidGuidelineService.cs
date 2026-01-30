@@ -19,7 +19,7 @@ namespace SnakeAid.Service.Interfaces
         /// <summary>
         /// Get list of first aid guidelines with pagination and filters
         /// </summary>
-        Task<ApiResponse<PagedData<FirstAidGuidelineResponse>>> GetFirstAidGuidelinesAsync(GetFirstAidGuidelineRequest request);
+        Task<ApiResponse<PagedData<FirstAidGuidelineResponse>>> FilterFirstAidGuidelinesAsync(GetFirstAidGuidelineRequest request);
 
         /// <summary>
         /// Update an existing first aid guideline
@@ -30,5 +30,10 @@ namespace SnakeAid.Service.Interfaces
         /// Delete a first aid guideline
         /// </summary>
         Task<ApiResponse<bool>> DeleteFirstAidGuidelineAsync(int id);
+
+        /// <summary>
+        /// Get all first aid guidelines without pagination
+        /// </summary>
+        Task<ApiResponse<List<FirstAidGuidelineResponse>>> GetAllFirstAidGuidelineAsync();
     }
 }
