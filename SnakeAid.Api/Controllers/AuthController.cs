@@ -1,6 +1,7 @@
-using MapsterMapper;
+﻿using MapsterMapper;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using SnakeAid.Core.Enums;
 using SnakeAid.Core.Meta;
 using SnakeAid.Core.Requests.Auth;
 using SnakeAid.Core.Responses.Auth;
@@ -33,9 +34,13 @@ public class AuthController : BaseController<AuthController>
     [SwaggerResponse(200, "Registration successful", typeof(ApiResponse<AuthResponse>))]
     [SwaggerResponse(400, "Email already in use or validation error")]
     [SwaggerResponse(422, "Validation error")]
-    public async Task<IActionResult> Register([FromBody] RegisterRequest request)
+    public async Task<IActionResult> Register(
+        [FromQuery(Name = "role"), SwaggerParameter("Registration role (`MEMBER` or `RESCUER` or `EXPERT`). Defaults to `MEMBER`.")]
+        RegisterRole? role,
+        [FromBody] RegisterRequest request
+        )
     {
-        var result = await _authService.RegisterAsync(request);
+        var result = await _authService.RegisterAsync(request, role);
         return StatusCode(result.StatusCode, result);
     }
 
