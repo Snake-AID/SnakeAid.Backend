@@ -20,9 +20,6 @@ namespace SnakeAid.Core.Domains
         [Required]
         public bool IsOnline { get; set; } = false;
 
-        [Required]
-        public bool IsAvailable { get; set; } = true;
-
         [Range(0, 999999.99)]
         [Column(TypeName = "numeric(18,2)")]
         public decimal ConsultationFee { get; set; }
@@ -34,8 +31,6 @@ namespace SnakeAid.Core.Domains
         [Range(0, int.MaxValue)]
         public int RatingCount { get; set; } = 0;
 
-        [MaxLength(500)]
-        public string? UnavailableReason { get; set; }
 
         // Navigation properties
         public Account Account { get; set; }

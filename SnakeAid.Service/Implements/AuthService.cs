@@ -1,9 +1,3 @@
-using System.Globalization;
-using System.IdentityModel.Tokens.Jwt;
-using System.Net;
-using System.Security.Claims;
-using System.Security.Cryptography;
-using System.Text;
 using Google.Apis.Auth;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Configuration;
@@ -11,12 +5,22 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using SnakeAid.Core.Domains;
+using SnakeAid.Core.Enums;
 using SnakeAid.Core.Meta;
 using SnakeAid.Core.Requests.Auth;
 using SnakeAid.Core.Responses.Auth;
 using SnakeAid.Core.Settings;
 using SnakeAid.Core.Utils;
+using SnakeAid.Repository.Data;
+using SnakeAid.Repository.Interfaces;
 using SnakeAid.Service.Interfaces;
+using System.Globalization;
+using System.IdentityModel.Tokens.Jwt;
+using System.Net;
+using System.Security.Claims;
+using System.Security.Cryptography;
+using System.Text;
+using RescuerType = SnakeAid.Core.Domains.RescuerType;
 
 namespace SnakeAid.Service.Implements;
 
@@ -32,8 +36,9 @@ public class AuthService : IAuthService
     private readonly IConfiguration _configuration;
     private readonly ILogger<AuthService> _logger;
     private readonly IOtpService _otpService;
-    private readonly OtpUtil _otpUtil;
-    
+    private readonly IUnitOfWork<SnakeAidDbContext> _unitOfWork;
+
+
 
     public AuthService(
         UserManager<Account> userManager,
@@ -42,8 +47,7 @@ public class AuthService : IAuthService
         IConfiguration configuration,
         ILogger<AuthService> logger,
         IOtpService otpService,
-        IEmailService emailService,
-        OtpUtil otpUtil)
+        IUnitOfWork<SnakeAidDbContext> unitOfWork)
     {
         _userManager = userManager;
         _signInManager = signInManager;
@@ -51,12 +55,12 @@ public class AuthService : IAuthService
         _configuration = configuration;
         _logger = logger;
         _otpService = otpService;
-        
+        _unitOfWork = unitOfWork;
     }
 
     #region Public Methods
 
-    public async Task<ApiResponse<AuthResponse>> RegisterAsync(RegisterRequest request)
+    public async Task<ApiResponse<AuthResponse>> RegisterAsync(RegisterRequest request, RegisterRole? targetRole)
     {
         // Check if email already exists
         var existingUser = await _userManager.FindByEmailAsync(request.Email);
@@ -89,6 +93,87 @@ public class AuthService : IAuthService
             };
             return ApiResponseBuilder.CreateResponse<AuthResponse>(
                 null, false, "Registration failed.", HttpStatusCode.UnprocessableEntity, "VALIDATION_ERROR", errors);
+        }
+
+        if (targetRole == null)
+        {
+            targetRole = RegisterRole.Member;
+        }
+
+        switch (targetRole)
+        {
+            case RegisterRole.Member:
+                {
+                    var memberRepository = _unitOfWork.GetRepository<MemberProfile>();
+                    var member = new MemberProfile
+                    {
+                        AccountId = user.Id,
+                        Rating = 0,
+                        RatingCount = 0,
+                        CreatedAt = DateTime.UtcNow,
+                        UpdatedAt = DateTime.UtcNow
+                    };
+                    await memberRepository.InsertAsync(member);
+                    await _unitOfWork.CommitAsync();
+                    break;
+                }
+
+                case RegisterRole.Rescuer:
+                {
+                    var rescuerRepository = _unitOfWork.GetRepository<RescuerProfile>();
+                    if (request.Type == null)
+                    {
+                        return ApiResponseBuilder.CreateResponse<AuthResponse>(
+                            null, false, "Rescuer registration details are required.", HttpStatusCode.BadRequest, "MISSING_RESCUER_DETAILS");
+                    }
+
+                    var selectedType = RescuerType.Emergency;
+
+                    switch (request.Type)
+                    {
+                        case RescuerType.Emergency:
+                            selectedType = RescuerType.Emergency;
+                            break;
+                        case RescuerType.Catching:
+                            selectedType = RescuerType.Catching;
+                            break;
+                        case RescuerType.Both:
+                            selectedType = RescuerType.Both;
+                            break;
+                    }
+
+                    var rescuer = new RescuerProfile
+                    {
+                        AccountId = user.Id,
+                        Type = selectedType,
+                        CreatedAt = DateTime.UtcNow,
+                        UpdatedAt = DateTime.UtcNow
+                    };
+                    await rescuerRepository.InsertAsync(rescuer);
+                    await _unitOfWork.CommitAsync();
+                    break;
+                }
+
+                case RegisterRole.Expert:
+                {
+                    var expertRepository = _unitOfWork.GetRepository<ExpertProfile>();
+                    if (String.IsNullOrEmpty(request.Biography))
+                    {
+                        return ApiResponseBuilder.CreateResponse<AuthResponse>(
+                            null, false, "Expert registration details are required.", HttpStatusCode.BadRequest, "MISSING_EXPERT_DETAILS");
+                    }
+                    var expert = new ExpertProfile
+                    {
+                        AccountId = user.Id,
+                        Biography = request.Biography,
+                        CreatedAt = DateTime.UtcNow,
+                        UpdatedAt = DateTime.UtcNow
+                    };
+                    await expertRepository.InsertAsync(expert);
+                    await _unitOfWork.CommitAsync();
+                    break;
+                }
+
         }
 
         _logger.LogInformation("User registered successfully: {Email}", request.Email);

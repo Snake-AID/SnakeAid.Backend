@@ -18,10 +18,6 @@ namespace SnakeAid.Core.Domains
         public Guid UserId { get; set; }  // FK to MemberProfile
 
         [Required]
-        [MaxLength(1000)]
-        public string Location { get; set; } = "location not set";
-
-        [Required]
         [Column(TypeName = "geometry(Point, 4326)")]
         public Point LocationCoordinates { get; set; }
 
@@ -50,7 +46,6 @@ namespace SnakeAid.Core.Domains
         [MaxLength(500)]
         public string? CancellationReason { get; set; }
 
-        [Range(1, 5)]
         public int? SeverityLevel { get; set; } = 1;  // 1-5 emergency level
 
         public DateTime? IncidentOccurredAt { get; set; }  // Khi nào bị cắn

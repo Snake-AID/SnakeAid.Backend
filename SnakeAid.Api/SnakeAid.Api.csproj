@@ -10,6 +10,7 @@
   <ItemGroup>
         <PackageReference Include="Carter" />
         <PackageReference Include="FirebaseAdmin" />
+        <PackageReference Include="Microsoft.AspNetCore.SignalR"/>
         <PackageReference Include="Serilog.AspNetCore" />
         <PackageReference Include="Serilog.Enrichers.Environment" />
         <PackageReference Include="Serilog.Enrichers.Span" />
