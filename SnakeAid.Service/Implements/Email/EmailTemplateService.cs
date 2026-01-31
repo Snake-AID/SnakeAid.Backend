@@ -32,8 +32,30 @@ namespace SnakeAid.Service.Implements.Email
             _emailProvider = emailProvider;
 
             // Initialize RazorLight engine
-            // Find template root in source code location, not bin output
-            _templateRoot = Path.Combine(AppContext.BaseDirectory!, "SnakeAid.Service", "Implements", "Email", "Templates");
+            // Handle both local development and Docker container paths
+            var baseDir = AppContext.BaseDirectory;
+            string? projectRoot = null;
+            
+            // Try to find project root by going up from bin directory (local development)
+            var currentDir = new DirectoryInfo(baseDir);
+            while (currentDir != null && projectRoot == null)
+            {
+                // Look for solution file or specific project marker
+                if (Directory.Exists(Path.Combine(currentDir.FullName, "SnakeAid.Service")))
+                {
+                    projectRoot = currentDir.FullName;
+                    break;
+                }
+                currentDir = currentDir.Parent;
+            }
+            
+            // If not found (Docker container), use /src path
+            if (string.IsNullOrEmpty(projectRoot))
+            {
+                projectRoot = "/src";
+            }
+            
+            _templateRoot = Path.Combine(projectRoot, "SnakeAid.Service", "Implements", "Email", "Templates");
             
             // Create directory if it doesn't exist
             if (!Directory.Exists(_templateRoot))
