@@ -97,7 +97,7 @@ namespace SnakeAid.Repository.Implements
             var validationResults = new List<ValidationResult>();
 
             var entries = Context.ChangeTracker.Entries()
-                .Where(e => e.State == EntityState.Added );
+                .Where(e => e.State == EntityState.Added || e.State == EntityState.Modified);
 
             foreach (var entry in entries)
             {

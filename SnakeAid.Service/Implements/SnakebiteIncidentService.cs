@@ -241,7 +241,7 @@ namespace SnakeAid.Service.Implements
                         : 0;
 
                     // Collect symptom descriptions and calculate severity
-                    var symptomNames = new List<string>();
+                    var symptomDescriptions = new List<string>();
                     var coreSymptomScores = new List<int>();
                     var modifierSymptomScores = new List<int>();
 
@@ -254,9 +254,9 @@ namespace SnakeAid.Service.Implements
                         if (symptom != null)
                         {
                             // Add symptom description
-                            if (!string.IsNullOrEmpty(symptom.Name))
+                            if (!string.IsNullOrEmpty(symptom.Description))
                             {
-                                symptomNames.Add(symptom.Name);
+                                symptomDescriptions.Add(symptom.Description);
                             }
 
                             // Calculate score based on TimeScoreList
@@ -289,7 +289,12 @@ namespace SnakeAid.Service.Implements
                     }
 
                     // Update symptom report and severity level
-                    existingIncident.SymptomsReport = string.Join(", ", symptomNames);
+                    var jsonOptions = new System.Text.Json.JsonSerializerOptions
+                    {
+                        Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+                        WriteIndented = false
+                    };
+                    existingIncident.SymptomsReport = System.Text.Json.JsonSerializer.Serialize(symptomDescriptions, jsonOptions);
                     existingIncident.SeverityLevel = severityLevel;
                     _unitOfWork.GetRepository<SnakebiteIncident>().Update(existingIncident);
                     await _unitOfWork.CommitAsync();
