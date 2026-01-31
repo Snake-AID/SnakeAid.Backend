@@ -33,11 +33,6 @@ namespace SnakeAid.Core.Domains
 
         public DateTime? LastLocationUpdate { get; set; }
 
-
-        [Required]
-        public bool IsAvailable { get; set; } = true; // sẵn sàng nhận mission
-
-
         // Statistics
         [Required]
         public int TotalMissions { get; set; } = 0;

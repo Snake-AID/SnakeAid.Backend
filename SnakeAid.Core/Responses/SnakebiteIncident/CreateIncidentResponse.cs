@@ -17,8 +17,6 @@ namespace SnakeAid.Core.Responses.SnakebiteIncident
 
         public Guid UserId { get; set; }  // FK to MemberProfile
 
-        public string Location { get; set; }
-
         public Point LocationCoordinates { get; set; }
 
         public SnakebiteIncidentStatus Status { get; set; } = SnakebiteIncidentStatus.Pending;
