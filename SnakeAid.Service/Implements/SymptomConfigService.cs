@@ -51,7 +51,7 @@ namespace SnakeAid.Service.Implements
                         }
                     }
 
-                    var symptomConfig = new Core.Domains.SymptomConfig
+                    var symptomConfig = new SymptomConfig
                     {
                         AttributeKey = request.AttributeKey,
                         AttributeLabel = request.AttributeLabel,
@@ -69,13 +69,13 @@ namespace SnakeAid.Service.Implements
                         UpdatedAt = DateTime.UtcNow
                     };
 
-                    await _unitOfWork.GetRepository<Core.Domains.SymptomConfig>().InsertAsync(symptomConfig);
+                    await _unitOfWork.GetRepository<SymptomConfig>().InsertAsync(symptomConfig);
                     await _unitOfWork.CommitAsync();
 
                     // Load VenomType if exists
                     if (symptomConfig.VenomTypeId.HasValue)
                     {
-                        symptomConfig = await _unitOfWork.GetRepository<Core.Domains.SymptomConfig>()
+                        symptomConfig = await _unitOfWork.GetRepository<SymptomConfig>()
                             .FirstOrDefaultAsync(
                                 predicate: sc => sc.Id == symptomConfig.Id,
                                 include: q => q.Include(sc => sc.VenomType),
@@ -83,7 +83,7 @@ namespace SnakeAid.Service.Implements
                             );
                     }
 
-                    var response = MapToResponse(symptomConfig);
+                    var response = symptomConfig.Adapt<SymptomConfigResponse>();
                     return ApiResponseBuilder.BuildSuccessResponse(response, "Symptom configuration created successfully!");
                 });
             }
@@ -99,7 +99,7 @@ namespace SnakeAid.Service.Implements
         {
             try
             {
-                var symptomConfig = await _unitOfWork.GetRepository<Core.Domains.SymptomConfig>()
+                var symptomConfig = await _unitOfWork.GetRepository<SymptomConfig>()
                     .FirstOrDefaultAsync(
                         predicate: sc => sc.Id == id,
                         include: q => q.Include(sc => sc.VenomType)
@@ -110,7 +110,7 @@ namespace SnakeAid.Service.Implements
                     throw new NotFoundException($"Symptom configuration with ID {id} not found.");
                 }
 
-                var response = MapToResponse(symptomConfig);
+                var response = symptomConfig.Adapt<SymptomConfigResponse>();
                 return ApiResponseBuilder.BuildSuccessResponse(response);
             }
             catch (Exception ex)
@@ -125,7 +125,7 @@ namespace SnakeAid.Service.Implements
         {
             try
             {
-                Expression<Func<Core.Domains.SymptomConfig, bool>>? predicate = null;
+                Expression<Func<SymptomConfig, bool>>? predicate = null;
 
                 // Build combined predicate
                 predicate = sc => 
@@ -137,7 +137,7 @@ namespace SnakeAid.Service.Implements
                     (!request.VenomTypeId.HasValue || sc.VenomTypeId == request.VenomTypeId.Value);
 
                 // Get paginated data
-                var pagedData = await _unitOfWork.GetRepository<Core.Domains.SymptomConfig>()
+                var pagedData = await _unitOfWork.GetRepository<SymptomConfig>()
                     .GetPagingListAsync(
                         predicate: predicate,
                         orderBy: o => o.OrderBy(sc => sc.DisplayOrder).ThenBy(sc => sc.AttributeKey).ThenBy(sc => sc.Name),
@@ -146,7 +146,7 @@ namespace SnakeAid.Service.Implements
                         size: request.PageSize
                     );
 
-                var responseItems = pagedData.Items.Select(MapToResponse).ToList();
+                var responseItems = pagedData.Items.Adapt<List<SymptomConfigResponse>>();
                 var response = new PagedData<SymptomConfigResponse>
                 {
                     Items = responseItems,
@@ -174,7 +174,7 @@ namespace SnakeAid.Service.Implements
 
                 return await _unitOfWork.ExecuteInTransactionAsync(async () =>
                 {
-                    var symptomConfig = await _unitOfWork.GetRepository<Core.Domains.SymptomConfig>()
+                    var symptomConfig = await _unitOfWork.GetRepository<SymptomConfig>()
                         .FirstOrDefaultAsync(
                             predicate: sc => sc.Id == id,
                             include: q => q.Include(sc => sc.VenomType),
@@ -253,13 +253,13 @@ namespace SnakeAid.Service.Implements
 
                     symptomConfig.UpdatedAt = DateTime.UtcNow;
 
-                    _unitOfWork.GetRepository<Core.Domains.SymptomConfig>().Update(symptomConfig);
+                    _unitOfWork.GetRepository<SymptomConfig>().Update(symptomConfig);
                     await _unitOfWork.CommitAsync();
 
                     // Reload to get updated VenomType
                     if (symptomConfig.VenomTypeId.HasValue)
                     {
-                        symptomConfig = await _unitOfWork.GetRepository<Core.Domains.SymptomConfig>()
+                        symptomConfig = await _unitOfWork.GetRepository<SymptomConfig>()
                             .FirstOrDefaultAsync(
                                 predicate: sc => sc.Id == id,
                                 include: q => q.Include(sc => sc.VenomType),
@@ -267,7 +267,7 @@ namespace SnakeAid.Service.Implements
                             );
                     }
 
-                    var response = MapToResponse(symptomConfig);
+                    var response = symptomConfig.Adapt<SymptomConfigResponse>();
                     return ApiResponseBuilder.BuildSuccessResponse(response, "Symptom configuration updated successfully!");
                 });
             }
@@ -285,7 +285,7 @@ namespace SnakeAid.Service.Implements
             {
                 return await _unitOfWork.ExecuteInTransactionAsync(async () =>
                 {
-                    var symptomConfig = await _unitOfWork.GetRepository<Core.Domains.SymptomConfig>()
+                    var symptomConfig = await _unitOfWork.GetRepository<SymptomConfig>()
                         .GetByIdAsync(id);
 
                     if (symptomConfig == null)
@@ -293,7 +293,7 @@ namespace SnakeAid.Service.Implements
                         throw new NotFoundException($"Symptom configuration with ID {id} not found.");
                     }
 
-                    _unitOfWork.GetRepository<Core.Domains.SymptomConfig>().Delete(symptomConfig);
+                    _unitOfWork.GetRepository<SymptomConfig>().Delete(symptomConfig);
                     await _unitOfWork.CommitAsync();
 
                     return ApiResponseBuilder.BuildSuccessResponse(true, "Symptom configuration deleted successfully!");
@@ -311,7 +311,7 @@ namespace SnakeAid.Service.Implements
         {
             try
             {
-                var symptomConfigs = await _unitOfWork.GetRepository<Core.Domains.SymptomConfig>()
+                var symptomConfigs = await _unitOfWork.GetRepository<SymptomConfig>()
                     .GetListAsync(
                         predicate: sc => sc.IsActive,
                         orderBy: o => o.OrderBy(sc => sc.DisplayOrder).ThenBy(sc => sc.Name),
@@ -322,7 +322,7 @@ namespace SnakeAid.Service.Implements
                     .GroupBy(sc => sc.AttributeKey)
                     .ToDictionary(
                         g => g.Key,
-                        g => g.Select(MapToResponse).ToList()
+                        g => g.ToList().Adapt<List<SymptomConfigResponse>>()
                     );
 
                 return ApiResponseBuilder.BuildSuccessResponse(grouped);
@@ -339,13 +339,13 @@ namespace SnakeAid.Service.Implements
         {
             try
             {
-                var symptomConfigs = await _unitOfWork.GetRepository<Core.Domains.SymptomConfig>()
+                var symptomConfigs = await _unitOfWork.GetRepository<SymptomConfig>()
                     .GetListAsync(
                         orderBy: o => o.OrderBy(sc => sc.DisplayOrder).ThenBy(sc => sc.Name),
                         include: q => q.Include(sc => sc.VenomType)
                     );
 
-                var response = symptomConfigs.Select(MapToResponse).ToList();
+                var response = symptomConfigs.Adapt<List<SymptomConfigResponse>>();
                 return ApiResponseBuilder.BuildSuccessResponse(response);
             }
             catch (Exception ex)
@@ -356,34 +356,6 @@ namespace SnakeAid.Service.Implements
             }
         }
 
-        private SymptomConfigResponse MapToResponse(Core.Domains.SymptomConfig symptomConfig)
-        {
-            return new SymptomConfigResponse
-            {
-                Id = symptomConfig.Id,
-                AttributeKey = symptomConfig.AttributeKey,
-                AttributeLabel = symptomConfig.AttributeLabel,
-                UIHint = symptomConfig.UIHint,
-                UIHintDisplay = symptomConfig.UIHint.ToString(),
-                DisplayOrder = symptomConfig.DisplayOrder,
-                Name = symptomConfig.Name,
-                Description = symptomConfig.Description,
-                IsActive = symptomConfig.IsActive,
-                Category = symptomConfig.Category,
-                CategoryDisplay = symptomConfig.Category.ToString(),
-                TimeScoreList = symptomConfig.TimeScoreList,
-                VenomTypeId = symptomConfig.VenomTypeId,
-                VenomType = symptomConfig.VenomType != null
-                    ? new VenomTypeInfo
-                    {
-                        Id = symptomConfig.VenomType.Id,
-                        Name = symptomConfig.VenomType.Name
-                    }
-                    : null,
-                CreatedAt = symptomConfig.CreatedAt,
-                UpdatedAt = symptomConfig.UpdatedAt
-            };
-        }
     }
 }
 

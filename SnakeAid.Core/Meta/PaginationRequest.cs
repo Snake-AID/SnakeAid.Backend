@@ -1,4 +1,4 @@
-namespace SnakeAid.Core.Requests
+namespace SnakeAid.Core.Meta
 {
     public class PaginationRequest
     {
