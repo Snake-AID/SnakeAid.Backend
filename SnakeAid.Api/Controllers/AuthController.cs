@@ -35,7 +35,8 @@ public class AuthController : BaseController<AuthController>
     [SwaggerResponse(400, "Email already in use or validation error")]
     [SwaggerResponse(422, "Validation error")]
     public async Task<IActionResult> Register(
-        [FromQuery(Name = "role"), SwaggerParameter("Registration role (`MEMBER` or `RESCUER` or `EXPERT`). Defaults to `MEMBER`.")]
+        [FromQuery(Name = "role")]
+        [SwaggerParameter("Registration role (`MEMBER` or `RESCUER` or `EXPERT`). Defaults to `MEMBER`.")]
         RegisterRole? role,
         [FromBody] RegisterRequest request
         )
