@@ -21,17 +21,8 @@ namespace SnakeAid.Core.Domains
         [Column(TypeName = "jsonb")]
         public string Content { get; set; }
 
-        [Required]
-        public GuidelineType Type { get; set; }
-
         [MaxLength(500)]
         public string? Summary { get; set; }  // Tóm tắt ngắn
 
-    }
-
-    public enum GuidelineType
-    {
-        General = 0,
-        SpeciesSpecific = 1
     }
 }

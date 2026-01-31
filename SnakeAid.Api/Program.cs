@@ -13,6 +13,7 @@ using SnakeAid.Core.Middlewares;
 using SnakeAid.Api.DI;
 using SnakeAid.Api.Hubs;
 using SnakeAid.Repository.Data;
+using SnakeAid.Repository.Seeds;
 using SQLitePCL;
 using Swashbuckle.AspNetCore.SwaggerUI;
 using System.Text.Json.Serialization;
@@ -21,7 +22,7 @@ namespace SnakeAid.Api
 {
     public class Program
     {
-        public static void Main(string[] args)
+        public static async Task Main(string[] args)
         {
             Log.Logger = new LoggerConfiguration()
                 .Enrich.FromLogContext()
@@ -184,7 +185,7 @@ namespace SnakeAid.Api
                     {
                         // Check if running in container
                         var isContainer = Environment.GetEnvironmentVariable("DOTNET_RUNNING_IN_CONTAINER") == "true";
-                        
+
                         if (isContainer)
                         {
                             // Docker container: HTTP only
@@ -260,6 +261,13 @@ namespace SnakeAid.Api
                     {
                         // app.ApplyMigrations<SnakeAidDbContext>();
                     }
+
+                    // // Seed data (mở ra nếu seed lại dữ liệu)
+                    // using (var scope = app.Services.CreateScope())
+                    // {
+                    //     var context = scope.ServiceProvider.GetRequiredService<SnakeAidDbContext>();
+                    //     await DataSeeder.SeedAsync(context);
+                    // }
                 }
                 app.UseSwagger();
                 app.UseSwaggerUI(c =>
