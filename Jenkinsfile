@@ -20,14 +20,17 @@ def ociLabelArgs(String tag) {
     def repoUrl = normalizeRepoUrl(env.GIT_URL ?: '')
     def url = commitUrl(repoUrl, env.GIT_COMMIT ?: '')
 
-    return """
-        -f Dockerfile .
-        --label org.opencontainers.image.source=${repoUrl}
-        --label org.opencontainers.image.revision=${env.GIT_COMMIT ?: ''}
-        --label org.opencontainers.image.url=${url}
-        --label org.opencontainers.image.created=${created}
-        --label org.opencontainers.image.version=${tag}
-    """.trim()
+    // IMPORTANT: must be a SINGLE LINE to avoid Jenkins `sh` interpreting `--label` as a separate command
+    def labels = [
+        "org.opencontainers.image.source=${repoUrl}",
+        "org.opencontainers.image.revision=${env.GIT_COMMIT ?: ''}",
+        "org.opencontainers.image.url=${url}",
+        "org.opencontainers.image.created=${created}",
+        "org.opencontainers.image.version=${tag}"
+    ].collect { "--label ${it}" }.join(' ')
+
+    // `docker.build(name, args)` already sets `-t name`, so only pass Dockerfile + labels + context
+    return "-f Dockerfile ${labels} ."
 }
 
 // ---------- Pipeline ----------
@@ -116,6 +119,7 @@ pipeline {
                     docker.withRegistry(REGISTRY_URL, REGISTRY_CREDENTIAL) {
                         img.push('latest')
                     }
+                    // Preserve original cleanup behavior
                     sh "docker rmi ${IMAGE}:latest --force || true"
                 }
             }
