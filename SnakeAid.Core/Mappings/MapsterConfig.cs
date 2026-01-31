@@ -11,11 +11,6 @@ public static class MapsterConfig
 {
     public static void RegisterMappings()
     {
-        // Configure mapping for NetTopologySuite Point (geometry)
-        TypeAdapterConfig<SnakebiteIncident, CreateIncidentResponse>
-            .NewConfig()
-            .Map(dest => dest.LocationCoordinates, src => src.LocationCoordinates)
-            .Map(dest => dest.Location, src => src.Location);
 
         // Scan and register all mapping configurations in the assembly
         // This will automatically find all classes implementing IRegister
