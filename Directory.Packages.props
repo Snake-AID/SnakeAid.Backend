@@ -39,6 +39,7 @@
     <PackageVersion Include="Serilog.UI" Version="3.2.0" />
     <PackageVersion Include="Serilog.UI.SqliteProvider" Version="1.1.0" />
     <PackageVersion Include="SQLitePCLRaw.bundle_e_sqlite3" Version="3.0.2" />
+    <PackageVersion Include="Stateless" Version="5.20.0" />
     <PackageVersion Include="VietQRHelper" Version="1.0.2" />
     <PackageVersion Include="Scrutor" Version="7.0.0" />
     <PackageVersion Include="Swashbuckle.AspNetCore" Version="8.1.4" />

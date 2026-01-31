@@ -70,4 +70,16 @@ namespace SnakeAid.Core.Domains
         Disputed = 6,
         Completed = 7
     }
+
+    public enum SnakebiteIncidentTrigger
+    {
+        Pending = 0,
+        Assigned = 1,
+        Finished = 2,
+        Cancelled = 3,
+        NoRescuerFound = 4,
+        Paid = 5,
+        Disputed = 6,
+        Completed = 7
+    }
 }

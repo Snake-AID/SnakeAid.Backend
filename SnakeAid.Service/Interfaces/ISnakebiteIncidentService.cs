@@ -20,6 +20,6 @@ namespace SnakeAid.Service.Interfaces
 
         Task<ApiResponse<UpdateSymptomReportResponse>> UpdateSymptomReportAsync(Guid incidentId, UpdateSymptomReportRequest request);
 
-
+        Task<ApiResponse<CreateIncidentResponse>> CancelIncidentAsync(Guid incidentId);
     }
 }

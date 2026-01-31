@@ -33,9 +33,7 @@ namespace SnakeAid.Service.Implements.Email
 
             // Initialize RazorLight engine
             // Find template root in source code location, not bin output
-            var baseDir = AppContext.BaseDirectory;
-            var projectRoot = Directory.GetParent(baseDir)?.Parent?.Parent?.Parent?.Parent?.FullName;
-            _templateRoot = Path.Combine(projectRoot!, "SnakeAid.Service", "Implements", "Email", "Templates");
+            _templateRoot = Path.Combine(AppContext.BaseDirectory!, "SnakeAid.Service", "Implements", "Email", "Templates");
             
             // Create directory if it doesn't exist
             if (!Directory.Exists(_templateRoot))
