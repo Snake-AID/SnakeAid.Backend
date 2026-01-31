@@ -30,7 +30,6 @@ namespace SnakeAid.Api.Controllers
         /// Create a new first aid guideline
         /// </summary>
         [HttpPost]
-        [Authorize(Roles = "Admin")]
         [ValidateModel]
         [SwaggerOperation(Summary = "Create First Aid Guideline", Description = "Create a new first aid guideline (Admin only)")]
         [SwaggerResponse(200, "Created successfully", typeof(ApiResponse<FirstAidGuidelineResponse>))]
@@ -81,10 +80,22 @@ namespace SnakeAid.Api.Controllers
         }
 
         /// <summary>
+        /// Get first aid guidelines by snake species ID
+        /// </summary>
+        [HttpGet("by-snake-species/{snakeSpeciesId}")]
+        [SwaggerOperation(Summary = "Get First Aid Guidelines by Snake Species", Description = "Get first aid guidelines based on the venom types of a specific snake species")]
+        [SwaggerResponse(200, "Success", typeof(ApiResponse<List<FirstAidGuidelineResponse>>))]
+        [SwaggerResponse(404, "Snake species not found")]
+        public async Task<IActionResult> GetFirstAidGuidelinesBySnakeSpecies(int snakeSpeciesId)
+        {
+            var result = await _guidelineService.GetFirstAidGuidelinesBySnakeSpeciesIdAsync(snakeSpeciesId);
+            return StatusCode(result.StatusCode, result);
+        }
+
+        /// <summary>
         /// Update an existing first aid guideline
         /// </summary>
         [HttpPut("{id}")]
-        [Authorize(Roles = "Admin")]
         [ValidateModel]
         [SwaggerOperation(Summary = "Update First Aid Guideline", Description = "Update an existing first aid guideline (Admin only)")]
         [SwaggerResponse(200, "Updated successfully", typeof(ApiResponse<FirstAidGuidelineResponse>))]
@@ -102,7 +113,6 @@ namespace SnakeAid.Api.Controllers
         /// Delete a first aid guideline
         /// </summary>
         [HttpDelete("{id}")]
-        [Authorize(Roles = "Admin")]
         [SwaggerOperation(Summary = "Delete First Aid Guideline", Description = "Delete a first aid guideline (Admin only)")]
         [SwaggerResponse(200, "Deleted successfully", typeof(ApiResponse<bool>))]
         [SwaggerResponse(401, "Unauthorized")]

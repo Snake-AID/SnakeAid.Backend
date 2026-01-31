@@ -9,6 +9,8 @@ using SnakeAid.Core.Responses.FirstAidGuideline;
 using SnakeAid.Repository.Data;
 using SnakeAid.Repository.Interfaces;
 using SnakeAid.Service.Interfaces;
+using System.Linq.Expressions;
+using System.Net;
 
 namespace SnakeAid.Service.Implements
 {
@@ -36,10 +38,16 @@ namespace SnakeAid.Service.Implements
 
                 return await _unitOfWork.ExecuteInTransactionAsync(async () =>
                 {
+                    var jsonOptions = new System.Text.Json.JsonSerializerOptions
+                    {
+                        Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+                        WriteIndented = false
+                    };
+
                     var guideline = new FirstAidGuideline
                     {
                         Name = request.Name,
-                        Content = request.Content,
+                        Content = System.Text.Json.JsonSerializer.Serialize(request.Content, jsonOptions),
                         Type = request.Type,
                         Summary = request.Summary,
                         CreatedAt = DateTime.UtcNow,
@@ -56,7 +64,8 @@ namespace SnakeAid.Service.Implements
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error creating first aid guideline");
-                return ApiResponseBuilder.BuildFailureResponse<FirstAidGuidelineResponse>(ex.Message);
+                return ApiResponseBuilder.CreateResponse<FirstAidGuidelineResponse>(
+                    default, false, ex.Message, HttpStatusCode.BadRequest);
             }
         }
 
@@ -78,7 +87,8 @@ namespace SnakeAid.Service.Implements
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error getting first aid guideline by ID {Id}", id);
-                return ApiResponseBuilder.BuildFailureResponse<FirstAidGuidelineResponse>(ex.Message);
+                return ApiResponseBuilder.CreateResponse<FirstAidGuidelineResponse>(
+                    default, false, ex.Message, HttpStatusCode.BadRequest);
             }
         }
 
@@ -86,44 +96,44 @@ namespace SnakeAid.Service.Implements
         {
             try
             {
-                var query = _unitOfWork.GetRepository<FirstAidGuideline>()
-                    .GetQueryable();
+                Expression<Func<FirstAidGuideline, bool>>? predicate = null;
 
-                // Apply filters
-                if (!string.IsNullOrWhiteSpace(request.Name))
+                // Build predicate
+                if (!string.IsNullOrWhiteSpace(request.Name) && request.Type.HasValue)
                 {
-                    query = query.Where(g => g.Name.Contains(request.Name));
+                    predicate = g => g.Name.Contains(request.Name) && g.Type == request.Type.Value;
                 }
-
-                if (request.Type.HasValue)
+                else if (!string.IsNullOrWhiteSpace(request.Name))
                 {
-                    query = query.Where(g => g.Type == request.Type.Value);
+                    predicate = g => g.Name.Contains(request.Name);
+                }
+                else if (request.Type.HasValue)
+                {
+                    predicate = g => g.Type == request.Type.Value;
                 }
 
                 // Get paginated data
                 var pagedData = await _unitOfWork.GetRepository<FirstAidGuideline>()
                     .GetPagingListAsync(
-                        predicate: query.Expression,
-                        orderBy: o => o.OrderByDescending(g => g.CreatedAt),
-                        page: request.Page,
-                        size: request.Size
+                        predicate: predicate,
+                        orderBy: o => o.OrderBy(g => g.Name),
+                        page: request.PageNumber,
+                        size: request.PageSize
                     );
 
                 var response = new PagedData<FirstAidGuidelineResponse>
                 {
                     Items = pagedData.Items.Adapt<List<FirstAidGuidelineResponse>>(),
-                    TotalCount = pagedData.TotalCount,
-                    Page = pagedData.Page,
-                    Size = pagedData.Size,
-                    TotalPages = pagedData.TotalPages
+                    Meta = pagedData.Meta
                 };
 
                 return ApiResponseBuilder.BuildSuccessResponse(response);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error getting first aid guidelines");
-                return ApiResponseBuilder.BuildFailureResponse<PagedData<FirstAidGuidelineResponse>>(ex.Message);
+                _logger.LogError(ex, "Error filtering first aid guidelines");
+                return ApiResponseBuilder.CreateResponse<PagedData<FirstAidGuidelineResponse>>(
+                    default, false, ex.Message, HttpStatusCode.BadRequest);
             }
         }
 
@@ -152,9 +162,14 @@ namespace SnakeAid.Service.Implements
                         guideline.Name = request.Name;
                     }
 
-                    if (!string.IsNullOrWhiteSpace(request.Content))
+                    if (request.Content != null)
                     {
-                        guideline.Content = request.Content;
+                        var jsonOptions = new System.Text.Json.JsonSerializerOptions
+                        {
+                            Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+                            WriteIndented = false
+                        };
+                        guideline.Content = System.Text.Json.JsonSerializer.Serialize(request.Content, jsonOptions);
                     }
 
                     if (request.Type.HasValue)
@@ -179,7 +194,8 @@ namespace SnakeAid.Service.Implements
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error updating first aid guideline with ID {Id}", id);
-                return ApiResponseBuilder.BuildFailureResponse<FirstAidGuidelineResponse>(ex.Message);
+                return ApiResponseBuilder.CreateResponse<FirstAidGuidelineResponse>(
+                    default, false, ex.Message, HttpStatusCode.BadRequest);
             }
         }
 
@@ -206,7 +222,8 @@ namespace SnakeAid.Service.Implements
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error deleting first aid guideline with ID {Id}", id);
-                return ApiResponseBuilder.BuildFailureResponse<bool>(ex.Message);
+                return ApiResponseBuilder.CreateResponse<bool>(
+                    false, false, ex.Message, HttpStatusCode.BadRequest);
             }
         }
 
@@ -223,8 +240,54 @@ namespace SnakeAid.Service.Implements
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error getting all first aid guidelines");
-                return ApiResponseBuilder.BuildFailureResponse<List<FirstAidGuidelineResponse>>(ex.Message);
+                return ApiResponseBuilder.CreateResponse<List<FirstAidGuidelineResponse>>(
+                    default, false, ex.Message, HttpStatusCode.BadRequest);
+            }
+        }
+
+        public async Task<ApiResponse<List<FirstAidGuidelineResponse>>> GetFirstAidGuidelinesBySnakeSpeciesIdAsync(int snakeSpeciesId)
+        {
+            try
+            {
+                // Check if snake species exists
+                var snakeSpecies = await _unitOfWork.GetRepository<SnakeSpecies>()
+                    .FirstOrDefaultAsync(
+                        predicate: s => s.Id == snakeSpeciesId,
+                        include: q => q.Include(s => s.SpeciesVenoms)
+                                       .ThenInclude(sv => sv.VenomType)
+                                       .ThenInclude(vt => vt.FirstAidGuideline)
+                    );
+
+                if (snakeSpecies == null)
+                {
+                    throw new NotFoundException($"Snake species with ID {snakeSpeciesId} not found.");
+                }
+
+                // Get all first aid guidelines from venom types
+                var guidelines = snakeSpecies.SpeciesVenoms
+                    .Where(sv => sv.VenomType != null && sv.VenomType.FirstAidGuideline != null)
+                    .Select(sv => sv.VenomType.FirstAidGuideline)
+                    .Distinct()
+                    .ToList();
+
+                if (!guidelines.Any())
+                {
+                    return ApiResponseBuilder.BuildSuccessResponse(
+                        new List<FirstAidGuidelineResponse>(),
+                        "No first aid guidelines found for this snake species."
+                    );
+                }
+
+                var response = guidelines.Adapt<List<FirstAidGuidelineResponse>>();
+                return ApiResponseBuilder.BuildSuccessResponse(response);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting first aid guidelines for snake species ID {SnakeSpeciesId}", snakeSpeciesId);
+                return ApiResponseBuilder.CreateResponse<List<FirstAidGuidelineResponse>>(
+                    default, false, ex.Message, HttpStatusCode.BadRequest);
             }
         }
     }
 }
+

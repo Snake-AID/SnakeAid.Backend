@@ -10,6 +10,8 @@ using SnakeAid.Repository.Data;
 using SnakeAid.Repository.Interfaces;
 using SnakeAid.Service.Interfaces;
 using System.Text.Json;
+using System.Linq.Expressions;
+using System.Net;
 
 namespace SnakeAid.Service.Implements
 {
@@ -88,7 +90,8 @@ namespace SnakeAid.Service.Implements
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error creating symptom configuration");
-                return ApiResponseBuilder.BuildFailureResponse<SymptomConfigResponse>(ex.Message);
+                return ApiResponseBuilder.CreateResponse<SymptomConfigResponse>(
+                    default, false, ex.Message, HttpStatusCode.BadRequest);
             }
         }
 
@@ -113,7 +116,8 @@ namespace SnakeAid.Service.Implements
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error getting symptom configuration by ID {Id}", id);
-                return ApiResponseBuilder.BuildFailureResponse<SymptomConfigResponse>(ex.Message);
+                return ApiResponseBuilder.CreateResponse<SymptomConfigResponse>(
+                    default, false, ex.Message, HttpStatusCode.BadRequest);
             }
         }
 
@@ -121,72 +125,41 @@ namespace SnakeAid.Service.Implements
         {
             try
             {
-                var query = _unitOfWork.GetRepository<Core.Domains.SymptomConfig>()
-                    .GetQueryable()
-                    .Include(sc => sc.VenomType);
+                Expression<Func<Core.Domains.SymptomConfig, bool>>? predicate = null;
 
-                // Apply filters
-                if (!string.IsNullOrWhiteSpace(request.AttributeKey))
-                {
-                    query = query.Where(sc => sc.AttributeKey.Contains(request.AttributeKey));
-                }
+                // Build combined predicate
+                predicate = sc => 
+                    (string.IsNullOrWhiteSpace(request.AttributeKey) || sc.AttributeKey.Contains(request.AttributeKey)) &&
+                    (string.IsNullOrWhiteSpace(request.Name) || sc.Name.Contains(request.Name)) &&
+                    (!request.UIHint.HasValue || sc.UIHint == request.UIHint.Value) &&
+                    (!request.Category.HasValue || sc.Category == request.Category.Value) &&
+                    (!request.IsActive.HasValue || sc.IsActive == request.IsActive.Value) &&
+                    (!request.VenomTypeId.HasValue || sc.VenomTypeId == request.VenomTypeId.Value);
 
-                if (!string.IsNullOrWhiteSpace(request.Name))
-                {
-                    query = query.Where(sc => sc.Name.Contains(request.Name));
-                }
+                // Get paginated data
+                var pagedData = await _unitOfWork.GetRepository<Core.Domains.SymptomConfig>()
+                    .GetPagingListAsync(
+                        predicate: predicate,
+                        orderBy: o => o.OrderBy(sc => sc.DisplayOrder).ThenBy(sc => sc.AttributeKey).ThenBy(sc => sc.Name),
+                        include: q => q.Include(sc => sc.VenomType),
+                        page: request.PageNumber,
+                        size: request.PageSize
+                    );
 
-                if (request.UIHint.HasValue)
-                {
-                    query = query.Where(sc => sc.UIHint == request.UIHint.Value);
-                }
-
-                if (request.Category.HasValue)
-                {
-                    query = query.Where(sc => sc.Category == request.Category.Value);
-                }
-
-                if (request.IsActive.HasValue)
-                {
-                    query = query.Where(sc => sc.IsActive == request.IsActive.Value);
-                }
-
-                if (request.VenomTypeId.HasValue)
-                {
-                    query = query.Where(sc => sc.VenomTypeId == request.VenomTypeId.Value);
-                }
-
-                // Get total count
-                var totalCount = await query.CountAsync();
-
-                // Apply ordering
-                query = query.OrderBy(sc => sc.DisplayOrder)
-                            .ThenBy(sc => sc.AttributeKey)
-                            .ThenBy(sc => sc.Name);
-
-                // Apply pagination
-                var items = await query
-                    .Skip((request.Page - 1) * request.Size)
-                    .Take(request.Size)
-                    .ToListAsync();
-
-                var responseItems = items.Select(MapToResponse).ToList();
-
-                var pagedData = new PagedData<SymptomConfigResponse>
+                var responseItems = pagedData.Items.Select(MapToResponse).ToList();
+                var response = new PagedData<SymptomConfigResponse>
                 {
                     Items = responseItems,
-                    TotalCount = totalCount,
-                    Page = request.Page,
-                    Size = request.Size,
-                    TotalPages = (int)Math.Ceiling(totalCount / (double)request.Size)
+                    Meta = pagedData.Meta
                 };
 
-                return ApiResponseBuilder.BuildSuccessResponse(pagedData);
+                return ApiResponseBuilder.BuildSuccessResponse(response);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error getting symptom configurations");
-                return ApiResponseBuilder.BuildFailureResponse<PagedData<SymptomConfigResponse>>(ex.Message);
+                _logger.LogError(ex, "Error filtering symptom configurations");
+                return ApiResponseBuilder.CreateResponse<PagedData<SymptomConfigResponse>>(
+                    default, false, ex.Message, HttpStatusCode.BadRequest);
             }
         }
 
@@ -301,7 +274,8 @@ namespace SnakeAid.Service.Implements
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error updating symptom configuration with ID {Id}", id);
-                return ApiResponseBuilder.BuildFailureResponse<SymptomConfigResponse>(ex.Message);
+                return ApiResponseBuilder.CreateResponse<SymptomConfigResponse>(
+                    default, false, ex.Message, HttpStatusCode.BadRequest);
             }
         }
 
@@ -328,7 +302,8 @@ namespace SnakeAid.Service.Implements
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error deleting symptom configuration with ID {Id}", id);
-                return ApiResponseBuilder.BuildFailureResponse<bool>(ex.Message);
+                return ApiResponseBuilder.CreateResponse<bool>(
+                    false, false, ex.Message, HttpStatusCode.BadRequest);
             }
         }
 
@@ -355,7 +330,8 @@ namespace SnakeAid.Service.Implements
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error getting symptom configurations grouped by key");
-                return ApiResponseBuilder.BuildFailureResponse<Dictionary<string, List<SymptomConfigResponse>>>(ex.Message);
+                return ApiResponseBuilder.CreateResponse<Dictionary<string, List<SymptomConfigResponse>>>(
+                    default, false, ex.Message, HttpStatusCode.BadRequest);
             }
         }
 
@@ -375,7 +351,8 @@ namespace SnakeAid.Service.Implements
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error getting all symptom configurations");
-                return ApiResponseBuilder.BuildFailureResponse<List<SymptomConfigResponse>>(ex.Message);
+                return ApiResponseBuilder.CreateResponse<List<SymptomConfigResponse>>(
+                    default, false, ex.Message, HttpStatusCode.BadRequest);
             }
         }
 
@@ -409,3 +386,4 @@ namespace SnakeAid.Service.Implements
         }
     }
 }
+

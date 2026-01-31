@@ -35,5 +35,10 @@ namespace SnakeAid.Service.Interfaces
         /// Get all first aid guidelines without pagination
         /// </summary>
         Task<ApiResponse<List<FirstAidGuidelineResponse>>> GetAllFirstAidGuidelineAsync();
+
+        /// <summary>
+        /// Get first aid guidelines by snake species ID
+        /// </summary>
+        Task<ApiResponse<List<FirstAidGuidelineResponse>>> GetFirstAidGuidelinesBySnakeSpeciesIdAsync(int snakeSpeciesId);
     }
 }

@@ -16,7 +16,7 @@ namespace SnakeAid.Core.Requests.FirstAidGuideline
         /// Nội dung chi tiết (JSON format)
         /// </summary>
         [Required(ErrorMessage = "Content is required")]
-        public string Content { get; set; }
+        public object Content { get; set; }
 
         /// <summary>
         /// Loại hướng dẫn: General (0) hoặc SpeciesSpecific (1)
