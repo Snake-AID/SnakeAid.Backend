@@ -367,3 +367,5 @@ FodyWeavers.xsd
 appsettings.json
 appsettings.*.json
 !appsettings.example.json
+# Docker compose override
+SnakeAid.dockercompose.yml

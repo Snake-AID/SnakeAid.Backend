@@ -34,6 +34,38 @@ namespace SnakeAid.Service.Implements
             _configuration = configuration;
         }
 
+        public async Task<ApiResponse<CreateIncidentResponse>> CancelIncidentAsync(Guid incidentId)
+        {
+            try
+            {
+                return await _unitOfWork.ExecuteInTransactionAsync(async () =>
+                {
+                    var existingIncident = await _unitOfWork.GetRepository<SnakebiteIncident>().FirstOrDefaultAsync(
+                            predicate: s => s.Id == incidentId
+                        );
+                    if (existingIncident == null)
+                    {
+                        throw new NotFoundException("Snakebite incident not found.");
+                    }
+                    // Validate incident status - only allow cancelling for Pending incidents
+                    if (existingIncident.Status != SnakebiteIncidentStatus.Pending && existingIncident.Status != SnakebiteIncidentStatus.Assigned)
+                    {
+                        throw new BadRequestException($"Cannot cancel incident with status: {existingIncident.Status}");
+                    }
+                    existingIncident.Status = SnakebiteIncidentStatus.Cancelled;
+                    _unitOfWork.GetRepository<SnakebiteIncident>().Update(existingIncident);
+                    await _unitOfWork.CommitAsync();
+                    var responseData = existingIncident.Adapt<CreateIncidentResponse>();
+                    return ApiResponseBuilder.BuildSuccessResponse(responseData, "Snakebite Incident cancelled successfully!");
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error cancelling snakebite incident: {Message}", ex.Message);
+                throw;
+            }
+        }
+
         public async Task<ApiResponse<CreateIncidentResponse>> CreateIncidentAsync(CreateIncidentRequest request, Guid userId)
         {
             try
