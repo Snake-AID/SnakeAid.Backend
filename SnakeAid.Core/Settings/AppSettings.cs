@@ -25,3 +25,22 @@ public class FirebaseCloudMessagingSettings
     public string ServerKey { get; set; } = string.Empty;
     public string SenderId { get; set; } = string.Empty;
 }
+
+public class CloudinarySettings
+{
+    public string CloudName { get; set; } = string.Empty;
+    public string ApiKey { get; set; } = string.Empty;
+    public string ApiSecret { get; set; } = string.Empty;
+    public string BaseFolder { get; set; } = "snakeaid";
+}
+
+public class SnakeAISettings
+{
+    public string BaseUrl { get; set; } = "http://localhost:8000";
+    public int ImageSize { get; set; } = 640;
+    public float IouThreshold { get; set; } = 0.5f;
+    public int TopK { get; set; } = 100;
+    public bool SaveImage { get; set; } = false;
+    public float Confidence { get; set; } = 0.25f;
+    public int TimeoutSeconds { get; set; } = 30;
+} 

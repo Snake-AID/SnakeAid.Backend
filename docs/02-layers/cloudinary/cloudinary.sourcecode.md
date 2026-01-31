@@ -4,7 +4,7 @@ This document describes the intended source code structure after Cloudinary inte
 
 ## Status
 As of 2026-01-27, the Cloudinary foundation (Phase A) is implemented:
-- Settings: `SnakeAid.Core/Settings/CloudinarySettings.cs`
+- Settings: `SnakeAid.Core/Settings/AppSettings.cs` (contains `CloudinarySettings` class)
 - Contracts: `SnakeAid.Core/Requests/Media/UploadImageRequest.cs`
 - Contracts: `SnakeAid.Core/Requests/Media/UploadFileRequest.cs`
 - Contracts: `SnakeAid.Core/Responses/Media/CloudinaryUploadResult.cs`
@@ -23,7 +23,7 @@ As of 2026-01-27, the Cloudinary foundation (Phase A) is implemented:
 ## Configuration
 
 ### Cloudinary Settings Class
-**Location**: `SnakeAid.Core/Settings/CloudinarySettings.cs`
+**Location**: `SnakeAid.Core/Settings/AppSettings.cs` (CloudinarySettings class)
 
 ```csharp
 namespace SnakeAid.Core.Settings;

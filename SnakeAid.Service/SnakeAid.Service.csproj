@@ -20,6 +20,8 @@
     <PackageReference Include="Refit.HttpClientFactory" />
     <PackageReference Include="System.IdentityModel.Tokens.Jwt" />
     <PackageReference Include="VietQRHelper" />
+    <PackageReference Include="Polly" />
+    <PackageReference Include="Microsoft.Extensions.Http.Polly" />
   </ItemGroup>
 
   <ItemGroup>
