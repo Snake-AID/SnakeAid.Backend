@@ -120,18 +120,29 @@ pipeline {
                         img.push('latest')
                     }
 
-                    // Trigger Portainer redeploy AFTER latest is pushed
-                    withCredentials([
-                        string(credentialsId: 'portainer-snakeaid-webhook', variable: 'PORTAINER_WEBHOOK')
-                    ]) {
-                        sh '''
-                            set -e
-                            curl -fsS -X POST "$PORTAINER_WEBHOOK"
-                        '''
-                    }
-
                     // Preserve original cleanup behavior
                     sh "docker rmi ${IMAGE}:latest --force || true"
+                }
+            }
+        }
+
+        stage('Deploy (Portainer Webhook)') {
+            when {
+                // Deploy only on real pushes/merges to main (non-PR)
+                allOf {
+                    branch 'main'
+                    not { changeRequest() }
+                }
+            }
+
+            steps {
+                withCredentials([
+                    string(credentialsId: 'portainer-snakeaid-webhook', variable: 'PORTAINER_WEBHOOK')
+                ]) {
+                    sh '''
+                        set -e
+                        curl -fsS -X POST "$PORTAINER_WEBHOOK"
+                    '''
                 }
             }
         }
