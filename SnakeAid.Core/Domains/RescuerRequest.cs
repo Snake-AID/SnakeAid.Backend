@@ -35,9 +35,6 @@ namespace SnakeAid.Core.Domains
         [Required]
         public DateTime ExpiredAt { get; set; }   // Auto-expire after X minutes
 
-        [MaxLength(500)]
-        public string? RejectionReason { get; set; }
-
 
         // Navigation properties
         public RescueRequestSession Session { get; set; }

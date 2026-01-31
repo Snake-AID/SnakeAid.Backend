@@ -36,12 +36,12 @@ namespace SnakeAid.Core.Domains
         public ReputationStatus ReputationStatus { get; set; } = ReputationStatus.Good;
 
         public DateTime? SuspendedUntil { get; set; }  // Nếu bị tạm khóa
-        
+
         public string? SuspensionReason { get; set; }
 
-        public MemberProfile MemberProfile { get; set; }
-        public ExpertProfile ExpertProfile { get; set; }
-        public RescuerProfile RescuerProfile { get; set; }
+        public MemberProfile? MemberProfile { get; set; }
+        public ExpertProfile? ExpertProfile { get; set; }
+        public RescuerProfile? RescuerProfile { get; set; }
         public ICollection<Otp> Otps { get; set; } = new List<Otp>();
     }
 
