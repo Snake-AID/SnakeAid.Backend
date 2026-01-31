@@ -58,7 +58,7 @@ namespace SnakeAid.Api.Controllers
         /// <summary>
         /// Get list of first aid guidelines with pagination and filters
         /// </summary>
-        [HttpGet]
+        [HttpGet("filter")]
         [SwaggerOperation(Summary = "Filter First Aid Guidelines", Description = "Get paginated list of first aid guidelines with optional filters")]
         [SwaggerResponse(200, "Success", typeof(ApiResponse<PagedData<FirstAidGuidelineResponse>>))]
         public async Task<IActionResult> FilterFirstAidGuidelines([FromQuery] GetFirstAidGuidelineRequest request)
@@ -70,7 +70,7 @@ namespace SnakeAid.Api.Controllers
         /// <summary>
         /// Get all first aid guidelines without pagination
         /// </summary>
-        [HttpGet("all")]
+        [HttpGet]
         [SwaggerOperation(Summary = "Get All First Aid Guidelines", Description = "Get all first aid guidelines without pagination")]
         [SwaggerResponse(200, "Success", typeof(ApiResponse<List<FirstAidGuidelineResponse>>))]
         public async Task<IActionResult> GetAllFirstAidGuideline()

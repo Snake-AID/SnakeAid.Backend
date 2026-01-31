@@ -30,7 +30,6 @@ namespace SnakeAid.Api.Controllers
         /// Create a new symptom configuration
         /// </summary>
         [HttpPost]
-        [Authorize(Roles = "Admin")]
         [ValidateModel]
         [SwaggerOperation(Summary = "Create Symptom Configuration", Description = "Create a new symptom configuration (Admin only)")]
         [SwaggerResponse(200, "Created successfully", typeof(ApiResponse<SymptomConfigResponse>))]
@@ -60,7 +59,7 @@ namespace SnakeAid.Api.Controllers
         /// <summary>
         /// Get list of symptom configurations with pagination and filters
         /// </summary>
-        [HttpGet]
+        [HttpGet("filter")]
         [SwaggerOperation(Summary = "Filter Symptom Configurations", Description = "Get paginated list of symptom configurations with optional filters")]
         [SwaggerResponse(200, "Success", typeof(ApiResponse<PagedData<SymptomConfigResponse>>))]
         public async Task<IActionResult> FilterSymptomConfigs([FromQuery] GetSymptomConfigRequest request)
@@ -72,7 +71,7 @@ namespace SnakeAid.Api.Controllers
         /// <summary>
         /// Get all symptom configurations without pagination
         /// </summary>
-        [HttpGet("all")]
+        [HttpGet]
         [SwaggerOperation(Summary = "Get All Symptom Configurations", Description = "Get all symptom configurations without pagination")]
         [SwaggerResponse(200, "Success", typeof(ApiResponse<List<SymptomConfigResponse>>))]
         public async Task<IActionResult> GetAllSymptomConfig()
@@ -97,7 +96,6 @@ namespace SnakeAid.Api.Controllers
         /// Update an existing symptom configuration
         /// </summary>
         [HttpPut("{id}")]
-        [Authorize(Roles = "Admin")]
         [ValidateModel]
         [SwaggerOperation(Summary = "Update Symptom Configuration", Description = "Update an existing symptom configuration (Admin only)")]
         [SwaggerResponse(200, "Updated successfully", typeof(ApiResponse<SymptomConfigResponse>))]
@@ -115,7 +113,6 @@ namespace SnakeAid.Api.Controllers
         /// Delete a symptom configuration
         /// </summary>
         [HttpDelete("{id}")]
-        [Authorize(Roles = "Admin")]
         [SwaggerOperation(Summary = "Delete Symptom Configuration", Description = "Delete a symptom configuration (Admin only)")]
         [SwaggerResponse(200, "Deleted successfully", typeof(ApiResponse<bool>))]
         [SwaggerResponse(401, "Unauthorized")]
