@@ -24,6 +24,7 @@ namespace SnakeAid.Core.Mappings
 
             // SnakebiteIncident mappings
             config.NewConfig<SnakebiteIncident, CreateIncidentResponse>();
+            config.NewConfig<SnakebiteIncident, UpdateSymptomReportResponse>();
 
             // FirstAidGuideline mappings
             config.NewConfig<FirstAidGuideline, FirstAidGuidelineResponse>();
