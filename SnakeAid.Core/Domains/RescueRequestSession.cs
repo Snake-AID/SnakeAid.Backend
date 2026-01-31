@@ -25,9 +25,6 @@ namespace SnakeAid.Core.Domains
         [Required]
         public SessionStatus Status { get; set; } = SessionStatus.Active;
 
-        [Required]
-        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-
         public DateTime? CompletedAt { get; set; }
 
         // Tracking fields
