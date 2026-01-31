@@ -209,23 +209,23 @@ public static class DependencyInjection
 
             c.EnableAnnotations();
 
-            c.AddServer(new OpenApiServer
-            {
-                Url = "http://localhost:5009",
-                Description = "Development"
-            });
+            // c.AddServer(new OpenApiServer
+            // {
+            //     Url = "http://localhost:5009",
+            //     Description = "Development"
+            // });
 
-            c.AddServer(new OpenApiServer
-            {
-                Url = "http://localhost:8080",
-                Description = "Docker Container"
-            });
+            // c.AddServer(new OpenApiServer
+            // {
+            //     Url = "http://localhost:8080",
+            //     Description = "Docker Container"
+            // });
 
-            c.AddServer(new OpenApiServer
-            {
-                Url = "https://localhost:7026",
-                Description = "Local HTTPS"
-            });
+            // c.AddServer(new OpenApiServer
+            // {
+            //     Url = "https://localhost:7026",
+            //     Description = "Local HTTPS"
+            // });
 
             // c.AddServer(new OpenApiServer
             // {
