@@ -17,7 +17,7 @@ namespace SnakeAid.Core.Domains
         [ForeignKey(nameof(User))]
         public Guid UserId { get; set; }  // FK to MemberProfile
 
-        [Required]
+        // [Required]
         [Column(TypeName = "geometry(Point, 4326)")]
         public Point LocationCoordinates { get; set; }
 
