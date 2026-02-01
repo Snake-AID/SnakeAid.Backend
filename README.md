@@ -1,3 +1,5 @@
+[![Jenkins CICD Status](https://jenkins.duykhiem.id.vn/buildStatus/icon?job=SnakeAid/main&subject=Jenkins%20CI/CD)](https://jenkins.duykhiem.id.vn/job/SnakeAid/job/main/lastBuild/pipeline-overview/) [![Docker Image](https://img.shields.io/docker/v/thekhiem7/snakeaid-api/latest?&logo=docker)](https://hub.docker.com/r/thekhiem7/snakeaid-api) [![Version](https://img.shields.io/github/v/tag/Snake-AID/SnakeAid.Backend)](https://github.com/Snake-AID/SnakeAid.Backend/releases) ![Server Status](https://img.shields.io/website?url=https://snakeaid.duykhiem.id.vn/health&label=Server%20Status)
+
 # SnakeAid.Backend
 
 Note:

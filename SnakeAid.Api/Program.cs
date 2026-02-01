@@ -114,6 +114,9 @@ namespace SnakeAid.Api
 
                 builder.Services.AddMemoryCache();
 
+                // Health checks endpoint
+                builder.Services.AddHealthChecks();
+
                 builder.Services.AddCors(options =>
                 {
                     options.AddPolicy("AllowAll", policy =>
@@ -293,6 +296,9 @@ namespace SnakeAid.Api
                 app.MapHub<TestChatHub>("/chat-hub").RequireCors("SignalRCorsPolicy");
 
                 app.MapControllers();
+
+                // Health checks endpoint
+                app.MapHealthChecks("/health");
 
                 app.Run();
             }
