@@ -69,7 +69,7 @@ public class SnakeAIService : ISnakeAIService
             }
 
             // 3. Process detections and enrich with species info
-            var enrichedDetections = new List<SnakeAIDetection>();
+            var results = new List<DetectionResult>();
             SnakeAIRecognitionResult? savedRecognitionResult = null;
 
             var topDetection = result.Detections
@@ -78,15 +78,21 @@ public class SnakeAIService : ISnakeAIService
 
             foreach (var detection in result.Detections)
             {
-                var enriched = new SnakeAIDetection
+                var detectionResult = new DetectionResult
                 {
-                    ClassId = detection.ClassId,
-                    ClassName = detection.ClassName,
-                    Confidence = detection.Confidence,
-                    X = detection.Bbox.X1,
-                    Y = detection.Bbox.Y1,
-                    Width = detection.Bbox.X2 - detection.Bbox.X1,
-                    Height = detection.Bbox.Y2 - detection.Bbox.Y1
+                    Ai = new AiDetection
+                    {
+                        ClassId = detection.ClassId,
+                        ClassName = detection.ClassName,
+                        Confidence = detection.Confidence,
+                        BBox = new SnakeBBox
+                        {
+                            X1 = detection.Bbox.X1,
+                            Y1 = detection.Bbox.Y1,
+                            X2 = detection.Bbox.X2,
+                            Y2 = detection.Bbox.Y2
+                        }
+                    }
                 };
 
                 // 4. Map to SnakeSpecies if model exists
@@ -95,20 +101,43 @@ public class SnakeAIService : ISnakeAIService
                     var mapping = await _unitOfWork.GetRepository<AISnakeClassMapping>()
                         .FirstOrDefaultAsync(
                             predicate: m => m.AIModelId == activeModel.Id && m.YoloClassName == detection.ClassName && m.IsActive,
-                            include: q => q.Include(m => m.SnakeSpecies),
+                            include: q => q
+                                .Include(m => m.SnakeSpecies)
+                                    .ThenInclude(s => s.SpeciesVenoms)
+                                        .ThenInclude(sv => sv.VenomType)
+                                            .ThenInclude(v => v.FirstAidGuideline), // Include for Fallback
                             cancellationToken: ct);
 
                     if (mapping?.SnakeSpecies != null)
                     {
-                        enriched.SpeciesId = mapping.SnakeSpecies.Id;
-                        enriched.SpeciesName = mapping.SnakeSpecies.CommonName;
-                        enriched.ScientificName = mapping.SnakeSpecies.ScientificName;
-                        enriched.IsVenomous = mapping.SnakeSpecies.IsVenomous;
-                        enriched.RiskLevel = mapping.SnakeSpecies.RiskLevel;
+                        var species = mapping.SnakeSpecies;
+
+                        // -- FALLBACK LOGIC FOR FIRST AID --
+                        // Check override first, if null then fallback to VenomType's guide
+                        if (species.FirstAidGuidelineOverride == null && species.SpeciesVenoms.Any())
+                        {
+                            // Try to find any FirstAidGuideline from linked VenomTypes
+                            var venomWithGuide = species.SpeciesVenoms
+                                .Select(sv => sv.VenomType)
+                                .FirstOrDefault(v => v.FirstAidGuideline != null);
+
+                            if (venomWithGuide != null)
+                            {
+                                species.FirstAidGuidelineOverride = new FirstAidOverride
+                                {
+                                    Mode = OverrideMode.Append, // Append mode (0)
+                                    Steps = !string.IsNullOrEmpty(venomWithGuide.FirstAidGuideline.Content)
+                                        ? JsonSerializer.Deserialize<List<string>>(venomWithGuide.FirstAidGuideline.Content) ?? new List<string>()
+                                        : new List<string>()
+                                };
+                            }
+                        }
+
+                        detectionResult.Snake = species;
 
                         _logger.LogInformation(
                             "Mapped YOLO class '{YoloClass}' to species '{Species}' (ID: {SpeciesId}, Venomous: {IsVenomous})",
-                            detection.ClassName, mapping.SnakeSpecies.CommonName, mapping.SnakeSpecies.Id, mapping.SnakeSpecies.IsVenomous);
+                            detection.ClassName, species.CommonName, species.Id, species.IsVenomous);
                     }
                     else
                     {
@@ -118,13 +147,13 @@ public class SnakeAIService : ISnakeAIService
                     }
                 }
 
-                enrichedDetections.Add(enriched);
+                results.Add(detectionResult);
             }
 
             // 5. Save Recognition Result for top detection
             if (topDetection != null && activeModel != null)
             {
-                var topEnriched = enrichedDetections.FirstOrDefault(e => e.ClassName == topDetection.ClassName && e.Confidence == topDetection.Confidence);
+                var topEnriched = results.FirstOrDefault(r => r.Ai.ClassName == topDetection.ClassName && r.Ai.Confidence == topDetection.Confidence);
 
                 var recognitionResult = new SnakeAIRecognitionResult
                 {
@@ -133,18 +162,18 @@ public class SnakeAIService : ISnakeAIService
                     AIModelId = activeModel.Id,
                     YoloClassName = topDetection.ClassName,
                     Confidence = (decimal)topDetection.Confidence,
-                    DetectedSpeciesId = topEnriched?.SpeciesId,
-                    IsMapped = topEnriched?.SpeciesId.HasValue ?? false,
+                    DetectedSpeciesId = topEnriched?.Snake?.Id,
+                    IsMapped = topEnriched?.Snake != null,
                     AllDetections = JsonSerializer.Serialize(result.Detections),
                     Status = RecognitionStatus.Completed
                 };
 
                 await _unitOfWork.GetRepository<SnakeAIRecognitionResult>().InsertAsync(recognitionResult, ct);
-                
+
                 // Update ReportMedia processing status
                 var reportMedia = await _unitOfWork.GetRepository<ReportMedia>()
                     .FirstOrDefaultAsync(predicate: m => m.Id == reportMediaId, asNoTracking: false, cancellationToken: ct);
-                
+
                 if (reportMedia != null)
                 {
                     reportMedia.IsProcessed = true;
@@ -168,20 +197,21 @@ public class SnakeAIService : ISnakeAIService
 
             var response = new SnakeDetectionResponse
             {
-                ModelVersion = result.ModelVersion,
-                ImageWidth = result.ImageWidth,
-                ImageHeight = result.ImageHeight,
-                TopClassName = topDetection?.ClassName,
-                TopConfidence = topDetection?.Confidence,
-                DetectionCount = result.Detections.Count,
-                Detections = enrichedDetections,
-                RecognitionResultId = savedRecognitionResult?.Id,
-                Warnings = result.Warnings != null ? new SnakeAIWarnings
+                Metadata = new AiMetadata
                 {
-                    Blur = result.Warnings.Blur,
-                    Brightness = result.Warnings.Brightness,
-                    TooSmall = result.Warnings.TooSmall
-                } : null
+                    ModelVersion = result.ModelVersion,
+                    ImageWidth = result.ImageWidth,
+                    ImageHeight = result.ImageHeight,
+                    DetectionCount = result.Detections.Count,
+                    Warnings = result.Warnings != null ? new SnakeAIWarnings
+                    {
+                        Blur = result.Warnings.Blur,
+                        Brightness = result.Warnings.Brightness,
+                        TooSmall = result.Warnings.TooSmall
+                    } : null
+                },
+                Results = results,
+                RecognitionResultId = savedRecognitionResult?.Id
             };
 
             return ApiResponseBuilder.BuildSuccessResponse(response, "Snake detection completed successfully.");
@@ -189,7 +219,7 @@ public class SnakeAIService : ISnakeAIService
         catch (Exception ex)
         {
             _logger.LogError(ex, "SnakeAI detection failed for ReportMediaId: {MediaId}, URL: {Url}", reportMediaId, imageUrl);
-            
+
             // Save failed recognition result
             try
             {
@@ -300,7 +330,10 @@ public class SnakeAIService : ISnakeAIService
                     include: query => query
                         .Include(r => r.ReportMedia)
                         .Include(r => r.AIModel)
-                        .Include(r => r.DetectedSpecies),
+                        .Include(r => r.DetectedSpecies)
+                            .ThenInclude(s => s.SpeciesVenoms)
+                                .ThenInclude(sv => sv.VenomType)
+                                    .ThenInclude(v => v.FirstAidGuideline), // Include for Fallback
                     cancellationToken: ct);
 
             if (recognitionResult == null)
@@ -311,32 +344,54 @@ public class SnakeAIService : ISnakeAIService
                     System.Net.HttpStatusCode.NotFound, "NOT_FOUND");
             }
 
-            // Build response from saved data (matching current SnakeDetectionResponse structure)
+            // Restore species logic if available
+            if (recognitionResult.DetectedSpecies != null)
+            {
+                var species = recognitionResult.DetectedSpecies;
+                // -- FALLBACK LOGIC --
+                if (species.FirstAidGuidelineOverride == null && species.SpeciesVenoms.Any())
+                {
+                    var venomWithGuide = species.SpeciesVenoms
+                         .Select(sv => sv.VenomType)
+                         .FirstOrDefault(v => v.FirstAidGuideline != null);
+
+                    if (venomWithGuide != null)
+                    {
+                        species.FirstAidGuidelineOverride = new FirstAidOverride
+                        {
+                            Mode = OverrideMode.Append,
+                            Steps = !string.IsNullOrEmpty(venomWithGuide.FirstAidGuideline.Content)
+                                ? JsonSerializer.Deserialize<List<string>>(venomWithGuide.FirstAidGuideline.Content) ?? new List<string>()
+                                : new List<string>()
+                        };
+                    }
+                }
+            }
+
+            // Build response from saved data (matching V3 strict structure)
             var response = new SnakeDetectionResponse
             {
-                ModelVersion = recognitionResult.AIModel?.Version,
-                ImageWidth = 0, // These aren't stored, set defaults
-                ImageHeight = 0,
-                TopClassName = recognitionResult.YoloClassName,
-                TopConfidence = (float)recognitionResult.Confidence,
-                DetectionCount = 1,
-                RecognitionResultId = recognitionResult.Id,
-                Detections = new List<SnakeAIDetection>
+                Metadata = new AiMetadata
                 {
-                    new SnakeAIDetection
+                    ModelVersion = recognitionResult.AIModel?.Version,
+                    ImageWidth = 0, // Not stored
+                    ImageHeight = 0,
+                    DetectionCount = 1,
+                    Warnings = null
+                },
+                RecognitionResultId = recognitionResult.Id,
+                Results = new List<DetectionResult>
+                {
+                    new DetectionResult
                     {
-                        ClassId = 0, // Not stored in entity, use default
-                        ClassName = recognitionResult.YoloClassName,
-                        Confidence = (float)recognitionResult.Confidence,
-                        X = 0, // BoundingBox info not stored in simple format, use defaults
-                        Y = 0,
-                        Width = 0,
-                        Height = 0,
-                        SpeciesId = recognitionResult.DetectedSpeciesId,
-                        SpeciesName = recognitionResult.DetectedSpecies?.CommonName,
-                        ScientificName = recognitionResult.DetectedSpecies?.ScientificName,
-                        IsVenomous = recognitionResult.DetectedSpecies?.IsVenomous,
-                        RiskLevel = recognitionResult.DetectedSpecies?.RiskLevel
+                        Ai = new AiDetection
+                        {
+                            ClassId = 0,
+                            ClassName = recognitionResult.YoloClassName,
+                            Confidence = (float)recognitionResult.Confidence,
+                            BBox = new SnakeBBox() // BBox data not stored efficiently yet
+                        },
+                        Snake = recognitionResult.DetectedSpecies
                     }
                 }
             };

@@ -1,63 +1,87 @@
+using System.Text.Json.Serialization;
+using SnakeAid.Core.Domains;
+
 namespace SnakeAid.Core.Responses.SnakeDetection;
 
 public class SnakeDetectionResponse
 {
-    public string? ModelVersion { get; set; }
-    public int ImageWidth { get; set; }
-    public int ImageHeight { get; set; }
-    public string? TopClassName { get; set; }
-    public float? TopConfidence { get; set; }
-    public int DetectionCount { get; set; }
-    public List<SnakeAIDetection> Detections { get; set; } = new();
-    public SnakeAIWarnings? Warnings { get; set; }
-    
-    /// <summary>
-    /// ID of the saved recognition result in database
-    /// </summary>
+    [JsonPropertyName("ai_metadata")]
+    public AiMetadata Metadata { get; set; }
+
+    [JsonPropertyName("results")]
+    public List<DetectionResult> Results { get; set; } = new();
+
+    // Optional: Keep internal ID if needed, but not in strict JSON spec unless requested. 
+    // Adding it for consistency with previous system but can be hidden if needed.
+    [JsonPropertyName("recognition_result_id")]
     public Guid? RecognitionResultId { get; set; }
+}
+
+public class AiMetadata
+{
+    [JsonPropertyName("model_version")]
+    public string? ModelVersion { get; set; }
+
+    [JsonPropertyName("image_width")]
+    public int ImageWidth { get; set; }
+
+    [JsonPropertyName("image_height")]
+    public int ImageHeight { get; set; }
+
+    [JsonPropertyName("detection_count")]
+    public int DetectionCount { get; set; }
+
+    [JsonPropertyName("warnings")]
+    public SnakeAIWarnings? Warnings { get; set; }
+}
+
+public class DetectionResult
+{
+    [JsonPropertyName("ai_detection")]
+    public AiDetection Ai { get; set; }
+
+    [JsonPropertyName("snake")]
+    public SnakeSpecies? Snake { get; set; }
+}
+
+public class AiDetection
+{
+    [JsonPropertyName("class_id")]
+    public int ClassId { get; set; }
+
+    [JsonPropertyName("class_name")]
+    public string? ClassName { get; set; }
+
+    [JsonPropertyName("confidence")]
+    public float Confidence { get; set; }
+
+    [JsonPropertyName("bbox")]
+    public SnakeBBox BBox { get; set; }
+}
+
+public class SnakeBBox
+{
+    [JsonPropertyName("x1")]
+    public float X1 { get; set; }
+
+    [JsonPropertyName("y1")]
+    public float Y1 { get; set; }
+
+    [JsonPropertyName("x2")]
+    public float X2 { get; set; }
+
+    [JsonPropertyName("y2")]
+    public float Y2 { get; set; }
 }
 
 public class SnakeAIWarnings
 {
+    [JsonPropertyName("blur")]
     public float Blur { get; set; }
-    public float Brightness { get; set; }
-    public float TooSmall { get; set; }
-}
 
-public class SnakeAIDetection
-{
-    // YOLO Detection fields
-    public int ClassId { get; set; }
-    public string? ClassName { get; set; }
-    public float Confidence { get; set; }
-    public float X { get; set; }
-    public float Y { get; set; }
-    public float Width { get; set; }
-    public float Height { get; set; }
-    
-    // Species info from mapping (Phase 2)
-    /// <summary>
-    /// Mapped SnakeSpecies ID (null if not mapped)
-    /// </summary>
-    public int? SpeciesId { get; set; }
-    
-    /// <summary>
-    /// Common name of the species (Vietnamese)
-    /// </summary>
-    public string? SpeciesName { get; set; }
-    
-    /// <summary>
-    /// Scientific name of the species
-    /// </summary>
-    public string? ScientificName { get; set; }
-    
-    /// <summary>
-    /// Whether the species is venomous
-    /// </summary>
-    public bool? IsVenomous { get; set; }
-    
-    /// <summary>
-    /// Risk level from 0-10
-    /// </summary>
-    public float? RiskLevel { get; set; }
+    [JsonPropertyName("brightness")]
+    public float Brightness { get; set; }
+
+    [JsonPropertyName("too_small")]
+    public float TooSmall { get; set; }
 }
