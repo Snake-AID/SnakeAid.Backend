@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Linq;
+using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 
 namespace SnakeAid.Core.Domains
@@ -35,7 +36,9 @@ namespace SnakeAid.Core.Domains
         public int FirstAidGuidelineId { get; set; }
 
         // Navigation properties
+        [JsonIgnore]
         public ICollection<SpeciesVenom> SpeciesVenoms { get; set; } = new List<SpeciesVenom>();
+        [JsonIgnore]
         public ICollection<SymptomConfig> SymptomConfigs { get; set; } = new List<SymptomConfig>();
 
         public FirstAidGuideline FirstAidGuideline { get; set; }

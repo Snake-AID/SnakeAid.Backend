@@ -15,7 +15,7 @@ namespace SnakeAid.Core.Requests.FirstAidGuideline
         /// <summary>
         /// Nội dung chi tiết (JSON format)
         /// </summary>
-        public object? Content { get; set; }
+        public FirstAidContent? Content { get; set; }
 
         /// <summary>
         /// Loại hướng dẫn: General (0) hoặc SpeciesSpecific (1)

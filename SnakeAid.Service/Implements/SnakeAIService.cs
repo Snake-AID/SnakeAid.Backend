@@ -126,9 +126,7 @@ public class SnakeAIService : ISnakeAIService
                                 species.FirstAidGuidelineOverride = new FirstAidOverride
                                 {
                                     Mode = OverrideMode.Append, // Append mode (0)
-                                    Steps = !string.IsNullOrEmpty(venomWithGuide.FirstAidGuideline.Content)
-                                        ? JsonSerializer.Deserialize<List<string>>(venomWithGuide.FirstAidGuideline.Content) ?? new List<string>()
-                                        : new List<string>()
+                                    Steps = venomWithGuide.FirstAidGuideline.Content?.Steps?.Select(s => s.Text).ToList() ?? new List<string>()
                                 };
                             }
                         }
@@ -360,9 +358,7 @@ public class SnakeAIService : ISnakeAIService
                         species.FirstAidGuidelineOverride = new FirstAidOverride
                         {
                             Mode = OverrideMode.Append,
-                            Steps = !string.IsNullOrEmpty(venomWithGuide.FirstAidGuideline.Content)
-                                ? JsonSerializer.Deserialize<List<string>>(venomWithGuide.FirstAidGuideline.Content) ?? new List<string>()
-                                : new List<string>()
+                            Steps = venomWithGuide.FirstAidGuideline.Content?.Steps?.Select(s => s.Text).ToList() ?? new List<string>()
                         };
                     }
                 }

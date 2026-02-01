@@ -47,7 +47,7 @@ namespace SnakeAid.Service.Implements
                     var guideline = new FirstAidGuideline
                     {
                         Name = request.Name,
-                        Content = System.Text.Json.JsonSerializer.Serialize(request.Content, jsonOptions),
+                        Content = request.Content,
                         Type = request.Type,
                         Summary = request.Summary,
                         CreatedAt = DateTime.UtcNow,
@@ -164,12 +164,7 @@ namespace SnakeAid.Service.Implements
 
                     if (request.Content != null)
                     {
-                        var jsonOptions = new System.Text.Json.JsonSerializerOptions
-                        {
-                            Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
-                            WriteIndented = false
-                        };
-                        guideline.Content = System.Text.Json.JsonSerializer.Serialize(request.Content, jsonOptions);
+                        guideline.Content = request.Content;
                     }
 
                     if (request.Type.HasValue)

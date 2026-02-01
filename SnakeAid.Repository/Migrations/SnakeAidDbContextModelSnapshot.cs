@@ -97,10 +97,6 @@ namespace SnakeAid.Repository.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
-                    b.Property<string>("ApiKey")
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
-
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -111,19 +107,11 @@ namespace SnakeAid.Repository.Migrations
                         .HasMaxLength(1000)
                         .HasColumnType("character varying(1000)");
 
-                    b.Property<string>("EndpointUrl")
-                        .IsRequired()
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)");
-
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean");
 
                     b.Property<bool>("IsDefault")
                         .HasColumnType("boolean");
-
-                    b.Property<string>("ModelParameters")
-                        .HasColumnType("jsonb");
 
                     b.Property<DateTime?>("RetiredAt")
                         .HasColumnType("timestamp with time zone");
@@ -159,9 +147,6 @@ namespace SnakeAid.Repository.Migrations
 
                     b.Property<int>("AIModelId")
                         .HasColumnType("integer");
-
-                    b.Property<decimal>("Confidence")
-                        .HasColumnType("numeric");
 
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean");

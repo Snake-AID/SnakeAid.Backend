@@ -1,0 +1,6 @@
+train: ../train/images
+val: ../valid/images
+test: ../test/images
+
+nc: 22
+names: ['cap_nia_bac', 'cap_nia_nam', 'cap_nong', 'ho_mang_chua', 'ho_mang_xiem', 'khiem_vach', 'luc_cuom', 'luc_nua', 'luc_xanh', 'luc_xanh_duoi_do', 'ran_cuom', 'ran_dai_lon', 'ran_hoa_can_van_dom', 'ran_hoa_co_do', 'ran_rao', 'ran_rao_trau', 'ran_ri_ca', 'ran_roi', 'ran_sai_co', 'ran_soc_dua', 'ran_soc_go', 'ran_trun']

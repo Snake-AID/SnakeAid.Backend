@@ -8,7 +8,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace SnakeAid.Repository.Migrations
 {
     /// <inheritdoc />
-    public partial class SnakeAidMigration : Migration
+    public partial class SnakeAidMigratione : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -67,9 +67,6 @@ namespace SnakeAid.Repository.Migrations
                         .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
                     Version = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
                     Description = table.Column<string>(type: "character varying(1000)", maxLength: 1000, nullable: true),
-                    EndpointUrl = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: false),
-                    ApiKey = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: true),
-                    ModelParameters = table.Column<string>(type: "jsonb", nullable: true),
                     IsActive = table.Column<bool>(type: "boolean", nullable: false),
                     IsDefault = table.Column<bool>(type: "boolean", nullable: false),
                     DeployedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
@@ -785,7 +782,6 @@ namespace SnakeAid.Repository.Migrations
                     SnakeSpeciesId = table.Column<int>(type: "integer", nullable: false),
                     YoloClassName = table.Column<string>(type: "text", nullable: false),
                     YoloClassId = table.Column<int>(type: "integer", nullable: false),
-                    Confidence = table.Column<decimal>(type: "numeric", nullable: false),
                     IsActive = table.Column<bool>(type: "boolean", nullable: false)
                 },
                 constraints: table =>

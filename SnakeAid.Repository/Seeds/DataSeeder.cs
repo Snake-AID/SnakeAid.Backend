@@ -68,25 +68,25 @@ namespace SnakeAid.Repository.Seeds
                         Id = 1,
                         Name = "Sơ cứu cơ bản",
                         Summary = "Các bước an toàn cho mọi trường hợp bị rắn cắn.",
-                        Content = JsonSerializer.Serialize(new {
-                            steps = new[] {
-                                new { text = "Di chuyển nhẹ nhàng rời xa khu vực có rắn.", mediaUrl = "https://www.wikihow.com/images/thumb/3/39/Treat-a-Rattlesnake-Bite-Step-1-Version-4.jpg/v4-728px-Treat-a-Rattlesnake-Bite-Step-1-Version-4.jpg" },
-                                new { text = "Nằm yên, giữ vết cắn thấp hơn tim, hít thở đều để giữ bình tĩnh.", mediaUrl = "https://www.wikihow.com/images/thumb/d/da/Treat-a-Rattlesnake-Bite-Step-3-Version-3.jpg/v4-728px-Treat-a-Rattlesnake-Bite-Step-3-Version-3.jpg" },
-                                new { text = "Rửa vết cắn nhẹ nhàng bằng nước sạch.", mediaUrl = "" },
-                                new { text = "Dùng nẹp cố định lỏng tay/chân bị cắn.", mediaUrl = "https://benhvienhuulung.vn/images/upload/v4-460px-Treat-a-Snake-Bite-Step-10-Version-5.jpg" },
-                                new { text = "Gọi hỗ trợ y tế sớm nhất có thể.", mediaUrl = "https://dichvuxecuuthuong115.com/upload/images/goi-cap-cuu-115.jpg" },
-                                new { text = "Đưa đến bệnh viện ngay lập tức.", mediaUrl = "https://png.pngtree.com/png-vector/20240216/ourmid/pngtree-flat-hospital-icon-building-vector-png-image_11740947.png" }
+                        Content = new FirstAidContent {
+                            Steps = new List<FirstAidStep> {
+                                new FirstAidStep { Text = "Di chuyển nhẹ nhàng rời xa khu vực có rắn.", MediaUrl = "https://www.wikihow.com/images/thumb/3/39/Treat-a-Rattlesnake-Bite-Step-1-Version-4.jpg/v4-728px-Treat-a-Rattlesnake-Bite-Step-1-Version-4.jpg" },
+                                new FirstAidStep { Text = "Nằm yên, giữ vết cắn thấp hơn tim, hít thở đều để giữ bình tĩnh.", MediaUrl = "https://www.wikihow.com/images/thumb/d/da/Treat-a-Rattlesnake-Bite-Step-3-Version-3.jpg/v4-728px-Treat-a-Rattlesnake-Bite-Step-3-Version-3.jpg" },
+                                new FirstAidStep { Text = "Rửa vết cắn nhẹ nhàng bằng nước sạch.", MediaUrl = "" },
+                                new FirstAidStep { Text = "Dùng nẹp cố định lỏng tay/chân bị cắn.", MediaUrl = "https://benhvienhuulung.vn/images/upload/v4-460px-Treat-a-Snake-Bite-Step-10-Version-5.jpg" },
+                                new FirstAidStep { Text = "Gọi hỗ trợ y tế sớm nhất có thể.", MediaUrl = "https://dichvuxecuuthuong115.com/upload/images/goi-cap-cuu-115.jpg" },
+                                new FirstAidStep { Text = "Đưa đến bệnh viện ngay lập tức.", MediaUrl = "https://png.pngtree.com/png-vector/20240216/ourmid/pngtree-flat-hospital-icon-building-vector-png-image_11740947.png" }
                             },
-                            dos = new[] {
-                                new { text = "Tháo nhẫn, đồng hồ, đồ chật gần vết cắn.", mediaUrl = "https://www.wikihow.com/images/thumb/2/27/Treat-a-Rattlesnake-Bite-Step-5-Version-2.jpg/v4-728px-Treat-a-Rattlesnake-Bite-Step-5-Version-2.jpg.webp" },
-                                new { text = "Chụp ảnh rắn nếu an toàn", mediaUrl = "" }
+                            Dos = new List<FirstAidStep> {
+                                new FirstAidStep { Text = "Tháo nhẫn, đồng hồ, đồ chật gần vết cắn.", MediaUrl = "https://www.wikihow.com/images/thumb/2/27/Treat-a-Rattlesnake-Bite-Step-5-Version-2.jpg/v4-728px-Treat-a-Rattlesnake-Bite-Step-5-Version-2.jpg.webp" },
+                                new FirstAidStep { Text = "Chụp ảnh rắn nếu an toàn", MediaUrl = "" }
                             },
-                            donts = new[] {
-                                new { text = "Không rạch, hút nọc", mediaUrl = "https://www.wikihow.com/images/thumb/7/75/Treat-a-Rattlesnake-Bite-Step-15-Version-2.jpg/v4-728px-Treat-a-Rattlesnake-Bite-Step-15-Version-2.jpg.webp" },
-                                new { text = "Không chườm đá, đắp lá", mediaUrl = "https://cdn2.tuoitre.vn/zoom/480_300/1200/900/ttc/r/2021/07/15/image001-1626321686.jpg" },
-                                new { text = "Không uống rượu/bia", mediaUrl = "https://www.mediplus.vn/wp-content/uploads/2021/10/truoc-khi-xet-nghiem-covid-19-duoc-uong-ruou-khong.jpg" }
+                            Donts = new List<FirstAidStep> {
+                                new FirstAidStep { Text = "Không rạch, hút nọc", MediaUrl = "https://www.wikihow.com/images/thumb/7/75/Treat-a-Rattlesnake-Bite-Step-15-Version-2.jpg/v4-728px-Treat-a-Rattlesnake-Bite-Step-15-Version-2.jpg.webp" },
+                                new FirstAidStep { Text = "Không chườm đá, đắp lá", MediaUrl = "https://cdn2.tuoitre.vn/zoom/480_300/1200/900/ttc/r/2021/07/15/image001-1626321686.jpg" },
+                                new FirstAidStep { Text = "Không uống rượu/bia", MediaUrl = "https://www.mediplus.vn/wp-content/uploads/2021/10/truoc-khi-xet-nghiem-covid-19-duoc-uong-ruou-khong.jpg" }
                             }
-                        })
+                        }
                     },
 
                     // 2. ĐỘC THẦN KINH
@@ -94,26 +94,26 @@ namespace SnakeAid.Repository.Seeds
                         Id = 2,
                         Name = "Sơ cứu Độc thần kinh",
                         Summary = "Ngăn chặn liệt hô hấp bằng cách băng cố định đúng cách.",
-                        Content = JsonSerializer.Serialize(new {
-                            steps = new[] {
-                                new { text = "Di chuyển nhẹ nhàng rời khỏi khu vực có rắn.", mediaUrl = "https://www.wikihow.com/images/thumb/3/39/Treat-a-Rattlesnake-Bite-Step-1-Version-4.jpg/v4-728px-Treat-a-Rattlesnake-Bite-Step-1-Version-4.jpg" },
-                                new { text = "Gọi hỗ trợ y tế sớm nhất có thể.", mediaUrl = "https://dichvuxecuuthuong115.com/upload/images/goi-cap-cuu-115.jpg" },
-                                new { text = "Quấn băng thun quanh vết cắn và toàn bộ tay/chân (chặt như băng bong gân).", mediaUrl = "" },
-                                new { text = "Quấn từ ngón tay/chân đi ngược dần lên phía nách hoặc háng.", mediaUrl = "" },
-                                new { text = "Dùng nẹp cố định để tay/chân không thể cử động.",
-                                mediaUrl = "https://hscc.vn/hinhanh/randoccan_socuu.png" },
-                                new { text = "Nằm yên và di chuyển bằng cáng. Tuyệt đối không tự đi bộ.", mediaUrl = "https://lh5.googleusercontent.com/i8pGvoLht7TcUieukFfbJgxyhfSjBKKh6HgjaBdOG949U2qn7JdQ4HApvHFebdFG5zpP2nrNwCfESg2yzAqZXSXW_aOXRe_lnsSeBgfyTtIXbiIBOiTUj4kvlVcPiqFDY6xOz0w"}
+                        Content = new FirstAidContent {
+                            Steps = new List<FirstAidStep> {
+                                new FirstAidStep { Text = "Di chuyển nhẹ nhàng rời khỏi khu vực có rắn.", MediaUrl = "https://www.wikihow.com/images/thumb/3/39/Treat-a-Rattlesnake-Bite-Step-1-Version-4.jpg/v4-728px-Treat-a-Rattlesnake-Bite-Step-1-Version-4.jpg" },
+                                new FirstAidStep { Text = "Gọi hỗ trợ y tế sớm nhất có thể.", MediaUrl = "https://dichvuxecuuthuong115.com/upload/images/goi-cap-cuu-115.jpg" },
+                                new FirstAidStep { Text = "Quấn băng thun quanh vết cắn và toàn bộ tay/chân (chặt như băng bong gân).", MediaUrl = "" },
+                                new FirstAidStep { Text = "Quấn từ ngón tay/chân đi ngược dần lên phía nách hoặc háng.", MediaUrl = "" },
+                                new FirstAidStep { Text = "Dùng nẹp cố định để tay/chân không thể cử động.",
+                                MediaUrl = "https://hscc.vn/hinhanh/randoccan_socuu.png" },
+                                new FirstAidStep { Text = "Nằm yên và di chuyển bằng cáng. Tuyệt đối không tự đi bộ.", MediaUrl = "https://lh5.googleusercontent.com/i8pGvoLht7TcUieukFfbJgxyhfSjBKKh6HgjaBdOG949U2qn7JdQ4HApvHFebdFG5zpP2nrNwCfESg2yzAqZXSXW_aOXRe_lnsSeBgfyTtIXbiIBOiTUj4kvlVcPiqFDY6xOz0w"}
                             },
-                            dos = new[] {
-                                new { text = "Kiểm tra mạch ngọn chi (đảm bảo máu vẫn lưu thông)", mediaUrl = "" },
-                                new { text = "Giữ nguyên băng quấn cho tới khi gặp bác sĩ", mediaUrl = "https://www.wikihow.com/images/thumb/f/fa/Treat-a-Rattlesnake-Bite-Step-9-Version-2.jpg/v4-728px-Treat-a-Rattlesnake-Bite-Step-9-Version-2.jpg" }
+                            Dos = new List<FirstAidStep> {
+                                new FirstAidStep { Text = "Kiểm tra mạch ngọn chi (đảm bảo máu vẫn lưu thông)", MediaUrl = "" },
+                                new FirstAidStep { Text = "Giữ nguyên băng quấn cho tới khi gặp bác sĩ", MediaUrl = "https://www.wikihow.com/images/thumb/f/fa/Treat-a-Rattlesnake-Bite-Step-9-Version-2.jpg/v4-728px-Treat-a-Rattlesnake-Bite-Step-9-Version-2.jpg" }
                             },
-                            donts = new[] {
-                                new { text = "Tuyệt đối không tự ý tháo băng quấn", mediaUrl = "https://www.wikihow.com/images/thumb/9/90/Treat-a-Rattlesnake-Bite-Step-8-Version-3.jpg/v4-728px-Treat-a-Rattlesnake-Bite-Step-8-Version-3.jpg.webp" },
-                                new { text = "Không để nạn nhân cử động tay chân", mediaUrl = "https://www.wikihow.com/images/thumb/6/68/Treat-a-Rattlesnake-Bite-Step-4-Version-4.jpg/v4-728px-Treat-a-Rattlesnake-Bite-Step-4-Version-4.jpg" }
+                            Donts = new List<FirstAidStep> {
+                                new FirstAidStep { Text = "Tuyệt đối không tự ý tháo băng quấn", MediaUrl = "https://www.wikihow.com/images/thumb/9/90/Treat-a-Rattlesnake-Bite-Step-8-Version-3.jpg/v4-728px-Treat-a-Rattlesnake-Bite-Step-8-Version-3.jpg.webp" },
+                                new FirstAidStep { Text = "Không để nạn nhân cử động tay chân", MediaUrl = "https://www.wikihow.com/images/thumb/6/68/Treat-a-Rattlesnake-Bite-Step-4-Version-4.jpg/v4-728px-Treat-a-Rattlesnake-Bite-Step-4-Version-4.jpg" }
                             },
-                            notes = new[] { "Cảnh báo: Độc này có thể gây liệt cơ thở rất nhanh. Chú ý hỗ trợ hô hấp kịp thời." }
-                        })
+                            Notes = new List<string> { "Cảnh báo: Độc này có thể gây liệt cơ thở rất nhanh. Chú ý hỗ trợ hô hấp kịp thời." }
+                        }
                     },
 
                     // 3. ĐỘC MÁU
@@ -121,23 +121,23 @@ namespace SnakeAid.Repository.Seeds
                         Id = 3,
                         Name = "Sơ cứu Độc máu",
                         Summary = "Ngăn chảy máu và bảo vệ hệ tuần hoàn. (Không được quấn chặt)",
-                        Content = JsonSerializer.Serialize(new {
-                            steps = new[] {
-                                new { text = "Rửa vết cắn nhẹ nhàng bằng nước sạch.", mediaUrl = "" },
-                                new { text = "Dùng nẹp cố định tay/chân nhưng quấn lỏng tay (tuyệt đối không siết chặt).", mediaUrl = "" },
-                                new { text = "Giữ vùng bị cắn nằm ngang mức với tim.", mediaUrl = "https://www.wikihow.com/images/thumb/d/da/Treat-a-Rattlesnake-Bite-Step-3-Version-3.jpg/v4-728px-Treat-a-Rattlesnake-Bite-Step-3-Version-3.jpg" },
-                                new { text = "Đưa nạn nhân đến bệnh viện khẩn cấp.", mediaUrl = "https://png.pngtree.com/png-vector/20240216/ourmid/pngtree-flat-hospital-icon-building-vector-png-image_11740947.png" }
+                        Content = new FirstAidContent {
+                            Steps = new List<FirstAidStep> {
+                                new FirstAidStep { Text = "Rửa vết cắn nhẹ nhàng bằng nước sạch.", MediaUrl = "" },
+                                new FirstAidStep { Text = "Dùng nẹp cố định tay/chân nhưng quấn lỏng tay (tuyệt đối không siết chặt).", MediaUrl = "" },
+                                new FirstAidStep { Text = "Giữ vùng bị cắn nằm ngang mức với tim.", MediaUrl = "https://www.wikihow.com/images/thumb/d/da/Treat-a-Rattlesnake-Bite-Step-3-Version-3.jpg/v4-728px-Treat-a-Rattlesnake-Bite-Step-3-Version-3.jpg" },
+                                new FirstAidStep { Text = "Đưa nạn nhân đến bệnh viện khẩn cấp.", MediaUrl = "https://png.pngtree.com/png-vector/20240216/ourmid/pngtree-flat-hospital-icon-building-vector-png-image_11740947.png" }
                             },
-                            dos = new[] {
-                                new { text = "Tháo trang sức ngay (tránh sưng nề gây thắt mạch máu)", mediaUrl ="https://www.wikihow.com/images/thumb/2/27/Treat-a-Rattlesnake-Bite-Step-5-Version-2.jpg/v4-728px-Treat-a-Rattlesnake-Bite-Step-5-Version-2.jpg.webp" },
-                                new { text = "Theo dõi các vết bầm tím", mediaUrl = "https://www.wikihow.com/images/thumb/c/cd/Treat-a-Rattlesnake-Bite-Step-11-Version-2.jpg/v4-728px-Treat-a-Rattlesnake-Bite-Step-11-Version-2.jpg" }
+                            Dos = new List<FirstAidStep> {
+                                new FirstAidStep { Text = "Tháo trang sức ngay (tránh sưng nề gây thắt mạch máu)", MediaUrl ="https://www.wikihow.com/images/thumb/2/27/Treat-a-Rattlesnake-Bite-Step-5-Version-2.jpg/v4-728px-Treat-a-Rattlesnake-Bite-Step-5-Version-2.jpg.webp" },
+                                new FirstAidStep { Text = "Theo dõi các vết bầm tím", MediaUrl = "https://www.wikihow.com/images/thumb/c/cd/Treat-a-Rattlesnake-Bite-Step-11-Version-2.jpg/v4-728px-Treat-a-Rattlesnake-Bite-Step-11-Version-2.jpg" }
                             },
-                            donts = new[] {
-                                new { text = "Không băng ép chặt (Garrot)", mediaUrl = "https://www.wikihow.com/images/thumb/4/47/Treat-a-Rattlesnake-Bite-Step-16-Version-2.jpg/v4-728px-Treat-a-Rattlesnake-Bite-Step-16-Version-2.jpg" },
-                                new { text = "Không dùng thuốc giảm đau như Aspirin", mediaUrl = "https://trungtamthuoc.com/images/products/aspirin-100-traphaco-l4575.jpg" }
+                            Donts = new List<FirstAidStep> {
+                                new FirstAidStep { Text = "Không băng ép chặt (Garrot)", MediaUrl = "https://www.wikihow.com/images/thumb/4/47/Treat-a-Rattlesnake-Bite-Step-16-Version-2.jpg/v4-728px-Treat-a-Rattlesnake-Bite-Step-16-Version-2.jpg" },
+                                new FirstAidStep { Text = "Không dùng thuốc giảm đau như Aspirin", MediaUrl = "https://trungtamthuoc.com/images/products/aspirin-100-traphaco-l4575.jpg" }
                             },
-                            notes = new[] { "Dấu hiệu: Chảy máu chân răng, tiểu đỏ, nôn ra máu." }
-                        })
+                            Notes = new List<string> { "Dấu hiệu: Chảy máu chân răng, tiểu đỏ, nôn ra máu." }
+                        }
                     },
 
                     // 4. ĐỘC TẾ BÀO
@@ -145,23 +145,23 @@ namespace SnakeAid.Repository.Seeds
                         Id = 4,
                         Name = "Sơ cứu Độc tế bào",
                         Summary = "Ngăn ngừa thối rữa mô và hoại tử. (Không được quấn chặt)",
-                        Content = JsonSerializer.Serialize(new {
-                            steps = new[] {
-                                new { text = "Rửa sạch vết thương và để thoáng mát.", mediaUrl = "https://png.pngtree.com/png-vector/20200325/ourlarge/pngtree-hand-wash-vector-icons-illustration-png-image_2164976.jpg" },
-                                new { text = "Dùng nẹp cố định tay/chân nhưng quấn lỏng tay.", mediaUrl = "" },
-                                new { text = "Giữ vùng bị cắn nằm ngang mức với tim.", mediaUrl = "" },
-                                new { text = "Đưa đi cấp cứu sớm nhất có thể.", mediaUrl = "https://png.pngtree.com/png-vector/20240216/ourmid/pngtree-flat-hospital-icon-building-vector-png-image_11740947.png" }
+                        Content = new FirstAidContent {
+                            Steps = new List<FirstAidStep> {
+                                new FirstAidStep { Text = "Rửa sạch vết thương và để thoáng mát.", MediaUrl = "https://png.pngtree.com/png-vector/20200325/ourlarge/pngtree-hand-wash-vector-icons-illustration-png-image_2164976.jpg" },
+                                new FirstAidStep { Text = "Dùng nẹp cố định tay/chân nhưng quấn lỏng tay.", MediaUrl = "" },
+                                new FirstAidStep { Text = "Giữ vùng bị cắn nằm ngang mức với tim.", MediaUrl = "" },
+                                new FirstAidStep { Text = "Đưa đi cấp cứu sớm nhất có thể.", MediaUrl = "https://png.pngtree.com/png-vector/20240216/ourmid/pngtree-flat-hospital-icon-building-vector-png-image_11740947.png" }
                             },
-                            dos = new[] {
-                                new { text = "Tháo mọi vật gây thắt chi (nhẫn, vòng)", mediaUrl = "https://www.wikihow.com/images/thumb/2/27/Treat-a-Rattlesnake-Bite-Step-5-Version-2.jpg/v4-728px-Treat-a-Rattlesnake-Bite-Step-5-Version-2.jpg.webp" },
-                                new { text = "Theo dõi vùng da bị đổi màu hoặc phồng rộp", mediaUrl = "https://www.wikihow.com/images/thumb/c/cd/Treat-a-Rattlesnake-Bite-Step-11-Version-2.jpg/v4-728px-Treat-a-Rattlesnake-Bite-Step-11-Version-2.jpg" }
+                            Dos = new List<FirstAidStep> {
+                                new FirstAidStep { Text = "Tháo mọi vật gây thắt chi (nhẫn, vòng)", MediaUrl = "https://www.wikihow.com/images/thumb/2/27/Treat-a-Rattlesnake-Bite-Step-5-Version-2.jpg/v4-728px-Treat-a-Rattlesnake-Bite-Step-5-Version-2.jpg.webp" },
+                                new FirstAidStep { Text = "Theo dõi vùng da bị đổi màu hoặc phồng rộp", MediaUrl = "https://www.wikihow.com/images/thumb/c/cd/Treat-a-Rattlesnake-Bite-Step-11-Version-2.jpg/v4-728px-Treat-a-Rattlesnake-Bite-Step-11-Version-2.jpg" }
                             },
-                            donts = new[] {
-                                new { text = "Không chườm đá lạnh trực tiếp", mediaUrl = "" },
-                                new { text = "Không quấn băng chặt quanh vết cắn (nhanh hoại tử)", mediaUrl = "https://www.wikihow.com/images/thumb/4/47/Treat-a-Rattlesnake-Bite-Step-16-Version-2.jpg/v4-728px-Treat-a-Rattlesnake-Bite-Step-16-Version-2.jpg" }
+                            Donts = new List<FirstAidStep> {
+                                new FirstAidStep { Text = "Không chườm đá lạnh trực tiếp", MediaUrl = "" },
+                                new FirstAidStep { Text = "Không quấn băng chặt quanh vết cắn (nhanh hoại tử)", MediaUrl = "https://www.wikihow.com/images/thumb/4/47/Treat-a-Rattlesnake-Bite-Step-16-Version-2.jpg/v4-728px-Treat-a-Rattlesnake-Bite-Step-16-Version-2.jpg" }
                             },
-                            notes = new[] { "Dấu hiệu: Vết cắn sưng vù rất nhanh, da thâm đen." }
-                        })
+                            Notes = new List<string> { "Dấu hiệu: Vết cắn sưng vù rất nhanh, da thâm đen." }
+                        }
                     },
 
                     // 5. ĐỘC CƠ
@@ -169,23 +169,23 @@ namespace SnakeAid.Repository.Seeds
                         Id = 5,
                         Name = "Sơ cứu Độc cơ",
                         Summary = "Bảo vệ cơ bắp và ngăn suy thận cấp. (Cần quấn băng + uống nước)",
-                        Content = JsonSerializer.Serialize(new {
-                            steps = new[] {
-                                new { text = "Quấn băng thun quanh vết cắn và toàn bộ tay/chân (chặt như băng bong gân).", mediaUrl = "" },
-                                new { text = "Quấn từ ngón tay/chân đi ngược dần lên phía nách hoặc háng.", mediaUrl = "https://hscc.vn/hinhanh/randoccan_socuu.png" },
-                                new { text = "Uống thật nhiều nước (nếu còn tỉnh táo) để giúp thận thải độc.", mediaUrl = "https://karofi.karofi.com/karofi-com/2019/12/uong-nuoc-karofi-2.jpg.webp" },
-                                new { text = "Vận chuyển bằng cáng đến bệnh viện có máy lọc thận gấp.", mediaUrl = "https://png.pngtree.com/png-vector/20240216/ourmid/pngtree-flat-hospital-icon-building-vector-png-image_11740947.png" }
+                        Content = new FirstAidContent {
+                            Steps = new List<FirstAidStep> {
+                                new FirstAidStep { Text = "Quấn băng thun quanh vết cắn và toàn bộ tay/chân (chặt như băng bong gân).", MediaUrl = "" },
+                                new FirstAidStep { Text = "Quấn từ ngón tay/chân đi ngược dần lên phía nách hoặc háng.", MediaUrl = "https://hscc.vn/hinhanh/randoccan_socuu.png" },
+                                new FirstAidStep { Text = "Uống thật nhiều nước (nếu còn tỉnh táo) để giúp thận thải độc.", MediaUrl = "https://karofi.karofi.com/karofi-com/2019/12/uong-nuoc-karofi-2.jpg.webp" },
+                                new FirstAidStep { Text = "Vận chuyển bằng cáng đến bệnh viện có máy lọc thận gấp.", MediaUrl = "https://png.pngtree.com/png-vector/20240216/ourmid/pngtree-flat-hospital-icon-building-vector-png-image_11740947.png" }
                             },
-                            dos = new[] {
-                                new { text = "Giữ ấm cơ thể nạn nhân", mediaUrl = "" },
-                                new { text = "Theo dõi màu nước tiểu", mediaUrl = "" }
+                            Dos = new List<FirstAidStep> {
+                                new FirstAidStep { Text = "Giữ ấm cơ thể nạn nhân", MediaUrl = "" },
+                                new FirstAidStep { Text = "Theo dõi màu nước tiểu", MediaUrl = "" }
                             },
-                            donts = new[] {
-                                new { text = "Không vận động cơ bắp", mediaUrl = "https://lh5.googleusercontent.com/i8pGvoLht7TcUieukFfbJgxyhfSjBKKh6HgjaBdOG949U2qn7JdQ4HApvHFebdFG5zpP2nrNwCfESg2yzAqZXSXW_aOXRe_lnsSeBgfyTtIXbiIBOiTUj4kvlVcPiqFDY6xOz0w" },
-                                new { text = "Không dùng thuốc giảm đau bừa bãi", mediaUrl = "https://trungtamthuoc.com/images/products/aspirin-100-traphaco-l4575.jpg" }
+                            Donts = new List<FirstAidStep> {
+                                new FirstAidStep { Text = "Không vận động cơ bắp", MediaUrl = "https://lh5.googleusercontent.com/i8pGvoLht7TcUieukFfbJgxyhfSjBKKh6HgjaBdOG949U2qn7JdQ4HApvHFebdFG5zpP2nrNwCfESg2yzAqZXSXW_aOXRe_lnsSeBgfyTtIXbiIBOiTUj4kvlVcPiqFDY6xOz0w" },
+                                new FirstAidStep { Text = "Không dùng thuốc giảm đau bừa bãi", MediaUrl = "https://trungtamthuoc.com/images/products/aspirin-100-traphaco-l4575.jpg" }
                             },
-                            notes = new[] { "Dấu hiệu: Đau nhức cơ toàn thân, nước tiểu màu nâu/đen như xá xị." }
-                        })
+                            Notes = new List<string> { "Dấu hiệu: Đau nhức cơ toàn thân, nước tiểu màu nâu/đen như xá xị." }
+                        }
                     }
                 };
                 context.FirstAidGuidelines.AddRange(guidelines);
@@ -1538,6 +1538,84 @@ namespace SnakeAid.Repository.Seeds
                     },
                 };
 
+                await context.SaveChangesAsync();
+            }
+
+            // ==================================================================================
+            // SEED AI MODELS & AI SNAKE CLASS MAPPINGS
+            // ==================================================================================
+            // Phụ thuộc: SnakeSpecies phải được seed trước
+            // Mục đích: Cho phép endpoint detect/{reportMediaId} trả về snake data đầy đủ
+            // Mapping: YOLO class name -> SnakeSpecies (theo file Yolo_data.yaml)
+            // ==================================================================================
+            if (!context.AIModels.Any())
+            {
+                var aiModels = new List<AIModel>
+                {
+                    new AIModel
+                    {
+                        Id = 1,
+                        Version = "7",
+                        Description = "YOLO-based snake detection model trained on 22 Vietnamese snake species.",
+                        IsActive = true,
+                        IsDefault = true
+                    }
+                };
+                context.AIModels.AddRange(aiModels);
+                await context.SaveChangesAsync(); // Lưu AIModel trước khi tạo mapping
+
+                // YOLO Class Name -> SnakeSpecies ID mapping (based on Yolo_data.yaml)
+                // Index 1-22 tương ứng với 22 classes trong model YOLO v7
+                const int aiModelId = 1;
+                var aiSnakeClassMappings = new List<AISnakeClassMapping>
+                {
+                    // YoloClassId 1: cap_nia_bac -> Rắn Cạp Nia Bắc (SnakeSpeciesId: 1)
+                    new AISnakeClassMapping { Id = Guid.NewGuid(), AIModelId = aiModelId, YoloClassId = 1, YoloClassName = "cap_nia_bac", SnakeSpeciesId = 1, IsActive = true },
+                    // YoloClassId 2: cap_nia_nam -> Rắn Cạp Nia Nam (SnakeSpeciesId: 6)
+                    new AISnakeClassMapping { Id = Guid.NewGuid(), AIModelId = aiModelId, YoloClassId = 2, YoloClassName = "cap_nia_nam", SnakeSpeciesId = 6, IsActive = true },
+                    // YoloClassId 3: cap_nong -> Rắn Cạp Nong (SnakeSpeciesId: 5)
+                    new AISnakeClassMapping { Id = Guid.NewGuid(), AIModelId = aiModelId, YoloClassId = 3, YoloClassName = "cap_nong", SnakeSpeciesId = 5, IsActive = true },
+                    // YoloClassId 4: ho_mang_chua -> Rắn Hổ Mang Chúa (SnakeSpeciesId: 3)
+                    new AISnakeClassMapping { Id = Guid.NewGuid(), AIModelId = aiModelId, YoloClassId = 4, YoloClassName = "ho_mang_chua", SnakeSpeciesId = 3, IsActive = true },
+                    // YoloClassId 5: ho_mang_xiem -> Rắn Hổ Mang Xiêm (SnakeSpeciesId: 7)
+                    new AISnakeClassMapping { Id = Guid.NewGuid(), AIModelId = aiModelId, YoloClassId = 5, YoloClassName = "ho_mang_xiem", SnakeSpeciesId = 7, IsActive = true },
+                    // YoloClassId 6: khiem_vach -> Rắn Khiếm Vạch (SnakeSpeciesId: 14)
+                    new AISnakeClassMapping { Id = Guid.NewGuid(), AIModelId = aiModelId, YoloClassId = 6, YoloClassName = "khiem_vach", SnakeSpeciesId = 14, IsActive = true },
+                    // YoloClassId 7: luc_cuom -> Rắn Lục Cườm (SnakeSpeciesId: 11)
+                    new AISnakeClassMapping { Id = Guid.NewGuid(), AIModelId = aiModelId, YoloClassId = 7, YoloClassName = "luc_cuom", SnakeSpeciesId = 11, IsActive = true },
+                    // YoloClassId 8: luc_nua -> Rắn Lục Nưa (Chàm Quạp) (SnakeSpeciesId: 12)
+                    new AISnakeClassMapping { Id = Guid.NewGuid(), AIModelId = aiModelId, YoloClassId = 8, YoloClassName = "luc_nua", SnakeSpeciesId = 12, IsActive = true },
+                    // YoloClassId 9: luc_xanh -> Rắn Lục Xanh (SnakeSpeciesId: 13)
+                    new AISnakeClassMapping { Id = Guid.NewGuid(), AIModelId = aiModelId, YoloClassId = 9, YoloClassName = "luc_xanh", SnakeSpeciesId = 13, IsActive = true },
+                    // YoloClassId 10: luc_xanh_duoi_do -> Rắn Lục Đuôi Đỏ (SnakeSpeciesId: 2)
+                    new AISnakeClassMapping { Id = Guid.NewGuid(), AIModelId = aiModelId, YoloClassId = 10, YoloClassName = "luc_xanh_duoi_do", SnakeSpeciesId = 2, IsActive = true },
+                    // YoloClassId 11: ran_cuom -> Rắn Cườm (Rắn Bay) (SnakeSpeciesId: 15)
+                    new AISnakeClassMapping { Id = Guid.NewGuid(), AIModelId = aiModelId, YoloClassId = 11, YoloClassName = "ran_cuom", SnakeSpeciesId = 15, IsActive = true },
+                    // YoloClassId 12: ran_dai_lon -> Rắn Đai Lớn (SnakeSpeciesId: 21)
+                    new AISnakeClassMapping { Id = Guid.NewGuid(), AIModelId = aiModelId, YoloClassId = 12, YoloClassName = "ran_dai_lon", SnakeSpeciesId = 21, IsActive = true },
+                    // YoloClassId 13: ran_hoa_can_van_dom -> Rắn Hoa Cân Vân Đốm (SnakeSpeciesId: 17)
+                    new AISnakeClassMapping { Id = Guid.NewGuid(), AIModelId = aiModelId, YoloClassId = 13, YoloClassName = "ran_hoa_can_van_dom", SnakeSpeciesId = 17, IsActive = true },
+                    // YoloClassId 14: ran_hoa_co_do -> Rắn Hoa Cỏ Cổ Đỏ (SnakeSpeciesId: 8)
+                    new AISnakeClassMapping { Id = Guid.NewGuid(), AIModelId = aiModelId, YoloClassId = 14, YoloClassName = "ran_hoa_co_do", SnakeSpeciesId = 8, IsActive = true },
+                    // YoloClassId 15: ran_rao -> Rắn Ráo (SnakeSpeciesId: 4)
+                    new AISnakeClassMapping { Id = Guid.NewGuid(), AIModelId = aiModelId, YoloClassId = 15, YoloClassName = "ran_rao", SnakeSpeciesId = 4, IsActive = true },
+                    // YoloClassId 16: ran_rao_trau -> Rắn Ráo Trâu (SnakeSpeciesId: 16)
+                    new AISnakeClassMapping { Id = Guid.NewGuid(), AIModelId = aiModelId, YoloClassId = 16, YoloClassName = "ran_rao_trau", SnakeSpeciesId = 16, IsActive = true },
+                    // YoloClassId 17: ran_ri_ca -> Rắn Ri Cá (SnakeSpeciesId: 18)
+                    new AISnakeClassMapping { Id = Guid.NewGuid(), AIModelId = aiModelId, YoloClassId = 17, YoloClassName = "ran_ri_ca", SnakeSpeciesId = 18, IsActive = true },
+                    // YoloClassId 18: ran_roi -> Rắn Roi (SnakeSpeciesId: 19)
+                    new AISnakeClassMapping { Id = Guid.NewGuid(), AIModelId = aiModelId, YoloClassId = 18, YoloClassName = "ran_roi", SnakeSpeciesId = 19, IsActive = true },
+                    // YoloClassId 19: ran_sai_co -> Rắn Sãi Cỏ (SnakeSpeciesId: 22)
+                    new AISnakeClassMapping { Id = Guid.NewGuid(), AIModelId = aiModelId, YoloClassId = 19, YoloClassName = "ran_sai_co", SnakeSpeciesId = 22, IsActive = true },
+                    // YoloClassId 20: ran_soc_dua -> Rắn Hổ Ngựa (SnakeSpeciesId: 9)
+                    new AISnakeClassMapping { Id = Guid.NewGuid(), AIModelId = aiModelId, YoloClassId = 20, YoloClassName = "ran_soc_dua", SnakeSpeciesId = 9, IsActive = true },
+                    // YoloClassId 21: ran_soc_go -> Rắn Chuột Vua (SnakeSpeciesId: 10)
+                    new AISnakeClassMapping { Id = Guid.NewGuid(), AIModelId = aiModelId, YoloClassId = 21, YoloClassName = "ran_soc_go", SnakeSpeciesId = 10, IsActive = true },
+                    // YoloClassId 22: ran_trun -> Rắn Trun (SnakeSpeciesId: 20)
+                    new AISnakeClassMapping { Id = Guid.NewGuid(), AIModelId = aiModelId, YoloClassId = 22, YoloClassName = "ran_trun", SnakeSpeciesId = 20, IsActive = true }
+                };
+
+                context.AISnakeClassMappings.AddRange(aiSnakeClassMappings);
                 await context.SaveChangesAsync();
             }
         }
