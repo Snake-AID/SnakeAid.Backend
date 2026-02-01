@@ -82,7 +82,7 @@ namespace SnakeAid.Repository.Data
             modelBuilder.Ignore<IdentityRoleClaim<Guid>>();
 
             // Ignore UserData property from NetTopologySuite Point
-            modelBuilder.Ignore<NetTopologySuite.Geometries.Point>();
+            //modelBuilder.Ignore<NetTopologySuite.Geometries.Point>();
 
             // Identity tables configuration
             modelBuilder.Entity<Account>().ToTable("Accounts", "AspNetIdentity");
