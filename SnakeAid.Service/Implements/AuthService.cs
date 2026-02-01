@@ -70,6 +70,18 @@ public class AuthService : IAuthService
                 null, false, "Email is already in use.", HttpStatusCode.BadRequest, "EMAIL_IN_USE");
         }
 
+        //Map role
+        if (targetRole == null)
+        {
+            targetRole = RegisterRole.Member;
+        }
+
+        if (!RegisterRoleMap.TryGetValue(targetRole.Value, out var role))
+        {
+            return ApiResponseBuilder.CreateResponse<AuthResponse>(
+                null, false, "Invalid role.", HttpStatusCode.BadRequest, "INVALID_ROLE");
+        }
+
         // Create new account
         var user = new Account
         {
@@ -79,7 +91,7 @@ public class AuthService : IAuthService
             FullName = request.FullName ?? string.Empty,
             PhoneNumber = request.PhoneNumber,
             IsActive = false,
-            Role = AccountRole.User,
+            Role = role,
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow
         };
@@ -95,10 +107,7 @@ public class AuthService : IAuthService
                 null, false, "Registration failed.", HttpStatusCode.UnprocessableEntity, "VALIDATION_ERROR", errors);
         }
 
-        if (targetRole == null)
-        {
-            targetRole = RegisterRole.Member;
-        }
+        
 
         switch (targetRole)
         {
@@ -524,4 +533,15 @@ public class AuthService : IAuthService
     }
 
     #endregion
+
+    #region Private Methods
+    private static readonly Dictionary<RegisterRole, AccountRole> RegisterRoleMap =
+    new()
+    {
+        { RegisterRole.Member,  AccountRole.User },
+        { RegisterRole.Rescuer, AccountRole.Rescuer },
+        { RegisterRole.Expert,  AccountRole.Expert }
+    };
+    #endregion
 }
+
