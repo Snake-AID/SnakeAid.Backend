@@ -6,7 +6,14 @@ namespace SnakeAid.Core.Requests.SymptomConfig
     public class CreateSymptomConfigRequest
     {
         /// <summary>
-        /// Khóa thuộc tính (VD: "BITE_LOCATION", "AGE_GROUP", "SYMPTOMS")
+        /// Nhóm thuộc tính (VD: "GENERAL", "LOCAL", "CRITICAL")
+        /// </summary>
+        [Required]
+        [MaxLength(100, ErrorMessage = "GroupName must not exceed 100 characters")]
+        public string GroupName { get; set; }      
+
+        /// <summary>
+        /// Khóa thuộc tính (VD: "BITE_LOCATION", "CORE_SIGNS")
         /// </summary>
         [Required(ErrorMessage = "AttributeKey is required")]
         [MaxLength(100, ErrorMessage = "AttributeKey must not exceed 100 characters")]
@@ -38,6 +45,17 @@ namespace SnakeAid.Core.Requests.SymptomConfig
         /// </summary>
         [MaxLength(1000, ErrorMessage = "Description must not exceed 1000 characters")]
         public string? Description { get; set; }
+
+        /// <summary>
+        /// Đánh dấu triệu chứng nguy kịch (hiển thị popup cảnh báo)
+        /// </summary>
+        public bool IsCritical { get; set; } = false;
+
+        /// <summary>
+        /// Nội dung cảnh báo khi triệu chứng nguy kịch được chọn
+        /// </summary>
+        [MaxLength(1000, ErrorMessage = "AlertMessage must not exceed 1000 characters")]
+        public string? AlertMessage { get; set; }
 
         /// <summary>
         /// Trạng thái kích hoạt
