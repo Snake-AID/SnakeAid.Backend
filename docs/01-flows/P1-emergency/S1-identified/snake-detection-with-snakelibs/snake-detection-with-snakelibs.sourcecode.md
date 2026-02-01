@@ -48,10 +48,10 @@ public class SnakeDetectionController : BaseController<SnakeDetectionController>
 {
     private readonly ISnakeAIService _snakeAIService;
     
-    [HttpPost("detect")]
-    public async Task<IActionResult> Detect([FromBody] SnakeDetectionRequest request, CancellationToken ct = default)
+    [HttpPost("detect/{reportMediaId:guid}")]
+    public async Task<IActionResult> Detect([FromRoute] Guid reportMediaId, CancellationToken ct = default)
     {
-        var result = await _snakeAIService.DetectFromReportMediaAsync(request.ReportMediaId, ct);
+        var result = await _snakeAIService.DetectFromReportMediaAsync(reportMediaId, ct);
         return StatusCode(result.StatusCode, result);
     }
 
@@ -298,14 +298,7 @@ public class UploadReportMediaRequest
 }
 ```
 
-#### **SnakeDetectionRequest.cs**
-```csharp
-public class SnakeDetectionRequest
-{
-    [Required]
-    public Guid ReportMediaId { get; set; }
-}
-```
+// SnakeDetectionRequest.cs (Removed - moved to Path Param)
 
 #### **ReportMediaResponse.cs**
 ```csharp
@@ -391,7 +384,7 @@ sequenceDiagram
 
     rect rgb(240, 255, 240)
         Note over Client,DB: Step 2: Detect Snake
-        Client->>DC: POST /api/detection/detect (ReportMediaId)
+        Client->>DC: POST /api/detection/detect/{reportMediaId}
         DC->>SS: DetectFromReportMediaAsync(reportMediaId)
         SS->>SS: IsHealthyAsync()
         SS->>DB: Get ReportMedia by ID

@@ -122,28 +122,20 @@ Nhận diện rắn từ ReportMedia đã upload, bao gồm species mapping.
 
 #### **Endpoint**
 ```
-POST /api/detection/detect
+POST /api/detection/detect/{reportMediaId}
 ```
 
 #### **Request Body**
-```json
-{
-  "reportMediaId": "123e4567-e89b-12d3-a456-426614174000"
-}
-```
+*None* (ID is passed in URL path)
 
 #### **JavaScript Example**
 ```javascript
 const detectSnake = async (reportMediaId) => {
-  const response = await fetch('/api/detection/detect', {
+  const response = await fetch(`/api/detection/detect/${reportMediaId}`, {
     method: 'POST',
     headers: {
-      'Content-Type': 'application/json',
       'Authorization': `Bearer ${accessToken}`
-    },
-    body: JSON.stringify({
-      reportMediaId: reportMediaId
-    })
+    }
   });
   
   const result = await response.json();
@@ -362,14 +354,10 @@ class SnakeDetectionService {
 
   Future<Map<String, dynamic>> detectSnake(String reportMediaId) async {
     final response = await http.post(
-      Uri.parse('$baseUrl/api/detection/detect'),
+      Uri.parse('$baseUrl/api/detection/detect/$reportMediaId'),
       headers: {
-        'Content-Type': 'application/json',
         'Authorization': 'Bearer $_accessToken',
       },
-      body: json.encode({
-        'reportMediaId': reportMediaId,
-      }),
     );
 
     if (response.statusCode == 200) {
@@ -550,9 +538,8 @@ const handleApiCall = async (apiFunction) => {
 
 2. **Detect Snake**
    - Method: `POST`
-   - URL: `{{baseUrl}}/api/detection/detect`
-   - Headers: `Authorization: Bearer {{accessToken}}`, `Content-Type: application/json`
-   - Body: `{"reportMediaId": "{{reportMediaId}}"}`
+   - URL: `{{baseUrl}}/api/detection/detect/{{reportMediaId}}`
+   - Headers: `Authorization: Bearer {{accessToken}}`
    - Test: Save `response.data.recognitionResultId` to `recognitionResultId`
 
 3. **Get Historical Result**

@@ -2,7 +2,6 @@ using MapsterMapper;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SnakeAid.Core.Meta;
-using SnakeAid.Core.Requests.SnakeDetection;
 using SnakeAid.Core.Responses.SnakeDetection;
 using SnakeAid.Service.Interfaces;
 using Swashbuckle.AspNetCore.Annotations;
@@ -35,7 +34,7 @@ public class SnakeDetectionController : BaseController<SnakeDetectionController>
     /// <param name="request">Detection request with ReportMediaId</param>
     /// <param name="ct">Cancellation token</param>
     /// <returns>Detection result with species info and confidence</returns>
-    [HttpPost("detect")]
+    [HttpPost("detect/{reportMediaId:guid}")]
     [SwaggerOperation(
         Summary = "Detect snake from ReportMedia",
         Description = "Analyze image from ReportMedia using SnakeAI model to detect snake species and map to SnakeLibs")]
@@ -43,9 +42,9 @@ public class SnakeDetectionController : BaseController<SnakeDetectionController>
     [SwaggerResponse(400, "Invalid request", typeof(ApiResponse<object>))]
     [SwaggerResponse(404, "ReportMedia not found", typeof(ApiResponse<object>))]
     [SwaggerResponse(503, "AI service unavailable", typeof(ApiResponse<object>))]
-    public async Task<IActionResult> Detect([FromBody] SnakeDetectionRequest request, CancellationToken ct = default)
+    public async Task<IActionResult> Detect([FromRoute] Guid reportMediaId, CancellationToken ct = default)
     {
-        var result = await _snakeAIService.DetectFromReportMediaAsync(request.ReportMediaId, ct);
+        var result = await _snakeAIService.DetectFromReportMediaAsync(reportMediaId, ct);
         return StatusCode(result.StatusCode, result);
     }
 

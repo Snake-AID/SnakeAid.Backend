@@ -157,8 +157,8 @@ public class SnakeAIDetection
 **File:** `SnakeAid.Api/Controllers/SnakeDetectionController.cs`
 
 ```csharp
-[HttpPost("detect")]
-public async Task<IActionResult> Detect([FromBody] SnakeDetectionRequest request, CancellationToken ct)
+[HttpPost("detect/{reportMediaId:guid}")]
+public async Task<IActionResult> Detect([FromRoute] Guid reportMediaId, CancellationToken ct = default)
 {
     // 1. Health Check (fail-fast)
     if (!await _snakeAIService.IsHealthyAsync(ct))
@@ -166,19 +166,10 @@ public async Task<IActionResult> Detect([FromBody] SnakeDetectionRequest request
         return StatusCode(503, ApiResponseBuilder.BuildErrorResponse("AI Service is currently unavailable."));
     }
     
-    // 2. Validate ReportMediaId
-    var reportMedia = await _unitOfWork.Repository<ReportMedia>()
-        .GetByIdAsync(request.ReportMediaId, ct);
+    // 2. Call Service directly with ID
+    var result = await _snakeAIService.DetectFromReportMediaAsync(reportMediaId, ct);
     
-    if (reportMedia == null)
-    {
-        return NotFound(ApiResponseBuilder.BuildErrorResponse("ReportMedia not found."));
-    }
-    
-    // 3. Call Detection Service with URL from DB
-    var result = await _snakeAIService.DetectAsync(reportMedia.MediaUrl, request.ReportMediaId, ct);
-    
-    return Ok(ApiResponseBuilder.BuildSuccessResponse(result, "Detection completed."));
+    return StatusCode(result.StatusCode, result);
 }
 ```
 
