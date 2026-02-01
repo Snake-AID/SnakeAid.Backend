@@ -1540,6 +1540,84 @@ namespace SnakeAid.Repository.Seeds
 
                 await context.SaveChangesAsync();
             }
+
+            // ==================================================================================
+            // SEED AI MODELS & AI SNAKE CLASS MAPPINGS
+            // ==================================================================================
+            // Phụ thuộc: SnakeSpecies phải được seed trước
+            // Mục đích: Cho phép endpoint detect/{reportMediaId} trả về snake data đầy đủ
+            // Mapping: YOLO class name -> SnakeSpecies (theo file Yolo_data.yaml)
+            // ==================================================================================
+            if (!context.AIModels.Any())
+            {
+                var aiModels = new List<AIModel>
+                {
+                    new AIModel
+                    {
+                        Id = 1,
+                        Version = "7",
+                        Description = "YOLO-based snake detection model trained on 22 Vietnamese snake species.",
+                        IsActive = true,
+                        IsDefault = true
+                    }
+                };
+                context.AIModels.AddRange(aiModels);
+                await context.SaveChangesAsync(); // Lưu AIModel trước khi tạo mapping
+
+                // YOLO Class Name -> SnakeSpecies ID mapping (based on Yolo_data.yaml)
+                // Index 1-22 tương ứng với 22 classes trong model YOLO v7
+                const int aiModelId = 1;
+                var aiSnakeClassMappings = new List<AISnakeClassMapping>
+                {
+                    // YoloClassId 1: cap_nia_bac -> Rắn Cạp Nia Bắc (SnakeSpeciesId: 1)
+                    new AISnakeClassMapping { Id = Guid.NewGuid(), AIModelId = aiModelId, YoloClassId = 1, YoloClassName = "cap_nia_bac", SnakeSpeciesId = 1, IsActive = true },
+                    // YoloClassId 2: cap_nia_nam -> Rắn Cạp Nia Nam (SnakeSpeciesId: 6)
+                    new AISnakeClassMapping { Id = Guid.NewGuid(), AIModelId = aiModelId, YoloClassId = 2, YoloClassName = "cap_nia_nam", SnakeSpeciesId = 6, IsActive = true },
+                    // YoloClassId 3: cap_nong -> Rắn Cạp Nong (SnakeSpeciesId: 5)
+                    new AISnakeClassMapping { Id = Guid.NewGuid(), AIModelId = aiModelId, YoloClassId = 3, YoloClassName = "cap_nong", SnakeSpeciesId = 5, IsActive = true },
+                    // YoloClassId 4: ho_mang_chua -> Rắn Hổ Mang Chúa (SnakeSpeciesId: 3)
+                    new AISnakeClassMapping { Id = Guid.NewGuid(), AIModelId = aiModelId, YoloClassId = 4, YoloClassName = "ho_mang_chua", SnakeSpeciesId = 3, IsActive = true },
+                    // YoloClassId 5: ho_mang_xiem -> Rắn Hổ Mang Xiêm (SnakeSpeciesId: 7)
+                    new AISnakeClassMapping { Id = Guid.NewGuid(), AIModelId = aiModelId, YoloClassId = 5, YoloClassName = "ho_mang_xiem", SnakeSpeciesId = 7, IsActive = true },
+                    // YoloClassId 6: khiem_vach -> Rắn Khiếm Vạch (SnakeSpeciesId: 14)
+                    new AISnakeClassMapping { Id = Guid.NewGuid(), AIModelId = aiModelId, YoloClassId = 6, YoloClassName = "khiem_vach", SnakeSpeciesId = 14, IsActive = true },
+                    // YoloClassId 7: luc_cuom -> Rắn Lục Cườm (SnakeSpeciesId: 11)
+                    new AISnakeClassMapping { Id = Guid.NewGuid(), AIModelId = aiModelId, YoloClassId = 7, YoloClassName = "luc_cuom", SnakeSpeciesId = 11, IsActive = true },
+                    // YoloClassId 8: luc_nua -> Rắn Lục Nưa (Chàm Quạp) (SnakeSpeciesId: 12)
+                    new AISnakeClassMapping { Id = Guid.NewGuid(), AIModelId = aiModelId, YoloClassId = 8, YoloClassName = "luc_nua", SnakeSpeciesId = 12, IsActive = true },
+                    // YoloClassId 9: luc_xanh -> Rắn Lục Xanh (SnakeSpeciesId: 13)
+                    new AISnakeClassMapping { Id = Guid.NewGuid(), AIModelId = aiModelId, YoloClassId = 9, YoloClassName = "luc_xanh", SnakeSpeciesId = 13, IsActive = true },
+                    // YoloClassId 10: luc_xanh_duoi_do -> Rắn Lục Đuôi Đỏ (SnakeSpeciesId: 2)
+                    new AISnakeClassMapping { Id = Guid.NewGuid(), AIModelId = aiModelId, YoloClassId = 10, YoloClassName = "luc_xanh_duoi_do", SnakeSpeciesId = 2, IsActive = true },
+                    // YoloClassId 11: ran_cuom -> Rắn Cườm (Rắn Bay) (SnakeSpeciesId: 15)
+                    new AISnakeClassMapping { Id = Guid.NewGuid(), AIModelId = aiModelId, YoloClassId = 11, YoloClassName = "ran_cuom", SnakeSpeciesId = 15, IsActive = true },
+                    // YoloClassId 12: ran_dai_lon -> Rắn Đai Lớn (SnakeSpeciesId: 21)
+                    new AISnakeClassMapping { Id = Guid.NewGuid(), AIModelId = aiModelId, YoloClassId = 12, YoloClassName = "ran_dai_lon", SnakeSpeciesId = 21, IsActive = true },
+                    // YoloClassId 13: ran_hoa_can_van_dom -> Rắn Hoa Cân Vân Đốm (SnakeSpeciesId: 17)
+                    new AISnakeClassMapping { Id = Guid.NewGuid(), AIModelId = aiModelId, YoloClassId = 13, YoloClassName = "ran_hoa_can_van_dom", SnakeSpeciesId = 17, IsActive = true },
+                    // YoloClassId 14: ran_hoa_co_do -> Rắn Hoa Cỏ Cổ Đỏ (SnakeSpeciesId: 8)
+                    new AISnakeClassMapping { Id = Guid.NewGuid(), AIModelId = aiModelId, YoloClassId = 14, YoloClassName = "ran_hoa_co_do", SnakeSpeciesId = 8, IsActive = true },
+                    // YoloClassId 15: ran_rao -> Rắn Ráo (SnakeSpeciesId: 4)
+                    new AISnakeClassMapping { Id = Guid.NewGuid(), AIModelId = aiModelId, YoloClassId = 15, YoloClassName = "ran_rao", SnakeSpeciesId = 4, IsActive = true },
+                    // YoloClassId 16: ran_rao_trau -> Rắn Ráo Trâu (SnakeSpeciesId: 16)
+                    new AISnakeClassMapping { Id = Guid.NewGuid(), AIModelId = aiModelId, YoloClassId = 16, YoloClassName = "ran_rao_trau", SnakeSpeciesId = 16, IsActive = true },
+                    // YoloClassId 17: ran_ri_ca -> Rắn Ri Cá (SnakeSpeciesId: 18)
+                    new AISnakeClassMapping { Id = Guid.NewGuid(), AIModelId = aiModelId, YoloClassId = 17, YoloClassName = "ran_ri_ca", SnakeSpeciesId = 18, IsActive = true },
+                    // YoloClassId 18: ran_roi -> Rắn Roi (SnakeSpeciesId: 19)
+                    new AISnakeClassMapping { Id = Guid.NewGuid(), AIModelId = aiModelId, YoloClassId = 18, YoloClassName = "ran_roi", SnakeSpeciesId = 19, IsActive = true },
+                    // YoloClassId 19: ran_sai_co -> Rắn Sãi Cỏ (SnakeSpeciesId: 22)
+                    new AISnakeClassMapping { Id = Guid.NewGuid(), AIModelId = aiModelId, YoloClassId = 19, YoloClassName = "ran_sai_co", SnakeSpeciesId = 22, IsActive = true },
+                    // YoloClassId 20: ran_soc_dua -> Rắn Hổ Ngựa (SnakeSpeciesId: 9)
+                    new AISnakeClassMapping { Id = Guid.NewGuid(), AIModelId = aiModelId, YoloClassId = 20, YoloClassName = "ran_soc_dua", SnakeSpeciesId = 9, IsActive = true },
+                    // YoloClassId 21: ran_soc_go -> Rắn Chuột Vua (SnakeSpeciesId: 10)
+                    new AISnakeClassMapping { Id = Guid.NewGuid(), AIModelId = aiModelId, YoloClassId = 21, YoloClassName = "ran_soc_go", SnakeSpeciesId = 10, IsActive = true },
+                    // YoloClassId 22: ran_trun -> Rắn Trun (SnakeSpeciesId: 20)
+                    new AISnakeClassMapping { Id = Guid.NewGuid(), AIModelId = aiModelId, YoloClassId = 22, YoloClassName = "ran_trun", SnakeSpeciesId = 20, IsActive = true }
+                };
+
+                context.AISnakeClassMappings.AddRange(aiSnakeClassMappings);
+                await context.SaveChangesAsync();
+            }
         }
     }
 }
