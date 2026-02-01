@@ -40,6 +40,10 @@ namespace SnakeAid.Core.Domains
 
         public DateTime? UploadedAt { get; set; } = DateTime.UtcNow;
 
+        [ForeignKey(nameof(SnakeSpecies))]
+        public int? SnakeSpeciesId { get; set; }
+
+        public SnakeSpecies? SnakeSpecies { get; set; }
 
         public Account? UploadedBy { get; set; }
     }

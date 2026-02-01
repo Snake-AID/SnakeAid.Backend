@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using SnakeAid.Core.Domains;
+using SnakeAid.Core.Enums;
 
 namespace SnakeAid.Core.Requests.FirstAidGuideline
 {

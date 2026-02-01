@@ -1,4 +1,5 @@
 using SnakeAid.Core.Domains;
+using SnakeAid.Core.Enums;
 using SnakeAid.Core.Meta;
 
 namespace SnakeAid.Core.Requests.FirstAidGuideline

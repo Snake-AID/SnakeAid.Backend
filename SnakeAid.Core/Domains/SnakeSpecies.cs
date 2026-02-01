@@ -62,6 +62,7 @@ namespace SnakeAid.Core.Domains
         public ICollection<SpeciesVenom> SpeciesVenoms { get; set; } = new List<SpeciesVenom>();
         public ICollection<SnakeCatchingTariff> SnakeCatchingTariffs { get; set; } = new List<SnakeCatchingTariff>();
         public ICollection<SnakeSpeciesName> AlternativeNames { get; set; } = new List<SnakeSpeciesName>();
+        public ICollection<LibraryMedia> LibraryMedias { get; set; } = new List<LibraryMedia>();
     }
 
     public enum PrimaryVenomType
