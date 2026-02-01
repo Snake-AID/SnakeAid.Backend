@@ -13,10 +13,6 @@ namespace SnakeAid.Core.Domains
         public Guid Id { get; set; }
 
         [Required]
-        [ForeignKey(nameof(SnakeSpecies))]
-        public int SnakeSpeciesId { get; set; }
-
-        [Required]
         [MaxLength(2000)]
         [Url]
         public string MediaUrl { get; set; }
@@ -39,16 +35,12 @@ namespace SnakeAid.Core.Domains
         [Required]
         public bool IsPublic { get; set; } = true;
 
-        [Range(0, 10)]
-        public int DisplayOrder { get; set; } = 0;
-
         [ForeignKey(nameof(UploadedBy))]
         public Guid? UploadedById { get; set; }
 
         public DateTime? UploadedAt { get; set; } = DateTime.UtcNow;
 
-        // Navigation properties
-        public SnakeSpecies SnakeSpecies { get; set; }
+
         public Account? UploadedBy { get; set; }
     }
 

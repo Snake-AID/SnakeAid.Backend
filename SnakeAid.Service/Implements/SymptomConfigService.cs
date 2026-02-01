@@ -55,7 +55,6 @@ namespace SnakeAid.Service.Implements
                     {
                         AttributeKey = request.AttributeKey,
                         AttributeLabel = request.AttributeLabel,
-                        UIHint = request.UIHint,
                         DisplayOrder = request.DisplayOrder,
                         Name = request.Name,
                         Description = request.Description,
@@ -128,10 +127,9 @@ namespace SnakeAid.Service.Implements
                 Expression<Func<SymptomConfig, bool>>? predicate = null;
 
                 // Build combined predicate
-                predicate = sc => 
+                predicate = sc =>
                     (string.IsNullOrWhiteSpace(request.AttributeKey) || sc.AttributeKey.Contains(request.AttributeKey)) &&
                     (string.IsNullOrWhiteSpace(request.Name) || sc.Name.Contains(request.Name)) &&
-                    (!request.UIHint.HasValue || sc.UIHint == request.UIHint.Value) &&
                     (!request.Category.HasValue || sc.Category == request.Category.Value) &&
                     (!request.IsActive.HasValue || sc.IsActive == request.IsActive.Value) &&
                     (!request.VenomTypeId.HasValue || sc.VenomTypeId == request.VenomTypeId.Value);
@@ -209,10 +207,6 @@ namespace SnakeAid.Service.Implements
                         symptomConfig.AttributeLabel = request.AttributeLabel;
                     }
 
-                    if (request.UIHint.HasValue)
-                    {
-                        symptomConfig.UIHint = request.UIHint.Value;
-                    }
 
                     if (request.DisplayOrder.HasValue)
                     {
