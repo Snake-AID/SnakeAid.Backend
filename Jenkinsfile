@@ -1,5 +1,46 @@
+// ---------- Helpers ----------
+def utcCreated() {
+    return sh(script: "date -u +%Y-%m-%dT%H:%M:%SZ", returnStdout: true).trim()
+}
+
+def normalizeRepoUrl(String rawRepo) {
+    def repoUrl = rawRepo ?: ''
+    if (repoUrl.startsWith('git@github.com:')) {
+        repoUrl = repoUrl.replace('git@github.com:', 'https://github.com/')
+    }
+    return repoUrl.replaceAll(/\.git$/, '')
+}
+
+def commitUrl(String repoUrl, String commitSha) {
+    return (repoUrl && commitSha) ? "${repoUrl}/commit/${commitSha}" : (repoUrl ?: '')
+}
+
+def ociLabelArgs(String tag) {
+    def created = utcCreated()
+    def repoUrl = normalizeRepoUrl(env.GIT_URL ?: '')
+    def url = commitUrl(repoUrl, env.GIT_COMMIT ?: '')
+
+    // IMPORTANT: must be a SINGLE LINE to avoid Jenkins `sh` interpreting `--label` as a separate command
+    def labels = [
+        "org.opencontainers.image.source=${repoUrl}",
+        "org.opencontainers.image.revision=${env.GIT_COMMIT ?: ''}",
+        "org.opencontainers.image.url=${url}",
+        "org.opencontainers.image.created=${created}",
+        "org.opencontainers.image.version=${tag}"
+    ].collect { "--label ${it}" }.join(' ')
+
+    // `docker.build(name, args)` already sets `-t name`, so only pass Dockerfile + labels + context
+    return "-f Dockerfile ${labels} ."
+}
+
+// ---------- Pipeline ----------
 pipeline {
     agent any
+
+    options {
+        disableConcurrentBuilds()
+        timestamps()
+    }
 
     environment {
         TIME_STAMP_FORMAT = "dd-MM-yyyy HH:mm:ss"
@@ -16,36 +57,54 @@ pipeline {
             }
         }
 
-        /* 
-        stage('Code Style Check') {
+        stage('Build Code (PR & Dev)') {
             when {
-                expression { env.CHANGE_ID != null }
-            }
-            steps {
-                // Requires .NET SDK installed on the agent
-                sh 'dotnet format --verify-no-changes'
-            }
-        }
-        */
-
-        stage('Build Code (PR)') {
-            when {
-                expression { env.CHANGE_ID != null }
+                anyOf {
+                    // PRs and direct pushes to 'dev' (build only; do not push).
+                    expression { env.CHANGE_ID != null }
+                    allOf {
+                        branch 'dev'
+                        not { changeRequest() }
+                    }
+                }
             }
 
             steps {
                 script {
                     def tag = env.CHANGE_ID ? "pr-${env.CHANGE_ID}" : env.BUILD_NUMBER
-                    // Build using the Dockerfile (verifies build works)
-                    docker.build("${IMAGE}:${tag}", "-f Dockerfile .")
-                    // '|| true' ensures the build doesn't fail if the image is already gone.
+                    docker.build("${IMAGE}:${tag}", ociLabelArgs(tag))
+
+                    // Preserve original cleanup behavior
                     sh "docker rmi ${IMAGE}:${tag} --force || true"
                 }
             }
         }
 
-        stage('Build & Push Docker (Release)') {
+        stage('Build & Push Docker (PR -> main)') {
             when {
+                // PR targeting 'main': push pr-<id> only (no latest)
+                expression { env.CHANGE_ID != null && env.CHANGE_TARGET == 'main' }
+            }
+
+            steps {
+                script {
+                    def tag = "pr-${env.CHANGE_ID}"
+                    def img = docker.build("${IMAGE}:${tag}", ociLabelArgs(tag))
+
+                    docker.withRegistry(REGISTRY_URL, REGISTRY_CREDENTIAL) {
+                        img.push()
+                    }
+
+                    // Preserve original cleanup behavior
+                    sh "docker rmi ${IMAGE}:${tag} --force || true"
+                    sh "docker rmi ${IMAGE}:latest --force || true"
+                }
+            }
+        }
+
+        stage('Build & Push Docker (Release main)') {
+            when {
+                // Only real pushes/merges to main (non-PR) can push latest
                 allOf {
                     branch 'main'
                     not { changeRequest() }
@@ -54,20 +113,38 @@ pipeline {
 
             steps {
                 script {
-                    // Build images (Assign version tag as BUILD_NUMBER)
-                    // Context is '.' (root)
-                    def img = docker.build("${IMAGE}:${env.BUILD_NUMBER}", "-f Dockerfile .")
+                    def tag = "latest"
+                    def img = docker.build("${IMAGE}:${tag}", ociLabelArgs(tag))
 
-                    // Push images (With credentials)
                     docker.withRegistry(REGISTRY_URL, REGISTRY_CREDENTIAL) {
-                        // Push tag version (e.g., :35)
-                        img.push()
-                        // Push tag latest
                         img.push('latest')
                     }
+
+                    // Preserve original cleanup behavior
+                    sh "docker rmi ${IMAGE}:latest --force || true"
+                }
+            }
+        }
+
+        stage('Deploy (Portainer Webhook)') {
+            when {
+                // Deploy only on real pushes/merges to main (non-PR)
+                allOf {
+                    branch 'main'
+                    not { changeRequest() }
+                }
+            }
+
+            steps {
+                withCredentials([
+                    string(credentialsId: 'portainer-snakeaid-webhook', variable: 'PORTAINER_WEBHOOK')
+                ]) {
+                    sh '''
+                        set -e
+                        curl -fsS -X POST "$PORTAINER_WEBHOOK"
+                    '''
                 }
             }
         }
     }
 }
-

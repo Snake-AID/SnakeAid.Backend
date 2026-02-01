@@ -36,7 +36,6 @@ public class AuthService : IAuthService
     private readonly IConfiguration _configuration;
     private readonly ILogger<AuthService> _logger;
     private readonly IOtpService _otpService;
-    private readonly OtpUtil _otpUtil;
     private readonly IUnitOfWork<SnakeAidDbContext> _unitOfWork;
 
 
@@ -48,8 +47,6 @@ public class AuthService : IAuthService
         IConfiguration configuration,
         ILogger<AuthService> logger,
         IOtpService otpService,
-        IEmailService emailService,
-        OtpUtil otpUtil,
         IUnitOfWork<SnakeAidDbContext> unitOfWork)
     {
         _userManager = userManager;
@@ -140,7 +137,7 @@ public class AuthService : IAuthService
                         case RescuerType.Catching:
                             selectedType = RescuerType.Catching;
                             break;
-                        case RescuerType:
+                        case RescuerType.Both:
                             selectedType = RescuerType.Both;
                             break;
                     }

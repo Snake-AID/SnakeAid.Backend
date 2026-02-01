@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using SnakeAid.Core.Meta;
+using SnakeAid.Core.Requests;
 using SnakeAid.Core.Requests.RescueRequestSession;
 using SnakeAid.Core.Requests.SnakebiteIncident;
 using SnakeAid.Core.Responses.Auth;
@@ -59,6 +60,20 @@ namespace SnakeAid.Api.Controllers
         {
             var request = new RaiseSessionRangeRequest { IncidentId = incidentId };
             var result = await _incidentService.RaiseSessionRangeAsync(request);
+            return StatusCode(result.StatusCode, result);
+        }
+
+        /// <summary>
+        /// Update symptom report with time-based severity calculation
+        /// </summary>
+        [HttpPut("{incidentId}/symptoms-tracking")]
+        [SwaggerOperation(Summary = "Update Symptom Report", Description = "Update incident symptoms and calculate severity based on elapsed time")]
+        [SwaggerResponse(200, "Symptom report updated successfully", typeof(ApiResponse<UpdateSymptomReportResponse>))]
+        [SwaggerResponse(404, "Incident not found")]
+        [SwaggerResponse(422, "Validation error")]
+        public async Task<IActionResult> UpdateSymptomReport(Guid incidentId, [FromBody] UpdateSymptomReportRequest request)
+        {
+            var result = await _incidentService.UpdateSymptomReportAsync(incidentId, request);
             return StatusCode(result.StatusCode, result);
         }
     }

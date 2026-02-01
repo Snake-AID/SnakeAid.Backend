@@ -32,7 +32,7 @@ Dưới đây là các bước trong Flow P1-S1, mỗi bước tương ứng v�
 - Lưu kết quả vào `SnakeAIRecognitionResult`  
 **Endpoints:**
 - `POST /api/media/upload-image` (upload ảnh)
-- `POST /api/aivision/detect` (gọi AI)  
+- `POST /api/detection/detect` (gọi AI)  
 **Note:** Wraps SnakeAI `/detect` endpoint.
 
 ## 4. Kết quả nhận diện loài rắn
@@ -42,7 +42,7 @@ Dưới đây là các bước trong Flow P1-S1, mỗi bước tương ứng v�
 - Map YOLO class → `SnakeSpecies`
 - Lấy `FirstAidGuidelineOverride` nếu có  
 **Endpoints:**
-- `GET /api/aivision/{id}` (lấy kết quả)
+- `GET /api/detection/{id}` (lấy kết quả)
 - `GET /api/snakes/{slug}` (chi tiết loài)  
 **Note:** Response nên trả kèm sơ bộ thông tin loài.
 
