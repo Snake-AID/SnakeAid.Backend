@@ -1,8 +1,8 @@
-# Snake Detection Phase 2 - Integration with SnakeLibs
+# Snake Detection Phase 2 - Integration with SnakeLibs ✅ COMPLETED
 
 ## 1. Overview
-Giai đoạn 2 tập trung vào việc tích hợp kết quả nhận diện từ AI (YOLO) với cơ sở dữ liệu loài rắn (SnakeLibs) của hệ thống.
-Mục tiêu là lưu trữ lịch sử nhận diện và trả về thông tin chi tiết của loài rắn (tên khoa học, độ độc, ...) thay vì chỉ trả về nhãn raw từ mô hình AI.
+**STATUS: ✅ COMPLETED** - Giai đoạn 2 đã hoàn thành việc tích hợp kết quả nhận diện từ AI (YOLO) với cơ sở dữ liệu loài rắn (SnakeLibs) của hệ thống.
+Mục tiêu đã đạt được: Lưu trữ lịch sử nhận diện và trả về thông tin chi tiết của loài rắn (tên khoa học, độ độc, ...) thay vì chỉ trả về nhãn raw từ mô hình AI.
 
 
 
@@ -181,3 +181,99 @@ public class SnakeAIDetection
 - **Mapping Logic Implementation**: 1.5 hours
 - **Response Enrichment**: 30 mins
 - **Testing (Integration)**: 1 hour
+
+---
+
+---
+
+## Phase 2.1: Response Optimization
+
+> **Added:** 2026-02-01
+> **Goal:** Optimize response for Mobile App development (reduce DTO mapping, support offline-first logic).
+
+### 1. Response Structure Redesign (V3)
+Chuyển từ Flat DTO sang cấu trúc phân tách Metadata/Results để rõ ràng nguồn dữ liệu.
+
+```json
+{
+  // 1. GLOBAL METADATA (Nguồn: FastAPI)
+  "ai_metadata": {
+    "model_version": "snake-yolo12-v1.0",
+    "image_width": 1280,
+    "image_height": 720,
+    "detection_count": 1,
+    "warnings": {
+      "blur": 0.05,        // Cảnh báo ảnh mờ
+      "brightness": 0.45,  // Độ sáng
+      "too_small": 0.0     // Vật thể quá nhỏ
+    }
+  },
+
+  // 2. DETECTION RESULTS list
+  "results": [
+    {
+      // 2.1 AI INFO (Nguồn: FastAPI - Specific Detection)
+      "ai_detection": {
+        "class_id": 0,
+        "class_name": "king_cobra",
+        "confidence": 0.94,
+        "bbox": {
+          "x1": 100, "y1": 200, "x2": 300, "y2": 400
+        }
+      },
+
+      // 2.2 ENTITY INFO (Nguồn: SnakeSpecies.cs - Full Entity)
+      "snake": {
+        // --- Scalar Fields ---
+        "id": 101,
+        "scientificName": "Ophiophagus hannah",
+        "commonName": "Rắn hổ mang chúa",
+        "slug": "ran-ho-mang-chua",
+        "imageUrl": "https://...",
+        "description": "Loài rắn độc lớn nhất thế giới...",
+        "identificationSummary": "Cổ bành rộng, mắt đen, vảy trơn...",
+        "isVenomous": true,
+        "riskLevel": 9.5,
+        "isActive": true,
+
+        // --- JSONB Fields ---
+        "identification": {
+          "physicalTraits": ["Cổ bành", "Mắt đen"],
+          "behaviors": ["Chủ động tấn công khi bị đe dọa"],
+          "habitat": "Rừng nhiệt đới, khu dân cư ven rừng"
+        },
+        
+        "symptomsByTime": [
+          { 
+             "timeRange": "0-15p", 
+             "signs": ["Đau buốt", "Sưng to"], 
+             "isCritical": false 
+          }
+        ],
+
+        // --- SPECIAL LOGIC: FIRST AID ---
+        // Nếu DB null -> Tự động điền từ VenomType (Fallback)
+        "firstAidGuidelineOverride": {
+          "mode": 0, // Append/Replace
+          "steps": [
+             "Trấn an nạn nhân", 
+             "Bất động chi bị cắn"
+          ]
+        },
+
+        // --- Navigation Props (Có thể null để tránh loop/heavy payload) ---
+        "primaryVenomType": 0 // Enum Value
+      }
+    }
+  ]
+}
+```
+
+### 2. First Aid Fallback Logic
+Frontend cần hiển thị hướng dẫn sơ cứu ngay lập tức. Logic fallback như sau:
+
+1.  Kiểm tra `SnakeSpecies.FirstAidGuidelineOverride` (JSONB).
+2.  Nếu `Null` -> Truy vấn ngược qua relation:
+    `SnakeSpecies -> SpeciesVenoms -> VenomType -> FirstAidGuidelineId`
+3.  Lấy Content từ `FirstAidGuideline` và populate vào field trả về (đổi tên thành `firstAidGuideline`).
+4.  **Serialization**: Cấu hình Enum thành String (`Neurotoxic` thay vì `0`).
