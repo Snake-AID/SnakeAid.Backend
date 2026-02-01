@@ -25,6 +25,10 @@ namespace SnakeAid.Core.Domains
         [MaxLength(500)]
         public string CommonName { get; set; }
 
+        [Required]
+        [MaxLength(2000)]
+        public string ImageUrl { get; set; }
+
         [MaxLength(2000)]
         public string Description { get; set; }
 
@@ -34,13 +38,13 @@ namespace SnakeAid.Core.Domains
         public PrimaryVenomType? PrimaryVenomType { get; set; }
 
         [Column(TypeName = "jsonb")]
-        public IdentificationFeature Identification { get; set; }
+        public IdentificationFeature? Identification { get; set; }
 
         [Column(TypeName = "jsonb")]
-        public List<SymptomTimeline> SymptomsByTime { get; set; }
+        public List<SymptomTimeline>? SymptomsByTime { get; set; }
 
         [Column(TypeName = "jsonb")]
-        public FirstAidOverride FirstAidGuidelineOverride { get; set; }
+        public FirstAidOverride? FirstAidGuidelineOverride { get; set; }
 
         [Range(0.0, 10.0)]
         public float RiskLevel { get; set; }
@@ -57,8 +61,8 @@ namespace SnakeAid.Core.Domains
         public ICollection<SpeciesAntivenom> SpeciesAntivenoms { get; set; } = new List<SpeciesAntivenom>();
         public ICollection<SpeciesVenom> SpeciesVenoms { get; set; } = new List<SpeciesVenom>();
         public ICollection<SnakeCatchingTariff> SnakeCatchingTariffs { get; set; } = new List<SnakeCatchingTariff>();
-        public ICollection<LibraryMedia> LibraryMedias { get; set; } = new List<LibraryMedia>();
         public ICollection<SnakeSpeciesName> AlternativeNames { get; set; } = new List<SnakeSpeciesName>();
+        public ICollection<LibraryMedia> LibraryMedias { get; set; } = new List<LibraryMedia>();
     }
 
     public enum PrimaryVenomType

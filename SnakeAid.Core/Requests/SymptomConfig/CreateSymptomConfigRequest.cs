@@ -20,12 +20,6 @@ namespace SnakeAid.Core.Requests.SymptomConfig
         public string AttributeLabel { get; set; }
 
         /// <summary>
-        /// Loại input trên UI: SingleChoice (1), MultiChoice (2), Boolean (3), Numeric (4), Text (5)
-        /// </summary>
-        [Required(ErrorMessage = "UIHint is required")]
-        public InputType UIHint { get; set; }
-
-        /// <summary>
         /// Thứ tự hiển thị (1-999)
         /// </summary>
         [Required(ErrorMessage = "DisplayOrder is required")]

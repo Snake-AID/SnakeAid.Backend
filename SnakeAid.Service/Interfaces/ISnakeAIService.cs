@@ -9,11 +9,29 @@ namespace SnakeAid.Service.Interfaces;
 public interface ISnakeAIService
 {
     /// <summary>
-    /// Detect snake from image URL. Confidence threshold is taken from configured SnakeAI settings.
+    /// Detect snake from ReportMedia, map to species, and persist result.
+    /// </summary>
+    /// <param name="reportMediaId">ID of the ReportMedia entity</param>
+    /// <param name="ct">Cancellation token</param>
+    /// <returns>API response with detection results including species info</returns>
+    Task<ApiResponse<SnakeDetectionResponse>> DetectFromReportMediaAsync(Guid reportMediaId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Get saved recognition result by ID
+    /// </summary>
+    /// <param name="recognitionResultId">ID of the SnakeAIRecognitionResult</param>
+    /// <param name="ct">Cancellation token</param>
+    /// <returns>API response with recognition result details</returns>
+    Task<ApiResponse<SnakeDetectionResponse>> GetRecognitionResultAsync(Guid recognitionResultId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Detect snake from ReportMedia, map to species, and persist result.
     /// </summary>
     /// <param name="imageUrl">Public URL of the image (Cloudinary)</param>
-    /// <returns>API response with detection results</returns>
-    Task<ApiResponse<SnakeDetectionResponse>> DetectAsync(string imageUrl);
+    /// <param name="reportMediaId">ID of the ReportMedia entity</param>
+    /// <param name="ct">Cancellation token</param>
+    /// <returns>API response with detection results including species info</returns>
+    Task<ApiResponse<SnakeDetectionResponse>> DetectAsync(string imageUrl, Guid reportMediaId, CancellationToken ct = default);
 
     /// <summary>
     /// Check if SnakeAI service is healthy (internal use)

@@ -7,11 +7,12 @@ using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using NetTopologySuite.Geometries;
+using System.Text.Json;
 using SnakeAid.Core.Domains;
 
 namespace SnakeAid.Repository.Data
 {
-    public class SnakeAidDbContext : IdentityDbContext<Account, IdentityRole<Guid>, Guid>
+    public class SnakeAidDbContext : IdentityUserContext<Account, Guid>
     {
         public SnakeAidDbContext(DbContextOptions<SnakeAidDbContext> options) : base(options)
         {
@@ -76,13 +77,9 @@ namespace SnakeAid.Repository.Data
             base.OnModelCreating(modelBuilder);
             modelBuilder.HasDefaultSchema("SnakeAid");
 
-            // Ignore role-related entities to prevent creating role tables
-            modelBuilder.Ignore<IdentityRole<Guid>>();
-            modelBuilder.Ignore<IdentityUserRole<Guid>>();
-            modelBuilder.Ignore<IdentityRoleClaim<Guid>>();
-
             // Ignore UserData property from NetTopologySuite Point
-            modelBuilder.Ignore<NetTopologySuite.Geometries.Point>();
+            //modelBuilder.Ignore<NetTopologySuite.Geometries.Point>();
+            //modelBuilder.Ignore<NetTopologySuite.Geometries.Geometry>();
 
             // Identity tables configuration
             modelBuilder.Entity<Account>().ToTable("Accounts", "AspNetIdentity");

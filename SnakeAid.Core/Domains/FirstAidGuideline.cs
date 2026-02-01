@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
+using SnakeAid.Core.Enums;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Linq;
 using System.Text.Json.Serialization;
@@ -22,16 +23,10 @@ namespace SnakeAid.Core.Domains
         public string Content { get; set; }
 
         [Required]
-        public GuidelineType Type { get; set; }
+        public GuidelineType Type { get; set; } = GuidelineType.General;
 
         [MaxLength(500)]
         public string? Summary { get; set; }  // Tóm tắt ngắn
 
-    }
-
-    public enum GuidelineType
-    {
-        General = 0,
-        SpeciesSpecific = 1
     }
 }

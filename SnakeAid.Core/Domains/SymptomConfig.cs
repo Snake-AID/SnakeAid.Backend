@@ -11,66 +11,64 @@ namespace SnakeAid.Core.Domains
         [Key]
         public int Id { get; set; }
 
+        // --- NHÓM LOGIC ---
         [Required]
         [MaxLength(100)]
-        public string AttributeKey { get; set; }   // "BITE_LOCATION", "AGE_GROUP", "SYMPTOMS"
+        public string GroupName { get; set; }      // "GENERAL", "LOCAL", "CRITICAL" -> Để Flutter chia màn hình/section
+
+        [Required]
+        [MaxLength(100)]
+        public string AttributeKey { get; set; }   // "BITE_LOCATION", "CORE_SIGNS" -> Để lập trình viên xử lý Logic
 
         [Required]
         [MaxLength(500)]
-        public string AttributeLabel { get; set; } // Tiêu đề hiển thị
+        public string AttributeLabel { get; set; } // "Vị trí vết cắn", "Dấu hiệu toàn thân" -> Tiêu đề hiển thị trên UI
 
         [Required]
-        public InputType UIHint { get; set; }      // Cách hiển thị trên UI
+        public int DisplayOrder { get; set; }      // Thứ tự sắp xếp các câu hỏi
 
-        [Required]
-        [Range(1, 999)]
-        public int DisplayOrder { get; set; }      // Thứ tự xuất hiện
-
-        // --- Option details ---
+        // --- CHI TIẾT LỰA CHỌN (OPTION) ---
         [Required]
         [MaxLength(300)]
-        public string Name { get; set; }           // Tên option cụ thể
+        public string Name { get; set; }           // "Sụp mí mắt", "Đầu/Cổ"
 
         [MaxLength(1000)]
-        public string? Description { get; set; }   // Mô tả chi tiết
+        public string? Description { get; set; }   // Giải thích thêm cho user (nếu cần)
 
-        [Required]
-        public bool IsActive { get; set; } = true;
+        // --- LOGIC CẢNH BÁO (ALERT/POPUP) ---
+        public bool IsCritical { get; set; } = false; // Nếu true, Flutter sẽ hiện Popup ngay khi người dùng vừa Tick chọn
 
+        [MaxLength(1000)]
+        public string? AlertMessage { get; set; }  // Nội dung tin nhắn trong Popup (Ví dụ: "Gọi 115 ngay!")
+
+        // --- LOGIC TÍNH ĐIỂM ---
         [Required]
         public SymptomCategory Category { get; set; } // Core (Max) hay Modifier (Sum)
 
         [Column(TypeName = "jsonb")]
         public string? TimeScoresJson { get; set; }
-
-        // Relations
+        
         [ForeignKey(nameof(VenomType))]
-        public int? VenomTypeId { get; set; }
+        public int? VenomTypeId { get; set; }      // Gợi ý loại độc tố (1: Thần kinh, 2: Máu...)
 
-        // Navigation properties
-        public VenomType? VenomType { get; set; }
+        [Required]
+        public bool IsActive { get; set; } = true;
 
-        // Helper property
         [NotMapped]
         public List<TimeScorePoint> TimeScoreList =>
-            string.IsNullOrEmpty(TimeScoresJson) 
-                ? new List<TimeScorePoint>() 
+            string.IsNullOrEmpty(TimeScoresJson)
+                ? new List<TimeScorePoint>()
                 : JsonSerializer.Deserialize<List<TimeScorePoint>>(TimeScoresJson) ?? new List<TimeScorePoint>();
+
+        public VenomType? VenomType { get; set; }
     }
 
-    public enum InputType
-    {
-        SingleChoice = 1,
-        MultiChoice = 2,
-        Boolean = 3,
-        Numeric = 4,      // Thêm cho nhập số (tuổi, cân nặng...)
-        Text = 5          // Thêm cho nhập text tự do
-    }
+        
 
     public enum SymptomCategory
     {
-        Core = 1,      // Lấy điểm cao nhất trong các lựa chọn (Max)
-        Modifier = 2   // Cộng dồn điểm của các lựa chọn (Sum)
+        Core = 1,      // Lấy điểm cao nhất (Max)
+        Modifier = 2   // Cộng dồn điểm (Sum)
     }
 
     public class TimeScorePoint
@@ -79,4 +77,5 @@ namespace SnakeAid.Core.Domains
         public int MaxMinutes { get; set; } // Phút kết thúc
         public int Score { get; set; }      // Điểm số tương ứng
     }
+
 }
