@@ -20,7 +20,7 @@ namespace SnakeAid.Core.Domains
 
         [Required]
         [Column(TypeName = "jsonb")]
-        public string Content { get; set; }
+        public FirstAidContent Content { get; set; }
 
         [Required]
         public GuidelineType Type { get; set; } = GuidelineType.General;
@@ -28,5 +28,19 @@ namespace SnakeAid.Core.Domains
         [MaxLength(500)]
         public string? Summary { get; set; }  // Tóm tắt ngắn
 
+    }
+
+    public class FirstAidContent
+    {
+        public List<FirstAidStep> Steps { get; set; } = new();
+        public List<FirstAidStep> Dos { get; set; } = new();
+        public List<FirstAidStep> Donts { get; set; } = new();
+        public List<string> Notes { get; set; } = new();
+    }
+
+    public class FirstAidStep
+    {
+        public string Text { get; set; }
+        public string MediaUrl { get; set; }
     }
 }
