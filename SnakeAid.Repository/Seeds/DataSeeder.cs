@@ -346,14 +346,14 @@ namespace SnakeAid.Repository.Seeds
                         CommonName = "Rắn Ráo",
                         Slug = "ran-rao",
                         Description = "Loài rắn không độc phổ biến, thường bị nhầm lẫn với rắn hổ mang.",
-                        IdentificationSummary = "Mắt rất lớn, thân thon dài màu nâu đất hoặc xám chì, di chuyển cực nhanh.",
+                        IdentificationSummary = "Dài trung bình 1,2 - 2,0m. Mắt rất lớn, thân thon dài màu nâu đất hoặc xám chì, di chuyển cực nhanh.",
                         PrimaryVenomType = PrimaryVenomType.None,
                         RiskLevel = 1.0f,
                         IsVenomous = false,
                         ImageUrl = "https://www.cakhotranluan.com/images/2022/2ran-rao1.jpg",
                         Identification = new IdentificationFeature
                         {
-                            PhysicalTraits = new List<string> { "Mắt to", "Thân dài thon", "Vảy trơn bóng", "Đầu bầu dục" },
+                            PhysicalTraits = new List<string> { "Chiều dài: 120 - 200 cm", "Mắt to", "Thân dài thon", "Vảy trơn bóng", "Đầu bầu dục" },
                             Behaviors = new List<string> { "Di chuyển rất nhanh", "Hoạt động ban ngày", "Thường chạy trốn khi gặp người" },
                             Habitat = "Đồng ruộng, bụi rậm, vườn nhà"
                         },
@@ -430,7 +430,7 @@ namespace SnakeAid.Repository.Seeds
                     {
                         Id = 7,
                         ScientificName = "Naja kaouthia",
-                        CommonName = "Rắn Mang Xiêm",
+                        CommonName = "Rắn Hổ Mang Xiêm",
                         Slug = "ran-ho-mang-xiem",
                         Description = "Loài rắn hổ mang có nọc độc hỗn hợp, gây hoại tử mô nghiêm trọng và liệt thần kinh.",
                         IdentificationSummary = "Màu nâu xám hoặc đen, có bành cổ với một hình tròn đơn (hình kính mắt) ở mặt sau.",
@@ -675,7 +675,7 @@ namespace SnakeAid.Repository.Seeds
                         }
                     },
 
-                    // 16. RẮN RÁO TRÂU (LÃI LỚN) - Ptyas mucosa
+                    // 16. RẮN RÁO TRÂU - Ptyas mucosa
                     new SnakeSpecies
                     {
                         Id = 16,
@@ -689,8 +689,8 @@ namespace SnakeAid.Repository.Seeds
                         IsVenomous = false,
                         ImageUrl = "https://sgaqua.vn/wp-content/uploads/2026/01/ran-rao-trau-co-doc-khong-1.jpg",
                         Identification = new IdentificationFeature {
-                            PhysicalTraits = new List<string> { "Kích thước lớn (tới 3m)", "Vằn ngang đen nửa thân sau", "Mắt rất to", "Họa tiết vảy đầu giống rắn hổ mang" },
-                            Behaviors = new List<string> { "Chạy trốn cực nhanh", "Hung dữ khi bị dồn vào đường cùng" },
+                            PhysicalTraits = new List<string> { "Kích thước lớn (tới 3m)", "Vằn ngang zig zag trắng nửa thân trước chuyển đen nửa thân sau", "Mắt rất to, tròn", "Vảy trơn, óng ánh, xếp đều", "Họa tiết vảy đầu giống rắn hổ mang" },
+                            Behaviors = new List<string> { "Chạy trốn cực nhanh", "Hung dữ khi bị dồn vào đường cùng", "Bị đe dọa sẽ mở rộng vùng cổ và tạo âm thanh rít liên tục" },
                             Habitat = "Đồng ruộng, bụi rậm, hang hốc"
                         }
                     },
@@ -703,13 +703,13 @@ namespace SnakeAid.Repository.Seeds
                         CommonName = "Rắn Hoa Cân Vân Đốm",
                         Slug = "ran-hoa-can-van-dom",
                         Description = "Rắn nước không độc, thường sống gần các khe suối.",
-                        IdentificationSummary = "Thân mập, có các khoanh đen lớn đứt quãng tạo thành hình chữ X bên sườn.",
+                        IdentificationSummary = "Kích thước trung bình từ 0.7-1.4m. Thân mập, có các hoa văn hình mắt màu vàng đen chạy dọc thân.",
                         PrimaryVenomType = PrimaryVenomType.None,
                         RiskLevel = 1.0f,
                         IsVenomous = false,
                         ImageUrl = "https://vietnamsnakes.com/storage/snakes/species/171/trimerodytes-aequifasciatus_1740063874_0.jpg",
                         Identification = new IdentificationFeature {
-                            PhysicalTraits = new List<string> { "Thân mập hình trụ", "Hoa văn chữ X bên hông", "Đầu bầu dục" },
+                            PhysicalTraits = new List<string> { "Thân mập hình trụ", "Hoa văn hình mắt màu vàng đen chạy dọc thân", "Đầu bầu dục" },
                             Behaviors = new List<string> { "Sống bán thủy sinh", "Ăn cá và ếch nhái" },
                             Habitat = "Suối, ao hồ, đầm lầy vùng núi"
                         }
@@ -723,13 +723,13 @@ namespace SnakeAid.Repository.Seeds
                         CommonName = "Rắn Ri Cá",
                         Slug = "ran-ri-ca",
                         Description = "Rắn nước phổ biến ở Nam Bộ, thịt ngon nhưng không có độc.",
-                        IdentificationSummary = "Đầu to, có hình mặt nạ trắng trên đầu, thân có nhiều khoanh màu nâu đỏ nhạt.",
+                        IdentificationSummary = "Kích thước trung bình khoảng 70cm.Đầu to, có hình mặt nạ trắng trên đầu, thân có nhiều khoanh màu nâu đỏ nhạt.",
                         PrimaryVenomType = PrimaryVenomType.None,
                         RiskLevel = 1.0f,
                         IsVenomous = false,
                         ImageUrl = "https://upload.wikimedia.org/wikipedia/commons/c/c1/Homalopsis_buccata.png",
                         Identification = new IdentificationFeature {
-                            PhysicalTraits = new List<string> { "Đầu to rộng", "Hoa văn mặt nạ trên đỉnh đầu", "Thân chắc, vảy gồ" },
+                            PhysicalTraits = new List<string> { "Kích thước trung bình khoảng 70cm", "Đầu to rộng", "Hoa văn mặt nạ trên đỉnh đầu", "Thân chắc, vảy gồ" },
                             Behaviors = new List<string> { "Ăn đêm", "Sống dưới nước", "Nhút nhát" },
                             Habitat = "Kênh rạch, ao hồ, đầm lầy bùn"
                         }
@@ -778,17 +778,18 @@ namespace SnakeAid.Repository.Seeds
                     // 22. RẮN ĐAI LỚN - Lycodon fasciatus
                     new SnakeSpecies
                     {
-                        Id = 22,
+                        Id = 21,
                         ScientificName = "Ptyas major", // Tên khoa học chính xác của Rắn Đại Lớn
-                        CommonName = "Rắn Đại Lớn (Rắn Xanh Lớn)",
+                        CommonName = "Rắn Đai Lớn (Rắn Xanh Lớn)",
                         Slug = "ran-dai-lon-xanh",
                         Description = "Loài rắn hoàn toàn không độc, hiền lành, thường bị nhầm với rắn lục do màu xanh lục toàn thân.",
-                        IdentificationSummary = "Không độc, toàn thân màu xanh lá mượt mà, mắt rất to và tròn, đuôi thuôn dài.",
+                        IdentificationSummary = "Kích thước có thể đạt 1,5-2,5m. Không độc, toàn thân màu xanh lá mượt mà, mắt rất to và tròn, đuôi thuôn dài.",
                         PrimaryVenomType = PrimaryVenomType.None,
                         RiskLevel = 1.0f,
                         IsVenomous = false,
                         Identification = new IdentificationFeature {
                             PhysicalTraits = new List<string> {
+                                "Thân dài, có thể đạt 1,5-2,5 mét",
                                 "Toàn thân màu xanh lá cây đồng nhất",
                                 "Bụng màu vàng nhạt hoặc trắng xanh",
                                 "Mắt rất to, con ngươi tròn đen",
@@ -815,11 +816,345 @@ namespace SnakeAid.Repository.Seeds
                                 "Bình tĩnh vì đây là loài rắn ích lợi, chuyên ăn côn trùng và sâu bọ."
                             }
                         }
+                    },
+                    new SnakeSpecies
+                    {
+                        Id = 22,
+                        ScientificName = "Amphiesma stolatum",
+                        CommonName = "Rắn Sãi Cỏ",
+                        Slug = "ran-sai-co",
+                        Description = "Loài rắn nước không độc, hiền lành và có ích cho nông nghiệp. Chúng thường bị nhầm lẫn với một số loài rắn khác do hoa văn phức tạp.",
+                        IdentificationSummary = "Không độc, dài trung bình 40cm - 80cm. Thân có 2 sọc sáng màu song song, nối với nhau bởi các vạch ngang tối màu trông như chiếc thang.",
+                        PrimaryVenomType = PrimaryVenomType.None,
+                        RiskLevel = 1.0f,
+                        IsVenomous = false,
+                        ImageUrl = "https://vietnamsnakes.com/storage/snakes/species/27/1736340349_0.jpg",
+                        Identification = new IdentificationFeature {
+                            PhysicalTraits = new List<string> {
+                                "Chiều dài trung bình 40 - 80 cm",
+                                "2 sọc sáng màu chạy dọc song song trên lưng",
+                                "Các vạch ngang tối màu nối 2 sọc giống hình chiếc thang",
+                                "Bụng màu kem nhạt với đốm đen nhỏ hai bên thân",
+                                "Mép miệng màu vàng nhạt với vạch đen trước và sau mắt"
+                            },
+                            Behaviors = new List<string> {
+                                "Hoạt động chủ yếu vào ban ngày (nhật hành)",
+                                "Tính tình nhút nhát, thường bỏ chạy khi gặp người",
+                                "Săn các sinh vật nhỏ như cá, giun đất và tắc kè"
+                            },
+                            Habitat = "Vùng đồng bằng và đồi núi, thường ở gần nguồn nước (ao, hồ, suối)"
+                        },
+                        SymptomsByTime = new List<SymptomTimeline> {
+                            new SymptomTimeline {
+                                TimeRange = "Sau khi cắn",
+                                Signs = new List<string> { "Vết xước nhỏ hình vòng cung", "Chảy máu nhẹ", "Không sưng nề, không gây độc" },
+                                IsCritical = false
+                            }
+                        },
+                        FirstAidGuidelineOverride = new FirstAidOverride {
+                            Mode = OverrideMode.Replace,
+                            Steps = new List<string> {
+                                "Rửa vết thương bằng xà phòng và nước sạch để tránh nhiễm trùng.",
+                                "Bình tĩnh vì đây là loài rắn hoàn toàn vô hại."
+                            }
+                        }
                     }
                 };
 
                 context.SnakeSpecies.AddRange(snakes);
 
+                var speciesVenoms = new List<SpeciesVenom>
+                {
+                    // Rắn Cạp Nia Bắc (Độc thần kinh)
+                    new SpeciesVenom { SnakeSpeciesId = 1, VenomTypeId = 1 },
+                    // Rắn Lục Đuôi Đỏ (Độc máu)
+                    new SpeciesVenom { SnakeSpeciesId = 2, VenomTypeId = 2 },
+                    // Rắn Hổ Mang Chúa (Độc thần kinh)
+                    new SpeciesVenom { SnakeSpeciesId = 3, VenomTypeId = 1 },
+                    new SpeciesVenom { SnakeSpeciesId = 3, VenomTypeId = 3 }, // Hỗn hợp: Thần kinh + Tế bào
+                    // Rắn Cạp Nong (Độc thần kinh)
+                    new SpeciesVenom { SnakeSpeciesId = 5, VenomTypeId = 1 },
+                    // Rắn Cạp Nia Nam (Độc thần kinh)
+                    new SpeciesVenom { SnakeSpeciesId = 6, VenomTypeId = 1 },
+                    // Rắn Hổ Mang Xiêm (Hỗn hợp: Thần kinh + Tế bào)
+                    new SpeciesVenom { SnakeSpeciesId = 7, VenomTypeId = 1 },
+                    new SpeciesVenom { SnakeSpeciesId = 7, VenomTypeId = 3 },
+                    // Rắn Hoa Cỏ Cổ Đỏ (Độc máu)
+                    new SpeciesVenom { SnakeSpeciesId = 8, VenomTypeId = 2 },
+                    // Rắn Lục Cườm (Độc máu)
+                    new SpeciesVenom { SnakeSpeciesId = 11, VenomTypeId = 2 },
+                    // Rắn Lục Nưa / Chàm Quạp (Hỗn hợp: Máu + Tế bào)
+                    new SpeciesVenom { SnakeSpeciesId = 12, VenomTypeId = 2 },
+                    new SpeciesVenom { SnakeSpeciesId = 12, VenomTypeId = 3 },
+                    // Rắn Lục Xanh (Độc máu)
+                    new SpeciesVenom { SnakeSpeciesId = 13, VenomTypeId = 2 }
+                };
+                context.SpeciesVenoms.AddRange(speciesVenoms);
+
+                var speciesNames = new List<SnakeSpeciesName>
+                {
+                    // 1. Rắn Cạp Nia Bắc (ID: 1)
+                    new SnakeSpeciesName { Name = "Rắn Cạp Nia", Slug = "ran-cap-nia", SnakeSpeciesId = 1 },
+                    new SnakeSpeciesName { Name = "Rắn Nia Bắc", Slug = "ran-nia-bac", SnakeSpeciesId = 1 },
+                    new SnakeSpeciesName { Name = "Rắn Nia Khoanh Trắng", Slug = "ran-nia-khoanh-trang", SnakeSpeciesId = 1 },
+
+                    // 2. Rắn Lục Đuôi Đỏ (ID: 2)
+                    new SnakeSpeciesName { Name = "Rắn Lục Tre", Slug = "ran-luc-tre", SnakeSpeciesId = 2 },
+                    new SnakeSpeciesName { Name = "Rắn Lục Xanh Đuôi Đỏ", Slug = "ran-luc-xanh-duoi-do", SnakeSpeciesId = 2 },
+
+                    // 3. Rắn Hổ Mang Chúa (ID: 3)
+                    new SnakeSpeciesName { Name = "Rắn Hổ Mây", Slug = "ran-ho-may", SnakeSpeciesId = 3 },
+                    new SnakeSpeciesName { Name = "Rắn Hổ Chúa", Slug = "ran-ho-chua", SnakeSpeciesId = 3 },
+                    new SnakeSpeciesName { Name = "Rắn Hổ Mang Lớn", Slug = "ran-ho-mang-lon", SnakeSpeciesId = 3 },
+
+                    // 5. Rắn Cạp Nong (ID: 5)
+                    new SnakeSpeciesName { Name = "Rắn Mai Gầm", Slug = "ran-mai-gam", SnakeSpeciesId = 5 },
+                    new SnakeSpeciesName { Name = "Rắn Nia Vàng", Slug = "ran-nia-vang", SnakeSpeciesId = 5 },
+
+                    // 6. Rắn Cạp Nia Nam (ID: 6)
+                    new SnakeSpeciesName { Name = "Rắn Nia Khoanh Đều", Slug = "ran-nia-khoanh-deu", SnakeSpeciesId = 6 },
+                    new SnakeSpeciesName { Name = "Rắn Vòng Bạc", Slug = "ran-vong-bac", SnakeSpeciesId = 6 },
+                    new SnakeSpeciesName { Name = "Rắn Mai Bạc", Slug = "ran-mai-bac", SnakeSpeciesId = 6 },
+                    new SnakeSpeciesName { Name = "Rắn Nia Nam", Slug = "ran-nia-nam", SnakeSpeciesId = 6 },
+
+                    // 7. Rắn Mang Xiêm (ID: 7)
+                    new SnakeSpeciesName { Name = "Rắn Hổ Bành", Slug = "ran-ho-banh", SnakeSpeciesId = 7 },
+                    new SnakeSpeciesName { Name = "Rắn Hổ Mèo", Slug = "ran-ho-meo", SnakeSpeciesId = 7 },
+
+                    // 8. Rắn Hoa Cỏ Cổ Đỏ (ID: 8)
+                    new SnakeSpeciesName { Name = "Rắn Học Trò", Slug = "ran-hoc-tro", SnakeSpeciesId = 8 },
+                    new SnakeSpeciesName { Name = "Rắn Hổ Lửa", Slug = "ran-ho-lua", SnakeSpeciesId = 8 },
+                    new SnakeSpeciesName { Name = "Rắn Nữ Hoàng Bóng Đêm", Slug = "ran-nu-hoang-bong-dem", SnakeSpeciesId = 8 },
+                    
+
+                    // 9. Rắn Hổ Ngựa (ID: 9)
+                    new SnakeSpeciesName { Name = "Rắn Sọc Dưa", Slug = "ran-soc-dua", SnakeSpeciesId = 9 },
+                    new SnakeSpeciesName { Name = "Rắn Hổ Chó", Slug = "ran-ho-cho", SnakeSpeciesId = 9 },
+
+                    // 10. Rắn Chuột Vua (ID: 10)
+                    new SnakeSpeciesName { Name = "Rắn Sọc Gờ", Slug = "ran-soc-go", SnakeSpeciesId = 10 },
+
+                    // 11. Rắn Lục Cườm (ID: 11)
+                    new SnakeSpeciesName { Name = "Rắn Lục Habu", Slug = "ran-luc-habu", SnakeSpeciesId = 11 },
+
+                    // 12. Rắn Lục Nưa (ID: 12)
+                    new SnakeSpeciesName { Name = "Rắn Chàm Quạp", Slug = "ran-cham-quap", SnakeSpeciesId = 12 },
+                    new SnakeSpeciesName { Name = "Rắn Hổ Bướm", Slug = "ran-ho-buom", SnakeSpeciesId = 12 },
+                    new SnakeSpeciesName { Name = "Rắn Lá Khô", Slug = "ran-la-kho", SnakeSpeciesId = 12 },
+                    new SnakeSpeciesName { Name = "Rắn Cà Tênh", Slug = "ran-ca-tenh", SnakeSpeciesId = 12 },
+
+                    // 13. Rắn Lục Xanh (ID: 13)
+                    new SnakeSpeciesName { Name = "Rắn Lục", Slug = "ran-luc", SnakeSpeciesId = 13 },
+
+                    // 16. Rắn Ráo Trâu (ID: 16)
+                    new SnakeSpeciesName { Name = "Rắn Hổ Trâu", Slug = "ran-ho-trau", SnakeSpeciesId = 16 },
+                    new SnakeSpeciesName { Name = "Rắn Hổ Hèo", Slug = "ran-ho-heo", SnakeSpeciesId = 16 },
+                    new SnakeSpeciesName { Name = "Rắn Long Thừa", Slug = "ran-long-thua", SnakeSpeciesId = 16 },
+                    new SnakeSpeciesName { Name = "Rắn Hổ Vện", Slug = "ran-ho-ven", SnakeSpeciesId = 16 },
+
+                    // 19. Rắn Roi (ID: 19)
+                    new SnakeSpeciesName { Name = "Rắn Lục Kim", Slug = "ran-luc-kim", SnakeSpeciesId = 19 },
+                    new SnakeSpeciesName { Name = "Rắn Lá Cây", Slug = "ran-la-cay", SnakeSpeciesId = 19 },
+
+                    // 22. Rắn Sãi Cỏ (ID: 22)
+                    new SnakeSpeciesName { Name = "Rắn Sãi Thường", Slug = "ran-sai-thuong", SnakeSpeciesId = 22 },
+                };
+                context.SnakeSpeciesNames.AddRange(speciesNames);
+
+                var mappings = new List<FilterSnakeMapping>
+                {
+                    // --- 1. RẮN CẠP NIA BẮC (SnakeId: 1) ---
+                    new FilterSnakeMapping { SnakeSpeciesId = 1, FilterOptionId = 1 }, // Miền Bắc
+                    new FilterSnakeMapping { SnakeSpeciesId = 1, FilterOptionId = 4 }, // Trong nhà
+                    new FilterSnakeMapping { SnakeSpeciesId = 1, FilterOptionId = 5 }, // Dưới nước (ao hồ)
+                    new FilterSnakeMapping { SnakeSpeciesId = 1, FilterOptionId = 7 }, // Đồng ruộng
+                    new FilterSnakeMapping { SnakeSpeciesId = 1, FilterOptionId = 10 }, // Đầu bầu dục
+                    new FilterSnakeMapping { SnakeSpeciesId = 1, FilterOptionId = 12 }, // Đen
+                    new FilterSnakeMapping { SnakeSpeciesId = 1, FilterOptionId = 16 }, // Khoanh tròn
+
+                    // --- 2. RẮN LỤC ĐUÔI ĐỎ (SnakeId: 2) ---
+                    new FilterSnakeMapping { SnakeSpeciesId = 2, FilterOptionId = 1 },
+                    new FilterSnakeMapping { SnakeSpeciesId = 2, FilterOptionId = 2 },
+                    new FilterSnakeMapping { SnakeSpeciesId = 2, FilterOptionId = 3 },
+                    new FilterSnakeMapping { SnakeSpeciesId = 2, FilterOptionId = 6 }, // Trên cây
+                    new FilterSnakeMapping { SnakeSpeciesId = 2, FilterOptionId = 9 }, // Đầu tam giác
+                    new FilterSnakeMapping { SnakeSpeciesId = 2, FilterOptionId = 11 }, // Xanh lá
+                    new FilterSnakeMapping { SnakeSpeciesId = 2, FilterOptionId = 15 }, // Thân trơn
+                    new FilterSnakeMapping { SnakeSpeciesId = 2, FilterOptionId = 20 }, // Đuôi đỏ
+                    new FilterSnakeMapping { SnakeSpeciesId = 2, FilterOptionId = 22 }, // Vảy nhám
+
+                    // --- 3. RẮN HỔ MANG CHÚA (SnakeId: 3) ---
+                    new FilterSnakeMapping { SnakeSpeciesId = 3, FilterOptionId = 1 },
+                    new FilterSnakeMapping { SnakeSpeciesId = 3, FilterOptionId = 2 },
+                    new FilterSnakeMapping { SnakeSpeciesId = 3, FilterOptionId = 3 },
+                    new FilterSnakeMapping { SnakeSpeciesId = 3, FilterOptionId = 8 }, // Hang hốc
+                    new FilterSnakeMapping { SnakeSpeciesId = 3, FilterOptionId = 10 }, // Đầu bầu dục
+                    new FilterSnakeMapping { SnakeSpeciesId = 3, FilterOptionId = 12 }, // Đen/Nâu
+                    new FilterSnakeMapping { SnakeSpeciesId = 3, FilterOptionId = 18 }, // Vân phức tạp
+                    new FilterSnakeMapping { SnakeSpeciesId = 3, FilterOptionId = 19 }, // Phình mang
+
+                    // --- 4. RẮN RÁO (SnakeId: 4) ---
+                    new FilterSnakeMapping { SnakeSpeciesId = 4, FilterOptionId = 1 }, // Toàn quốc
+                    new FilterSnakeMapping { SnakeSpeciesId = 4, FilterOptionId = 2 },
+                    new FilterSnakeMapping { SnakeSpeciesId = 4, FilterOptionId = 3 },
+                    new FilterSnakeMapping { SnakeSpeciesId = 4, FilterOptionId = 7 }, // Đồng ruộng
+                    new FilterSnakeMapping { SnakeSpeciesId = 4, FilterOptionId = 10 }, // Đầu bầu dục
+                    new FilterSnakeMapping { SnakeSpeciesId = 4, FilterOptionId = 12 }, // Nâu đất
+                    new FilterSnakeMapping { SnakeSpeciesId = 4, FilterOptionId = 15 }, // Thân trơn
+
+                    // --- 5. RẮN CẠP NONG (SnakeId: 5) ---
+                    new FilterSnakeMapping { SnakeSpeciesId = 5, FilterOptionId = 1 }, // Toàn quốc
+                    new FilterSnakeMapping { SnakeSpeciesId = 5, FilterOptionId = 2 },
+                    new FilterSnakeMapping { SnakeSpeciesId = 5, FilterOptionId = 3 },
+                    new FilterSnakeMapping { SnakeSpeciesId = 5, FilterOptionId = 7 }, // Đồng ruộng
+                    new FilterSnakeMapping { SnakeSpeciesId = 5, FilterOptionId = 8 }, // Hang hốc
+                    new FilterSnakeMapping { SnakeSpeciesId = 5, FilterOptionId = 10 }, // Đầu bầu dục
+                    new FilterSnakeMapping { SnakeSpeciesId = 5, FilterOptionId = 14 }, // Vàng/Cam
+                    new FilterSnakeMapping { SnakeSpeciesId = 5, FilterOptionId = 16 }, // Khoanh tròn
+
+                    // --- 6. RẮN CẠP NIA NAM (SnakeId: 6) ---
+                    new FilterSnakeMapping { SnakeSpeciesId = 6, FilterOptionId = 2 }, // Miền Trung/Nam
+                    new FilterSnakeMapping { SnakeSpeciesId = 6, FilterOptionId = 3 },
+                    new FilterSnakeMapping { SnakeSpeciesId = 6, FilterOptionId = 4 }, // Trong nhà
+                    new FilterSnakeMapping { SnakeSpeciesId = 6, FilterOptionId = 7 }, // Đồng ruộng
+                    new FilterSnakeMapping { SnakeSpeciesId = 6, FilterOptionId = 10 },
+                    new FilterSnakeMapping { SnakeSpeciesId = 6, FilterOptionId = 12 }, // Đen
+                    new FilterSnakeMapping { SnakeSpeciesId = 6, FilterOptionId = 16 }, // Khoanh tròn
+
+                    // --- 7. RẮN HỔ MANG XIÊM (SnakeId: 7) ---
+                    new FilterSnakeMapping { SnakeSpeciesId = 7, FilterOptionId = 2 }, // Miền Trung
+                    new FilterSnakeMapping { SnakeSpeciesId = 7, FilterOptionId = 3 }, // Miền Nam
+                    new FilterSnakeMapping { SnakeSpeciesId = 7, FilterOptionId = 4 }, // Trong nhà
+                    new FilterSnakeMapping { SnakeSpeciesId = 7, FilterOptionId = 7 }, // Đồng ruộng
+                    new FilterSnakeMapping { SnakeSpeciesId = 7, FilterOptionId = 10 }, // Đầu bầu dục
+                    new FilterSnakeMapping { SnakeSpeciesId = 7, FilterOptionId = 12 }, // Đen/Nâu
+                    new FilterSnakeMapping { SnakeSpeciesId = 7, FilterOptionId = 19 }, // Phình mang
+
+                    // --- 8. RẮN HOA CỎ CỔ ĐỎ (SnakeId: 8) ---
+                    new FilterSnakeMapping { SnakeSpeciesId = 8, FilterOptionId = 1 },
+                    new FilterSnakeMapping { SnakeSpeciesId = 8, FilterOptionId = 2 },
+                    new FilterSnakeMapping { SnakeSpeciesId = 8, FilterOptionId = 3 },
+                    new FilterSnakeMapping { SnakeSpeciesId = 8, FilterOptionId = 7 }, // Đồng ruộng
+                    new FilterSnakeMapping { SnakeSpeciesId = 8, FilterOptionId = 11 }, // Xanh lá (ô liu)
+                    new FilterSnakeMapping { SnakeSpeciesId = 8, FilterOptionId = 21 }, // Cổ đỏ/vàng
+
+                    // --- 9. RẮN HỔ NGỰA / SỌC DƯA (SnakeId: 9) ---
+                    new FilterSnakeMapping { SnakeSpeciesId = 9, FilterOptionId = 1 }, // Toàn quốc
+                    new FilterSnakeMapping { SnakeSpeciesId = 9, FilterOptionId = 2 },
+                    new FilterSnakeMapping { SnakeSpeciesId = 9, FilterOptionId = 3 },
+                    new FilterSnakeMapping { SnakeSpeciesId = 9, FilterOptionId = 7 }, // Đồng ruộng
+                    new FilterSnakeMapping { SnakeSpeciesId = 9, FilterOptionId = 10 },
+                    new FilterSnakeMapping { SnakeSpeciesId = 9, FilterOptionId = 14 }, // Vàng nâu
+                    new FilterSnakeMapping { SnakeSpeciesId = 9, FilterOptionId = 17 }, // Sọc dọc (4 sọc)
+
+                    // --- 10. RẮN CHUỘT VUA / SỌC GỜ (SnakeId: 10) ---
+                    new FilterSnakeMapping { SnakeSpeciesId = 10, FilterOptionId = 1 }, // Chủ yếu miền Bắc
+                    new FilterSnakeMapping { SnakeSpeciesId = 10, FilterOptionId = 8 }, // Hang hốc/Đá
+                    new FilterSnakeMapping { SnakeSpeciesId = 10, FilterOptionId = 10 },
+                    new FilterSnakeMapping { SnakeSpeciesId = 10, FilterOptionId = 12 }, // Nâu ô liu
+                    new FilterSnakeMapping { SnakeSpeciesId = 10, FilterOptionId = 18 }, // Vân phức tạp
+                    new FilterSnakeMapping { SnakeSpeciesId = 10, FilterOptionId = 22 }, // Vảy nhám
+
+                    // --- 11. RẮN LỤC CƯỜM (SnakeId: 11) ---
+                    new FilterSnakeMapping { SnakeSpeciesId = 11, FilterOptionId = 1 }, // Bắc/Trung
+                    new FilterSnakeMapping { SnakeSpeciesId = 11, FilterOptionId = 2 },
+                    new FilterSnakeMapping { SnakeSpeciesId = 11, FilterOptionId = 8 }, // Hang đá
+                    new FilterSnakeMapping { SnakeSpeciesId = 11, FilterOptionId = 9 }, // Đầu tam giác
+                    new FilterSnakeMapping { SnakeSpeciesId = 11, FilterOptionId = 13 }, // Xám đất
+                    new FilterSnakeMapping { SnakeSpeciesId = 11, FilterOptionId = 18 }, // Vân phức tạp
+                    new FilterSnakeMapping { SnakeSpeciesId = 11, FilterOptionId = 22 }, // Vảy nhám
+
+                    // --- 12. RẮN LỤC NƯA / CHÀM QUẠP (SnakeId: 12) ---
+                    new FilterSnakeMapping { SnakeSpeciesId = 12, FilterOptionId = 2 }, // Miền Trung
+                    new FilterSnakeMapping { SnakeSpeciesId = 12, FilterOptionId = 3 }, // Miền Nam
+                    new FilterSnakeMapping { SnakeSpeciesId = 12, FilterOptionId = 8 }, // Dưới lá khô
+                    new FilterSnakeMapping { SnakeSpeciesId = 12, FilterOptionId = 9 }, // Đầu tam giác
+                    new FilterSnakeMapping { SnakeSpeciesId = 12, FilterOptionId = 13 }, // Xám/Màu đất
+                    new FilterSnakeMapping { SnakeSpeciesId = 12, FilterOptionId = 18 }, // Vân phức tạp
+                    new FilterSnakeMapping { SnakeSpeciesId = 12, FilterOptionId = 22 }, // Vảy nhám
+
+                    // --- 13. RẮN LỤC XANH / LỤC VẺ (SnakeId: 13) ---
+                    new FilterSnakeMapping { SnakeSpeciesId = 13, FilterOptionId = 1 },
+                    new FilterSnakeMapping { SnakeSpeciesId = 13, FilterOptionId = 2 },
+                    new FilterSnakeMapping { SnakeSpeciesId = 13, FilterOptionId = 6 }, // Trên cây
+                    new FilterSnakeMapping { SnakeSpeciesId = 13, FilterOptionId = 9 }, // Đầu tam giác
+                    new FilterSnakeMapping { SnakeSpeciesId = 13, FilterOptionId = 11 }, // Xanh lá
+                    new FilterSnakeMapping { SnakeSpeciesId = 13, FilterOptionId = 15 }, // Thân trơn
+                    new FilterSnakeMapping { SnakeSpeciesId = 13, FilterOptionId = 22 }, // Vảy nhám
+
+                    // --- 14. RẮN KHIẾM VẠCH (SnakeId: 14) ---
+                    new FilterSnakeMapping { SnakeSpeciesId = 14, FilterOptionId = 1 },
+                    new FilterSnakeMapping { SnakeSpeciesId = 14, FilterOptionId = 2 },
+                    new FilterSnakeMapping { SnakeSpeciesId = 14, FilterOptionId = 3 },
+                    new FilterSnakeMapping { SnakeSpeciesId = 14, FilterOptionId = 8 }, // Hang đá/Gạch
+                    new FilterSnakeMapping { SnakeSpeciesId = 14, FilterOptionId = 10 },
+                    new FilterSnakeMapping { SnakeSpeciesId = 14, FilterOptionId = 13 }, // Xám/Nâu mờ
+                    new FilterSnakeMapping { SnakeSpeciesId = 14, FilterOptionId = 18 }, // Vân phức tạp (chữ V đầu)
+
+                    // --- 15. RẮN CƯỜM / RẮN BAY (SnakeId: 15) ---
+                    new FilterSnakeMapping { SnakeSpeciesId = 15, FilterOptionId = 1 },
+                    new FilterSnakeMapping { SnakeSpeciesId = 15, FilterOptionId = 2 },
+                    new FilterSnakeMapping { SnakeSpeciesId = 15, FilterOptionId = 3 },
+                    new FilterSnakeMapping { SnakeSpeciesId = 15, FilterOptionId = 6 }, // Trên cây
+                    new FilterSnakeMapping { SnakeSpeciesId = 15, FilterOptionId = 10 },
+                    new FilterSnakeMapping { SnakeSpeciesId = 15, FilterOptionId = 14 }, // Vàng chanh
+                    new FilterSnakeMapping { SnakeSpeciesId = 15, FilterOptionId = 18 }, // Vân phức tạp
+
+                    // --- 16. RẮN RÁO TRÂU / HỔ HÈO (SnakeId: 16) ---
+                    new FilterSnakeMapping { SnakeSpeciesId = 16, FilterOptionId = 1 },
+                    new FilterSnakeMapping { SnakeSpeciesId = 16, FilterOptionId = 2 },
+                    new FilterSnakeMapping { SnakeSpeciesId = 16, FilterOptionId = 3 },
+                    new FilterSnakeMapping { SnakeSpeciesId = 16, FilterOptionId = 7 }, // Đồng ruộng
+                    new FilterSnakeMapping { SnakeSpeciesId = 16, FilterOptionId = 8 }, // Hang hốc
+                    new FilterSnakeMapping { SnakeSpeciesId = 16, FilterOptionId = 10 },
+                    new FilterSnakeMapping { SnakeSpeciesId = 16, FilterOptionId = 12 }, // Nâu/Đen
+                    new FilterSnakeMapping { SnakeSpeciesId = 16, FilterOptionId = 18 }, // Vân phức tạp (vằn hổ)
+
+                    // --- 17. RẮN HOA CÂN VÂN ĐỐM (SnakeId: 17) ---
+                    new FilterSnakeMapping { SnakeSpeciesId = 17, FilterOptionId = 1 },
+                    new FilterSnakeMapping { SnakeSpeciesId = 17, FilterOptionId = 2 },
+                    new FilterSnakeMapping { SnakeSpeciesId = 17, FilterOptionId = 5 }, // Dưới nước
+                    new FilterSnakeMapping { SnakeSpeciesId = 17, FilterOptionId = 10 },
+                    new FilterSnakeMapping { SnakeSpeciesId = 17, FilterOptionId = 12 }, // Đen/Nâu
+                    new FilterSnakeMapping { SnakeSpeciesId = 17, FilterOptionId = 18 }, // Vân phức tạp (hình mắt)
+
+                    // --- 19. RẮN ROI (SnakeId: 19) ---
+                    new FilterSnakeMapping { SnakeSpeciesId = 19, FilterOptionId = 1 },
+                    new FilterSnakeMapping { SnakeSpeciesId = 19, FilterOptionId = 2 },
+                    new FilterSnakeMapping { SnakeSpeciesId = 19, FilterOptionId = 3 },
+                    new FilterSnakeMapping { SnakeSpeciesId = 19, FilterOptionId = 6 }, // Trên cây
+                    new FilterSnakeMapping { SnakeSpeciesId = 19, FilterOptionId = 11 }, // Xanh lá
+                    new FilterSnakeMapping { SnakeSpeciesId = 19, FilterOptionId = 15 }, // Thân trơn
+
+                    // --- 20. RẮN TRUN (SnakeId: 20) ---
+                    new FilterSnakeMapping { SnakeSpeciesId = 20, FilterOptionId = 1 },
+                    new FilterSnakeMapping { SnakeSpeciesId = 20, FilterOptionId = 2 },
+                    new FilterSnakeMapping { SnakeSpeciesId = 20, FilterOptionId = 3 },
+                    new FilterSnakeMapping { SnakeSpeciesId = 20, FilterOptionId = 8 }, // Đất ẩm/Bùn
+                    new FilterSnakeMapping { SnakeSpeciesId = 20, FilterOptionId = 10 },
+                    new FilterSnakeMapping { SnakeSpeciesId = 20, FilterOptionId = 12 }, // Đen bóng
+                    new FilterSnakeMapping { SnakeSpeciesId = 20, FilterOptionId = 16 }, // Khoanh vạch
+
+                    // --- 21. RẮN ĐAI LỚN - Lycodon fasciatus (SnakeId: 21) ---
+                    new FilterSnakeMapping { SnakeSpeciesId = 21, FilterOptionId = 1 }, // Bắc/Trung
+                    new FilterSnakeMapping { SnakeSpeciesId = 21, FilterOptionId = 2 },
+                    new FilterSnakeMapping { SnakeSpeciesId = 21, FilterOptionId = 5 },
+                    new FilterSnakeMapping { SnakeSpeciesId = 21, FilterOptionId = 6 },
+                    new FilterSnakeMapping { SnakeSpeciesId = 21, FilterOptionId = 7 },
+                    new FilterSnakeMapping { SnakeSpeciesId = 21, FilterOptionId = 10 },
+                    new FilterSnakeMapping { SnakeSpeciesId = 21, FilterOptionId = 11 }, // Xanh lá
+                    new FilterSnakeMapping { SnakeSpeciesId = 21, FilterOptionId = 15 },  // Thân trơn màu xanh
+
+                    // --- 22. RẮN SÃI CỎ (SnakeId: 22) ---
+                    new FilterSnakeMapping { SnakeSpeciesId = 22, FilterOptionId = 1 },
+                    new FilterSnakeMapping { SnakeSpeciesId = 22, FilterOptionId = 2 },
+                    new FilterSnakeMapping { SnakeSpeciesId = 22, FilterOptionId = 3 },
+                    new FilterSnakeMapping { SnakeSpeciesId = 22, FilterOptionId = 5 }, // Gần nước
+                    new FilterSnakeMapping { SnakeSpeciesId = 22, FilterOptionId = 7 }, // Đồng ruộng
+                    new FilterSnakeMapping { SnakeSpeciesId = 22, FilterOptionId = 13 }, // Xám/Đất
+                    new FilterSnakeMapping { SnakeSpeciesId = 22, FilterOptionId = 17 }  // Sọc dọc
+                };
+                context.FilterSnakeMappings.AddRange(mappings);
 
                 await context.SaveChangesAsync();
             }
