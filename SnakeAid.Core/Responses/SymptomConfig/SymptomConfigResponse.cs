@@ -7,7 +7,6 @@ namespace SnakeAid.Core.Responses.SymptomConfig
         public int Id { get; set; }
         public string AttributeKey { get; set; }
         public string AttributeLabel { get; set; }
-        public InputType UIHint { get; set; }
         public string UIHintDisplay { get; set; } // Friendly display name
         public int DisplayOrder { get; set; }
         public string Name { get; set; }

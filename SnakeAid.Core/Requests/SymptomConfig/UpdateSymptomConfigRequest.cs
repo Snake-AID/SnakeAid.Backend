@@ -18,11 +18,6 @@ namespace SnakeAid.Core.Requests.SymptomConfig
         public string? AttributeLabel { get; set; }
 
         /// <summary>
-        /// Loại input trên UI
-        /// </summary>
-        public InputType? UIHint { get; set; }
-
-        /// <summary>
         /// Thứ tự hiển thị (1-999)
         /// </summary>
         [Range(1, 999, ErrorMessage = "DisplayOrder must be between 1 and 999")]

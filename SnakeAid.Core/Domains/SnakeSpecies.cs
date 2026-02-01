@@ -38,13 +38,13 @@ namespace SnakeAid.Core.Domains
         public PrimaryVenomType? PrimaryVenomType { get; set; }
 
         [Column(TypeName = "jsonb")]
-        public IdentificationFeature Identification { get; set; }
+        public IdentificationFeature? Identification { get; set; }
 
         [Column(TypeName = "jsonb")]
-        public List<SymptomTimeline> SymptomsByTime { get; set; }
+        public List<SymptomTimeline>? SymptomsByTime { get; set; }
 
         [Column(TypeName = "jsonb")]
-        public FirstAidOverride FirstAidGuidelineOverride { get; set; }
+        public FirstAidOverride? FirstAidGuidelineOverride { get; set; }
 
         [Range(0.0, 10.0)]
         public float RiskLevel { get; set; }

@@ -787,6 +787,7 @@ namespace SnakeAid.Repository.Seeds
                         PrimaryVenomType = PrimaryVenomType.None,
                         RiskLevel = 1.0f,
                         IsVenomous = false,
+                        ImageUrl = "https://vietnamsnakes.com/storage/snakes/species/101/ptyas-major_1743324730_0.jpg",
                         Identification = new IdentificationFeature {
                             PhysicalTraits = new List<string> {
                                 "Thân dài, có thể đạt 1,5-2,5 mét",

@@ -1,5 +1,6 @@
 ﻿using System;
 using Microsoft.EntityFrameworkCore.Migrations;
+using NetTopologySuite.Geometries;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 #nullable disable
@@ -7,7 +8,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace SnakeAid.Repository.Migrations
 {
     /// <inheritdoc />
-    public partial class InitialCreate : Migration
+    public partial class SnakeAidMigration : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -17,6 +18,9 @@ namespace SnakeAid.Repository.Migrations
 
             migrationBuilder.EnsureSchema(
                 name: "SnakeAid");
+
+            migrationBuilder.AlterDatabase()
+                .Annotation("Npgsql:PostgresExtension:postgis", ",,");
 
             migrationBuilder.CreateTable(
                 name: "Accounts",
@@ -182,6 +186,7 @@ namespace SnakeAid.Repository.Migrations
                     SessionType = table.Column<int>(type: "integer", nullable: false),
                     AccountId = table.Column<Guid>(type: "uuid", nullable: false),
                     Role = table.Column<int>(type: "integer", nullable: false),
+                    Location = table.Column<Point>(type: "geometry", nullable: false),
                     RecordedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
                     Speed = table.Column<float>(type: "real", nullable: true),
                     Heading = table.Column<float>(type: "real", nullable: true)
@@ -238,12 +243,13 @@ namespace SnakeAid.Repository.Migrations
                     ScientificName = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: false),
                     Slug = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: false),
                     CommonName = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: false),
+                    ImageUrl = table.Column<string>(type: "character varying(2000)", maxLength: 2000, nullable: false),
                     Description = table.Column<string>(type: "character varying(2000)", maxLength: 2000, nullable: false),
                     IdentificationSummary = table.Column<string>(type: "character varying(2000)", maxLength: 2000, nullable: false),
                     PrimaryVenomType = table.Column<int>(type: "integer", nullable: true),
-                    Identification = table.Column<string>(type: "jsonb", nullable: false),
-                    SymptomsByTime = table.Column<string>(type: "jsonb", nullable: false),
-                    FirstAidGuidelineOverride = table.Column<string>(type: "jsonb", nullable: false),
+                    Identification = table.Column<string>(type: "jsonb", nullable: true),
+                    SymptomsByTime = table.Column<string>(type: "jsonb", nullable: true),
+                    FirstAidGuidelineOverride = table.Column<string>(type: "jsonb", nullable: true),
                     RiskLevel = table.Column<float>(type: "real", nullable: false),
                     IsVenomous = table.Column<bool>(type: "boolean", nullable: false),
                     IsActive = table.Column<bool>(type: "boolean", nullable: false),
@@ -297,6 +303,8 @@ namespace SnakeAid.Repository.Migrations
                     SessionId = table.Column<Guid>(type: "uuid", nullable: false),
                     SessionType = table.Column<int>(type: "integer", nullable: false),
                     IsActive = table.Column<bool>(type: "boolean", nullable: false),
+                    MemberLocation = table.Column<Point>(type: "geometry(Point, 4326)", nullable: true),
+                    RescuerLocation = table.Column<Point>(type: "geometry(Point, 4326)", nullable: true),
                     MemberLastUpdate = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
                     RescuerLastUpdate = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
                     DistanceMeters = table.Column<double>(type: "double precision", nullable: true),
@@ -319,6 +327,7 @@ namespace SnakeAid.Repository.Migrations
                     Name = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: false),
                     Address = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: false),
                     ContactNumber = table.Column<string>(type: "character varying(20)", maxLength: 20, nullable: false),
+                    Location = table.Column<Point>(type: "geometry(Point, 4326)", nullable: false),
                     IsActive = table.Column<bool>(type: "boolean", nullable: false),
                     CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
                     UpdatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
@@ -386,6 +395,7 @@ namespace SnakeAid.Repository.Migrations
                 {
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
                     UserId = table.Column<Guid>(type: "uuid", nullable: false),
+                    LocationCoordinates = table.Column<Point>(type: "geometry", nullable: false),
                     AdditionalDetails = table.Column<string>(type: "text", nullable: false),
                     CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
                     UpdatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
@@ -410,11 +420,9 @@ namespace SnakeAid.Repository.Migrations
                     AccountId = table.Column<Guid>(type: "uuid", nullable: false),
                     Biography = table.Column<string>(type: "character varying(2000)", maxLength: 2000, nullable: false),
                     IsOnline = table.Column<bool>(type: "boolean", nullable: false),
-                    IsAvailable = table.Column<bool>(type: "boolean", nullable: false),
                     ConsultationFee = table.Column<decimal>(type: "numeric(18,2)", nullable: false),
                     Rating = table.Column<decimal>(type: "numeric(3,2)", nullable: false),
                     RatingCount = table.Column<int>(type: "integer", nullable: false),
-                    UnavailableReason = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: true),
                     CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
                     UpdatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
                 },
@@ -480,6 +488,29 @@ namespace SnakeAid.Repository.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "Otp",
+                schema: "SnakeAid",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    Email = table.Column<string>(type: "character varying(150)", maxLength: 150, nullable: false),
+                    UserId = table.Column<Guid>(type: "uuid", nullable: true),
+                    OtpCode = table.Column<string>(type: "character varying(10)", maxLength: 10, nullable: false),
+                    ExpirationTime = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    AttemptLeft = table.Column<int>(type: "integer", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Otp", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_Otp_Accounts_UserId",
+                        column: x => x.UserId,
+                        principalSchema: "AspNetIdentity",
+                        principalTable: "Accounts",
+                        principalColumn: "Id");
+                });
+
+            migrationBuilder.CreateTable(
                 name: "ReputationRawEvents",
                 schema: "SnakeAid",
                 columns: table => new
@@ -519,8 +550,8 @@ namespace SnakeAid.Repository.Migrations
                     Rating = table.Column<decimal>(type: "numeric(3,2)", nullable: false),
                     RatingCount = table.Column<int>(type: "integer", nullable: false),
                     Type = table.Column<int>(type: "integer", nullable: false, defaultValue: 0),
+                    LastLocation = table.Column<Point>(type: "geometry(Point, 4326)", nullable: true),
                     LastLocationUpdate = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
-                    IsAvailable = table.Column<bool>(type: "boolean", nullable: false),
                     TotalMissions = table.Column<int>(type: "integer", nullable: false),
                     CompletedMissions = table.Column<int>(type: "integer", nullable: false),
                     CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
@@ -782,7 +813,6 @@ namespace SnakeAid.Repository.Migrations
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
-                    SnakeSpeciesId = table.Column<int>(type: "integer", nullable: false),
                     MediaUrl = table.Column<string>(type: "character varying(2000)", maxLength: 2000, nullable: false),
                     MediaType = table.Column<int>(type: "integer", nullable: false),
                     FileName = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: true),
@@ -790,9 +820,9 @@ namespace SnakeAid.Repository.Migrations
                     ContentType = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: true),
                     IsActive = table.Column<bool>(type: "boolean", nullable: false),
                     IsPublic = table.Column<bool>(type: "boolean", nullable: false),
-                    DisplayOrder = table.Column<int>(type: "integer", nullable: false),
                     UploadedById = table.Column<Guid>(type: "uuid", nullable: true),
                     UploadedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
+                    SnakeSpeciesId = table.Column<int>(type: "integer", nullable: true),
                     CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
                     UpdatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
                 },
@@ -1013,7 +1043,7 @@ namespace SnakeAid.Repository.Migrations
                 {
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
                     UserId = table.Column<Guid>(type: "uuid", nullable: false),
-                    Location = table.Column<string>(type: "character varying(1000)", maxLength: 1000, nullable: false),
+                    LocationCoordinates = table.Column<Point>(type: "geometry(Point, 4326)", nullable: false),
                     SymptomsReport = table.Column<string>(type: "jsonb", nullable: true),
                     Status = table.Column<int>(type: "integer", nullable: false),
                     CurrentSessionNumber = table.Column<int>(type: "integer", nullable: false),
@@ -1054,6 +1084,7 @@ namespace SnakeAid.Repository.Migrations
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
                     UserId = table.Column<Guid>(type: "uuid", nullable: false),
                     Address = table.Column<string>(type: "character varying(1000)", maxLength: 1000, nullable: false),
+                    LocationCoordinates = table.Column<Point>(type: "geometry(Point, 4326)", nullable: false),
                     AdditionalDetails = table.Column<string>(type: "character varying(2000)", maxLength: 2000, nullable: false),
                     Status = table.Column<int>(type: "integer", nullable: false),
                     Priority = table.Column<int>(type: "integer", nullable: false),
@@ -1188,16 +1219,18 @@ namespace SnakeAid.Repository.Migrations
                 {
                     Id = table.Column<int>(type: "integer", nullable: false)
                         .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    GroupName = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
                     AttributeKey = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
                     AttributeLabel = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: false),
-                    UIHint = table.Column<int>(type: "integer", nullable: false),
                     DisplayOrder = table.Column<int>(type: "integer", nullable: false),
                     Name = table.Column<string>(type: "character varying(300)", maxLength: 300, nullable: false),
                     Description = table.Column<string>(type: "character varying(1000)", maxLength: 1000, nullable: true),
-                    IsActive = table.Column<bool>(type: "boolean", nullable: false),
+                    IsCritical = table.Column<bool>(type: "boolean", nullable: false),
+                    AlertMessage = table.Column<string>(type: "character varying(1000)", maxLength: 1000, nullable: true),
                     Category = table.Column<int>(type: "integer", nullable: false),
                     TimeScoresJson = table.Column<string>(type: "jsonb", nullable: true),
                     VenomTypeId = table.Column<int>(type: "integer", nullable: true),
+                    IsActive = table.Column<bool>(type: "boolean", nullable: false),
                     CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
                     UpdatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
                 },
@@ -1378,10 +1411,10 @@ namespace SnakeAid.Repository.Migrations
                     SessionNumber = table.Column<int>(type: "integer", nullable: false),
                     RadiusKm = table.Column<int>(type: "integer", nullable: false),
                     Status = table.Column<int>(type: "integer", nullable: false),
-                    CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
                     CompletedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
                     TriggerType = table.Column<int>(type: "integer", nullable: false),
                     RescuersPinged = table.Column<int>(type: "integer", nullable: false),
+                    CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
                     UpdatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
                 },
                 constraints: table =>
@@ -1567,7 +1600,6 @@ namespace SnakeAid.Repository.Migrations
                     RequestSentAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
                     ResponseAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
                     ExpiredAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
-                    RejectionReason = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: true),
                     CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
                     UpdatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
                 },
@@ -2066,6 +2098,12 @@ namespace SnakeAid.Repository.Migrations
                 schema: "SnakeAid",
                 table: "LocationEvents",
                 columns: new[] { "SessionId", "RecordedAt" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Otp_UserId",
+                schema: "SnakeAid",
+                table: "Otp",
+                column: "UserId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_ReportMedias_ReferenceId",
@@ -2653,6 +2691,10 @@ namespace SnakeAid.Repository.Migrations
 
             migrationBuilder.DropTable(
                 name: "LocationEvents",
+                schema: "SnakeAid");
+
+            migrationBuilder.DropTable(
+                name: "Otp",
                 schema: "SnakeAid");
 
             migrationBuilder.DropTable(

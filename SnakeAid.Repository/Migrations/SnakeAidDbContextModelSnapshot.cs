@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
+using NetTopologySuite.Geometries;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using SnakeAid.Repository.Data;
 
@@ -18,9 +19,10 @@ namespace SnakeAid.Repository.Migrations
 #pragma warning disable 612, 618
             modelBuilder
                 .HasDefaultSchema("SnakeAid")
-                .HasAnnotation("ProductVersion", "8.0.11")
+                .HasAnnotation("ProductVersion", "8.0.23")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
+            NpgsqlModelBuilderExtensions.HasPostgresExtension(modelBuilder, "postgis");
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserClaim<System.Guid>", b =>
@@ -560,6 +562,10 @@ namespace SnakeAid.Repository.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<Point>("LocationCoordinates")
+                        .IsRequired()
+                        .HasColumnType("geometry");
+
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -1080,9 +1086,6 @@ namespace SnakeAid.Repository.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<int>("DisplayOrder")
-                        .HasColumnType("integer");
-
                     b.Property<string>("FileName")
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
@@ -1104,7 +1107,7 @@ namespace SnakeAid.Repository.Migrations
                         .HasMaxLength(2000)
                         .HasColumnType("character varying(2000)");
 
-                    b.Property<int>("SnakeSpeciesId")
+                    b.Property<int?>("SnakeSpeciesId")
                         .HasColumnType("integer");
 
                     b.Property<DateTime>("UpdatedAt")
@@ -1148,6 +1151,10 @@ namespace SnakeAid.Repository.Migrations
 
                     b.Property<float?>("Heading")
                         .HasColumnType("real");
+
+                    b.Property<Point>("Location")
+                        .IsRequired()
+                        .HasColumnType("geometry");
 
                     b.Property<DateTime>("RecordedAt")
                         .HasColumnType("timestamp with time zone");
@@ -1620,6 +1627,9 @@ namespace SnakeAid.Repository.Migrations
                     b.Property<bool>("IsOnline")
                         .HasColumnType("boolean");
 
+                    b.Property<Point>("LastLocation")
+                        .HasColumnType("geometry(Point, 4326)");
+
                     b.Property<DateTime?>("LastLocationUpdate")
                         .HasColumnType("timestamp with time zone");
 
@@ -1877,6 +1887,10 @@ namespace SnakeAid.Repository.Migrations
                     b.Property<decimal?>("EstimatedPrice")
                         .HasColumnType("numeric(18,2)");
 
+                    b.Property<Point>("LocationCoordinates")
+                        .IsRequired()
+                        .HasColumnType("geometry(Point, 4326)");
+
                     b.Property<string>("Notes")
                         .HasMaxLength(1000)
                         .HasColumnType("character varying(1000)");
@@ -1982,14 +1996,17 @@ namespace SnakeAid.Repository.Migrations
                         .HasColumnType("character varying(2000)");
 
                     b.Property<string>("FirstAidGuidelineOverride")
-                        .IsRequired()
                         .HasColumnType("jsonb");
 
                     b.Property<string>("Identification")
-                        .IsRequired()
                         .HasColumnType("jsonb");
 
                     b.Property<string>("IdentificationSummary")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<string>("ImageUrl")
                         .IsRequired()
                         .HasMaxLength(2000)
                         .HasColumnType("character varying(2000)");
@@ -2017,7 +2034,6 @@ namespace SnakeAid.Repository.Migrations
                         .HasColumnType("character varying(200)");
 
                     b.Property<string>("SymptomsByTime")
-                        .IsRequired()
                         .HasColumnType("jsonb");
 
                     b.Property<DateTime>("UpdatedAt")
@@ -2114,6 +2130,10 @@ namespace SnakeAid.Repository.Migrations
 
                     b.Property<DateTime?>("LastSessionAt")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<Point>("LocationCoordinates")
+                        .IsRequired()
+                        .HasColumnType("geometry(Point, 4326)");
 
                     b.Property<int?>("SeverityLevel")
                         .HasColumnType("integer");
@@ -2229,6 +2249,10 @@ namespace SnakeAid.Repository.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
+                    b.Property<string>("AlertMessage")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
                     b.Property<string>("AttributeKey")
                         .IsRequired()
                         .HasMaxLength(100)
@@ -2252,7 +2276,15 @@ namespace SnakeAid.Repository.Migrations
                     b.Property<int>("DisplayOrder")
                         .HasColumnType("integer");
 
+                    b.Property<string>("GroupName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
                     b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsCritical")
                         .HasColumnType("boolean");
 
                     b.Property<string>("Name")
@@ -2262,9 +2294,6 @@ namespace SnakeAid.Repository.Migrations
 
                     b.Property<string>("TimeScoresJson")
                         .HasColumnType("jsonb");
-
-                    b.Property<int>("UIHint")
-                        .HasColumnType("integer");
 
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
@@ -2339,8 +2368,14 @@ namespace SnakeAid.Repository.Migrations
                     b.Property<DateTime?>("MemberLastUpdate")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<Point>("MemberLocation")
+                        .HasColumnType("geometry(Point, 4326)");
+
                     b.Property<DateTime?>("RescuerLastUpdate")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<Point>("RescuerLocation")
+                        .HasColumnType("geometry(Point, 4326)");
 
                     b.Property<Guid>("SessionId")
                         .HasColumnType("uuid");
@@ -2447,6 +2482,10 @@ namespace SnakeAid.Repository.Migrations
 
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean");
+
+                    b.Property<Point>("Location")
+                        .IsRequired()
+                        .HasColumnType("geometry(Point, 4326)");
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -2958,8 +2997,7 @@ namespace SnakeAid.Repository.Migrations
                     b.HasOne("SnakeAid.Core.Domains.SnakeSpecies", "SnakeSpecies")
                         .WithMany("LibraryMedias")
                         .HasForeignKey("SnakeSpeciesId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Cascade);
 
                     b.HasOne("SnakeAid.Core.Domains.Account", "UploadedBy")
                         .WithMany()

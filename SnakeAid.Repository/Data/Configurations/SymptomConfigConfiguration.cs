@@ -10,11 +10,6 @@ namespace SnakeAid.Repository.Data.Configurations
         {
             builder.ToTable("SymptomConfigs");
 
-            // Enum conversions
-            builder.Property(c => c.UIHint)
-                .HasConversion<int>()
-                .IsRequired();
-
             builder.Property(c => c.Category)
                 .HasConversion<int>()
                 .IsRequired();

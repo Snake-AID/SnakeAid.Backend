@@ -17,16 +17,6 @@ namespace SnakeAid.Core.Domains
         [MaxLength(1000)]
         public string? Description { get; set; }
 
-        [Required]
-        [MaxLength(500)]
-        public string EndpointUrl { get; set; }
-
-        [MaxLength(200)]
-        public string? ApiKey { get; set; }
-
-        [Column(TypeName = "jsonb")]
-        public string? ModelParameters { get; set; }  // JSON config
-
         // Model status
         [Required]
         public bool IsActive { get; set; } = true;

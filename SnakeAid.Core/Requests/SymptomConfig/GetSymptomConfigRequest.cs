@@ -16,11 +16,6 @@ namespace SnakeAid.Core.Requests.SymptomConfig
         public string? Name { get; set; }
 
         /// <summary>
-        /// Lọc theo loại UI
-        /// </summary>
-        public InputType? UIHint { get; set; }
-
-        /// <summary>
         /// Lọc theo category
         /// </summary>
         public SymptomCategory? Category { get; set; }

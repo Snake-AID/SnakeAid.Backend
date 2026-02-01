@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
+using NetTopologySuite.Geometries;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using SnakeAid.Repository.Data;
 
@@ -12,8 +13,8 @@ using SnakeAid.Repository.Data;
 namespace SnakeAid.Repository.Migrations
 {
     [DbContext(typeof(SnakeAidDbContext))]
-    [Migration("20260126084909_InitialCreate")]
-    partial class InitialCreate
+    [Migration("20260201180911_SnakeAidMigration")]
+    partial class SnakeAidMigration
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -24,6 +25,7 @@ namespace SnakeAid.Repository.Migrations
                 .HasAnnotation("ProductVersion", "8.0.23")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
+            NpgsqlModelBuilderExtensions.HasPostgresExtension(modelBuilder, "postgis");
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserClaim<System.Guid>", b =>
@@ -563,6 +565,10 @@ namespace SnakeAid.Repository.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<Point>("LocationCoordinates")
+                        .IsRequired()
+                        .HasColumnType("geometry");
+
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -815,9 +821,6 @@ namespace SnakeAid.Repository.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<bool>("IsAvailable")
-                        .HasColumnType("boolean");
-
                     b.Property<bool>("IsOnline")
                         .HasColumnType("boolean");
 
@@ -826,10 +829,6 @@ namespace SnakeAid.Repository.Migrations
 
                     b.Property<int>("RatingCount")
                         .HasColumnType("integer");
-
-                    b.Property<string>("UnavailableReason")
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)");
 
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
@@ -1090,9 +1089,6 @@ namespace SnakeAid.Repository.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<int>("DisplayOrder")
-                        .HasColumnType("integer");
-
                     b.Property<string>("FileName")
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
@@ -1114,7 +1110,7 @@ namespace SnakeAid.Repository.Migrations
                         .HasMaxLength(2000)
                         .HasColumnType("character varying(2000)");
 
-                    b.Property<int>("SnakeSpeciesId")
+                    b.Property<int?>("SnakeSpeciesId")
                         .HasColumnType("integer");
 
                     b.Property<DateTime>("UpdatedAt")
@@ -1158,6 +1154,10 @@ namespace SnakeAid.Repository.Migrations
 
                     b.Property<float?>("Heading")
                         .HasColumnType("real");
+
+                    b.Property<Point>("Location")
+                        .IsRequired()
+                        .HasColumnType("geometry");
 
                     b.Property<DateTime>("RecordedAt")
                         .HasColumnType("timestamp with time zone");
@@ -1220,6 +1220,38 @@ namespace SnakeAid.Repository.Migrations
                     b.HasKey("AccountId");
 
                     b.ToTable("MemberProfiles", "SnakeAid");
+                });
+
+            modelBuilder.Entity("SnakeAid.Core.Domains.Otp", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("AttemptLeft")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)");
+
+                    b.Property<DateTime>("ExpirationTime")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("OtpCode")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)");
+
+                    b.Property<Guid?>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("Otp", "SnakeAid");
                 });
 
             modelBuilder.Entity("SnakeAid.Core.Domains.PaymentCard", b =>
@@ -1595,11 +1627,11 @@ namespace SnakeAid.Repository.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<bool>("IsAvailable")
-                        .HasColumnType("boolean");
-
                     b.Property<bool>("IsOnline")
                         .HasColumnType("boolean");
+
+                    b.Property<Point>("LastLocation")
+                        .HasColumnType("geometry(Point, 4326)");
 
                     b.Property<DateTime?>("LastLocationUpdate")
                         .HasColumnType("timestamp with time zone");
@@ -1646,10 +1678,6 @@ namespace SnakeAid.Repository.Migrations
 
                     b.Property<Guid>("IncidentId")
                         .HasColumnType("uuid");
-
-                    b.Property<string>("RejectionReason")
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)");
 
                     b.Property<DateTime>("RequestSentAt")
                         .HasColumnType("timestamp with time zone");
@@ -1862,6 +1890,10 @@ namespace SnakeAid.Repository.Migrations
                     b.Property<decimal?>("EstimatedPrice")
                         .HasColumnType("numeric(18,2)");
 
+                    b.Property<Point>("LocationCoordinates")
+                        .IsRequired()
+                        .HasColumnType("geometry(Point, 4326)");
+
                     b.Property<string>("Notes")
                         .HasMaxLength(1000)
                         .HasColumnType("character varying(1000)");
@@ -1967,14 +1999,17 @@ namespace SnakeAid.Repository.Migrations
                         .HasColumnType("character varying(2000)");
 
                     b.Property<string>("FirstAidGuidelineOverride")
-                        .IsRequired()
                         .HasColumnType("jsonb");
 
                     b.Property<string>("Identification")
-                        .IsRequired()
                         .HasColumnType("jsonb");
 
                     b.Property<string>("IdentificationSummary")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<string>("ImageUrl")
                         .IsRequired()
                         .HasMaxLength(2000)
                         .HasColumnType("character varying(2000)");
@@ -2002,7 +2037,6 @@ namespace SnakeAid.Repository.Migrations
                         .HasColumnType("character varying(200)");
 
                     b.Property<string>("SymptomsByTime")
-                        .IsRequired()
                         .HasColumnType("jsonb");
 
                     b.Property<DateTime>("UpdatedAt")
@@ -2100,10 +2134,9 @@ namespace SnakeAid.Repository.Migrations
                     b.Property<DateTime?>("LastSessionAt")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<string>("Location")
+                    b.Property<Point>("LocationCoordinates")
                         .IsRequired()
-                        .HasMaxLength(1000)
-                        .HasColumnType("character varying(1000)");
+                        .HasColumnType("geometry(Point, 4326)");
 
                     b.Property<int?>("SeverityLevel")
                         .HasColumnType("integer");
@@ -2219,6 +2252,10 @@ namespace SnakeAid.Repository.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
+                    b.Property<string>("AlertMessage")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
                     b.Property<string>("AttributeKey")
                         .IsRequired()
                         .HasMaxLength(100)
@@ -2242,7 +2279,15 @@ namespace SnakeAid.Repository.Migrations
                     b.Property<int>("DisplayOrder")
                         .HasColumnType("integer");
 
+                    b.Property<string>("GroupName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
                     b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsCritical")
                         .HasColumnType("boolean");
 
                     b.Property<string>("Name")
@@ -2252,9 +2297,6 @@ namespace SnakeAid.Repository.Migrations
 
                     b.Property<string>("TimeScoresJson")
                         .HasColumnType("jsonb");
-
-                    b.Property<int>("UIHint")
-                        .HasColumnType("integer");
 
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
@@ -2329,8 +2371,14 @@ namespace SnakeAid.Repository.Migrations
                     b.Property<DateTime?>("MemberLastUpdate")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<Point>("MemberLocation")
+                        .HasColumnType("geometry(Point, 4326)");
+
                     b.Property<DateTime?>("RescuerLastUpdate")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<Point>("RescuerLocation")
+                        .HasColumnType("geometry(Point, 4326)");
 
                     b.Property<Guid>("SessionId")
                         .HasColumnType("uuid");
@@ -2437,6 +2485,10 @@ namespace SnakeAid.Repository.Migrations
 
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean");
+
+                    b.Property<Point>("Location")
+                        .IsRequired()
+                        .HasColumnType("geometry(Point, 4326)");
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -2948,8 +3000,7 @@ namespace SnakeAid.Repository.Migrations
                     b.HasOne("SnakeAid.Core.Domains.SnakeSpecies", "SnakeSpecies")
                         .WithMany("LibraryMedias")
                         .HasForeignKey("SnakeSpeciesId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Cascade);
 
                     b.HasOne("SnakeAid.Core.Domains.Account", "UploadedBy")
                         .WithMany()
@@ -2970,6 +3021,15 @@ namespace SnakeAid.Repository.Migrations
                         .IsRequired();
 
                     b.Navigation("Account");
+                });
+
+            modelBuilder.Entity("SnakeAid.Core.Domains.Otp", b =>
+                {
+                    b.HasOne("SnakeAid.Core.Domains.Account", "User")
+                        .WithMany("Otps")
+                        .HasForeignKey("UserId");
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("SnakeAid.Core.Domains.ReportMedia", b =>
@@ -3340,14 +3400,13 @@ namespace SnakeAid.Repository.Migrations
 
             modelBuilder.Entity("SnakeAid.Core.Domains.Account", b =>
                 {
-                    b.Navigation("ExpertProfile")
-                        .IsRequired();
+                    b.Navigation("ExpertProfile");
 
-                    b.Navigation("MemberProfile")
-                        .IsRequired();
+                    b.Navigation("MemberProfile");
 
-                    b.Navigation("RescuerProfile")
-                        .IsRequired();
+                    b.Navigation("Otps");
+
+                    b.Navigation("RescuerProfile");
                 });
 
             modelBuilder.Entity("SnakeAid.Core.Domains.Antivenom", b =>

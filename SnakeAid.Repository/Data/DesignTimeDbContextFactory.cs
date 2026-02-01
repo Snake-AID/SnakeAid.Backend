@@ -17,7 +17,7 @@ namespace SnakeAid.Repository.Data
             var optionsBuilder = new DbContextOptionsBuilder<SnakeAidDbContext>();
             var connectionString = configuration.GetConnectionString("SupabaseConnection");
 
-            optionsBuilder.UseNpgsql(connectionString);
+            optionsBuilder.UseNpgsql(connectionString, o => o.UseNetTopologySuite());
 
             return new SnakeAidDbContext(optionsBuilder.Options);
         }

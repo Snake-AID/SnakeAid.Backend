@@ -32,7 +32,6 @@ namespace SnakeAid.Core.Mappings
 
             // SymptomConfig mappings
             config.NewConfig<Core.Domains.SymptomConfig, SymptomConfigResponse>()
-                .Map(dest => dest.UIHintDisplay, src => src.UIHint.ToString())
                 .Map(dest => dest.CategoryDisplay, src => src.Category.ToString())
                 .Map(dest => dest.VenomType, src => src.VenomType != null
                     ? new VenomTypeInfo

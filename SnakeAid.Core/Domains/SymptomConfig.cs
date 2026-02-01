@@ -47,7 +47,8 @@ namespace SnakeAid.Core.Domains
 
         [Column(TypeName = "jsonb")]
         public string? TimeScoresJson { get; set; }
-
+        
+        [ForeignKey(nameof(VenomType))]
         public int? VenomTypeId { get; set; }      // Gợi ý loại độc tố (1: Thần kinh, 2: Máu...)
 
         [Required]
@@ -58,7 +59,11 @@ namespace SnakeAid.Core.Domains
             string.IsNullOrEmpty(TimeScoresJson)
                 ? new List<TimeScorePoint>()
                 : JsonSerializer.Deserialize<List<TimeScorePoint>>(TimeScoresJson) ?? new List<TimeScorePoint>();
+
+        public VenomType? VenomType { get; set; }
     }
+
+        
 
     public enum SymptomCategory
     {

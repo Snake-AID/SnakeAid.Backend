@@ -24,8 +24,6 @@ namespace SnakeAid.Core.Domains
 
         public int YoloClassId { get; set; }  // ID của class trong YOLO model
 
-        public decimal Confidence { get; set; } = 0.8m;  // Ngưỡng confidence để accept
-
         [Required]
         public bool IsActive { get; set; } = true;
 
