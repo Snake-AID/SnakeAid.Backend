@@ -73,6 +73,7 @@ namespace SnakeAid.Api
                     options.UseNpgsql(builder.Configuration.GetConnectionString("SupabaseConnection"),
                         sqlOptions =>
                         {
+                            sqlOptions.UseNetTopologySuite();
                             sqlOptions.EnableRetryOnFailure(
                                 5,
                                 TimeSpan.FromSeconds(30),
