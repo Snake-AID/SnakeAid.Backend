@@ -25,6 +25,10 @@ namespace SnakeAid.Core.Domains
         [MaxLength(500)]
         public string CommonName { get; set; }
 
+        [Required]
+        [MaxLength(2000)]
+        public string ImageUrl { get; set; }
+
         [MaxLength(2000)]
         public string Description { get; set; }
 
