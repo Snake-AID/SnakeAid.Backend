@@ -1,296 +1,279 @@
-# Snake Detection - Implementation Plan
+# Snake Detection (Phase 2 & 2.1) - Implementation Plan ✅ COMPLETED
 
-## Phân tích hiện trạng
+## 1. Overview
+**STATUS: ✅ COMPLETED** - Giai đoạn 2 đã hoàn thành việc tích hợp kết quả nhận diện từ AI (YOLO) với cơ sở dữ liệu loài rắn (SnakeLibs) của hệ thống.
+Mục tiêu đã đạt được: Lưu trữ lịch sử nhận diện và trả về thông tin chi tiết của loài rắn (tên khoa học, độ độc, ...) thay vì chỉ trả về nhãn raw từ mô hình AI.
 
-### Đã có sẵn ✅
-- `POST /api/media/upload-image` - Upload ảnh lên Cloudinary
-- SnakeAI FastAPI service running at `http://localhost:8000`
-- SnakeAI endpoints: `/detect/url`, `/detect/file`, `/detect/base64`, `/health`
-- Entity `SnakeAIRecognitionResult` đã định nghĩa trong `SnakeAid.Core.Domains`
-- Package `Refit` + `Refit.HttpClientFactory` đã cài sẵn
 
-### Cần implement 📝
-- `POST /api/detection/detect` - Wrapper endpoint trong ASP.NET backend
-- `GET /api/detection/{id}` - Lấy kết quả detection đã lưu
-- Service layer gọi SnakeAI FastAPI (sử dụng Refit)
 
-> **Note:** `/health` endpoint từ FastAPI chỉ dùng nội bộ trong service layer để kiểm tra trước khi gọi AI, không expose ra client.
+## 2. Endpoint Overview (Two-Step Flow)
 
-## Architecture
+Quy trình nhận diện sẽ tuân thủ nguyên tắc: **Upload Media & Create Entity trước -> Detect sau**. Điều này đảm bảo mọi kết quả nhận diện đều gắn liền với một `ReportMedia` hợp lệ trong hệ thống.
 
-```
-┌─────────────┐      ┌──────────────────┐      ┌─────────────────┐
-│   Client    │ ---> │  ASP.NET Backend │ ---> │  SnakeAI FastAPI│
-│  (Mobile)   │      │ /api/detection    │     │  /detect/url    │
-└─────────────┘      └──────────────────┘      └─────────────────┘
-                              │                        │
-                              v                        v
-                     ┌───────────────── ─┐      ┌──────────────┐
-                     │   PostgreSQL DB   │      │   /health    │
-                     │ SnakeAIRecognition│      │ (internal)   │
-                     └───────────────── ─┘      └──────────────┘
-```
+### Step 1: Upload Media (Tạo Entity)
 
-## Files to Create/Modify
+Endpoint mới chuyên dụng để upload ảnh cho các báo cáo/nghiệp vụ.
 
-### New Files
-| File | Description |
-|------|-------------|
-| `SnakeAid.Infrastructure/External/ISnakeAIApi.cs` | Refit interface cho SnakeAI FastAPI |
-| `SnakeAid.Infrastructure/External/SnakeAIService.cs` | Service implementation với Polly retry |
-| `SnakeAid.API/Endpoints/AIVisionEndpoints.cs` | Carter module cho API endpoints |
-| `SnakeAid.Core/DTOs/AIVision/DetectRequest.cs` | Request DTO |
-| `SnakeAid.Core/DTOs/AIVision/DetectResponse.cs` | Response DTO |
+- **URL:** `POST /api/media/report`
+- **Content-Type:** `multipart/form-data`
+- **Query Params:**
+    - `Type` (MediaReferenceType): `CommunityReport`, `SnakebiteIncident`, etc.
+    - `Purpose` (MediaPurpose): `SnakeIdentification` (Default: `SnakeIdentification`).
+- **Form Data (Body):**
+    - `File`: (Binary) File ảnh/video.
+    - `ReferenceId` (Guid): ID của Parent Entity (IncidentId, ReportId...) **[REQUIRED]**.
+- **Flow:**
+    1.  Validate file & permission.
+    2.  Upload Cloudinary -> Get URL.
+    3.  Lưu bảng `ReportMedia` với `ReferenceId` và `ReferenceType`.
+    4.  Return `ReportMedia` object (bao gồm `Id` và `MediaUrl`).
 
-### Modify Files
-| File | Changes |
-|------|---------|
-| `Program.cs` | Register Refit client + Polly policies |
-| `appsettings.json` | Add SnakeAI base URL config |
+### Step 2: Detect Snake (Nhận diện)
 
-## Existing Entity
+Endpoint nhận diện giờ đây sẽ làm việc với `ReportMediaId` thay vì URL trần.
 
-Entity `SnakeAIRecognitionResult` đã tồn tại:
-
-```csharp
-// SnakeAid.Core/Domains/SnakeAIRecognitionResult.cs
-public class SnakeAIRecognitionResult : BaseEntity
-{
-    public Guid Id { get; set; }
-    public Guid ReportMediaId { get; set; }           // FK → ReportMedia
-    public int AIModelId { get; set; }                 // FK → AIModel
-    public string YoloClassName { get; set; }          // Raw YOLO class
-    public decimal Confidence { get; set; }            // 0.0 - 1.0
-    public int? DetectedSpeciesId { get; set; }        // FK → SnakeSpecies (mapped)
-    public bool IsMapped { get; set; }                 // YOLO → Species mapped?
-    public string? AllDetections { get; set; }         // JSONB all results
-    public RecognitionStatus Status { get; set; }      // Processing/Completed/Failed/ExpertVerified
-    
-    // Expert verification fields
-    public Guid? ExpertId { get; set; }
-    public DateTime? ExpertVerifiedAt { get; set; }
-    public int? ExpertCorrectedSpeciesId { get; set; }
-    public string? ExpertNotes { get; set; }
-}
-```
-
-## Dependencies
-
-Sử dụng packages đã cài sẵn trong `Directory.Packages.props`:
-
-```xml
-<!-- HTTP Client với type-safe interface -->
-<PackageReference Include="Refit" />
-<PackageReference Include="Refit.HttpClientFactory" />
-
-<!-- Cần thêm: Retry & Circuit Breaker patterns -->
-<PackageVersion Include="Polly" Version="8.5.2" />
-<PackageVersion Include="Microsoft.Extensions.Http.Polly" Version="8.0.0" />
-```
-
-## Refit Interface
-
-```csharp
-// ISnakeAIApi.cs
-public interface ISnakeAIApi
-{
-    [Post("/detect/url")]
-    Task<SnakeAIDetectResponse> DetectByUrlAsync([Body] SnakeAIDetectRequest request);
-    
-    [Get("/health")]
-    Task<SnakeAIHealthResponse> HealthCheckAsync();
-}
-```
-
-## SnakeAI Endpoint Parameters
-
-### POST `/detect/url` - Request Body
-
-| Parameter | Type | Required | Default | Description |
-|-----------|------|----------|---------|-------------|
-| `image_url` | string | ✅ Yes | - | URL công khai của ảnh (Cloudinary URL) |
-| `imgsz` | int | No | 640 | Kích thước inference (longest side). Larger = slower but more accurate |
-| `conf` | float | No | 0.25 | Confidence threshold (0.0 - 1.0). Higher = stricter matching |
-| `iou` | float | No | 0.5 | NMS IoU threshold (0.0 - 1.0). Để loại bỏ duplicate boxes |
-| `topk` | int | No | 100 | Số lượng detections tối đa trả về |
-| `save_image` | bool | No | false | Lưu ảnh đã xử lý (bounding boxes) vào disk |
-
-### Response Object
-
-```json
-{
-  "model_version": "snake-yolo12-v1.0",
-  "image_width": 1280,
-  "image_height": 720,
-  "warnings": {
-    "blur": 0.05,          // 0.0-1.0: mức độ blur
-    "brightness": 0.45,    // 0.0-1.0: độ sáng 
-    "too_small": 0.0       // 0.0-1.0: đối tượng quá nhỏ
-  },
-  "detections": [
-    {
-      "class_id": 5,
-      "class_name": "naja_kaouthia",
-      "confidence": 0.89,
-      "bbox": { "x1": 100, "y1": 200, "x2": 300, "y2": 400 }
-    }
-  ],
-  "saved_image_path": null  // Chỉ có nếu save_image=true
-}
-```
-
-### Error Codes từ SnakeAI
-
-| HTTP Status | Error Code | Mô tả |
-|-------------|------------|-------|
-| 400 | `INVALID_CONTENT_TYPE` | File upload không phải ảnh |
-| 400 | `INVALID_IMAGE` | Không decode được ảnh |
-| 400 | `URL_FETCH_ERROR` | Không tải được ảnh từ URL |
-| 413 | `DOWNLOAD_TOO_LARGE` | Ảnh quá lớn |
-| 429 | `RATE_LIMITED` | Bị rate limit |
-| 503 | `MODEL_NOT_LOADED` | Model chưa load xong |
-| 504 | `URL_FETCH_TIMEOUT` | Timeout khi tải ảnh |
-
-> **Tham khảo chi tiết:** [SnakeAI API Reference](../../../02-layers/ai/SankeAi.introduction.md)
-
-## Polly Retry Configuration
-
-```csharp
-// Program.cs
-builder.Services
-    .AddRefitClient<ISnakeAIApi>()
-    .ConfigureHttpClient(c => c.BaseAddress = new Uri(snakeAIConfig.BaseUrl))
-    .AddTransientHttpErrorPolicy(p => p.WaitAndRetryAsync(3, 
-        retryAttempt => TimeSpan.FromSeconds(Math.Pow(2, retryAttempt))))
-    .AddTransientHttpErrorPolicy(p => p.CircuitBreakerAsync(5, TimeSpan.FromSeconds(30)));
-```
-
-## Configuration
-
-```json
-// appsettings.json
-{
-  "SnakeAI": {
-    "BaseUrl": "http://localhost:8000",
-    "TimeoutSeconds": 30,
-    "DefaultConfidence": 0.25,
-    "DefaultImageSize": 640,
-    "RetryCount": 3,
-    "CircuitBreakerThreshold": 5
-  }
-}
-```
-
-## Risks & Mitigation
-
-| Risk | Impact | Mitigation |
-|------|--------|------------|
-| SnakeAI service down | High | Polly Circuit Breaker + graceful error response |
-| Slow image download | Medium | Timeout + Polly retry với exponential backoff |
-| Invalid image URL | Low | Validate URL format trước khi gọi |
-| Rate limiting từ SnakeAI | Medium | Polly rate limiting policy |
-
-## Unit Tests
-
-### Test Files to Create
-
-| File | Tests |
-|------|-------|
-| `SnakeAid.Tests/Services/SnakeAIServiceTests.cs` | Service layer tests |
-| `SnakeAid.Tests/Endpoints/AIVisionEndpointsTests.cs` | API endpoint tests |
-
-### SnakeAIService Tests
-
-```csharp
-public class SnakeAIServiceTests
-{
-    private readonly Mock<ISnakeAIApi> _mockApi;
-    private readonly SnakeAIService _service;
-
-    [Fact]
-    public async Task DetectAsync_ValidUrl_ReturnsDetections()
-    {
-        // Arrange
-        _mockApi.Setup(x => x.DetectByUrlAsync(It.IsAny<SnakeAIDetectRequest>()))
-            .ReturnsAsync(new SnakeAIDetectResponse
-            {
-                ModelVersion = "snake-yolo12-v1.0",
-                Detections = new List<SnakeAIDetection>
-                {
-                    new() { ClassName = "naja_kaouthia", Confidence = 0.89f }
-                }
-            });
-
-        // Act
-        var result = await _service.DetectAsync("https://cloudinary.com/snake.jpg");
-
-        // Assert
-        result.Detections.Should().HaveCount(1);
-        result.Detections[0].ClassName.Should().Be("naja_kaouthia");
-    }
-
-    [Fact]
-    public async Task DetectAsync_ApiThrows_PropagatesException()
-    {
-        // Arrange
-        _mockApi.Setup(x => x.DetectByUrlAsync(It.IsAny<SnakeAIDetectRequest>()))
-            .ThrowsAsync(new HttpRequestException("Service unavailable"));
-
-        // Act & Assert
-        await Assert.ThrowsAsync<HttpRequestException>(() => 
-            _service.DetectAsync("https://cloudinary.com/snake.jpg"));
-    }
-
-    [Fact]
-    public async Task IsHealthyAsync_ServiceUp_ReturnsTrue()
-    {
-        // Arrange
-        _mockApi.Setup(x => x.HealthCheckAsync())
-            .ReturnsAsync(new SnakeAIHealthResponse { Status = "ok", ModelLoaded = true });
-
-        // Act
-        var result = await _service.IsHealthyAsync();
-
-        // Assert
-        result.Should().BeTrue();
-    }
-
-    [Fact]
-    public async Task IsHealthyAsync_ServiceDown_ReturnsFalse()
-    {
-        // Arrange
-        _mockApi.Setup(x => x.HealthCheckAsync())
-            .ThrowsAsync(new HttpRequestException());
-
-        // Act
-        var result = await _service.IsHealthyAsync();
-
-        // Assert
-        result.Should().BeFalse();
-    }
-}
-```
-
-### Test Coverage Requirements
-
-| Component | Min Coverage | Critical Tests |
-|-----------|--------------|----------------|
-| `SnakeAIService.DetectAsync` | 80% | Success, API error, timeout |
-| `SnakeAIService.IsHealthyAsync` | 80% | Healthy, unhealthy, exception |
-| `AIVisionEndpoints.DetectSnake` | 70% | Success, AI unavailable, invalid input |
-| `AIVisionEndpoints.GetResult` | 70% | Found, not found |
+- **URL:** `POST /api/detection/detect`
+- **Params:** `ReportMediaId` (Guid)
+- **Flow:**
+    1.  Health Check: Gọi `_snakeAIService.IsHealthyAsync()`.
+    2.  Validate `ReportMediaId` tồn tại.
+    3.  Gọi AI Service với URL của Media đó.
+    4.  Lưu `SnakeAIRecognitionResult` tham chiếu tới `ReportMediaId`.
+    5.  Return kết quả nhận diện + thông tin loài.
 
 ---
 
-## Timeline
+## 3. Entity Graph & Data Model
 
-| Phase | Task | Estimate |
-|-------|------|----------|
-| 1 | Thêm Polly packages vào Directory.Packages.props | 5m |
-| 2 | Tạo Refit interface + DTOs | 30m |
-| 3 | Implement SnakeAIService với Polly | 1h |
-| 4 | Tạo AIVisionEndpoints (Carter) | 1h |
-| 5 | Mapping YOLO class → SnakeSpecies | 30m |
-| 6 | Unit tests | 1h |
-| 7 | Integration testing | 30m |
-| **Total** | | **~5h** |
+Hệ thống sử dụng các entity sau để mapping và lưu trữ kết quả:
+
+```mermaid
+classDiagram
+    class SnakeAIRecognitionResult {
+        Guid Id
+        Guid ReportMediaId
+        int AIModelId
+        string YoloClassName
+        decimal Confidence
+        int? DetectedSpeciesId
+        bool IsMapped
+    }
+
+    class ReportMedia {
+        Guid Id
+        string MediaUrl
+        MediaPurpose Purpose
+        bool RequiresAIProcessing
+    }
+
+    class AIModel {
+        int Id
+        string Version
+        bool IsActive
+        bool IsDefault
+    }
+
+    class AISnakeClassMapping {
+        Guid Id
+        int AIModelId
+        int SnakeSpeciesId
+        string YoloClassName
+        int YoloClassId
+    }
+
+    class SnakeSpecies {
+        int Id
+        string ScientificName
+        string CommonName
+        bool IsVenomous
+    }
+
+    %% Relationships
+    SnakeAIRecognitionResult --> ReportMedia : "Belongs to"
+    SnakeAIRecognitionResult --> AIModel : "Has AIModelId"
+    SnakeAIRecognitionResult --> SnakeSpecies : "Mapped to DetectedSpeciesId"
+    
+    AIModel "1" --> "*" AISnakeClassMapping : "Has Mappings"
+    AISnakeClassMapping --> SnakeSpecies : "Maps to"
+    
+    %% Logic Mapping
+    note for AISnakeClassMapping "MAPPING LOGIC:\nAIModelId + YoloClassName -> SnakeSpeciesId"
+```
+
+### Chi tiết Entities:
+
+1.  **`ReportMedia`**:
+    *   Lưu trữ thông tin file ảnh/video upload (URL từ Cloudinary).
+    *   Được liên kết với các nghiệp vụ khác (Community Report, SOS, Rescue).
+    *   Trường `RequiresAIProcessing` cờ đánh dấu cần gọi AI.
+
+2.  **`SnakeAIRecognitionResult`**:
+    *   Lưu trữ kết quả mỗi lần request (Audit/History).
+    *   FK `ReportMediaId`: Liên kết 1-n (một ảnh có thể chạy AI nhiều lần hoặc nhiều model khác nhau).
+    *   Có trường `DetectedSpeciesId` là kết quả sau khi map.
+
+3.  **`AIModel`**:
+    *   Định danh phiên bản model đang chạy (VD: `snake-yolo12-v1.0`).
+    *   Cần thiết để chọn đúng bộ mapping (vì các version model có thể có bộ class khác nhau).
+
+4.  **`AISnakeClassMapping`**:
+    *   Bảng tra cứu: `(AIModelId, YoloClassName) => SnakeSpeciesId`.
+    *   Cho phép decouple việc huấn luyện AI và quản lý dữ liệu loài trong DB.
+
+## 3. Updated Architecture Loop
+
+```
+[Client] -> [API: SnakeDetectionController]
+                 |
+                 v
+            [SnakeAIService] -> [SnakeAI FastAPI] -> (1) Get YOLO Result
+                 |
+                 v
+            [Service Logic]
+                 |--> (2) Get Active AIModel (Cacheable)
+                 |--> (3) Mapping: Find AISnakeClassMapping (ModelId + ClassName)
+                 |--> (4) Enrich: Get SnakeSpecies info
+                 |--> (5) Persist: Save SnakeAIRecognitionResult to DB
+                 |
+                 v
+            [Client Response] (Includes Species Info + Risk Level)
+```
+
+## 4. Implementation Steps
+
+### Step 1: Repositories & Database Access
+Hiện tại dự án sử dụng `GenericRepository`. Cần inject `IUnitOfWork` hoặc các Repository `IGenericRepository<T>` cần thiết vào `SnakeAIService`:
+- `IGenericRepository<AIModel>`
+- `IGenericRepository<AISnakeClassMapping>`
+- `IGenericRepository<SnakeAIRecognitionResult>`
+- `IGenericRepository<SnakeSpecies>`
+
+### Step 2: Update `SnakeAIService`
+Cập nhật method `DetectAsync` để thực hiện full flow:
+1.  **Call AI**: Giữ nguyên logic gọi Refit Client.
+2.  **Validation**: Kiểm tra kết quả trả về.
+3.  **Mapping Flow**:
+    *   Lấy `ModelVersion` từ AI Response.
+    *   Tìm `AIModel` trong DB khớp version.
+    *   Tìm `AISnakeClassMapping` khớp `AIModel.Id` và `YoloClassName`.
+    *   Nếu có mapping -> set `DetectedSpeciesId` và `IsMapped = true`.
+4.  **Persist**: Tạo và lưu `SnakeAIRecognitionResult`.
+5.  **Enrich Response**:
+    *   Cập nhật `SnakeDetectionResponse` để trả về thêm `SpeciesId`, `ScientificName`, `RiskLevel` cho Frontend hiển thị cảnh báo.
+
+### Step 3: DTO Updates
+Cập nhật `SnakeDetectionResponse.cs` và `SnakeAIDetection.cs` để thêm các trường thông tin loài rắn.
+
+```csharp
+public class SnakeAIDetection
+{
+    // Existing fields...
+    public int? SpeciesId { get; set; }
+    public string? SpeciesName { get; set; }        // Tên thường gọi (VN) - Display on UI
+    public string? ScientificName { get; set; }     // Tên khoa học - Display on UI
+    public bool? IsVenomous { get; set; }           // Cờ xác định rắn độc - Trigger Red Banner/Alert
+    public float? RiskLevel { get; set; }           // Mức độ nguy hiểm (0-10) - Display Bar Chart
+}
+```
+
+## 5. Timeline Estimate
+- **Repository Setup**: 30 mins
+- **Mapping Logic Implementation**: 1.5 hours
+- **Response Enrichment**: 30 mins
+- **Testing (Integration)**: 1 hour
+
+---
+
+---
+
+## Phase 2.1: Response Optimization
+
+> **Added:** 2026-02-01
+> **Goal:** Optimize response for Mobile App development (reduce DTO mapping, support offline-first logic).
+
+### 1. Response Structure Redesign (V3)
+Chuyển từ Flat DTO sang cấu trúc phân tách Metadata/Results để rõ ràng nguồn dữ liệu.
+
+```json
+{
+  // 1. GLOBAL METADATA (Nguồn: FastAPI)
+  "ai_metadata": {
+    "model_version": "snake-yolo12-v1.0",
+    "image_width": 1280,
+    "image_height": 720,
+    "detection_count": 1,
+    "warnings": {
+      "blur": 0.05,        // Cảnh báo ảnh mờ
+      "brightness": 0.45,  // Độ sáng
+      "too_small": 0.0     // Vật thể quá nhỏ
+    }
+  },
+
+  // 2. DETECTION RESULTS list
+  "results": [
+    {
+      // 2.1 AI INFO (Nguồn: FastAPI - Specific Detection)
+      "ai_detection": {
+        "class_id": 0,
+        "class_name": "king_cobra",
+        "confidence": 0.94,
+        "bbox": {
+          "x1": 100, "y1": 200, "x2": 300, "y2": 400
+        }
+      },
+
+      // 2.2 ENTITY INFO (Nguồn: SnakeSpecies.cs - Full Entity)
+      "snake": {
+        // --- Scalar Fields ---
+        "id": 101,
+        "scientificName": "Ophiophagus hannah",
+        "commonName": "Rắn hổ mang chúa",
+        "slug": "ran-ho-mang-chua",
+        "imageUrl": "https://...",
+        "description": "Loài rắn độc lớn nhất thế giới...",
+        "identificationSummary": "Cổ bành rộng, mắt đen, vảy trơn...",
+        "isVenomous": true,
+        "riskLevel": 9.5,
+        "isActive": true,
+
+        // --- JSONB Fields ---
+        "identification": {
+          "physicalTraits": ["Cổ bành", "Mắt đen"],
+          "behaviors": ["Chủ động tấn công khi bị đe dọa"],
+          "habitat": "Rừng nhiệt đới, khu dân cư ven rừng"
+        },
+        
+        "symptomsByTime": [
+          { 
+             "timeRange": "0-15p", 
+             "signs": ["Đau buốt", "Sưng to"], 
+             "isCritical": false 
+          }
+        ],
+
+        // --- SPECIAL LOGIC: FIRST AID ---
+        // Nếu DB null -> Tự động điền từ VenomType (Fallback)
+        "firstAidGuidelineOverride": {
+          "mode": 0, // Append/Replace
+          "steps": [
+             "Trấn an nạn nhân", 
+             "Bất động chi bị cắn"
+          ]
+        },
+
+        // --- Navigation Props (Có thể null để tránh loop/heavy payload) ---
+        "primaryVenomType": 0 // Enum Value
+      }
+    }
+  ]
+}
+```
+
+### 2. First Aid Fallback Logic
+Frontend cần hiển thị hướng dẫn sơ cứu ngay lập tức. Logic fallback như sau:
+
+1.  Kiểm tra `SnakeSpecies.FirstAidGuidelineOverride` (JSONB).
+2.  Nếu `Null` -> Truy vấn ngược qua relation:
+    `SnakeSpecies -> SpeciesVenoms -> VenomType -> FirstAidGuidelineId`
+3.  Lấy Content từ `FirstAidGuideline` và populate vào field trả về (đổi tên thành `firstAidGuideline`).
+4.  **Serialization**: Cấu hình Enum thành String (`Neurotoxic` thay vì `0`).

@@ -1,37 +1,41 @@
-# AI Vision Detection - Giới thiệu
+# Snake Detection - Introduction
 
-## Tổng quan
+## 🎯 Overview
 
-`POST /api/aivision/detect` là endpoint cho phép nhận diện loài rắn từ ảnh sử dụng YOLO model. Endpoint này đóng vai trò **wrapper** cho SnakeAI FastAPI service (`/detect/url`).
+`POST /api/detection/detect/{reportMediaId}` là endpoint chính cho chức năng nhận diện loài rắn, sử dụng mô hình AI kết hợp với cơ sở dữ liệu loài (SnakeLibs) để cung cấp thông tin chi tiết và hướng dẫn sơ cứu.
 
-## Vị trí trong User Flow
+Hệ thống hoạt động theo quy trình **Two-Step Flow**:
+1.  **Media Upload:** Upload ảnh rắn để tạo `ReportMedia`.
+2.  **Detection:** Gọi AI để phân tích ảnh đó và map kết quả với `SnakeSpecies`.
 
-- **Flow:** P1 - Emergency Rescue
-- **Screen:** 3. Chụp ảnh rắn để AI nhận diện
-- **Role:** Member
+## 🔄 User Flow (Phase 2)
 
-## Lý do thiết kế tách riêng
+-   **Flow:** P1 - Emergency Rescue & P2 - Education
+-   **Screen:** Camera/Upload Screen -> Detection Result Screen
+-   **Actors:** Member, Guest, System Admin
 
-Chọn phương án **tách riêng** upload và AI detection:
+## 🏗 Architecture
+
+### 1. Separation of Concerns
+Chúng tôi tách biệt việc upload và detection để tối ưu hóa hiệu năng và quản lý dữ liệu:
 
 | Endpoint | Mục đích |
 |----------|----------|
-| `POST /api/media/upload-image` | Upload ảnh lên Cloudinary → trả về `imageUrl` |
-| `POST /api/aivision/detect` | Nhận `imageUrl` → gọi SnakeAI → trả về kết quả |
+| `POST /api/media/report` | Upload ảnh lên Cloudinary và lưu metadata vào DB (`ReportMedia`) |
+| `POST /api/detection/detect/{reportMediaId}` | Trigger AI analysis trên ảnh đã upload |
 
-**Lợi ích:**
-- ✅ Reusable: upload endpoint dùng cho nhiều mục đích khác
-- ✅ Dễ debug và monitor từng bước
-- ✅ Client có thể retry từng step
-- ✅ Parallel uploads (upload nhiều ảnh cùng lúc)
+### 2. SnakeLibs Integration
+Không chỉ trả về kết quả raw từ YOLO (VD: "cobra"), hệ thống còn map kết quả này với entity `SnakeSpecies` trong database để trả về:
+-   **Common Name & Scientific Name** (Tiếng Việt/Anh)
+-   **Venom Status & Risk Level**
+-   **First Aid Guidelines** (Hướng dẫn sơ cứu cụ thể cho từng loại nọc độc)
 
-## Use Cases
+## 💡 Key Features (V3)
+-   **Strict JSON Structure:** Response tuân thủ cấu trúc JSON strict với `ai_metadata` và `results`.
+-   **Fallback Logic:** Tự động tìm hướng dẫn sơ cứu từ Venom Type nếu không có override cụ thể cho loài.
+-   **Persistence:** Mọi kết quả nhận diện đều được lưu lại (`SnakeAIRecognitionResult`) để audit và training sau này.
 
-1. **Emergency SOS (P1-S1):** Member chụp ảnh rắn → AI nhận diện → hiển thị kết quả + first aid
-2. **Snake Catching (P2):** Member báo cáo rắn → AI xác định loài → tính phí phù hợp
-3. **Library Browse:** User upload ảnh → AI identify → navigates to species page
-
-## Tham khảo
-
-- [SnakeAI Model Endpoint API Reference](../../02-layers/ai/SankeAi.introduction.md)
-- [Cloudinary Integration](../../02-layers/cloudinary/cloudinary.introduction.md)
+## 📚 References
+-   [Implementation Plan](./snake-detection.plan.md)
+-   [Source Code Status](./snake-detection.sourcecode.md)
+-   [Usage Guide](./snake-detection.usageguide.md)
