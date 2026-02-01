@@ -21,14 +21,14 @@
 ```
 ┌─────────────┐      ┌──────────────────┐      ┌─────────────────┐
 │   Client    │ ---> │  ASP.NET Backend │ ---> │  SnakeAI FastAPI│
-│  (Mobile)   │      │ /api/detection│     │  /detect/url    │
+│  (Mobile)   │      │ /api/detection    │     │  /detect/url    │
 └─────────────┘      └──────────────────┘      └─────────────────┘
                               │                        │
                               v                        v
-                     ┌──────────────────┐      ┌──────────────┐
-                     │   PostgreSQL DB  │      │   /health    │
+                     ┌───────────────── ─┐      ┌──────────────┐
+                     │   PostgreSQL DB   │      │   /health    │
                      │ SnakeAIRecognition│      │ (internal)   │
-                     └──────────────────┘      └──────────────┘
+                     └───────────────── ─┘      └──────────────┘
 ```
 
 ## Files to Create/Modify
