@@ -1156,6 +1156,387 @@ namespace SnakeAid.Repository.Seeds
                 };
                 context.FilterSnakeMappings.AddRange(mappings);
 
+
+                var symptomConfigs = new List<SymptomConfig>
+                {
+                    // ==================================================================================
+                    // NHÓM 1: BACKGROUND - THÔNG TIN TIỀN ĐỀ (ID: 1xx | DisplayOrder: 1-19)
+                    // =================================================================================
+
+                    new SymptomConfig
+                    {
+                        Id = 101,
+                        GroupName = "BACKGROUND",
+                        AttributeKey = "AGE_GROUP",
+                        AttributeLabel = "Thông tin nạn nhân",
+                        Name = "Trẻ em (< 12 tuổi)",
+                        DisplayOrder = 1,
+                        Category = SymptomCategory.Modifier,
+                        IsCritical = true,
+                        AlertMessage = "CẢNH BÁO: Trẻ em có diện tích cơ thể nhỏ, độc chất lan vào máu nhanh gấp nhiều lần người lớn.",
+                        TimeScoresJson = JsonSerializer.Serialize(new List<TimeScorePoint> {
+                            new TimeScorePoint { MinMinutes = 0, MaxMinutes = 1440, Score = 20 }
+                        })
+                    },
+
+                    new SymptomConfig
+                    {
+                        Id = 102,
+                        GroupName = "BACKGROUND",
+                        AttributeKey = "AGE_GROUP",
+                        AttributeLabel = "Thông tin nạn nhân",
+                        Name = "Người cao tuổi (> 65 tuổi)",
+                        DisplayOrder = 2,
+                        Category = SymptomCategory.Modifier,
+                        TimeScoresJson = JsonSerializer.Serialize(new List<TimeScorePoint> {
+                            new TimeScorePoint { MinMinutes = 0, MaxMinutes = 1440, Score = 15 }
+                        })
+                    },
+
+                    new SymptomConfig
+                    {
+                        Id = 103,
+                        GroupName = "BACKGROUND",
+                        AttributeKey = "MEDICAL_HISTORY",
+                        AttributeLabel = "Tiền sử bệnh",
+                        Name = "Bệnh tim mạch / Tiểu đường / Suy thận",
+                        DisplayOrder = 3,
+                        Category = SymptomCategory.Modifier,
+                        Description = "Làm tăng nguy cơ sốc và biến chứng hoại tử.",
+                        TimeScoresJson = JsonSerializer.Serialize(new List<TimeScorePoint> {
+                            new TimeScorePoint { MinMinutes = 0, MaxMinutes = 1440, Score = 15 }
+                        })
+                    },
+
+                    new SymptomConfig
+                    {
+                        Id = 110,
+                        GroupName = "BACKGROUND",
+                        AttributeKey = "BITE_LOCATION",
+                        AttributeLabel = "Vị trí vết cắn",
+                        Name = "Đầu, cổ, mặt",
+                        DisplayOrder = 4,
+                        Category = SymptomCategory.Modifier,
+                        IsCritical = true,
+                        AlertMessage = "VỊ TRÍ NGUY HIỂM: Gần hệ thần kinh trung ương và dễ gây phù nề đường thở.",
+                        TimeScoresJson = JsonSerializer.Serialize(new List<TimeScorePoint> {
+                            new TimeScorePoint { MinMinutes = 0, MaxMinutes = 1440, Score = 30 }
+                        })
+                    },
+
+                    new SymptomConfig
+                    {
+                        Id = 111,
+                        GroupName = "BACKGROUND",
+                        AttributeKey = "BITE_LOCATION",
+                        AttributeLabel = "Vị trí vết cắn",
+                        Name = "Ngực, bụng, nách, bẹn",
+                        DisplayOrder = 5,
+                        Category = SymptomCategory.Modifier,
+                        TimeScoresJson = JsonSerializer.Serialize(new List<TimeScorePoint> {
+                            new TimeScorePoint { MinMinutes = 0, MaxMinutes = 1440, Score = 25 },
+                        })
+                    },
+
+                    new SymptomConfig
+                    {
+                        Id = 112,
+                        GroupName = "BACKGROUND",
+                        AttributeKey = "BITE_LOCATION",
+                        AttributeLabel = "Vị trí vết cắn",
+                        Name = "Bàn tay, ngón tay",
+                        DisplayOrder = 6,
+                        Category = SymptomCategory.Modifier,
+                        TimeScoresJson = JsonSerializer.Serialize(new List<TimeScorePoint> {
+                            new TimeScorePoint { MinMinutes = 0, MaxMinutes = 1440, Score = 25 }
+                        })
+                    },
+
+                    new SymptomConfig
+                    {
+                        Id = 113,
+                        GroupName = "BACKGROUND",
+                        AttributeKey = "BITE_LOCATION",
+                        AttributeLabel = "Vị trí vết cắn",
+                        Name = "Cánh tay, cẳng tay",
+                        DisplayOrder = 7,
+                        Category = SymptomCategory.Modifier,
+                        TimeScoresJson = JsonSerializer.Serialize(new List<TimeScorePoint> {
+                            new TimeScorePoint { MinMinutes = 0, MaxMinutes = 1440, Score = 20 }
+                        })
+                    },
+
+                        new SymptomConfig
+                    {
+                        Id = 114,
+                        GroupName = "BACKGROUND",
+                        AttributeKey = "BITE_LOCATION",
+                        AttributeLabel = "Vị trí vết cắn",
+                        Name = "Bàn chân, cẳng chân",
+                        DisplayOrder = 8,
+                        Category = SymptomCategory.Modifier,
+                        TimeScoresJson = JsonSerializer.Serialize(new List<TimeScorePoint> {
+                            new TimeScorePoint { MinMinutes = 0, MaxMinutes = 1440, Score = 12 }
+                        })
+                    },
+
+                    // ==================================================================================
+                    // NHÓM 2: LOCAL - TRIỆU CHỨNG TẠI CHỖ (ID: 2xx | DisplayOrder: 20-39)
+                    // ==================================================================================
+
+                    new SymptomConfig
+                    {
+                        Id = 201,
+                        GroupName = "LOCAL",
+                        AttributeKey = "SYMPTOM_LOCAL",
+                        AttributeLabel = "Dấu hiệu tại chỗ",
+                        Name = "Đau nhức dữ dội / Bỏng rát",
+                        DisplayOrder = 20,
+                        Category = SymptomCategory.Modifier,
+                        TimeScoresJson = JsonSerializer.Serialize(new List<TimeScorePoint> {
+                            new TimeScorePoint { MinMinutes = 0, MaxMinutes = 30, Score = 30 },
+                            new TimeScorePoint { MinMinutes = 31, MaxMinutes = 1440, Score = 25 },
+                        })
+                    },
+
+                    new SymptomConfig
+                    {
+                        Id = 202,
+                        GroupName = "LOCAL",
+                        AttributeKey = "SYMPTOM_LOCAL",
+                        AttributeLabel = "Dấu hiệu tại chỗ",
+                        Name = "Sưng vù, lan nhanh (> 5cm/giờ)",
+                        DisplayOrder = 21,
+                        Category = SymptomCategory.Core,
+                        VenomTypeId = 2,
+                        IsCritical = true,
+                        AlertMessage = "Nọc độc dòng Rắn Lục hoặc Hổ Mang đang phá hủy mô mạnh. Hạn chế vận động!",
+                        TimeScoresJson = JsonSerializer.Serialize(new List<TimeScorePoint> {
+                            new TimeScorePoint { MinMinutes = 0, MaxMinutes = 180, Score = 60 },
+                            new TimeScorePoint { MinMinutes = 181, MaxMinutes = 1440, Score = 40 }
+                        })
+                    },
+
+                    new SymptomConfig
+                    {
+                        Id = 203,
+                        GroupName = "LOCAL",
+                        AttributeKey = "SYMPTOM_LOCAL",
+                        AttributeLabel = "Dấu hiệu tại chỗ",
+                        Name = "Bầm tím, bóng nước, phồng rộp",
+                        DisplayOrder = 22,
+                        Category = SymptomCategory.Modifier,
+                        VenomTypeId = 2,
+                        TimeScoresJson = JsonSerializer.Serialize(new List<TimeScorePoint> {
+                            new TimeScorePoint { MinMinutes = 0, MaxMinutes = 1440, Score = 30 }
+                        })
+                    },
+
+                    new SymptomConfig
+                    {
+                        Id = 204,
+                        GroupName = "LOCAL",
+                        AttributeKey = "SYMPTOM_LOCAL",
+                        AttributeLabel = "Dấu hiệu tại chỗ",
+                        Name = "Tê rần, tê lan từ vết cắn",
+                        DisplayOrder = 23,
+                        Category = SymptomCategory.Modifier,
+                        VenomTypeId = 1,
+                        Description = "Dấu hiệu sớm của độc tố thần kinh.",
+                        TimeScoresJson = JsonSerializer.Serialize(new List<TimeScorePoint> {
+                            new TimeScorePoint { MinMinutes = 0, MaxMinutes = 60, Score = 30 },
+                            new TimeScorePoint { MinMinutes = 61, MaxMinutes = 1440, Score = 50 }
+                        })
+                    },
+
+                    new SymptomConfig
+                    {
+                        Id = 205,
+                        GroupName = "LOCAL",
+                        AttributeKey = "SYMPTOM_LOCAL",
+                        AttributeLabel = "Dấu hiệu tại chỗ",
+                        Name = "Không đau - Không sưng",
+                        DisplayOrder = 24,
+                        Category = SymptomCategory.Modifier,
+                        VenomTypeId = 1,
+                        IsCritical = true,
+                        AlertMessage = "CẢNH BÁO: Rất giống vết cắn Rắn Cạp Nia. Triệu chứng liệt có thể đến muộn nhưng rất nặng!",
+                        TimeScoresJson = JsonSerializer.Serialize(new List<TimeScorePoint> {
+                            new TimeScorePoint { MinMinutes = 0, MaxMinutes = 1440, Score = 15 }
+                        })
+                    },
+
+                    new SymptomConfig
+                    {
+                        Id = 206,
+                        GroupName = "LOCAL",
+                        AttributeKey = "SYMPTOM_LOCAL",
+                        AttributeLabel = "Dấu hiệu tại chỗ nặng",
+                        Name = "Mô đen, Hoại tử, Mùi hôi",
+                        DisplayOrder = 25,
+                        Category = SymptomCategory.Core,
+                        VenomTypeId = 3,
+                        IsCritical = true,
+                        AlertMessage = "Hoại tử tiến triển. Cần can thiệp để tránh nhiễm trùng máu và mất chi.",
+                        TimeScoresJson = JsonSerializer.Serialize(new List<TimeScorePoint> {
+                            new TimeScorePoint { MinMinutes = 0, MaxMinutes = 1440, Score = 90 }
+                        })
+                    },
+
+                    new SymptomConfig
+                    {
+                        Id = 207,
+                        GroupName = "LOCAL",
+                        AttributeKey = "SYMPTOM_LOCAL",
+                        AttributeLabel = "Dấu hiệu tại chỗ nặng",
+                        Name = "Máu chảy liên tục, rỉ máu không cầm",
+                        DisplayOrder = 26,
+                        Category = SymptomCategory.Core,
+                        VenomTypeId = 2,
+                        TimeScoresJson = JsonSerializer.Serialize(new List<TimeScorePoint> {
+                            new TimeScorePoint { MinMinutes = 0, MaxMinutes = 1440, Score = 85 }
+                        })
+                    },
+
+                    // ==================================================================================
+                    // NHÓM 3: CRITICAL - NGUY KỊCH TOÀN THÂN (ID: 3xx | DisplayOrder: 40-60)
+                    // ==================================================================================
+
+                    new SymptomConfig
+                    {
+                        Id = 301,
+                        GroupName = "CRITICAL",
+                        AttributeKey = "CORE_SIGNS",
+                        AttributeLabel = "Dấu hiệu nguy kịch",
+                        Name = "Khó thở, tức ngực, thở gấp",
+                        DisplayOrder = 40,
+                        Category = SymptomCategory.Core,
+                        VenomTypeId = 1,
+                        IsCritical = true,
+                        AlertMessage = "Dấu hiệu suy hô hấp sắp xảy ra. Cần hỗ trợ thở ngay lập tức!",
+                        TimeScoresJson = JsonSerializer.Serialize(new List<TimeScorePoint> {
+                            new TimeScorePoint { MinMinutes = 0, MaxMinutes = 1440, Score = 100 }
+                        })
+                    },
+
+                    new SymptomConfig
+                    {
+                        Id = 302,
+                        GroupName = "CRITICAL",
+                        AttributeKey = "CORE_SIGNS",
+                        AttributeLabel = "Dấu hiệu nguy kịch",
+                        Name = "Sụp mí mắt, lờ đờ, khó mở mắt",
+                        DisplayOrder = 41,
+                        Category = SymptomCategory.Core,
+                        IsCritical = true,
+                        AlertMessage = "Dấu hiệu của độc tố thần kinh. Cần theo dõi sát và hỗ trợ thở kịp thời!",
+                        VenomTypeId = 1,
+                        TimeScoresJson = JsonSerializer.Serialize(new List<TimeScorePoint> {
+                            new TimeScorePoint { MinMinutes = 0, MaxMinutes = 60, Score = 90 },
+                            new TimeScorePoint { MinMinutes = 61, MaxMinutes = 1440, Score = 80 }
+                        })
+                    },
+
+                    new SymptomConfig
+                    {
+                        Id = 303,
+                        GroupName = "CRITICAL",
+                        AttributeKey = "CORE_SIGNS",
+                        AttributeLabel = "Dấu hiệu nguy kịch",
+                        Name = "Choáng váng, tụt huyết áp, ngất xỉu",
+                        DisplayOrder = 42,
+                        Category = SymptomCategory.Core,
+                        IsCritical = true,
+                        AlertMessage = "Dấu hiệu Sốc. Đặt nạn nhân nằm thấp đầu, nâng cao chân.",
+                        TimeScoresJson = JsonSerializer.Serialize(new List<TimeScorePoint> {
+                            new TimeScorePoint { MinMinutes = 0, MaxMinutes = 30, Score = 80 },
+                            new TimeScorePoint { MinMinutes = 31, MaxMinutes = 1440, Score = 70 }
+                        })
+                    },
+
+                    new SymptomConfig
+                    {
+                        Id = 304,
+                        GroupName = "CRITICAL",
+                        AttributeKey = "CORE_SIGNS",
+                        AttributeLabel = "Dấu hiệu nguy kịch",
+                        Name = "Chảy máu không cầm, nôn ra máu",
+                        DisplayOrder = 43,
+                        Category = SymptomCategory.Core,
+                        VenomTypeId = 2,
+                        IsCritical = true,
+                        AlertMessage = "Dấu hiệu rối loạn đông máu toàn thân!",
+                        TimeScoresJson = JsonSerializer.Serialize(new List<TimeScorePoint> {
+                            new TimeScorePoint { MinMinutes = 0, MaxMinutes = 1440, Score = 90 }
+                        })
+                    },
+
+                    new SymptomConfig
+                    {
+                        Id = 305,
+                        GroupName = "CRITICAL",
+                        AttributeKey = "CORE_SIGNS",
+                        AttributeLabel = "Dấu hiệu nguy kịch",
+                        Name = "Nước tiểu sẫm màu (như xá xị)",
+                        DisplayOrder = 44,
+                        IsCritical = true,
+                        AlertMessage = "CẢNH BÁO: dấu hiệu suy thận cấp do vỡ hồng cầu.",
+                        Category = SymptomCategory.Core,
+                        VenomTypeId = 4,
+                        TimeScoresJson = JsonSerializer.Serialize(new List<TimeScorePoint> {
+                            new TimeScorePoint { MinMinutes = 0, MaxMinutes = 1440, Score = 80 }
+                        })
+                    },
+
+                    new SymptomConfig
+                    {
+                        Id = 306,
+                        GroupName = "CRITICAL",
+                        AttributeKey = "CORE_SIGNS",
+                        AttributeLabel = "Dấu hiệu nguy kịch",
+                        Name = "Buồn nôn, đau bụng cấp",
+                        DisplayOrder = 45,
+                        Category = SymptomCategory.Core,
+                        TimeScoresJson = JsonSerializer.Serialize(new List<TimeScorePoint> {
+                            new TimeScorePoint { MinMinutes = 0, MaxMinutes = 30, Score = 85 },
+                            new TimeScorePoint { MinMinutes = 31, MaxMinutes = 120, Score = 70 },
+                            new TimeScorePoint { MinMinutes = 121, MaxMinutes = 1440, Score = 60 }
+                        })
+                    },
+
+                    new SymptomConfig
+                    {
+                        Id = 307,
+                        GroupName = "CRITICAL",
+                        AttributeKey = "CORE_SIGNS",
+                        AttributeLabel = "Dấu hiệu nguy kịch",
+                        Name = "Cơ yếu dần, cử động khó khăn",
+                        DisplayOrder = 46,
+                        Category = SymptomCategory.Core,
+                        TimeScoresJson = JsonSerializer.Serialize(new List<TimeScorePoint> {
+                            new TimeScorePoint { MinMinutes = 0, MaxMinutes = 60, Score = 55 },
+                            new TimeScorePoint { MinMinutes = 60, MaxMinutes = 1440, Score = 45 }
+                        })
+                    },
+
+                    new SymptomConfig
+                    {
+                        Id = 308,
+                        GroupName = "CRITICAL",
+                        AttributeKey = "CORE_SIGNS",
+                        AttributeLabel = "Dấu hiệu nguy kịch",
+                        Name = "Khó nói, khó nuốt, há miệng khó",
+                        DisplayOrder = 47,
+                        Category = SymptomCategory.Core,
+                        VenomTypeId = 1,
+                        TimeScoresJson = JsonSerializer.Serialize(new List<TimeScorePoint> {
+                            new TimeScorePoint { MinMinutes = 0, MaxMinutes = 60, Score = 60 },  // Xuất hiện cực nhanh -> Rất nặng
+                                new TimeScorePoint { MinMinutes = 60, MaxMinutes = 180, Score = 50 },
+                                new TimeScorePoint { MinMinutes = 180, MaxMinutes = 1440, Score = 40 }
+                        })
+                    },
+                };
+
                 await context.SaveChangesAsync();
             }
         }
