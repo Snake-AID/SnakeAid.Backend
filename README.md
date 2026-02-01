@@ -1,3 +1,4 @@
+[![Jenkins CICD Status](https://jenkins.duykhiem.id.vn/buildStatus/icon?job=SnakeAid/main&subject=Jenkins%20CI/CD)](https://jenkins.duykhiem.id.vn/job/SnakeAid/job/main/)
 # SnakeAid.Backend
 
 Note:
