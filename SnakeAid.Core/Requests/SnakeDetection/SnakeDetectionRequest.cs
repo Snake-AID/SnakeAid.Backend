@@ -1,14 +1,15 @@
-using System.Text.Json.Serialization;
+using System.ComponentModel.DataAnnotations;
 
 namespace SnakeAid.Core.Requests.SnakeDetection;
 
 /// <summary>
-/// Request to detect snake from image URL
+/// Request to detect snake from uploaded ReportMedia
 /// </summary>
 public class SnakeDetectionRequest
 {
     /// <summary>
-    /// Public URL of the image (preferably Cloudinary)
+    /// ID of the ReportMedia entity containing the image
     /// </summary>
-    public required string ImageUrl { get; set; }
+    [Required]
+    public Guid ReportMediaId { get; set; }
 }

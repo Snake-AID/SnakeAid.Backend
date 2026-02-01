@@ -30,40 +30,40 @@ public class SnakeDetectionController : BaseController<SnakeDetectionController>
     }
 
     /// <summary>
-    /// Detect snake species from image URL
+    /// Detect snake species from uploaded ReportMedia
     /// </summary>
-    /// <param name="request">Detection request with image URL</param>
-    /// <returns>Detection result with species and confidence</returns>
+    /// <param name="request">Detection request with ReportMediaId</param>
+    /// <param name="ct">Cancellation token</param>
+    /// <returns>Detection result with species info and confidence</returns>
     [HttpPost("detect")]
     [SwaggerOperation(
-        Summary = "Detect snake from image",
-        Description = "Analyze image from Cloudinary URL using SnakeAI model to detect snake species")]
+        Summary = "Detect snake from ReportMedia",
+        Description = "Analyze image from ReportMedia using SnakeAI model to detect snake species and map to SnakeLibs")]
     [SwaggerResponse(200, "Detection successful", typeof(ApiResponse<SnakeDetectionResponse>))]
     [SwaggerResponse(400, "Invalid request", typeof(ApiResponse<object>))]
+    [SwaggerResponse(404, "ReportMedia not found", typeof(ApiResponse<object>))]
     [SwaggerResponse(503, "AI service unavailable", typeof(ApiResponse<object>))]
-    public async Task<IActionResult> Detect([FromBody] SnakeDetectionRequest request)
+    public async Task<IActionResult> Detect([FromBody] SnakeDetectionRequest request, CancellationToken ct = default)
     {
-        if (string.IsNullOrWhiteSpace(request.ImageUrl))
-        {
-            var errorResponse = ApiResponseBuilder.BuildErrorResponse(
-                "ImageUrl is required",
-                "INVALID_REQUEST");
-            return StatusCode(errorResponse.StatusCode, errorResponse);
-        }
+        var result = await _snakeAIService.DetectFromReportMediaAsync(request.ReportMediaId, ct);
+        return StatusCode(result.StatusCode, result);
+    }
 
-        // Check if AI service is available
-        if (!await _snakeAIService.IsHealthyAsync())
-        {
-            _logger.LogWarning("SnakeAI service is unavailable");
-            var unavailableResponse = ApiResponseBuilder.BuildErrorResponse(
-                "Snake detection service is currently unavailable. Please try again later.",
-                "SERVICE_UNAVAILABLE",
-                null,
-                System.Net.HttpStatusCode.ServiceUnavailable);
-            return StatusCode(unavailableResponse.StatusCode, unavailableResponse);
-        }
-
-        var result = await _snakeAIService.DetectAsync(request.ImageUrl);
+    /// <summary>
+    /// Get detection result by ID
+    /// </summary>
+    /// <param name="id">Recognition result ID</param>
+    /// <param name="ct">Cancellation token</param>
+    /// <returns>Detection result details</returns>
+    [HttpGet("{id:guid}")]
+    [SwaggerOperation(
+        Summary = "Get detection result",
+        Description = "Retrieve saved detection result by ID")]
+    [SwaggerResponse(200, "Detection result found", typeof(ApiResponse<SnakeDetectionResponse>))]
+    [SwaggerResponse(404, "Detection result not found", typeof(ApiResponse<object>))]
+    public async Task<IActionResult> GetDetectionResult(Guid id, CancellationToken ct = default)
+    {
+        var result = await _snakeAIService.GetRecognitionResultAsync(id, ct);
         return StatusCode(result.StatusCode, result);
     }
 }

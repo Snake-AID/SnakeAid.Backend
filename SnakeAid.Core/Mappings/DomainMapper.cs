@@ -8,6 +8,7 @@ using SnakeAid.Core.Responses.SnakebiteIncident;
 using SnakeAid.Core.Responses.RescueRequestSession;
 using SnakeAid.Core.Responses.FirstAidGuideline;
 using SnakeAid.Core.Responses.SymptomConfig;
+using SnakeAid.Core.Responses.Media;
 
 namespace SnakeAid.Core.Mappings
 {
@@ -43,6 +44,9 @@ namespace SnakeAid.Core.Mappings
 
             // VenomType to VenomTypeInfo mapping
             config.NewConfig<VenomType, VenomTypeInfo>();
+
+            // Media mappings
+            config.NewConfig<ReportMedia, ReportMediaResponse>();
         }
     }
 }
