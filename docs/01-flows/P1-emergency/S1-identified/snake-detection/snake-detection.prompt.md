@@ -1,625 +1,406 @@
-# Snake Detection API - Implementation Prompt
+# Snake Detection - Implementation Prompt ✅ COMPLETED
 
-> **Dành cho:** AI Agent (Copilot)  
-> **Mục tiêu:** Implement endpoint `POST /api/detection/detect`
-
----
-
-## Context
-
-Endpoint nhận diện rắn bằng AI cho SnakeAid Backend. Endpoint nhận `imageUrl` từ Cloudinary và gọi SnakeAI FastAPI service.
-
-**Architecture:**
-- **Frontend API**: `SnakeDetectionController` with BaseController pattern
-- **External Integration**: `SnakeAIService` with data mapping  
-- **DTOs**: Separate namespaces for frontend vs external
-
-**Tham khảo:**
-- [Implementation Plan](snake-detection.plan.md) - Architecture details
-- [SnakeAI API Reference](../../../02-layers/ai/SankeAi.introduction.md) - External API
+> **Loại file:** `prompt.md` - Yeu cầu chi tiết từng bước cho Agent  
+> **Timeline:** Phase 2 Implementation ✅ COMPLETED  
+> **Context doc:** `snake-detection-with-snakelibs.plan.md`
+> **Status:** Implementation completed successfully with Service Layer Pattern
 
 ---
 
-## Key Requirements
+## ✅ COMPLETED OBJECTIVES
 
-### 1. Naming Convention
-- **Frontend**: SnakeDetection (simple, user-facing)
-- **External**: SnakeAI (detailed, ML-specific)
-
-### 2. Response Format
-- Use `ApiResponse<SnakeDetectionResponse>` wrapper
-- Follow `StatusCode(result.StatusCode, result)` pattern
-
-### 3. Data Mapping
-- Map between SnakeAI response → SnakeDetection response
-- Transform bounding box format: `{x1,y1,x2,y2}` → `{x,y,width,height}`
+**Successfully implemented** Phase 2 của tính năng Snake Detection, bao gồm:
+1. ✅ Endpoint upload media mới: `POST /api/media/report`
+2. ✅ Refactor endpoint detect: `POST /api/detection/detect` nhận `ReportMediaId` thay vì URL
+3. ✅ Service Layer Pattern implementation với MediaService và SnakeAIService
+4. ✅ Persistence logic: Lưu kết quả nhận diện vào DB với species mapping
+5. ✅ NullReferenceException fixes và ClaimsPrincipal handling
 
 ---
 
-## Step 1: Thêm Polly packages
+## TASK 1: Create Media Upload Endpoint
 
-Thêm vào `Directory.Packages.props`:
+### 1.1 Create Request DTO
 
-```xml
-<PackageVersion Include="Polly" Version="8.5.2" />
-<PackageVersion Include="Microsoft.Extensions.Http.Polly" Version="8.0.0" />
-```
-
-Thêm vào `SnakeAid.Infrastructure/SnakeAid.Infrastructure.csproj`:
-
-```xml
-<PackageReference Include="Polly" />
-<PackageReference Include="Microsoft.Extensions.Http.Polly" />
-```
-
----
-
-## Step 2: Tạo DTOs cho SnakeAI
-
-### `SnakeAid.Core/DTOs/AIVision/SnakeAIDetectRequest.cs`
+**File:** `SnakeAid.Core/Requests/Media/UploadReportMediaRequest.cs`
 
 ```csharp
-using System.Text.Json.Serialization;
+using System;
+using System.ComponentModel.DataAnnotations;
+using Microsoft.AspNetCore.Http;
+using SnakeAid.Core.Domains;
 
-namespace SnakeAid.Core.DTOs.AIVision;
+namespace SnakeAid.Core.Requests.Media;
 
-public class SnakeAIDetectRequest
+public class UploadReportMediaRequest
 {
-    [JsonPropertyName("image_url")]
-    public required string ImageUrl { get; set; }
-    
-    [JsonPropertyName("imgsz")]
-    public int ImageSize { get; set; } = 640;
-    
-    [JsonPropertyName("conf")]
-    public float Confidence { get; set; } = 0.25f;
-    
-    [JsonPropertyName("iou")]
-    public float Iou { get; set; } = 0.5f;
-    
-    [JsonPropertyName("topk")]
-    public int TopK { get; set; } = 100;
-    
-    [JsonPropertyName("save_image")]
-    public bool SaveImage { get; set; } = false;
+    [Required]
+    public IFormFile File { get; set; }
+
+    [Required]
+    public Guid ReferenceId { get; set; }
 }
 ```
 
-### `SnakeAid.Core/DTOs/AIVision/SnakeAIDetectResponse.cs`
+### 1.2 Create Response DTO
+
+**File:** `SnakeAid.Core/Responses/Media/ReportMediaResponse.cs`
 
 ```csharp
-using System.Text.Json.Serialization;
+using System;
 
-namespace SnakeAid.Core.DTOs.AIVision;
+namespace SnakeAid.Core.Responses.Media;
 
-public class SnakeAIDetectResponse
+public class ReportMediaResponse
 {
-    [JsonPropertyName("model_version")]
-    public string ModelVersion { get; set; }
-    
-    [JsonPropertyName("image_width")]
-    public int ImageWidth { get; set; }
-    
-    [JsonPropertyName("image_height")]
-    public int ImageHeight { get; set; }
-    
-    [JsonPropertyName("warnings")]
-    public SnakeAIWarnings? Warnings { get; set; }
-    
-    [JsonPropertyName("detections")]
-    public List<SnakeAIDetection> Detections { get; set; } = new();
+    public Guid Id { get; set; }
+    public string MediaUrl { get; set; }
+    public string FileName { get; set; }
+    public string ContentType { get; set; }
+    public long FileSize { get; set; }
 }
+```
 
-public class SnakeAIWarnings
+### 1.3 Create Endpoint in MediaController
+
+**File:** `SnakeAid.Api/Controllers/MediaController.cs`
+
+Thêm method mới vào controller hiện có:
+
+```csharp
+[HttpPost("report")]
+[Consumes("multipart/form-data")]
+[ValidateFile(maxSizeInMB: 10, allowedExtensions: new[] { ".jpg", ".jpeg", ".png", ".webp" }, formFieldName: "file")]
+public async Task<IActionResult> UploadReportMedia(
+    [FromQuery] MediaReferenceType type,
+    [FromQuery] MediaPurpose purpose = MediaPurpose.SnakeIdentification,
+    [FromForm] UploadReportMediaRequest request,
+    CancellationToken ct)
 {
-    [JsonPropertyName("blur")]
-    public float Blur { get; set; }
+    // 1. Upload to Cloudinary
+    var uploadResult = await _cloudinaryService.UploadImageAsync(request.File, User, "report-media", ct);
     
-    [JsonPropertyName("brightness")]
-    public float Brightness { get; set; }
+    // 2. Create ReportMedia entity
+    var reportMedia = new ReportMedia
+    {
+        Id = Guid.NewGuid(),
+        ReferenceId = request.ReferenceId,
+        ReferenceType = type,
+        FileName = request.File.FileName,
+        MediaUrl = uploadResult.Url,
+        ContentType = request.File.ContentType,
+        FileSize = request.File.Length,
+        Purpose = purpose,
+        RequiresAIProcessing = purpose == MediaPurpose.SnakeIdentification
+    };
     
-    [JsonPropertyName("too_small")]
-    public float TooSmall { get; set; }
+    // 3. Save to DB
+    await _unitOfWork.Repository<ReportMedia>().AddAsync(reportMedia, ct);
+    await _unitOfWork.CommitAsync(ct);
+    
+    // 4. Return response with URL
+    var response = _mapper.Map<ReportMediaResponse>(reportMedia);
+    return Ok(ApiResponseBuilder.BuildSuccessResponse(response, "Media uploaded successfully."));
 }
+```
 
+**Lưu ý:**
+- Inject `IUnitOfWork` vào constructor của `MediaController`
+- Thêm using cho `SnakeAid.Core.Domains`
+
+---
+
+## TASK 2: Refactor Snake Detection Endpoint
+
+### 2.1 Update Request DTO
+
+**File:** `SnakeAid.Core/Requests/Detection/SnakeDetectionRequest.cs`
+
+```csharp
+using System;
+using System.ComponentModel.DataAnnotations;
+
+namespace SnakeAid.Core.Requests.Detection;
+
+public class SnakeDetectionRequest
+{
+    [Required]
+    public Guid ReportMediaId { get; set; }
+}
+```
+
+### 2.2 Update Response DTO
+
+**File:** `SnakeAid.Core/Responses/Detection/SnakeAIDetection.cs`
+
+Thêm các field mới cho Species info:
+
+```csharp
 public class SnakeAIDetection
 {
-    [JsonPropertyName("class_id")]
-    public int ClassId { get; set; }
-    
-    [JsonPropertyName("class_name")]
+    // Existing YOLO fields
     public string ClassName { get; set; }
-    
-    [JsonPropertyName("confidence")]
     public float Confidence { get; set; }
+    public int[] BoundingBox { get; set; }
     
-    [JsonPropertyName("bbox")]
-    public BoundingBox Bbox { get; set; }
-}
-
-public class BoundingBox
-{
-    public int X1 { get; set; }
-    public int Y1 { get; set; }
-    public int X2 { get; set; }
-    public int Y2 { get; set; }
+    // NEW: Species info from mapping
+    public int? SpeciesId { get; set; }
+    public string? SpeciesName { get; set; }        // CommonName
+    public string? ScientificName { get; set; }
+    public bool? IsVenomous { get; set; }
+    public float? RiskLevel { get; set; }
 }
 ```
 
----
+### 2.3 Update Controller
 
-## Step 3: Tạo Refit Interface
-
-### `SnakeAid.Infrastructure/External/ISnakeAIApi.cs`
+**File:** `SnakeAid.Api/Controllers/SnakeDetectionController.cs`
 
 ```csharp
-using Refit;
-using SnakeAid.Core.DTOs.AIVision;
-
-namespace SnakeAid.Infrastructure.External;
-
-public interface ISnakeAIApi
+[HttpPost("detect/{reportMediaId:guid}")]
+public async Task<IActionResult> Detect([FromRoute] Guid reportMediaId, CancellationToken ct = default)
 {
-    [Post("/detect/url")]
-    Task<SnakeAIDetectResponse> DetectByUrlAsync([Body] SnakeAIDetectRequest request);
-    
-    [Get("/health")]
-    Task<SnakeAIHealthResponse> HealthCheckAsync();
-}
-
-public class SnakeAIHealthResponse
-{
-    public string Status { get; set; }
-    public bool ModelLoaded { get; set; }
-    public string ModelVersion { get; set; }
-}
-```
-
----
-
-## Step 4: Tạo Service Layer
-
-### `SnakeAid.Infrastructure/External/SnakeAIService.cs`
-
-```csharp
-using Microsoft.Extensions.Logging;
-using SnakeAid.Core.DTOs.AIVision;
-
-namespace SnakeAid.Infrastructure.External;
-
-public interface ISnakeAIService
-{
-    Task<SnakeAIDetectResponse> DetectAsync(string imageUrl);
-    Task<bool> IsHealthyAsync();
-} 
-
-public class SnakeAIService : ISnakeAIService
-{
-    private readonly ISnakeAIApi _api;
-    private readonly ILogger<SnakeAIService> _logger;
-    private readonly SnakeAISettings _settings;
-
-    public SnakeAIService(ISnakeAIApi api, ILogger<SnakeAIService> logger, SnakeAISettings settings)
+    // 1. Health Check (fail-fast)
+    if (!await _snakeAIService.IsHealthyAsync(ct))
     {
-        _api = api;
-        _logger = logger;
-        _settings = settings;
+        return StatusCode(503, ApiResponseBuilder.BuildErrorResponse("AI Service is currently unavailable."));
     }
+    
+    // 2. Call Service directly with ID
+    var result = await _snakeAIService.DetectFromReportMediaAsync(reportMediaId, ct);
+    
+    return StatusCode(result.StatusCode, result);
+}
+```
 
-    public async Task<SnakeAIDetectResponse> DetectAsync(string imageUrl)
+---
+
+## TASK 3: Implement Mapping & Persistence in Service
+
+### 3.1 Update ISnakeAIService Interface
+
+**File:** `SnakeAid.Service/Interfaces/ISnakeAIService.cs`
+
+```csharp
+Task<SnakeDetectionResponse> DetectAsync(string imageUrl, Guid reportMediaId, CancellationToken ct = default);
+```
+
+### 3.2 Update SnakeAIService Implementation
+
+**File:** `SnakeAid.Service/Implements/SnakeAIService.cs`
+
+```csharp
+public async Task<SnakeDetectionResponse> DetectAsync(string imageUrl, Guid reportMediaId, CancellationToken ct = default)
+{
+    // 1. Call AI Service (existing logic)
+    var aiResponse = await _snakeAIClient.DetectAsync(new { image_url = imageUrl }, ct);
+    
+    // 2. Get Active AIModel
+    var activeModel = await _unitOfWork.Repository<AIModel>()
+        .FindAsync(m => m.IsActive && m.IsDefault, ct);
+    
+    if (activeModel == null)
     {
-        var request = new SnakeAIDetectRequest
+        throw new InvalidOperationException("No active AI model found.");
+    }
+    
+    // 3. Process each detection result
+    var enrichedDetections = new List<SnakeAIDetection>();
+    
+    foreach (var detection in aiResponse.Detections)
+    {
+        var enriched = new SnakeAIDetection
         {
-            ImageUrl = imageUrl,
-            Confidence = _settings.Confidence,
-            ImageSize = _settings.ImageSize,
-            Iou = _settings.IouThreshold
+            ClassName = detection.ClassName,
+            Confidence = detection.Confidence,
+            BoundingBox = detection.BoundingBox
         };
-
-        _logger.LogInformation("Calling SnakeAI detect for URL: {Url} with confidence {Conf}", imageUrl, _settings.Confidence);
         
-        var response = await _api.DetectByUrlAsync(request);
+        // 4. Map to SnakeSpecies
+        var mapping = await _unitOfWork.Repository<AISnakeClassMapping>()
+            .FindAsync(m => m.AIModelId == activeModel.Id && m.YoloClassName == detection.ClassName, ct);
         
-        _logger.LogInformation("SnakeAI detected {Count} objects", response.Detections.Count);
+        if (mapping != null)
+        {
+            var species = await _unitOfWork.Repository<SnakeSpecies>()
+                .GetByIdAsync(mapping.SnakeSpeciesId, ct);
+            
+            if (species != null)
+            {
+                enriched.SpeciesId = species.Id;
+                enriched.SpeciesName = species.CommonName;
+                enriched.ScientificName = species.ScientificName;
+                enriched.IsVenomous = species.IsVenomous;
+                enriched.RiskLevel = species.RiskLevel;
+            }
+        }
         
-        return response;
+        // 5. Save Recognition Result
+        var recognitionResult = new SnakeAIRecognitionResult
+        {
+            Id = Guid.NewGuid(),
+            ReportMediaId = reportMediaId,
+            AIModelId = activeModel.Id,
+            YoloClassName = detection.ClassName,
+            Confidence = (decimal)detection.Confidence,
+            DetectedSpeciesId = enriched.SpeciesId,
+            IsMapped = enriched.SpeciesId.HasValue,
+            Status = RecognitionStatus.Completed
+        };
+        
+        await _unitOfWork.Repository<SnakeAIRecognitionResult>().AddAsync(recognitionResult, ct);
+        
+        enrichedDetections.Add(enriched);
     }
-
-    public async Task<bool> IsHealthyAsync()
+    
+    await _unitOfWork.CommitAsync(ct);
+    
+    return new SnakeDetectionResponse
     {
-        try
-        {
-            var health = await _api.HealthCheckAsync();
-            return health.Status == "ok" && health.ModelLoaded;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "SnakeAI health check failed");
-            return false;
-        }
-    }
+        Detections = enrichedDetections,
+        ModelVersion = activeModel.Version
+    };
 }
 ```
 
 ---
 
-## Step 5: Register Services
+## TASK 4: Dependencies & Registration
 
-### Thêm vào `Program.cs` hoặc DI extension
+### 4.1 Inject IUnitOfWork into Controllers
+
+Đảm bảo các controller được inject `IUnitOfWork`:
+- `MediaController`
+- `SnakeDetectionController`
+
+### 4.2 Mapster Configuration
+
+**File:** `SnakeAid.Api/Configurations/MapsterConfig.cs` (hoặc file cấu hình tương tự)
 
 ```csharp
-using Polly;
-using Polly.Extensions.Http;
-using Refit;
-using SnakeAid.Infrastructure.External;
-
-// ... trong ConfigureServices
-
-var snakeAIBaseUrl = builder.Configuration["SnakeAI:BaseUrl"] ?? "http://localhost:8000";
-
-builder.Services
-    .AddRefitClient<ISnakeAIApi>()
-    .ConfigureHttpClient(c => 
-    {
-        c.BaseAddress = new Uri(snakeAIBaseUrl);
-        c.Timeout = TimeSpan.FromSeconds(30);
-    })
-    .AddPolicyHandler(GetRetryPolicy())
-    .AddPolicyHandler(GetCircuitBreakerPolicy());
-
-builder.Services.AddScoped<ISnakeAIService, SnakeAIService>();
-
-// Helper methods
-static IAsyncPolicy<HttpResponseMessage> GetRetryPolicy()
-{
-    return HttpPolicyExtensions
-        .HandleTransientHttpError()
-        .WaitAndRetryAsync(3, retryAttempt => 
-            TimeSpan.FromSeconds(Math.Pow(2, retryAttempt)));
-}
-
-static IAsyncPolicy<HttpResponseMessage> GetCircuitBreakerPolicy()
-{
-    return HttpPolicyExtensions
-        .HandleTransientHttpError()
-        .CircuitBreakerAsync(5, TimeSpan.FromSeconds(30));
-}
+config.NewConfig<ReportMedia, ReportMediaResponse>();
 ```
 
-### Thêm config vào `appsettings.json`
+---
+
+## VERIFICATION STEPS
+
+1. **Build Solution**: `dotnet build`
+2. **Run Tests**: `dotnet test`
+3. **Manual Test Flow**:
+   - Upload image via `POST /api/media/report?type=SnakebiteIncident&purpose=SnakeIdentification`
+   - Use returned `Id` to call `POST /api/detection/detect`
+   - Verify response includes Species info
+
+---
+
+## EXPECTED OUTPUT
+
+- ✅ Endpoint `POST /api/media/report` returns `ReportMediaResponse` with `Id` and `MediaUrl`
+- ✅ Endpoint `POST /api/detection/detect` accepts `ReportMediaId`
+- ✅ Detection response includes `SpeciesName`, `ScientificName`, `IsVenomous`, `RiskLevel`
+- ✅ Data persisted in `ReportMedia` and `SnakeAIRecognitionResult` tables
+
+---
+
+## TASK 5: Response Optimization (Phase 2.1)
+
+### 5.1 Redesign Response (V3 Strict)
+
+Implement the response structure exactly matching the JSON below. Do not omit any fields.
+
+**File:** `SnakeAid.Core/Responses/SnakeDetection/SnakeDetectionResponse.cs`
 
 ```json
 {
-  "SnakeAI": {
-    "BaseUrl": "http://localhost:8000"
-  }
-}
-```
-
----
-
-## Step 6: Tạo Carter Endpoints
-
-### `SnakeAid.API/Endpoints/AIVisionEndpoints.cs`
-
-```csharp
-using Carter;
-using Microsoft.AspNetCore.Mvc;
-using SnakeAid.Core.Domains;
-using SnakeAid.Infrastructure.External;
-
-namespace SnakeAid.API.Endpoints;
-
-public class AIVisionEndpoints : ICarterModule
-{
-    public void AddRoutes(IEndpointRouteBuilder app)
-    {
-        var group = app.MapGroup("/api/aivision")
-            .WithTags("AI Vision")
-            .RequireAuthorization();
-
-        group.MapPost("/detect", DetectSnake)
-            .WithName("DetectSnake")
-            .WithSummary("Detect snake species from image URL");
-
-        group.MapGet("/{id:guid}", GetResult)
-            .WithName("GetDetectionResult")
-            .WithSummary("Get detection result by ID");
+  // 1. GLOBAL METADATA (Nguồn: FastAPI)
+  "ai_metadata": {
+    "model_version": "snake-yolo12-v1.0",
+    "image_width": 1280,
+    "image_height": 720,
+    "detection_count": 1,
+    "warnings": {
+      "blur": 0.05,        // Cảnh báo ảnh mờ
+      "brightness": 0.45,  // Độ sáng
+      "too_small": 0.0     // Vật thể quá nhỏ
     }
+  },
 
-    private static async Task<IResult> DetectSnake(
-        [FromBody] DetectRequest request,
-        ISnakeAIService snakeAIService,
-        AppDbContext db,
-        CancellationToken ct)
+  // 2. DETECTION RESULTS list
+  "results": [
     {
-        // 1. Check AI service health (internal use only)
-        if (!await snakeAIService.IsHealthyAsync())
-        {
-            return Results.Problem(
-                statusCode: 503,
-                title: "AI Service Unavailable",
-                detail: "Snake detection service is currently unavailable. Please try again later.");
+      // 2.1 AI INFO (Nguồn: FastAPI - Specific Detection)
+      "ai_detection": {
+        "class_id": 0,
+        "class_name": "king_cobra",
+        "confidence": 0.94,
+        "bbox": {
+          "x1": 100, "y1": 200, "x2": 300, "y2": 400
         }
+      },
 
-        // 2. Call SnakeAI
-        var aiResponse = await snakeAIService.DetectAsync(request.ImageUrl);
+      // 2.2 ENTITY INFO (Nguồn: SnakeSpecies.cs - Full Entity)
+      "snake": {
+        // --- Scalar Fields ---
+        "id": 101,
+        "scientificName": "Ophiophagus hannah",
+        "commonName": "Rắn hổ mang chúa",
+        "slug": "ran-ho-mang-chua",
+        "imageUrl": "https://...",
+        "description": "Loài rắn độc lớn nhất thế giới...",
+        "identificationSummary": "Cổ bành rộng, mắt đen, vảy trơn...",
+        "isVenomous": true,
+        "riskLevel": 9.5,
+        "isActive": true,
 
-        // 3. Get top detection
-        var topDetection = aiResponse.Detections
-            .OrderByDescending(d => d.Confidence)
-            .FirstOrDefault();
+        // --- JSONB Fields (Lưu ý: Map trực tiếp Object/List, không được stringify thủ công) ---
+        "identification": { // [JSONB] Maps to 'Identification'
+          "physicalTraits": ["Cổ bành", "Mắt đen"],
+          "behaviors": ["Chủ động tấn công khi bị đe dọa"],
+          "habitat": "Rừng nhiệt đới, khu dân cư ven rừng"
+        },
+        
+        "symptomsByTime": [ // [JSONB] Maps to 'SymptomsByTime'
+          { 
+             "timeRange": "0-15p", 
+             "signs": ["Đau buốt", "Sưng to"], 
+             "isCritical": false 
+          }
+        ],
 
-        // 4. Save to database
-        var result = new SnakeAIRecognitionResult
-        {
-            Id = Guid.NewGuid(),
-            ReportMediaId = request.ReportMediaId,
-            AIModelId = 1, // TODO: Get from config or AIModel table
-            YoloClassName = topDetection?.ClassName ?? "none",
-            Confidence = (decimal)(topDetection?.Confidence ?? 0),
-            AllDetections = System.Text.Json.JsonSerializer.Serialize(aiResponse.Detections),
-            Status = topDetection != null ? RecognitionStatus.Completed : RecognitionStatus.Failed,
-            IsMapped = false // TODO: Map YOLO class to SnakeSpecies
-        };
+        // --- SPECIAL LOGIC: FIRST AID ---
+        // Nếu DB null -> Tự động điền từ VenomType (Fallback)
+        "firstAidGuidelineOverride": { // [JSONB] Maps to 'FirstAidGuidelineOverride'
+          "mode": 0, // Append/Replace
+          "steps": [
+             "Trấn an nạn nhân", 
+             "Bất động chi bị cắn"
+          ]
+        },
 
-        db.SnakeAIRecognitionResults.Add(result);
-        await db.SaveChangesAsync(ct);
-
-        // 5. Return response
-        return Results.Ok(new DetectResponse
-        {
-            Id = result.Id,
-            ModelVersion = aiResponse.ModelVersion,
-            TopClassName = result.YoloClassName,
-            TopConfidence = (float)result.Confidence,
-            Detections = aiResponse.Detections,
-            Status = result.Status.ToString()
-        });
+        // --- Navigation Props (Có thể null để tránh loop/heavy payload) ---
+        "primaryVenomType": 0 // Enum Value
+      }
     }
-
-    private static async Task<IResult> GetResult(
-        Guid id,
-        AppDbContext db,
-        CancellationToken ct)
-    {
-        var result = await db.SnakeAIRecognitionResults
-            .Include(r => r.DetectedSpecies)
-            .FirstOrDefaultAsync(r => r.Id == id, ct);
-
-        if (result == null)
-            return Results.NotFound();
-
-        return Results.Ok(new DetectResponse
-        {
-            Id = result.Id,
-            TopClassName = result.YoloClassName,
-            TopConfidence = (float)result.Confidence,
-            DetectedSpeciesId = result.DetectedSpeciesId,
-            Status = result.Status.ToString()
-        });
-    }
-}
-
-// Request/Response DTOs for API
-public record DetectRequest(
-    string ImageUrl,
-    Guid ReportMediaId,
-    float Confidence = 0.25f
-);
-
-public class DetectResponse
-{
-    public Guid Id { get; set; }
-    public string ModelVersion { get; set; }
-    public string TopClassName { get; set; }
-    public float TopConfidence { get; set; }
-    public int? DetectedSpeciesId { get; set; }
-    public string Status { get; set; }
-    public List<SnakeAIDetection> Detections { get; set; }
+  ]
 }
 ```
 
----
+### 5.2 Implementation Requirements
 
-## Step 7: Integration Testing
+1.  **DTO Structure**:
+    *   `SnakeDetectionResponse`: Root object.
+    *   `AiMetadata`: Maps to `ai_metadata`.
+    *   `DetectionResult`: Item in `results`.
+    *   `AiDetection`: Maps to `ai_detection`.
+    *   `SnakeSpecies`: Maps to `snake` (Reuse existing Entity or DTO, but ensure all fields are present).
 
-1. **Chạy SnakeAI service:**
-   ```bash
-   cd SnakeAI.ModelEndpoint
-   python main.py
-   ```
+2.  **First Aid Logic**:
+    *   Field name must be `firstAidGuidelineOverride`.
+    *   **Logic**: If `SnakeSpecies.FirstAidGuidelineOverride` is null, look up `SpeciesVenoms -> VenomType -> FirstAidGuideline`.
+    *   If found, create a temporary `FirstAidOverride` object with `Mode = 0` (Append) and populate `Steps`.
 
-2. **Upload ảnh test:**
-   ```http
-   POST /api/media/upload-image
-   Content-Type: multipart/form-data
-   
-   → Response: { "url": "https://res.cloudinary.com/.../snake.jpg" }
-   ```
+3.  **Serialization**:
+    *   Ensure Enums serialize as Integers (or Strings if requested, but JSON shows `0` for Mode). *Correction from previous plan: JSON above shows `0` for Mode and `0` for primaryVenomType. Use default int serialization unless specified otherwise.*
+    *   Use `[JsonPropertyName("...")]` to match snake_case keys exactly.
 
-3. **Gọi detect:**
-   ```http
-   POST /api/aivision/detect
-   Content-Type: application/json
-   Authorization: Bearer {token}
-   
-   {
-     "imageUrl": "https://res.cloudinary.com/.../snake.jpg",
-     "reportMediaId": "guid-of-report-media"
-   }
-   ```
-
-4. **Expected response:**
-   ```json
-   {
-     "id": "detection-result-guid",
-     "modelVersion": "snake-yolo12-v1.0",
-     "topClassName": "naja_kaouthia",
-     "topConfidence": 0.89,
-     "status": "Completed",
-     "detections": [...]
-   }
-   ```
-
----
-
-## Step 8: Unit Tests
-
-### `SnakeAid.Tests/Services/SnakeAIServiceTests.cs`
-
-```csharp
-using FluentAssertions;
-using Microsoft.Extensions.Logging;
-using Moq;
-using SnakeAid.Core.DTOs.AIVision;
-using SnakeAid.Infrastructure.External;
-
-namespace SnakeAid.Tests.Services;
-
-public class SnakeAIServiceTests
-{
-    private readonly Mock<ISnakeAIApi> _mockApi;
-    private readonly Mock<ILogger<SnakeAIService>> _mockLogger;
-    private readonly SnakeAIService _service;
-
-    public SnakeAIServiceTests()
-    {
-        _mockApi = new Mock<ISnakeAIApi>();
-        _mockLogger = new Mock<ILogger<SnakeAIService>>();
-        _service = new SnakeAIService(_mockApi.Object, _mockLogger.Object);
-    }
-
-    [Fact]
-    public async Task DetectAsync_ValidUrl_ReturnsDetections()
-    {
-        // Arrange
-        _mockApi.Setup(x => x.DetectByUrlAsync(It.IsAny<SnakeAIDetectRequest>()))
-            .ReturnsAsync(new SnakeAIDetectResponse
-            {
-                ModelVersion = "snake-yolo12-v1.0",
-                Detections = new List<SnakeAIDetection>
-                {
-                    new() { ClassName = "naja_kaouthia", Confidence = 0.89f }
-                }
-            });
-
-        // Act
-        var result = await _service.DetectAsync("https://cloudinary.com/snake.jpg");
-
-        // Assert
-        result.Detections.Should().HaveCount(1);
-        result.Detections[0].ClassName.Should().Be("naja_kaouthia");
-        result.Detections[0].Confidence.Should().Be(0.89f);
-    }
-
-    [Fact]
-    public async Task DetectAsync_ApiThrows_PropagatesException()
-    {
-        // Arrange
-        _mockApi.Setup(x => x.DetectByUrlAsync(It.IsAny<SnakeAIDetectRequest>()))
-            .ThrowsAsync(new HttpRequestException("Service unavailable"));
-
-        // Act & Assert
-        await Assert.ThrowsAsync<HttpRequestException>(() => 
-            _service.DetectAsync("https://cloudinary.com/snake.jpg"));
-    }
-
-    [Fact]
-    public async Task DetectAsync_NoDetections_ReturnsEmptyList()
-    {
-        // Arrange
-        _mockApi.Setup(x => x.DetectByUrlAsync(It.IsAny<SnakeAIDetectRequest>()))
-            .ReturnsAsync(new SnakeAIDetectResponse
-            {
-                ModelVersion = "snake-yolo12-v1.0",
-                Detections = new List<SnakeAIDetection>()
-            });
-
-        // Act
-        var result = await _service.DetectAsync("https://cloudinary.com/no-snake.jpg");
-
-        // Assert
-        result.Detections.Should().BeEmpty();
-    }
-
-    [Fact]
-    public async Task IsHealthyAsync_ServiceUp_ReturnsTrue()
-    {
-        // Arrange
-        _mockApi.Setup(x => x.HealthCheckAsync())
-            .ReturnsAsync(new SnakeAIHealthResponse 
-            { 
-                Status = "ok", 
-                ModelLoaded = true,
-                ModelVersion = "snake-yolo12-v1.0"
-            });
-
-        // Act
-        var result = await _service.IsHealthyAsync();
-
-        // Assert
-        result.Should().BeTrue();
-    }
-
-    [Fact]
-    public async Task IsHealthyAsync_ModelNotLoaded_ReturnsFalse()
-    {
-        // Arrange
-        _mockApi.Setup(x => x.HealthCheckAsync())
-            .ReturnsAsync(new SnakeAIHealthResponse 
-            { 
-                Status = "ok", 
-                ModelLoaded = false 
-            });
-
-        // Act
-        var result = await _service.IsHealthyAsync();
-
-        // Assert
-        result.Should().BeFalse();
-    }
-
-    [Fact]
-    public async Task IsHealthyAsync_ServiceDown_ReturnsFalse()
-    {
-        // Arrange
-        _mockApi.Setup(x => x.HealthCheckAsync())
-            .ThrowsAsync(new HttpRequestException());
-
-        // Act
-        var result = await _service.IsHealthyAsync();
-
-        // Assert
-        result.Should().BeFalse();
-    }
-}
-```
-
-### Run Tests
-
-```bash
-dotnet test --filter "FullyQualifiedName~SnakeAIServiceTests"
-```
-
----
-
-## Checklist
-
-- [ ] Step 1: Thêm Polly packages
-- [ ] Step 2: Tạo DTOs
-- [ ] Step 3: Tạo Refit interface
-- [ ] Step 4: Tạo Service layer
-- [ ] Step 5: Register DI + config
-- [ ] Step 6: Tạo Carter endpoints
-- [ ] Step 7: Integration testing
-- [ ] Step 8: Unit tests
-
----
-
-## Notes
-
-- **TODO sau khi implement:**
-  - Map YOLO class → SnakeSpecies (cần bảng `AISnakeClassMapping`)
-  - Thêm validation cho imageUrl (phải là Cloudinary URL)
-  - Xử lý warnings từ AI (blur, brightness)

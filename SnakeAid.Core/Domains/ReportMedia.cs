@@ -53,10 +53,10 @@ namespace SnakeAid.Core.Domains
 
     public enum MediaPurpose
     {
-        Evidence = 0,           // Ảnh bằng chứng
+        Evidence = 0,            // Ảnh bằng chứng
         SnakeIdentification = 1, // Ảnh để AI nhận diện
-        LocationProof = 2,      // Ảnh vị trí
-        InjuryPhoto = 3,       // Ảnh vết thương
-        BeforeAfter = 4        // Ảnh trước/sau
+        LocationProof = 2,       // Ảnh vị trí
+        InjuryPhoto = 3,         // Ảnh vết thương
+        BeforeAfter = 4          // Ảnh trước/sau
     }
 }
