@@ -23,26 +23,14 @@ Phase 2 Snake Detection cung cấp **Two-Step Flow** để nhận diện rắn v
 
 ## 📋 PREREQUISITES
 
-### Authentication
-All endpoints require JWT Bearer token:
-
-```javascript
-const config = {
-  headers: {
-    'Authorization': `Bearer ${accessToken}`,
-    'Content-Type': 'multipart/form-data' // For upload endpoints
-  }
-}
 ```
-
 ### Supported File Types
 - **Extensions**: `.jpg`, `.jpeg`, `.png`, `.webp`
 - **Max Size**: 10MB
 - **Purpose**: SnakeIdentification (default)
-
 ---
 
-## 🔄 PHASE 2 FLOW
+## 🔄 FLOW
 
 ### **Step 1: Upload Report Media**
 
@@ -67,32 +55,6 @@ POST /api/media/report
 | `File` | `IFormFile` | ✅ | Image file (jpg, jpeg, png, webp) |
 | `ReferenceId` | `Guid` | ✅ | ID of parent entity (IncidentId, ReportId, etc.) |
 
-#### **JavaScript Example**
-```javascript
-const uploadMedia = async (file, referenceId) => {
-  const formData = new FormData();
-  formData.append('File', file);
-  formData.append('ReferenceId', referenceId);
-  
-  const response = await fetch('/api/media/report?type=CommunityReport&purpose=SnakeIdentification', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${accessToken}`
-    },
-    body: formData
-  });
-  
-  const result = await response.json();
-  return result.data; // ReportMediaResponse
-};
-
-// Usage
-const fileInput = document.getElementById('snakeImage');
-const file = fileInput.files[0];
-const parentReportId = "550e8400-e29b-41d4-a716-446655440000";
-
-const mediaResult = await uploadMedia(file, parentReportId);
-console.log('Uploaded media ID:', mediaResult.id);
 ```
 
 #### **Response Example**
@@ -128,75 +90,126 @@ POST /api/detection/detect/{reportMediaId}
 #### **Request Body**
 *None* (ID is passed in URL path)
 
-#### **JavaScript Example**
-```javascript
-const detectSnake = async (reportMediaId) => {
-  const response = await fetch(`/api/detection/detect/${reportMediaId}`, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${accessToken}`
-    }
-  });
-  
-  const result = await response.json();
-  return result.data; // SnakeDetectionResponse
-};
-
-// Usage (continuing from Step 1)
-const detectionResult = await detectSnake(mediaResult.id);
-console.log('Detection results:', detectionResult);
-```
-
 #### **Response Example**
 ```json
 {
-  "success": true,
+  "status_code": 200,
   "message": "Snake detection completed successfully.",
+  "is_success": true,
   "data": {
     "ai_metadata": {
-      "model_version": "snake-yolo12-v1.0",
-      "image_width": 1280,
-      "image_height": 720,
+      "model_version": "7",
+      "image_width": 227,
+      "image_height": 222,
       "detection_count": 1,
       "warnings": {
-        "blur": 0.05,
-        "brightness": 0.45,
-        "too_small": 0.0
+        "blur": 0,
+        "brightness": 0.6604,
+        "too_small": 0.3063
       }
     },
     "results": [
       {
         "ai_detection": {
-          "class_id": 0,
-          "class_name": "king_cobra",
-          "confidence": 0.94,
+          "class_id": 3,
+          "class_name": "ho_mang_chua",
+          "confidence": 0.8951632,
           "bbox": {
-            "x1": 100, "y1": 200, "x2": 300, "y2": 400
+            "x1": 9,
+            "y1": 40,
+            "x2": 189,
+            "y2": 198
           }
         },
         "snake": {
-          "id": 101,
+          "id": 3,
           "scientificName": "Ophiophagus hannah",
-          "commonName": "Rắn hổ mang chúa",
           "slug": "ran-ho-mang-chua",
-          "imageUrl": "https://...",
-          "isVenomous": true,
-          "riskLevel": 9.5,
+          "commonName": "Rắn Hổ Mang Chúa",
+          "imageUrl": "https://vietnamsnakes.com/storage/snakes/species/55/1737107747_0.jpg",
+          "description": "Loài rắn độc dài nhất thế giới, cực kỳ nguy hiểm với lượng nọc độc khổng lồ.",
+          "identificationSummary": "Kích thước khổng lồ (4-6m), Vảy đầu lớn, Cổ phình mang hẹp, vân chữ V ngược ở cổ.",
+          "primaryVenomType": "Neurotoxic",
           "identification": {
-             "physicalTraits": ["Cổ bành", "Mắt đen"]
+            "physicalTraits": [
+              "Kích thước khổng lồ (4-6m)",
+              "Cặp vảy chẩm hình cánh bướm, nằm ở ngay phía sau vảy đầu",
+              "Phình mang hẹp dài",
+              "Màu đen, nâu hoặc vàng chì"
+            ],
+            "behaviors": [
+              "Chủ động tấn công nếu bị kích động",
+              "Có khả năng rướn cao thân mình",
+              "Là một loài rắn thông minh, sẽ quan sát và phản ứng."
+            ],
+            "habitat": "Rừng rậm, nương rẫy, gần nguồn nước"
           },
+          "symptomsByTime": [
+            {
+              "timeRange": "0 - 15 phút",
+              "signs": ["Đau nhức", "Chóng mặt", "Hoa mắt"],
+              "isCritical": true
+            },
+            {
+              "timeRange": "30 - 60 phút",
+              "signs": ["Hôn mê", "Suy hô hấp cấp", "Tử vong nhanh"],
+              "isCritical": true
+            }
+          ],
           "firstAidGuidelineOverride": {
-             "mode": 0,
-             "steps": ["Trấn an nạn nhân", "Bất động chi bị cắn"]
-          }
+            "mode": "Append",
+            "steps": [
+              "Vận chuyển nạn nhân bằng phương tiện nhanh nhất có thể đến bệnh viện lớn."
+            ]
+          },
+          "riskLevel": 10,
+          "isVenomous": true,
+          "speciesVenoms": [
+            {
+              "venomType": {
+                "name": "Độc thần kinh",
+                "description": "Nọc độc chủ yếu ảnh hưởng đến hệ thần kinh...",
+                "firstAidGuideline": {
+                  "name": "Sơ cứu Độc thần kinh",
+                  "content": {
+                    "steps": [
+                      { "text": "Di chuyển nhẹ nhàng...", "mediaUrl": "..." },
+                      { "text": "Gọi hỗ trợ y tế...", "mediaUrl": "..." }
+                    ],
+                    "dos": [{ "text": "Kiểm tra mạch...", "mediaUrl": "" }],
+                    "donts": [{ "text": "Không tự ý tháo băng...", "mediaUrl": "..." }]
+                  },
+                  "summary": "Ngăn chặn liệt hô hấp bằng cách băng cố định đúng cách."
+                }
+              }
+            }
+          ]
         }
       }
     ],
-    "recognition_result_id": "987fcdeb-51a2-4567-8901-234567890abc"
+    "recognition_result_id": "d08d9855-00a7-4e1f-82bb-9935e06044bb"
   },
-  "statusCode": 200
+  "error": null
 }
 ```
+
+#### **Key Response Fields**
+
+| Section | Field | Description |
+|:---|:---|:---|
+| **Root** | `status_code` | Tiêu chuẩn HTTP status (200, 400, 500...) |
+| | `is_success` | Cờ báo hiệu request thành công hay không |
+| | `data` | Payload chính chứa kết quả nhận diện |
+| **AI Metadata** | `model_version` | Phiên bản AI Model đang chạy |
+| | `warnings` | Cảnh báo chất lượng ảnh (`blur`, `brightness`, `too_small`) |
+| **Detections** | `results` | Mảng các đối tượng được tìm thấy trong ảnh |
+| | `ai_detection` | Thông tin kỹ thuật từ AI (Tên lớp, Confidence, BBox) |
+| | `snake` | Dữ liệu đầy đủ về loài rắn được map từ database |
+| **Snake Info** | `primaryVenomType` | Loại nọc độc chính (Neurotoxic, Hemotoxic...) |
+| | `identification` | Đặc điểm nhận dạng (Ngoại hình, Hành vi, Môi trường) |
+| | `symptomsByTime` | Các triệu chứng theo mốc thời gian |
+| | `speciesVenoms` | Chi tiết các loại nọc độc và **Hướng dẫn sơ cứu tương ứng** |
+| **Guidelines** | `firstAidGuideline` | Chứa các bước (`steps`), việc nên làm (`dos`), không nên làm (`donts`) kèm `mediaUrl` |
 
 ---
 
@@ -209,120 +222,9 @@ Retrieve previously saved detection results by RecognitionResultId.
 GET /api/detection/{recognitionResultId}
 ```
 
-#### **JavaScript Example**
-```javascript
-const getHistoricalResult = async (recognitionResultId) => {
-  const response = await fetch(`/api/detection/${recognitionResultId}`, {
-    method: 'GET',
-    headers: {
-      'Authorization': `Bearer ${accessToken}`
-    }
-  });
-  
-  const result = await response.json();
-  return result.data;
-};
-
-// Usage
-const savedResult = await getHistoricalResult("987fcdeb-51a2-4567-8901-234567890abc");
-console.log('Historical detection:', savedResult);
-```
-
 ---
 
 ## 🎨 FRONTEND INTEGRATION EXAMPLES
-
-### **React Hook Example**
-```javascript
-import { useState, useCallback } from 'react';
-
-export const useSnakeDetection = () => {
-  const [isUploading, setIsUploading] = useState(false);
-  const [isDetecting, setIsDetecting] = useState(false);
-  const [result, setResult] = useState(null);
-  const [error, setError] = useState(null);
-
-  const detectSnakeFromFile = useCallback(async (file, referenceId) => {
-    try {
-      setError(null);
-      setIsUploading(true);
-      
-      // Step 1: Upload media
-      const mediaResult = await uploadMedia(file, referenceId);
-      
-      setIsUploading(false);
-      setIsDetecting(true);
-      
-      // Step 2: Detect snake
-      const detectionResult = await detectSnake(mediaResult.id);
-      
-      setResult({
-        media: mediaResult,
-        detection: detectionResult
-      });
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setIsUploading(false);
-      setIsDetecting(false);
-    }
-  }, []);
-
-  return {
-    detectSnakeFromFile,
-    isUploading,
-    isDetecting,
-    result,
-    error
-  };
-};
-
-// Usage in component
-const SnakeDetectionComponent = () => {
-  const { detectSnakeFromFile, isUploading, isDetecting, result, error } = useSnakeDetection();
-  const [selectedFile, setSelectedFile] = useState(null);
-  const reportId = "550e8400-e29b-41d4-a716-446655440000"; // Parent report ID
-
-  const handleDetect = () => {
-    if (selectedFile) {
-      detectSnakeFromFile(selectedFile, reportId);
-    }
-  };
-
-  if (isUploading) return <div>Uploading image...</div>;
-  if (isDetecting) return <div>Detecting snake species...</div>;
-  if (error) return <div>Error: {error}</div>;
-
-  return (
-    <div>
-      <input 
-        type="file" 
-        accept=".jpg,.jpeg,.png,.webp"
-        onChange={(e) => setSelectedFile(e.target.files[0])} 
-      />
-      <button onClick={handleDetect} disabled={!selectedFile}>
-        Detect Snake
-      </button>
-      
-      {result && (
-        <div className="detection-result">
-          <h3>Detection Result</h3>
-          {result.detection.results.map((item, index) => (
-             <div key={index}>
-                <p><strong>Species:</strong> {item.snake?.commonName || item.ai_detection.class_name}</p>
-                <p><strong>Scientific:</strong> {item.snake?.scientificName}</p>
-                <p><strong>Venomous:</strong> {item.snake?.isVenomous ? 'Yes' : 'No'}</p>
-                <p><strong>Risk Level:</strong> {item.snake?.riskLevel}/10</p>
-                <p><strong>Confidence:</strong> {(item.ai_detection.confidence * 100).toFixed(1)}%</p>
-             </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-};
-```
-
 ### **Flutter/Dart Example**
 ```dart
 import 'dart:io';
@@ -585,17 +487,3 @@ The API returns enriched species information when a mapping exists:
 - Recognition results are permanently cached in database
 - Use `recognition_result_id` for quick retrieval
 - No need to re-run detection for previously processed images
-
----
-
-## 🎯 NEXT STEPS
-
-Phase 2 provides foundation for:
-
-1. **Emergency Response Flow**: Integration với emergency protocols
-2. **Species Library Expansion**: More species mappings và detailed info
-3. **Batch Processing**: Multiple image analysis
-4. **Real-time Notifications**: WebSocket integration cho instant results
-5. **Mobile SDK**: Native mobile libraries cho offline detection
-
-**API Versioning**: Current implementation supports future expansion without breaking changes.
