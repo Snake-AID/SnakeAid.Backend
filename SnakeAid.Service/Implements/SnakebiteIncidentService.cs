@@ -320,6 +320,9 @@ namespace SnakeAid.Service.Implements
                         severityLevel += modifierSymptomScores.Sum();
                     }
 
+                    if (severityLevel > 100)
+                        severityLevel = 100;
+
                     // Update symptom report and severity level
                     var jsonOptions = new System.Text.Json.JsonSerializerOptions
                     {

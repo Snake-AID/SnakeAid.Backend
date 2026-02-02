@@ -5,12 +5,15 @@ namespace SnakeAid.Core.Responses.SymptomConfig
     public class SymptomConfigResponse
     {
         public int Id { get; set; }
+        public string GroupName { get; set; }
         public string AttributeKey { get; set; }
         public string AttributeLabel { get; set; }
         public string UIHintDisplay { get; set; } // Friendly display name
         public int DisplayOrder { get; set; }
         public string Name { get; set; }
         public string? Description { get; set; }
+        public bool IsCritical { get; set; }
+        public string? AlertMessage { get; set; }
         public bool IsActive { get; set; }
         public SymptomCategory Category { get; set; }
         public string CategoryDisplay { get; set; } // Friendly display name
