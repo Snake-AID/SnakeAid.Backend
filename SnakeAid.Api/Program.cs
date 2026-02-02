@@ -149,6 +149,9 @@ namespace SnakeAid.Api
                 });
 
                 builder.Services.AddControllers();
+                
+                // Add Razor Pages for lightweight UI admin pages
+                builder.Services.AddRazorPages();
 
                 // Add SignalR
                 builder.Services.AddSignalR(options =>
@@ -303,6 +306,9 @@ namespace SnakeAid.Api
 
                 // Map SignalR Hub with specific CORS policy
                 app.MapHub<TestChatHub>("/chat-hub").RequireCors("SignalRCorsPolicy");
+
+                // Map Razor pages
+                app.MapRazorPages();
 
                 app.MapControllers();
 

@@ -6,6 +6,11 @@ namespace SnakeAid.Core.Requests.SymptomConfig
     public class GetSymptomConfigRequest : PaginationRequest
     {
         /// <summary>
+        /// Tìm kiếm theo GroupName
+        /// </summary>
+        public string? GroupName { get; set; }
+
+        /// <summary>
         /// Tìm kiếm theo AttributeKey
         /// </summary>
         public string? AttributeKey { get; set; }
@@ -24,6 +29,11 @@ namespace SnakeAid.Core.Requests.SymptomConfig
         /// Lọc theo trạng thái
         /// </summary>
         public bool? IsActive { get; set; }
+
+        /// <summary>
+        /// Lọc theo triệu chứng nguy kịch
+        /// </summary>
+        public bool? IsCritical { get; set; }
 
         /// <summary>
         /// Lọc theo VenomTypeId

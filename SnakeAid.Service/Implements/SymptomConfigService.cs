@@ -53,11 +53,14 @@ namespace SnakeAid.Service.Implements
 
                     var symptomConfig = new SymptomConfig
                     {
+                        GroupName = request.GroupName,
                         AttributeKey = request.AttributeKey,
                         AttributeLabel = request.AttributeLabel,
                         DisplayOrder = request.DisplayOrder,
                         Name = request.Name,
                         Description = request.Description,
+                        IsCritical = request.IsCritical,
+                        AlertMessage = request.AlertMessage,
                         IsActive = request.IsActive,
                         Category = request.Category,
                         TimeScoresJson = request.TimeScoreList != null && request.TimeScoreList.Any()
@@ -128,10 +131,12 @@ namespace SnakeAid.Service.Implements
 
                 // Build combined predicate
                 predicate = sc =>
+                    (string.IsNullOrWhiteSpace(request.GroupName) || sc.GroupName.Contains(request.GroupName)) &&
                     (string.IsNullOrWhiteSpace(request.AttributeKey) || sc.AttributeKey.Contains(request.AttributeKey)) &&
                     (string.IsNullOrWhiteSpace(request.Name) || sc.Name.Contains(request.Name)) &&
                     (!request.Category.HasValue || sc.Category == request.Category.Value) &&
                     (!request.IsActive.HasValue || sc.IsActive == request.IsActive.Value) &&
+                    (!request.IsCritical.HasValue || sc.IsCritical == request.IsCritical.Value) &&
                     (!request.VenomTypeId.HasValue || sc.VenomTypeId == request.VenomTypeId.Value);
 
                 // Get paginated data
@@ -197,6 +202,11 @@ namespace SnakeAid.Service.Implements
                     }
 
                     // Update only provided fields
+                    if (!string.IsNullOrWhiteSpace(request.GroupName))
+                    {
+                        symptomConfig.GroupName = request.GroupName;
+                    }
+
                     if (!string.IsNullOrWhiteSpace(request.AttributeKey))
                     {
                         symptomConfig.AttributeKey = request.AttributeKey;
@@ -221,6 +231,16 @@ namespace SnakeAid.Service.Implements
                     if (request.Description != null)
                     {
                         symptomConfig.Description = request.Description;
+                    }
+
+                    if (request.IsCritical.HasValue)
+                    {
+                        symptomConfig.IsCritical = request.IsCritical.Value;
+                    }
+
+                    if (request.AlertMessage != null)
+                    {
+                        symptomConfig.AlertMessage = request.AlertMessage;
                     }
 
                     if (request.IsActive.HasValue)
