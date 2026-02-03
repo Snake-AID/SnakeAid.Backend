@@ -39,7 +39,7 @@ namespace SnakeAid.Api.Controllers
         public async Task<IActionResult> CreateFirstAidGuideline([FromBody] CreateFirstAidGuidelineRequest request)
         {
             var result = await _guidelineService.CreateFirstAidGuidelineAsync(request);
-            return StatusCode(result.StatusCode, result);
+            return Ok(ApiResponseBuilder.BuildSuccessResponse(result, "First aid guideline created successfully!"));
         }
 
         /// <summary>
@@ -52,7 +52,7 @@ namespace SnakeAid.Api.Controllers
         public async Task<IActionResult> GetFirstAidGuidelineById(int id)
         {
             var result = await _guidelineService.GetFirstAidGuidelineByIdAsync(id);
-            return StatusCode(result.StatusCode, result);
+            return Ok(ApiResponseBuilder.BuildSuccessResponse(result));
         }
 
         /// <summary>
@@ -64,7 +64,7 @@ namespace SnakeAid.Api.Controllers
         public async Task<IActionResult> FilterFirstAidGuidelines([FromQuery] GetFirstAidGuidelineRequest request)
         {
             var result = await _guidelineService.FilterFirstAidGuidelinesAsync(request);
-            return StatusCode(result.StatusCode, result);
+            return Ok(ApiResponseBuilder.BuildSuccessResponse(result));
         }
 
         /// <summary>
@@ -76,7 +76,7 @@ namespace SnakeAid.Api.Controllers
         public async Task<IActionResult> GetAllFirstAidGuideline()
         {
             var result = await _guidelineService.GetAllFirstAidGuidelineAsync();
-            return StatusCode(result.StatusCode, result);
+            return Ok(ApiResponseBuilder.BuildSuccessResponse(result));
         }
 
         /// <summary>
@@ -89,7 +89,7 @@ namespace SnakeAid.Api.Controllers
         public async Task<IActionResult> GetFirstAidGuidelinesBySnakeSpecies(int snakeSpeciesId)
         {
             var result = await _guidelineService.GetFirstAidGuidelinesBySnakeSpeciesIdAsync(snakeSpeciesId);
-            return StatusCode(result.StatusCode, result);
+            return Ok(ApiResponseBuilder.BuildSuccessResponse(result));
         }
 
         /// <summary>
@@ -106,7 +106,7 @@ namespace SnakeAid.Api.Controllers
         public async Task<IActionResult> UpdateFirstAidGuideline(int id, [FromBody] UpdateFirstAidGuidelineRequest request)
         {
             var result = await _guidelineService.UpdateFirstAidGuidelineAsync(id, request);
-            return StatusCode(result.StatusCode, result);
+            return Ok(ApiResponseBuilder.BuildSuccessResponse(result, "First aid guideline updated successfully!"));
         }
 
         /// <summary>
@@ -120,8 +120,8 @@ namespace SnakeAid.Api.Controllers
         [SwaggerResponse(404, "Guideline not found")]
         public async Task<IActionResult> DeleteFirstAidGuideline(int id)
         {
-            var result = await _guidelineService.DeleteFirstAidGuidelineAsync(id);
-            return StatusCode(result.StatusCode, result);
+            await _guidelineService.DeleteFirstAidGuidelineAsync(id);
+            return Ok(ApiResponseBuilder.BuildSuccessResponse("First aid guideline deleted successfully!"));
         }
     }
 }
