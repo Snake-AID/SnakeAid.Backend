@@ -136,6 +136,41 @@ namespace SnakeAid.Service.Implements
             }
         }
 
+        public async Task<ApiResponse<DetailSnakebiteIncidentReposne>> GetDetailIncidentAsync(Guid incidentId)
+        {
+            try
+            {
+                return await _unitOfWork.ExecuteInTransactionAsync(async () =>
+                {
+                    var existingIncident = await _unitOfWork.GetRepository<SnakebiteIncident>().FirstOrDefaultAsync(
+                            predicate: s => s.Id == incidentId,
+                            include: query => query
+                                .Include(i => i.User)
+                                .Include(i => i.AssignedRescuer)
+                                .Include(i => i.Sessions)
+                                .Include(i => i.AllRequests)
+                                    .ThenInclude(r => r.Rescuer)
+                                .Include(i => i.RescueMission)
+                                .Include(i => i.Media)
+                        );
+
+                    if (existingIncident == null)
+                    {
+                        throw new NotFoundException("Snakebite incident not found.");
+                    }
+
+                    var responseData = existingIncident.Adapt<DetailSnakebiteIncidentReposne>();
+
+                    return ApiResponseBuilder.BuildSuccessResponse(responseData, "Snakebite Incident details retrieved successfully!");
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving snakebite incident details: {Message}", ex.Message);
+                throw;
+            }
+        }
+
         public async Task<ApiResponse<CreateIncidentResponse>> RaiseSessionRangeAsync(RaiseSessionRangeRequest request)
         {
             try

@@ -16,6 +16,8 @@ namespace SnakeAid.Service.Interfaces
     {
         Task<ApiResponse<CreateIncidentResponse>> CreateIncidentAsync(CreateIncidentRequest request, Guid userId);
 
+        Task<ApiResponse<DetailSnakebiteIncidentReposne>> GetDetailIncidentAsync(Guid incidentId);
+
         Task<ApiResponse<CreateIncidentResponse>> RaiseSessionRangeAsync(RaiseSessionRangeRequest request);
 
         Task<ApiResponse<UpdateSymptomReportResponse>> UpdateSymptomReportAsync(Guid incidentId, UpdateSymptomReportRequest request);
