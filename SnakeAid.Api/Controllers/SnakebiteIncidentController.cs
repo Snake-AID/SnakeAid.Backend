@@ -71,7 +71,7 @@ namespace SnakeAid.Api.Controllers
         public async Task<IActionResult> GetIncidentDetail(Guid incidentId)
         {
             var result = await _incidentService.GetDetailIncidentAsync(incidentId);
-            return StatusCode(result.StatusCode, result);
+            return Ok(ApiResponseBuilder.BuildSuccessResponse(result, "Incident details retrieved successfully!"));
         }
 
         /// <summary>

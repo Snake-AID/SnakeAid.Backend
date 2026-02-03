@@ -30,7 +30,9 @@ namespace SnakeAid.Service.Implements
 
         public async Task<CreateIncidentResponse> CancelIncidentAsync(Guid incidentId)
         {
-            return await _unitOfWork.ExecuteInTransactionAsync(async () =>
+            try
+            {
+                return await _unitOfWork.ExecuteInTransactionAsync(async () =>
             {
                 var existingIncident = await _unitOfWork.GetRepository<SnakebiteIncident>().FirstOrDefaultAsync(
                         predicate: s => s.Id == incidentId
@@ -48,17 +50,25 @@ namespace SnakeAid.Service.Implements
                 _unitOfWork.GetRepository<SnakebiteIncident>().Update(existingIncident);
                 await _unitOfWork.CommitAsync();
                 return existingIncident.Adapt<CreateIncidentResponse>();
-            });
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error cancelling snakebite incident: {Message}", ex.Message);
+                throw;
+            }
         }
 
         public async Task<CreateIncidentResponse> CreateIncidentAsync(CreateIncidentRequest request, Guid userId)
         {
-            if (request == null)
+            try
             {
-                throw new BadRequestException("Request data cannot be null.");
-            }
+                if (request == null)
+                {
+                    throw new BadRequestException("Request data cannot be null.");
+                }
 
-            return await _unitOfWork.ExecuteInTransactionAsync(async () =>
+                return await _unitOfWork.ExecuteInTransactionAsync(async () =>
             {
                 var existingAccount = await _unitOfWork.GetRepository<Account>().FirstOrDefaultAsync(
                         predicate: a => a.Id == userId,
@@ -109,54 +119,25 @@ namespace SnakeAid.Service.Implements
                 };
 
                 return responseData;
-            });
-        }
-
-        public async Task<ApiResponse<DetailSnakebiteIncidentReposne>> GetDetailIncidentAsync(Guid incidentId)
-        {
-            try
-            {
-                return await _unitOfWork.ExecuteInTransactionAsync(async () =>
-                {
-                    var existingIncident = await _unitOfWork.GetRepository<SnakebiteIncident>().FirstOrDefaultAsync(
-                            predicate: s => s.Id == incidentId,
-                            include: query => query
-                                .Include(i => i.User)
-                                .Include(i => i.AssignedRescuer)
-                                .Include(i => i.Sessions)
-                                .Include(i => i.AllRequests)
-                                    .ThenInclude(r => r.Rescuer)
-                                .Include(i => i.RescueMission)
-                                .Include(i => i.Media)
-                        );
-
-                    if (existingIncident == null)
-                    {
-                        throw new NotFoundException("Snakebite incident not found.");
-                    }
-
-                    var responseData = existingIncident.Adapt<DetailSnakebiteIncidentReposne>();
-
-                    return ApiResponseBuilder.BuildSuccessResponse(responseData, "Snakebite Incident details retrieved successfully!");
                 });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error retrieving snakebite incident details: {Message}", ex.Message);
+                _logger.LogError(ex, "Error creating snakebite incident: {Message}", ex.Message);
                 throw;
             }
         }
 
-        public async Task<ApiResponse<CreateIncidentResponse>> RaiseSessionRangeAsync(RaiseSessionRangeRequest request)
+        public async Task<CreateIncidentResponse> RaiseSessionRangeAsync(RaiseSessionRangeRequest request)
         {
             try
             {
                 if (request == null)
                 {
-                    throw new ArgumentNullException(nameof(request), "Request data cannot be null.");
+                    throw new BadRequestException("Request data cannot be null.");
                 }
 
-            return await _unitOfWork.ExecuteInTransactionAsync(async () =>
+                return await _unitOfWork.ExecuteInTransactionAsync(async () =>
             {
                 // Load incident with all required navigation properties
                 var existingIncident = await _unitOfWork.GetRepository<SnakebiteIncident>().FirstOrDefaultAsync(
@@ -244,17 +225,60 @@ namespace SnakeAid.Service.Implements
                     .ToList();
 
                 return responseData;
-            });
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error raising session range: {Message}", ex.Message);
+                throw;
+            }
+        }
+
+        public async Task<DetailSnakebiteIncidentReposne> GetDetailIncidentAsync(Guid incidentId)
+        {
+            try
+            {
+                return await _unitOfWork.ExecuteInTransactionAsync(async () =>
+            {
+                var existingIncident = await _unitOfWork.GetRepository<SnakebiteIncident>().FirstOrDefaultAsync(
+                        predicate: s => s.Id == incidentId,
+                        include: query => query
+                            .Include(i => i.User)
+                            .Include(i => i.AssignedRescuer)
+                            .Include(i => i.Sessions)
+                            .Include(i => i.AllRequests)
+                                .ThenInclude(r => r.Rescuer)
+                            .Include(i => i.RescueMission)
+                            .Include(i => i.Media)
+                    );
+
+                if (existingIncident == null)
+                {
+                    throw new NotFoundException("Snakebite incident not found.");
+                }
+
+                var responseData = existingIncident.Adapt<DetailSnakebiteIncidentReposne>();
+
+                return responseData;
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving snakebite incident details: {Message}", ex.Message);
+                throw;
+            }
         }
 
         public async Task<UpdateSymptomReportResponse> UpdateSymptomReportAsync(Guid incidentId, UpdateSymptomReportRequest request)
         {
-            if (request == null)
+            try
             {
-                throw new BadRequestException("Request data cannot be null.");
-            }
+                if (request == null)
+                {
+                    throw new BadRequestException("Request data cannot be null.");
+                }
 
-            return await _unitOfWork.ExecuteInTransactionAsync(async () =>
+                return await _unitOfWork.ExecuteInTransactionAsync(async () =>
             {
                 var existingIncident = await _unitOfWork.GetRepository<SnakebiteIncident>().FirstOrDefaultAsync(
                         predicate: s => s.Id == incidentId
@@ -333,7 +357,13 @@ namespace SnakeAid.Service.Implements
                 await _unitOfWork.CommitAsync();
 
                 return existingIncident.Adapt<UpdateSymptomReportResponse>();
-            });
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating symptom report: {Message}", ex.Message);
+                throw;
+            }
         }
 
         /// <summary>
