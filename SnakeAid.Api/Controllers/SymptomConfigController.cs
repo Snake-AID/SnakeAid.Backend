@@ -40,7 +40,7 @@ namespace SnakeAid.Api.Controllers
         public async Task<IActionResult> CreateSymptomConfig([FromBody] CreateSymptomConfigRequest request)
         {
             var result = await _symptomConfigService.CreateSymptomConfigAsync(request);
-            return StatusCode(result.StatusCode, result);
+            return Ok(ApiResponseBuilder.BuildSuccessResponse(result, "Symptom configuration created successfully!"));
         }
 
         /// <summary>
@@ -53,7 +53,7 @@ namespace SnakeAid.Api.Controllers
         public async Task<IActionResult> GetSymptomConfigById(int id)
         {
             var result = await _symptomConfigService.GetSymptomConfigByIdAsync(id);
-            return StatusCode(result.StatusCode, result);
+            return Ok(ApiResponseBuilder.BuildSuccessResponse(result));
         }
 
         /// <summary>
@@ -65,7 +65,7 @@ namespace SnakeAid.Api.Controllers
         public async Task<IActionResult> FilterSymptomConfigs([FromQuery] GetSymptomConfigRequest request)
         {
             var result = await _symptomConfigService.FilterSymptomConfigsAsync(request);
-            return StatusCode(result.StatusCode, result);
+            return Ok(ApiResponseBuilder.BuildSuccessResponse(result));
         }
 
         /// <summary>
@@ -77,7 +77,7 @@ namespace SnakeAid.Api.Controllers
         public async Task<IActionResult> GetAllSymptomConfig()
         {
             var result = await _symptomConfigService.GetAllSymptomConfigAsync();
-            return StatusCode(result.StatusCode, result);
+            return Ok(ApiResponseBuilder.BuildSuccessResponse(result));
         }
 
         /// <summary>
@@ -89,7 +89,7 @@ namespace SnakeAid.Api.Controllers
         public async Task<IActionResult> GetSymptomConfigsGrouped()
         {
             var result = await _symptomConfigService.GetSymptomConfigsGroupedByKeyAsync();
-            return StatusCode(result.StatusCode, result);
+            return Ok(ApiResponseBuilder.BuildSuccessResponse(result));
         }
 
         /// <summary>
@@ -106,7 +106,7 @@ namespace SnakeAid.Api.Controllers
         public async Task<IActionResult> UpdateSymptomConfig(int id, [FromBody] UpdateSymptomConfigRequest request)
         {
             var result = await _symptomConfigService.UpdateSymptomConfigAsync(id, request);
-            return StatusCode(result.StatusCode, result);
+            return Ok(ApiResponseBuilder.BuildSuccessResponse(result, "Symptom configuration updated successfully!"));
         }
 
         /// <summary>
@@ -120,8 +120,8 @@ namespace SnakeAid.Api.Controllers
         [SwaggerResponse(404, "Configuration not found")]
         public async Task<IActionResult> DeleteSymptomConfig(int id)
         {
-            var result = await _symptomConfigService.DeleteSymptomConfigAsync(id);
-            return StatusCode(result.StatusCode, result);
+            await _symptomConfigService.DeleteSymptomConfigAsync(id);
+            return Ok(ApiResponseBuilder.BuildSuccessResponse("Symptom configuration deleted successfully!"));
         }
     }
 }

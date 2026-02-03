@@ -9,36 +9,36 @@ namespace SnakeAid.Service.Interfaces
         /// <summary>
         /// Create a new symptom configuration
         /// </summary>
-        Task<ApiResponse<SymptomConfigResponse>> CreateSymptomConfigAsync(CreateSymptomConfigRequest request);
+        Task<SymptomConfigResponse> CreateSymptomConfigAsync(CreateSymptomConfigRequest request);
 
         /// <summary>
         /// Get symptom configuration by ID
         /// </summary>
-        Task<ApiResponse<SymptomConfigResponse>> GetSymptomConfigByIdAsync(int id);
+        Task<SymptomConfigResponse> GetSymptomConfigByIdAsync(int id);
 
         /// <summary>
         /// Get list of symptom configurations with pagination and filters
         /// </summary>
-        Task<ApiResponse<PagedData<SymptomConfigResponse>>> FilterSymptomConfigsAsync(GetSymptomConfigRequest request);
+        Task<PagedData<SymptomConfigResponse>> FilterSymptomConfigsAsync(GetSymptomConfigRequest request);
 
         /// <summary>
         /// Update an existing symptom configuration
         /// </summary>
-        Task<ApiResponse<SymptomConfigResponse>> UpdateSymptomConfigAsync(int id, UpdateSymptomConfigRequest request);
+        Task<SymptomConfigResponse> UpdateSymptomConfigAsync(int id, UpdateSymptomConfigRequest request);
 
         /// <summary>
         /// Delete a symptom configuration
         /// </summary>
-        Task<ApiResponse<bool>> DeleteSymptomConfigAsync(int id);
+        Task DeleteSymptomConfigAsync(int id);
 
         /// <summary>
         /// Get symptom configurations grouped by AttributeKey
         /// </summary>
-        Task<ApiResponse<Dictionary<string, List<SymptomConfigResponse>>>> GetSymptomConfigsGroupedByKeyAsync();
+        Task<Dictionary<string, List<SymptomConfigResponse>>> GetSymptomConfigsGroupedByKeyAsync();
 
         /// <summary>
         /// Get all symptom configurations without pagination
         /// </summary>
-        Task<ApiResponse<List<SymptomConfigResponse>>> GetAllSymptomConfigAsync();
+        Task<List<SymptomConfigResponse>> GetAllSymptomConfigAsync();
     }
 }

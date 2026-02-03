@@ -6,9 +6,7 @@ using SnakeAid.Core.Meta;
 using SnakeAid.Core.Requests;
 using SnakeAid.Core.Requests.RescueRequestSession;
 using SnakeAid.Core.Requests.SnakebiteIncident;
-using SnakeAid.Core.Responses.Auth;
 using SnakeAid.Core.Responses.SnakebiteIncident;
-using SnakeAid.Service.Implements;
 using SnakeAid.Service.Interfaces;
 using Swashbuckle.AspNetCore.Annotations;
 
@@ -45,7 +43,7 @@ namespace SnakeAid.Api.Controllers
 
             // Create incident and first rescue request session
             var result = await _incidentService.CreateIncidentAsync(request, userId);
-            return StatusCode(result.StatusCode, result);
+            return Ok(ApiResponseBuilder.BuildSuccessResponse(result, "Snakebite Incident created successfully!"));
         }
 
         /// <summary>
@@ -60,7 +58,7 @@ namespace SnakeAid.Api.Controllers
         {
             var request = new RaiseSessionRangeRequest { IncidentId = incidentId };
             var result = await _incidentService.RaiseSessionRangeAsync(request);
-            return StatusCode(result.StatusCode, result);
+            return Ok(ApiResponseBuilder.BuildSuccessResponse(result, $"Session range expanded successfully. New radius: {result.CurrentRadiusKm}km"));
         }
 
         /// <summary>
@@ -74,7 +72,7 @@ namespace SnakeAid.Api.Controllers
         public async Task<IActionResult> UpdateSymptomReport(Guid incidentId, [FromBody] UpdateSymptomReportRequest request)
         {
             var result = await _incidentService.UpdateSymptomReportAsync(incidentId, request);
-            return StatusCode(result.StatusCode, result);
+            return Ok(ApiResponseBuilder.BuildSuccessResponse(result, "Symptom report updated successfully!"));
         }
     }
 }

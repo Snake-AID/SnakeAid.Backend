@@ -1,7 +1,6 @@
 using System.Security.Claims;
 using Microsoft.Extensions.Logging;
 using SnakeAid.Core.Domains;
-using SnakeAid.Core.Meta;
 using SnakeAid.Core.Requests.Media;
 using SnakeAid.Core.Responses.Media;
 using SnakeAid.Repository.Data;
@@ -30,64 +29,56 @@ public class MediaService : IMediaService
     }
 
     /// <inheritdoc />
-    public async Task<ApiResponse<ReportMediaResponse>> UploadReportMediaAsync(
+    public async Task<ReportMediaResponse> UploadReportMediaAsync(
         UploadReportMediaRequest request,
         MediaReferenceType referenceType,
         MediaPurpose purpose,
         ClaimsPrincipal user,
         CancellationToken ct = default)
     {
-        try
+        _logger.LogInformation("Uploading report media for reference {ReferenceId}, type: {Type}, purpose: {Purpose}",
+            request.ReferenceId, referenceType, purpose);
+
+        // Upload file to Cloudinary first
+        var uploadResult = await _cloudinaryService.UploadImageAsync(request.File, user, "report-media", ct);
+
+        // Save media record to database
+        return await _unitOfWork.ExecuteInTransactionAsync(async () =>
         {
-            _logger.LogInformation("Uploading report media for reference {ReferenceId}, type: {Type}, purpose: {Purpose}",
-                request.ReferenceId, referenceType, purpose);
-
-            // Upload file to Cloudinary first
-            var uploadResult = await _cloudinaryService.UploadImageAsync(request.File, user, "report-media", ct);
-
-            // Save media record to database
-            return await _unitOfWork.ExecuteInTransactionAsync(async () =>
+            var reportMedia = new ReportMedia
             {
-                var reportMedia = new ReportMedia
-                {
-                    Id = Guid.NewGuid(),
-                    FileName = request.File.FileName,
-                    MediaUrl = uploadResult.SecureUrl,
-                    ContentType = request.File.ContentType,
-                    FileSize = request.File.Length,
-                    ReferenceId = request.ReferenceId,
-                    ReferenceType = referenceType,
-                    Purpose = purpose,
-                    RequiresAIProcessing = purpose == MediaPurpose.SnakeIdentification,
-                    IsProcessed = false,
-                    CreatedAt = DateTime.UtcNow,
-                    UpdatedAt = DateTime.UtcNow
-                };
+                Id = Guid.NewGuid(),
+                FileName = request.File.FileName,
+                MediaUrl = uploadResult.SecureUrl,
+                ContentType = request.File.ContentType,
+                FileSize = request.File.Length,
+                ReferenceId = request.ReferenceId,
+                ReferenceType = referenceType,
+                Purpose = purpose,
+                RequiresAIProcessing = purpose == MediaPurpose.SnakeIdentification,
+                IsProcessed = false,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            };
 
-                var repository = _unitOfWork.GetRepository<ReportMedia>();
-                await repository.InsertAsync(reportMedia);
-                await _unitOfWork.CommitAsync();
+            var repository = _unitOfWork.GetRepository<ReportMedia>();
+            await repository.InsertAsync(reportMedia);
+            await _unitOfWork.CommitAsync();
 
-                var response = new ReportMediaResponse
-                {
-                    Id = reportMedia.Id,
-                    MediaUrl = reportMedia.MediaUrl,
-                    FileName = reportMedia.FileName,
-                    ContentType = reportMedia.ContentType,
-                    FileSize = reportMedia.FileSize,
-                    ReferenceType = reportMedia.ReferenceType,
-                    Purpose = reportMedia.Purpose,
-                    RequiresAIProcessing = reportMedia.RequiresAIProcessing
-                };
+            var response = new ReportMediaResponse
+            {
+                Id = reportMedia.Id,
+                MediaUrl = reportMedia.MediaUrl,
+                FileName = reportMedia.FileName,
+                ContentType = reportMedia.ContentType,
+                FileSize = reportMedia.FileSize,
+                ReferenceType = reportMedia.ReferenceType,
+                Purpose = reportMedia.Purpose,
+                RequiresAIProcessing = reportMedia.RequiresAIProcessing
+            };
 
-                _logger.LogInformation("Successfully uploaded report media with ID: {MediaId}", reportMedia.Id);
-                return ApiResponseBuilder.BuildSuccessResponse(response, "Report media uploaded successfully.");
-            });
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error uploading report media for reference {ReferenceId}", request.ReferenceId);
-            throw;
-        }
+            _logger.LogInformation("Successfully uploaded report media with ID: {MediaId}", reportMedia.Id);
+            return response;
+        });
     }
 }
