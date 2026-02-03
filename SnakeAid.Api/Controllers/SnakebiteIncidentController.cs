@@ -62,6 +62,19 @@ namespace SnakeAid.Api.Controllers
         }
 
         /// <summary>
+        /// Get detailed information about a specific snakebite incident
+        /// </summary>
+        [HttpGet("{incidentId}")]
+        [SwaggerOperation(Summary = "Get Incident Detail", Description = "Retrieve detailed information about a snakebite incident including user, rescuer, sessions, and media")]
+        [SwaggerResponse(200, "Incident details retrieved successfully", typeof(ApiResponse<DetailSnakebiteIncidentReposne>))]
+        [SwaggerResponse(404, "Incident not found")]
+        public async Task<IActionResult> GetIncidentDetail(Guid incidentId)
+        {
+            var result = await _incidentService.GetDetailIncidentAsync(incidentId);
+            return Ok(ApiResponseBuilder.BuildSuccessResponse(result, "Incident details retrieved successfully!"));
+        }
+
+        /// <summary>
         /// Update symptom report with time-based severity calculation
         /// </summary>
         [HttpPut("{incidentId}/symptoms-tracking")]
