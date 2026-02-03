@@ -1,0 +1,39 @@
+# Git
+.git
+.gitignore
+.gitattributes
+.gitmodules
+
+# Visual Studio / VS Code
+.vs
+.vscode
+**/*.user
+**/*.suo
+**/*.launch
+*.sln.docstates
+
+# Build results
+**/bin/
+**/obj/
+**/TestResults/
+
+# Docker
+Dockerfile
+docker-compose*
+.dockerignore
+
+# Automation
+Jenkinsfile
+
+# Documentation
+SnakeAid.Docs/
+*.md
+
+# Settings (Local overrides)
+appsettings.*.json
+!appsettings.json
+!appsettings.Development.json
+
+# Temporary files
+**/*.swp
+**/*.tmp
