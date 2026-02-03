@@ -42,7 +42,7 @@ public class AuthController : BaseController<AuthController>
         )
     {
         var result = await _authService.RegisterAsync(request, role);
-        return StatusCode(result.StatusCode, result);
+        return Ok(ApiResponseBuilder.BuildSuccessResponse(result, "Registration successful."));
     }
 
     /// <summary>
@@ -56,7 +56,7 @@ public class AuthController : BaseController<AuthController>
     public async Task<IActionResult> Login([FromBody] LoginRequest request)
     {
         var result = await _authService.LoginAsync(request);
-        return StatusCode(result.StatusCode, result);
+        return Ok(ApiResponseBuilder.BuildSuccessResponse(result, "Login successful."));
     }
 
     /// <summary>
@@ -70,7 +70,7 @@ public class AuthController : BaseController<AuthController>
     public async Task<IActionResult> RefreshToken([FromBody] RefreshTokenRequest request)
     {
         var result = await _authService.RefreshTokenAsync(request);
-        return StatusCode(result.StatusCode, result);
+        return Ok(ApiResponseBuilder.BuildSuccessResponse(result, "Token refreshed successfully."));
     }
 
     /// <summary>
@@ -85,7 +85,7 @@ public class AuthController : BaseController<AuthController>
     public async Task<IActionResult> GoogleLogin([FromBody] GoogleLoginRequest request)
     {
         var result = await _authService.GoogleLoginAsync(request);
-        return StatusCode(result.StatusCode, result);
+        return Ok(ApiResponseBuilder.BuildSuccessResponse(result, "Google login successful."));
     }
 
     /// <summary>
@@ -100,8 +100,8 @@ public class AuthController : BaseController<AuthController>
     public async Task<IActionResult> Logout()
     {
         var userId = GetCurrentUserId();
-        var result = await _authService.LogoutAsync(userId);
-        return StatusCode(result.StatusCode, result);
+        await _authService.LogoutAsync(userId);
+        return Ok(ApiResponseBuilder.BuildSuccessResponse("Logged out successfully."));
     }
 
     /// <summary>
@@ -116,7 +116,7 @@ public class AuthController : BaseController<AuthController>
     public async Task<IActionResult> VerifyAccount([FromBody] VerifyAccountRequest request)
     {
         var result = await _authService.VerifyAccountAsync(request);
-        return StatusCode(result.StatusCode, result);
+        return Ok(ApiResponseBuilder.BuildSuccessResponse(result, result.Message));
     }
 
     /// <summary>

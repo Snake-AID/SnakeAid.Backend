@@ -1,4 +1,3 @@
-using SnakeAid.Core.Meta;
 using SnakeAid.Core.Responses.SnakeDetection;
 
 namespace SnakeAid.Service.Interfaces;
@@ -13,16 +12,16 @@ public interface ISnakeAIService
     /// </summary>
     /// <param name="reportMediaId">ID of the ReportMedia entity</param>
     /// <param name="ct">Cancellation token</param>
-    /// <returns>API response with detection results including species info</returns>
-    Task<ApiResponse<SnakeDetectionResponse>> DetectFromReportMediaAsync(Guid reportMediaId, CancellationToken ct = default);
+    /// <returns>Detection results including species info</returns>
+    Task<SnakeDetectionResponse> DetectFromReportMediaAsync(Guid reportMediaId, CancellationToken ct = default);
 
     /// <summary>
     /// Get saved recognition result by ID
     /// </summary>
     /// <param name="recognitionResultId">ID of the SnakeAIRecognitionResult</param>
     /// <param name="ct">Cancellation token</param>
-    /// <returns>API response with recognition result details</returns>
-    Task<ApiResponse<SnakeDetectionResponse>> GetRecognitionResultAsync(Guid recognitionResultId, CancellationToken ct = default);
+    /// <returns>Recognition result details</returns>
+    Task<SnakeDetectionResponse> GetRecognitionResultAsync(Guid recognitionResultId, CancellationToken ct = default);
 
     /// <summary>
     /// Detect snake from ReportMedia, map to species, and persist result.
@@ -30,8 +29,8 @@ public interface ISnakeAIService
     /// <param name="imageUrl">Public URL of the image (Cloudinary)</param>
     /// <param name="reportMediaId">ID of the ReportMedia entity</param>
     /// <param name="ct">Cancellation token</param>
-    /// <returns>API response with detection results including species info</returns>
-    Task<ApiResponse<SnakeDetectionResponse>> DetectAsync(string imageUrl, Guid reportMediaId, CancellationToken ct = default);
+    /// <returns>Detection results including species info</returns>
+    Task<SnakeDetectionResponse> DetectAsync(string imageUrl, Guid reportMediaId, CancellationToken ct = default);
 
     /// <summary>
     /// Check if SnakeAI service is healthy (internal use)

@@ -72,6 +72,6 @@ public class MediaController : BaseController<MediaController>
         CancellationToken ct = default)
     {
         var result = await _mediaService.UploadReportMediaAsync(request, type, purpose, User, ct);
-        return StatusCode(result.StatusCode, result);
+        return Ok(ApiResponseBuilder.BuildSuccessResponse(result, "Report media uploaded successfully."));
     }
 }

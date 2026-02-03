@@ -1,9 +1,8 @@
-using System.Net;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using SnakeAid.Core.Domains;
-using SnakeAid.Core.Meta;
+using SnakeAid.Core.Exceptions;
 using SnakeAid.Core.Requests.SnakeAI;
 using SnakeAid.Core.Responses.SnakeDetection;
 using SnakeAid.Core.Settings;
@@ -36,7 +35,7 @@ public class SnakeAIService : ISnakeAIService
     }
 
     /// <inheritdoc />
-    public async Task<ApiResponse<SnakeDetectionResponse>> DetectAsync(string imageUrl, Guid reportMediaId, CancellationToken ct = default)
+    public async Task<SnakeDetectionResponse> DetectAsync(string imageUrl, Guid reportMediaId, CancellationToken ct = default)
     {
         var request = new SnakeAIDetectRequest
         {
@@ -193,7 +192,7 @@ public class SnakeAIService : ISnakeAIService
                 topDetection?.ClassName ?? "none",
                 topDetection?.Confidence ?? 0);
 
-            var response = new SnakeDetectionResponse
+            return new SnakeDetectionResponse
             {
                 Metadata = new AiMetadata
                 {
@@ -211,8 +210,6 @@ public class SnakeAIService : ISnakeAIService
                 Results = results,
                 RecognitionResultId = savedRecognitionResult?.Id
             };
-
-            return ApiResponseBuilder.BuildSuccessResponse(response, "Snake detection completed successfully.");
         }
         catch (Exception ex)
         {
@@ -246,12 +243,7 @@ public class SnakeAIService : ISnakeAIService
                 _logger.LogError(saveEx, "Failed to save error recognition result for ReportMediaId: {MediaId}", reportMediaId);
             }
 
-            return ApiResponseBuilder.CreateResponse<SnakeDetectionResponse>(
-                null,
-                false,
-                "Snake detection failed. Please try again later.",
-                HttpStatusCode.InternalServerError,
-                "DETECTION_FAILED");
+            throw new ApiException("Snake detection failed. Please try again later.", System.Net.HttpStatusCode.InternalServerError);
         }
     }
 
@@ -280,125 +272,103 @@ public class SnakeAIService : ISnakeAIService
     }
 
     /// <inheritdoc />
-    public async Task<ApiResponse<SnakeDetectionResponse>> DetectFromReportMediaAsync(Guid reportMediaId, CancellationToken ct = default)
+    public async Task<SnakeDetectionResponse> DetectFromReportMediaAsync(Guid reportMediaId, CancellationToken ct = default)
     {
-        try
+        // 1. Health check
+        if (!await IsHealthyAsync())
         {
-            // 1. Health check
-            if (!await IsHealthyAsync())
-            {
-                _logger.LogWarning("SnakeAI service is unavailable");
-                return ApiResponseBuilder.CreateResponse<SnakeDetectionResponse>(
-                    null, false, "Snake detection service is currently unavailable. Please try again later.",
-                    System.Net.HttpStatusCode.ServiceUnavailable, "SERVICE_UNAVAILABLE");
-            }
-
-            // 2. Validate ReportMedia exists
-            var reportMedia = await _unitOfWork.GetRepository<ReportMedia>()
-                .FirstOrDefaultAsync(
-                    predicate: m => m.Id == reportMediaId,
-                    cancellationToken: ct);
-
-            if (reportMedia == null)
-            {
-                _logger.LogWarning("ReportMedia not found: {MediaId}", reportMediaId);
-                return ApiResponseBuilder.CreateResponse<SnakeDetectionResponse>(
-                    null, false, "ReportMedia not found.",
-                    System.Net.HttpStatusCode.NotFound, "NOT_FOUND");
-            }
-
-            // 3. Call detection with imageUrl
-            return await DetectAsync(reportMedia.MediaUrl, reportMediaId, ct);
+            _logger.LogWarning("SnakeAI server is unavailable");
+            throw new ApiException("Snake detection server is currently unavailable. Please try again later.",
+                System.Net.HttpStatusCode.ServiceUnavailable);
         }
-        catch (Exception ex)
+
+        // 2. Validate ReportMedia exists
+        var reportMedia = await _unitOfWork.GetRepository<ReportMedia>()
+            .FirstOrDefaultAsync(
+                predicate: m => m.Id == reportMediaId,
+                cancellationToken: ct);
+
+        if (reportMedia == null)
         {
-            _logger.LogError(ex, "Error in DetectFromReportMediaAsync for ReportMediaId: {MediaId}", reportMediaId);
-            throw;
+            _logger.LogWarning("ReportMedia not found: {MediaId}", reportMediaId);
+            throw new NotFoundException("ReportMedia not found.");
         }
+
+        // 3. Call detection with imageUrl
+        return await DetectAsync(reportMedia.MediaUrl, reportMediaId, ct);
     }
 
     /// <inheritdoc />
-    public async Task<ApiResponse<SnakeDetectionResponse>> GetRecognitionResultAsync(Guid recognitionResultId, CancellationToken ct = default)
+    public async Task<SnakeDetectionResponse> GetRecognitionResultAsync(Guid recognitionResultId, CancellationToken ct = default)
     {
-        try
+        var recognitionResult = await _unitOfWork.GetRepository<SnakeAIRecognitionResult>()
+            .FirstOrDefaultAsync(
+                predicate: r => r.Id == recognitionResultId,
+                include: query => query
+                    .Include(r => r.ReportMedia)
+                    .Include(r => r.AIModel)
+                    .Include(r => r.DetectedSpecies)
+                        .ThenInclude(s => s.SpeciesVenoms)
+                            .ThenInclude(sv => sv.VenomType)
+                                .ThenInclude(v => v.FirstAidGuideline), // Include for Fallback
+                cancellationToken: ct);
+
+        if (recognitionResult == null)
         {
-            var recognitionResult = await _unitOfWork.GetRepository<SnakeAIRecognitionResult>()
-                .FirstOrDefaultAsync(
-                    predicate: r => r.Id == recognitionResultId,
-                    include: query => query
-                        .Include(r => r.ReportMedia)
-                        .Include(r => r.AIModel)
-                        .Include(r => r.DetectedSpecies)
-                            .ThenInclude(s => s.SpeciesVenoms)
-                                .ThenInclude(sv => sv.VenomType)
-                                    .ThenInclude(v => v.FirstAidGuideline), // Include for Fallback
-                    cancellationToken: ct);
+            _logger.LogWarning("Recognition result not found: {ResultId}", recognitionResultId);
+            throw new NotFoundException("Recognition result not found.");
+        }
 
-            if (recognitionResult == null)
+        // Restore species logic if available
+        if (recognitionResult.DetectedSpecies != null)
+        {
+            var species = recognitionResult.DetectedSpecies;
+            // -- FALLBACK LOGIC --
+            if (species.FirstAidGuidelineOverride == null && species.SpeciesVenoms.Any())
             {
-                _logger.LogWarning("Recognition result not found: {ResultId}", recognitionResultId);
-                return ApiResponseBuilder.CreateResponse<SnakeDetectionResponse>(
-                    null, false, "Recognition result not found.",
-                    System.Net.HttpStatusCode.NotFound, "NOT_FOUND");
-            }
+                var venomWithGuide = species.SpeciesVenoms
+                     .Select(sv => sv.VenomType)
+                     .FirstOrDefault(v => v.FirstAidGuideline != null);
 
-            // Restore species logic if available
-            if (recognitionResult.DetectedSpecies != null)
-            {
-                var species = recognitionResult.DetectedSpecies;
-                // -- FALLBACK LOGIC --
-                if (species.FirstAidGuidelineOverride == null && species.SpeciesVenoms.Any())
+                if (venomWithGuide != null)
                 {
-                    var venomWithGuide = species.SpeciesVenoms
-                         .Select(sv => sv.VenomType)
-                         .FirstOrDefault(v => v.FirstAidGuideline != null);
-
-                    if (venomWithGuide != null)
+                    species.FirstAidGuidelineOverride = new FirstAidOverride
                     {
-                        species.FirstAidGuidelineOverride = new FirstAidOverride
-                        {
-                            Mode = OverrideMode.Append,
-                            Steps = venomWithGuide.FirstAidGuideline.Content?.Steps?.Select(s => s.Text).ToList() ?? new List<string>()
-                        };
-                    }
+                        Mode = OverrideMode.Append,
+                        Steps = venomWithGuide.FirstAidGuideline.Content?.Steps?.Select(s => s.Text).ToList() ?? new List<string>()
+                    };
                 }
             }
-
-            // Build response from saved data (matching V3 strict structure)
-            var response = new SnakeDetectionResponse
-            {
-                Metadata = new AiMetadata
-                {
-                    ModelVersion = recognitionResult.AIModel?.Version,
-                    ImageWidth = 0, // Not stored
-                    ImageHeight = 0,
-                    DetectionCount = 1,
-                    Warnings = null
-                },
-                RecognitionResultId = recognitionResult.Id,
-                Results = new List<DetectionResult>
-                {
-                    new DetectionResult
-                    {
-                        Ai = new AiDetection
-                        {
-                            ClassId = 0,
-                            ClassName = recognitionResult.YoloClassName,
-                            Confidence = (float)recognitionResult.Confidence,
-                            BBox = new SnakeBBox() // BBox data not stored efficiently yet
-                        },
-                        Snake = recognitionResult.DetectedSpecies
-                    }
-                }
-            };
-
-            _logger.LogInformation("Retrieved recognition result: {ResultId}", recognitionResultId);
-            return ApiResponseBuilder.BuildSuccessResponse(response, "Recognition result retrieved successfully.");
         }
-        catch (Exception ex)
+
+        _logger.LogInformation("Retrieved recognition result: {ResultId}", recognitionResultId);
+
+        // Build response from saved data (matching V3 strict structure)
+        return new SnakeDetectionResponse
         {
-            _logger.LogError(ex, "Error retrieving recognition result: {ResultId}", recognitionResultId);
-            throw;
-        }
+            Metadata = new AiMetadata
+            {
+                ModelVersion = recognitionResult.AIModel?.Version,
+                ImageWidth = 0, // Not stored
+                ImageHeight = 0,
+                DetectionCount = 1,
+                Warnings = null
+            },
+            RecognitionResultId = recognitionResult.Id,
+            Results = new List<DetectionResult>
+            {
+                new DetectionResult
+                {
+                    Ai = new AiDetection
+                    {
+                        ClassId = 0,
+                        ClassName = recognitionResult.YoloClassName,
+                        Confidence = (float)recognitionResult.Confidence,
+                        BBox = new SnakeBBox() // BBox data not stored efficiently yet
+                    },
+                    Snake = recognitionResult.DetectedSpecies
+                }
+            }
+        };
     }
 }
