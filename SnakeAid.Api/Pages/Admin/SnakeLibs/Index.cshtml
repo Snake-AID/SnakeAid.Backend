@@ -1,0 +1,64 @@
+@page "/admin/snakelibs"
+@model SnakeAid.Api.Pages.Admin.SnakeLibs.IndexModel
+@{
+    ViewData["Title"] = "Snake species library";
+}
+
+<h1>Snake Library - Loài rắn (UI) ✅</h1>
+
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>Id</th>
+            <th>Scientific name</th>
+            <th>Common name</th>
+            <th>Venomous</th>
+            <th>Primary venom</th>
+            <th>Alt names</th>
+            <th>Media</th>
+            <th>Tariffs</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var s in Model.Species)
+        {
+            <tr>
+                <td>@s.Id</td>
+                <td>@s.ScientificName</td>
+                <td>@(string.IsNullOrWhiteSpace(s.CommonName) ? "-" : s.CommonName)</td>
+                <td>@(s.IsVenomous ? "Yes" : "No")</td>
+                <td>@(s.PrimaryVenomType?.ToString() ?? "-")</td>
+                <td>@(s.AlternativeNames?.Count ?? 0)</td>
+                <td>@(s.LibraryMedias?.Count ?? 0)</td>
+                <td>@(s.SnakeCatchingTariffs?.Count ?? 0)</td>
+            </tr>
+            <tr>
+                <td colspan="8">
+                    <strong>Details:</strong>
+                    <div>
+                        <em>Alternative names:</em>
+                        @if (s.AlternativeNames?.Any() == true) {
+                            <ul>
+                                @foreach (var n in s.AlternativeNames)
+                                {
+                                    <li>@n.Name</li>
+                                }
+                            </ul>
+                        } else { <span>—</span> }
+                    </div>
+                    <div>
+                        <em>Venom types:</em>
+                        @if (s.SpeciesVenoms?.Any() == true) {
+                            <ul>
+                                @foreach (var v in s.SpeciesVenoms)
+                                {
+                                    <li>@(v.VenomType?.Name ?? "-")</li>
+                                }
+                            </ul>
+                        } else { <span>—</span> }
+                    </div>
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>
