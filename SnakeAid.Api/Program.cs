@@ -17,6 +17,7 @@ using SnakeAid.Repository.Seeds;
 using SQLitePCL;
 using Swashbuckle.AspNetCore.SwaggerUI;
 using System.Text.Json.Serialization;
+using SnakeAid.Service.Interfaces;
 
 namespace SnakeAid.Api
 {
@@ -114,6 +115,13 @@ namespace SnakeAid.Api
                     .AsImplementedInterfaces()
                     .WithScopedLifetime());
 
+                // Register SessionTimeoutBackgroundService manually as singleton for background service
+                builder.Services.AddSingleton<SnakeAid.Service.Implements.SessionTimeoutBackgroundService>();
+                builder.Services.AddSingleton<SnakeAid.Service.Interfaces.ISessionTimeoutService>(provider =>
+                    provider.GetRequiredService<SnakeAid.Service.Implements.SessionTimeoutBackgroundService>());
+                builder.Services.AddHostedService<SnakeAid.Service.Implements.SessionTimeoutBackgroundService>(provider =>
+                    provider.GetRequiredService<SnakeAid.Service.Implements.SessionTimeoutBackgroundService>());
+
                 builder.Services.AddMemoryCache();
 
                 // Health checks endpoint
@@ -149,7 +157,7 @@ namespace SnakeAid.Api
                 });
 
                 builder.Services.AddControllers();
-                
+
                 // Add Razor Pages for lightweight UI admin pages
                 builder.Services.AddRazorPages();
 
@@ -306,6 +314,8 @@ namespace SnakeAid.Api
 
                 // Map SignalR Hub with specific CORS policy
                 app.MapHub<TestChatHub>("/chat-hub").RequireCors("SignalRCorsPolicy");
+
+                app.MapHub<RescuerHub>("/rescuer-hub").RequireCors("SignalRCorsPolicy");
 
                 // Map Razor pages
                 app.MapRazorPages();

@@ -20,15 +20,18 @@ namespace SnakeAid.Api.Controllers
     public class SnakebiteIncidentController : BaseController<SnakebiteIncidentController>
     {
         private readonly ISnakebiteIncidentService _incidentService;
+        private readonly IRescueRequestSessionService _sessionService;
 
         public SnakebiteIncidentController(
             ILogger<SnakebiteIncidentController> logger,
             IHttpContextAccessor httpContextAccessor,
             IMapper mapper,
-            ISnakebiteIncidentService incidentService)
+            ISnakebiteIncidentService incidentService,
+            IRescueRequestSessionService sessionService)
             : base(logger, httpContextAccessor, mapper)
         {
             _incidentService = incidentService;
+            _sessionService = sessionService;
         }
 
         /// <summary>
@@ -43,9 +46,21 @@ namespace SnakeAid.Api.Controllers
         {
             var userId = GetCurrentUserId();
 
-            // Create incident and first rescue request session
+            // Step 1: Create incident first
             var result = await _incidentService.CreateIncidentAsync(request, userId);
-            return StatusCode(result.StatusCode, result);
+            
+            // Step 2: Start rescue session and broadcast to rescuers
+            var rescueResult = await _incidentService.StartRescueAsync(result.Id);
+            
+            // Combine response data
+            result.SessionId = rescueResult.SessionId;
+            result.SessionNumber = rescueResult.SessionNumber;
+            result.RadiusKm = rescueResult.RadiusKm;
+            result.RescuersPinged = rescueResult.RescuersPinged;
+            
+            var response = ApiResponseBuilder.BuildSuccessResponse(result, 
+                "Snakebite Incident created and rescue session started! Broadcasting to nearby rescuers.");
+            return StatusCode(response.StatusCode, response);
         }
 
         /// <summary>
@@ -60,7 +75,9 @@ namespace SnakeAid.Api.Controllers
         {
             var request = new RaiseSessionRangeRequest { IncidentId = incidentId };
             var result = await _incidentService.RaiseSessionRangeAsync(request);
-            return StatusCode(result.StatusCode, result);
+            var response = ApiResponseBuilder.BuildSuccessResponse(result,
+                $"Session range expanded successfully. New radius: {result.CurrentRadiusKm}km (Session {result.CurrentSessionNumber})");
+            return StatusCode(response.StatusCode, response);
         }
 
         /// <summary>
@@ -74,7 +91,8 @@ namespace SnakeAid.Api.Controllers
         public async Task<IActionResult> UpdateSymptomReport(Guid incidentId, [FromBody] UpdateSymptomReportRequest request)
         {
             var result = await _incidentService.UpdateSymptomReportAsync(incidentId, request);
-            return StatusCode(result.StatusCode, result);
+            var response = ApiResponseBuilder.BuildSuccessResponse(result, "Symptom report updated successfully!");
+            return StatusCode(response.StatusCode, response);
         }
     }
 }

@@ -1,0 +1,311 @@
+using Mapster;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
+using SnakeAid.Core.Domains;
+using SnakeAid.Core.Exceptions;
+using SnakeAid.Repository.Data;
+using SnakeAid.Repository.Interfaces;
+using SnakeAid.Service.Interfaces;
+
+namespace SnakeAid.Service.Implements
+{
+    public class RescueMissionService : IRescueMissionService
+    {
+        private readonly IUnitOfWork<SnakeAidDbContext> _unitOfWork;
+        private readonly ILogger<RescueMissionService> _logger;
+        private readonly IConfiguration _configuration;
+        private readonly IRescueRequestSessionService _sessionService;
+
+        // Default price for rescue mission (có thể lấy từ SystemSetting sau)
+        private const decimal DEFAULT_RESCUE_PRICE = 500000m;
+
+
+        public RescueMissionService(
+            IUnitOfWork<SnakeAidDbContext> unitOfWork,
+            ILogger<RescueMissionService> logger,
+            IConfiguration configuration,
+            IRescueRequestSessionService sessionService)
+        {
+            _unitOfWork = unitOfWork;
+            _logger = logger;
+            _configuration = configuration;
+            _sessionService = sessionService;
+        }
+
+        /// <summary>
+        /// Tạo mission khi rescuer accept request
+        /// </summary>
+        public async Task<RescueMission> CreateMissionAsync(Guid incidentId, Guid rescuerId, decimal price)
+        {
+            try
+            {
+                return await _unitOfWork.ExecuteInTransactionAsync(async () =>
+                {
+                    // Verify incident exists and is in correct state
+                    var incident = await _unitOfWork.GetRepository<SnakebiteIncident>().FirstOrDefaultAsync(
+                        predicate: i => i.Id == incidentId
+                    );
+
+                    if (incident == null)
+                    {
+                        throw new NotFoundException("Incident not found.");
+                    }
+
+                    if (incident.Status != SnakebiteIncidentStatus.Pending)
+                    {
+                        throw new BadRequestException($"Cannot create mission for incident with status: {incident.Status}");
+                    }
+
+                    // Verify rescuer exists
+                    var rescuer = await _unitOfWork.GetRepository<RescuerProfile>().FirstOrDefaultAsync(
+                        predicate: r => r.AccountId == rescuerId
+                    );
+
+                    if (rescuer == null)
+                    {
+                        throw new NotFoundException("Rescuer not found.");
+                    }
+
+                    // Check if mission already exists for this incident
+                    var existingMission = await _unitOfWork.GetRepository<RescueMission>().FirstOrDefaultAsync(
+                        predicate: m => m.IncidentId == incidentId
+                    );
+
+                    if (existingMission != null)
+                    {
+                        throw new BadRequestException("Mission already exists for this incident.");
+                    }
+
+                    // Create new mission
+                    var mission = new RescueMission
+                    {
+                        Id = Guid.NewGuid(),
+                        IncidentId = incidentId,
+                        RescuerId = rescuerId,
+                        Status = RescueMissionStatus.Preparing,
+                        Price = price > 0 ? price : DEFAULT_RESCUE_PRICE,
+                        CreatedAt = DateTime.UtcNow
+                    };
+
+                    // Update incident status
+                    incident.Status = SnakebiteIncidentStatus.Assigned;
+                    incident.AssignedRescuerId = rescuerId;
+                    incident.AssignedAt = DateTime.UtcNow;
+
+                    await _unitOfWork.GetRepository<RescueMission>().InsertAsync(mission);
+                    _unitOfWork.GetRepository<SnakebiteIncident>().Update(incident);
+                    await _unitOfWork.CommitAsync();
+
+                    _logger.LogInformation("Created mission {MissionId} for incident {IncidentId} with rescuer {RescuerId}",
+                        mission.Id, incidentId, rescuerId);
+
+                    return mission;
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error creating mission for incident {IncidentId}: {Message}", incidentId, ex.Message);
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Update mission status (e.g., EnRoute, Arrived, Completed)
+        /// </summary>
+        public async Task UpdateMissionStatusAsync(Guid missionId, RescueMissionStatus status)
+        {
+            try
+            {
+                await _unitOfWork.ExecuteInTransactionAsync(async () =>
+                {
+                    var mission = await _unitOfWork.GetRepository<RescueMission>().FirstOrDefaultAsync(
+                        predicate: m => m.Id == missionId
+                    );
+
+                    if (mission == null)
+                    {
+                        throw new NotFoundException("Mission not found.");
+                    }
+
+                    // Validate state transition
+                    if (!IsValidStatusTransition(mission.Status, status))
+                    {
+                        throw new BadRequestException($"Cannot transition from {mission.Status} to {status}");
+                    }
+
+                    mission.Status = status;
+                    mission.UpdatedAt = DateTime.UtcNow;
+
+                    // Set timestamps based on status
+                    switch (status)
+                    {
+                        case RescueMissionStatus.EnRoute:
+                            mission.StartedAt = DateTime.UtcNow;
+                            break;
+                        case RescueMissionStatus.RescuerArrived:
+                            mission.ArrivedAt = DateTime.UtcNow;
+                            break;
+                        case RescueMissionStatus.MissionCompleted:
+                            mission.CompletedAt = DateTime.UtcNow;
+                            // Update incident status to Finished
+                            var incident = await _unitOfWork.GetRepository<SnakebiteIncident>().FirstOrDefaultAsync(
+                                predicate: i => i.Id == mission.IncidentId
+                            );
+                            if (incident != null)
+                            {
+                                incident.Status = SnakebiteIncidentStatus.Finished;
+                                _unitOfWork.GetRepository<SnakebiteIncident>().Update(incident);
+                            }
+                            break;
+                    }
+
+                    _unitOfWork.GetRepository<RescueMission>().Update(mission);
+                    await _unitOfWork.CommitAsync();
+
+                    _logger.LogInformation("Updated mission {MissionId} status to {Status}", missionId, status);
+                    return mission;
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating mission {MissionId} status: {Message}", missionId, ex.Message);
+                throw;
+            }
+        }
+
+        /// User cancel mission: Set status to Cancelled, no new session
+        /// Only allowed before rescuer updates to EnRoute status
+        public async Task UserCancelMissionAsync(Guid missionId, string reason)
+        {
+            try
+            {
+                await _unitOfWork.ExecuteInTransactionAsync(async () =>
+                {
+                    var mission = await _unitOfWork.GetRepository<RescueMission>().FirstOrDefaultAsync(
+                        predicate: m => m.Id == missionId,
+                        include: q => q.Include(m => m.Incident)
+                    );
+
+                    if (mission == null)
+                    {
+                        throw new NotFoundException("Mission not found.");
+                    }
+
+                    // User can only cancel before rescuer goes EnRoute
+                    if (mission.Status != RescueMissionStatus.Preparing)
+                    {
+                        throw new BadRequestException($"User cannot cancel mission with status: {mission.Status}. Only allowed during Preparing phase.");
+                    }
+
+                    mission.Status = RescueMissionStatus.Cancelled;
+                    mission.CancellationReason = reason;
+                    mission.UpdatedAt = DateTime.UtcNow;
+
+                    // Set incident to Cancelled (user doesn't want rescue anymore)
+                    var incident = mission.Incident;
+                    incident.Status = SnakebiteIncidentStatus.Cancelled;
+                    incident.AssignedRescuerId = null;
+                    incident.AssignedAt = null;
+
+                    _unitOfWork.GetRepository<RescueMission>().Update(mission);
+                    _unitOfWork.GetRepository<SnakebiteIncident>().Update(incident);
+                    await _unitOfWork.CommitAsync();
+
+                    _logger.LogInformation("User cancelled mission {MissionId} with reason: {Reason}", missionId, reason);
+
+                    // No new session created - user wants to end the incident
+
+                    return mission;
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error in user cancelling mission {MissionId}: {Message}", missionId, ex.Message);
+                throw;
+            }
+        }
+
+        /// Rescuer abort mission: Set status to MissionAborted, create new session with increased radius
+        /// Allowed during Preparing or EnRoute phases
+        public async Task RescuerAbortMissionAsync(Guid missionId, string reason)
+        {
+            try
+            {
+                await _unitOfWork.ExecuteInTransactionAsync(async () =>
+                {
+                    var mission = await _unitOfWork.GetRepository<RescueMission>().FirstOrDefaultAsync(
+                        predicate: m => m.Id == missionId,
+                        include: q => q.Include(m => m.Incident)
+                    );
+
+                    if (mission == null)
+                    {
+                        throw new NotFoundException("Mission not found.");
+                    }
+
+                    // Rescuer can abort during Preparing or EnRoute
+                    if (mission.Status != RescueMissionStatus.Preparing && mission.Status != RescueMissionStatus.EnRoute)
+                    {
+                        throw new BadRequestException($"Cannot abort mission with status: {mission.Status}. Only allowed during Preparing or EnRoute phases.");
+                    }
+
+                    mission.Status = RescueMissionStatus.MissionAborted;
+                    mission.CancellationReason = reason;
+                    mission.UpdatedAt = DateTime.UtcNow;
+
+                    // Reset incident to Pending for retry with increased radius
+                    var incident = mission.Incident;
+                    incident.Status = SnakebiteIncidentStatus.Pending;
+                    incident.AssignedRescuerId = null;
+                    incident.AssignedAt = null;
+
+                    _unitOfWork.GetRepository<RescueMission>().Update(mission);
+                    _unitOfWork.GetRepository<SnakebiteIncident>().Update(incident);
+                    await _unitOfWork.CommitAsync();
+
+                    _logger.LogInformation("Rescuer aborted mission {MissionId} with reason: {Reason}", missionId, reason);
+
+                    // Create new session with increased radius after rescuer abort
+                    try
+                    {
+                        await _sessionService.HandleMissionAbortAsync(incident.Id);
+                        _logger.LogInformation("Created new rescue session after rescuer abort for incident {IncidentId}", incident.Id);
+                    }
+                    catch (Exception sessionEx)
+                    {
+                        // Log but don't fail the mission abort
+                        _logger.LogError(sessionEx, "Failed to create new session after rescuer abort for incident {IncidentId}: {Message}",
+                            incident.Id, sessionEx.Message);
+                    }
+
+                    return mission;
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error in rescuer aborting mission {MissionId}: {Message}", missionId, ex.Message);
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Validate mission status transition
+        /// </summary>
+        private bool IsValidStatusTransition(RescueMissionStatus current, RescueMissionStatus next)
+        {
+            return (current, next) switch
+            {
+                (RescueMissionStatus.Preparing, RescueMissionStatus.EnRoute) => true,
+                (RescueMissionStatus.Preparing, RescueMissionStatus.Cancelled) => true,
+                (RescueMissionStatus.EnRoute, RescueMissionStatus.RescuerArrived) => true,
+                (RescueMissionStatus.EnRoute, RescueMissionStatus.Cancelled) => true,
+                (RescueMissionStatus.EnRoute, RescueMissionStatus.MissionAborted) => true,
+                (RescueMissionStatus.RescuerArrived, RescueMissionStatus.MissionCompleted) => true,
+                (RescueMissionStatus.RescuerArrived, RescueMissionStatus.MissionUncompleted) => true,
+                (RescueMissionStatus.RescuerArrived, RescueMissionStatus.MissionAborted) => true,
+                _ => false
+            };
+        }
+    }
+}
