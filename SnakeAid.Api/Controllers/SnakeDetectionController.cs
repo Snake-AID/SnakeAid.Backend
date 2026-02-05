@@ -31,7 +31,7 @@ public class SnakeDetectionController : BaseController<SnakeDetectionController>
     /// <summary>
     /// Detect snake species from uploaded ReportMedia
     /// </summary>
-    /// <param name="request">Detection request with ReportMediaId</param>
+    /// <param name="reportMediaId">ID of the ReportMedia entity</param>
     /// <param name="ct">Cancellation token</param>
     /// <returns>Detection result with species info and confidence</returns>
     [HttpPost("detect/{reportMediaId:guid}")]
@@ -45,7 +45,7 @@ public class SnakeDetectionController : BaseController<SnakeDetectionController>
     public async Task<IActionResult> Detect([FromRoute] Guid reportMediaId, CancellationToken ct = default)
     {
         var result = await _snakeAIService.DetectFromReportMediaAsync(reportMediaId, ct);
-        return StatusCode(result.StatusCode, result);
+        return Ok(ApiResponseBuilder.BuildSuccessResponse(result, "Snake detection completed successfully."));
     }
 
     /// <summary>
@@ -63,6 +63,6 @@ public class SnakeDetectionController : BaseController<SnakeDetectionController>
     public async Task<IActionResult> GetDetectionResult(Guid id, CancellationToken ct = default)
     {
         var result = await _snakeAIService.GetRecognitionResultAsync(id, ct);
-        return StatusCode(result.StatusCode, result);
+        return Ok(ApiResponseBuilder.BuildSuccessResponse(result, "Recognition result retrieved successfully."));
     }
 }

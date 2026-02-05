@@ -6,9 +6,7 @@ using SnakeAid.Core.Meta;
 using SnakeAid.Core.Requests;
 using SnakeAid.Core.Requests.RescueRequestSession;
 using SnakeAid.Core.Requests.SnakebiteIncident;
-using SnakeAid.Core.Responses.Auth;
 using SnakeAid.Core.Responses.SnakebiteIncident;
-using SnakeAid.Service.Implements;
 using SnakeAid.Service.Interfaces;
 using Swashbuckle.AspNetCore.Annotations;
 
@@ -48,17 +46,17 @@ namespace SnakeAid.Api.Controllers
 
             // Step 1: Create incident first
             var result = await _incidentService.CreateIncidentAsync(request, userId);
-            
+
             // Step 2: Start rescue session and broadcast to rescuers
             var rescueResult = await _incidentService.StartRescueAsync(result.Id);
-            
+
             // Combine response data
             result.SessionId = rescueResult.SessionId;
             result.SessionNumber = rescueResult.SessionNumber;
             result.RadiusKm = rescueResult.RadiusKm;
             result.RescuersPinged = rescueResult.RescuersPinged;
-            
-            var response = ApiResponseBuilder.BuildSuccessResponse(result, 
+
+            var response = ApiResponseBuilder.BuildSuccessResponse(result,
                 "Snakebite Incident created and rescue session started! Broadcasting to nearby rescuers.");
             return StatusCode(response.StatusCode, response);
         }
@@ -75,9 +73,20 @@ namespace SnakeAid.Api.Controllers
         {
             var request = new RaiseSessionRangeRequest { IncidentId = incidentId };
             var result = await _incidentService.RaiseSessionRangeAsync(request);
-            var response = ApiResponseBuilder.BuildSuccessResponse(result,
-                $"Session range expanded successfully. New radius: {result.CurrentRadiusKm}km (Session {result.CurrentSessionNumber})");
-            return StatusCode(response.StatusCode, response);
+            return Ok(ApiResponseBuilder.BuildSuccessResponse(result, $"Session range expanded successfully. New radius: {result.CurrentRadiusKm}km"));
+        }
+
+        /// <summary>
+        /// Get detailed information about a specific snakebite incident
+        /// </summary>
+        [HttpGet("{incidentId}")]
+        [SwaggerOperation(Summary = "Get Incident Detail", Description = "Retrieve detailed information about a snakebite incident including user, rescuer, sessions, and media")]
+        [SwaggerResponse(200, "Incident details retrieved successfully", typeof(ApiResponse<DetailSnakebiteIncidentReposne>))]
+        [SwaggerResponse(404, "Incident not found")]
+        public async Task<IActionResult> GetIncidentDetail(Guid incidentId)
+        {
+            var result = await _incidentService.GetDetailIncidentAsync(incidentId);
+            return Ok(ApiResponseBuilder.BuildSuccessResponse(result, "Incident details retrieved successfully!"));
         }
 
         /// <summary>
@@ -91,8 +100,7 @@ namespace SnakeAid.Api.Controllers
         public async Task<IActionResult> UpdateSymptomReport(Guid incidentId, [FromBody] UpdateSymptomReportRequest request)
         {
             var result = await _incidentService.UpdateSymptomReportAsync(incidentId, request);
-            var response = ApiResponseBuilder.BuildSuccessResponse(result, "Symptom report updated successfully!");
-            return StatusCode(response.StatusCode, response);
+            return Ok(ApiResponseBuilder.BuildSuccessResponse(result, "Symptom report updated successfully!"));
         }
     }
 }

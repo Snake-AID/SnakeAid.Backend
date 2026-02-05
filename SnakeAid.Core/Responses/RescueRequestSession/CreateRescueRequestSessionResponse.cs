@@ -13,27 +13,20 @@ namespace SnakeAid.Core.Responses.RescueRequestSession
     {
         public Guid Id { get; set; }
 
-        [Required]
         public Guid IncidentId { get; set; }
 
-        [Required]
         public int SessionNumber { get; set; }        // 1, 2, 3, 4, 5, 6
 
-        [Required]
         public int RadiusKm { get; set; }             // 5, 10, 20 - radius hiện tại đang quét
 
-        [Required]
         public SessionStatus Status { get; set; } = SessionStatus.Active;
 
-        [Required]
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
 
         // Tracking fields
-        [Required]
         public SessionTrigger TriggerType { get; set; } = SessionTrigger.Initial;
 
-        [Required]
         public int RescuersPinged { get; set; } = 0;  // Số lượng rescuers được ping
     }
 }

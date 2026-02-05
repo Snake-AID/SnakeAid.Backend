@@ -6,17 +6,15 @@ using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using SnakeAid.Core.Domains;
 using SnakeAid.Core.Enums;
-using SnakeAid.Core.Meta;
+using SnakeAid.Core.Exceptions;
 using SnakeAid.Core.Requests.Auth;
 using SnakeAid.Core.Responses.Auth;
 using SnakeAid.Core.Settings;
-using SnakeAid.Core.Utils;
 using SnakeAid.Repository.Data;
 using SnakeAid.Repository.Interfaces;
 using SnakeAid.Service.Interfaces;
 using System.Globalization;
 using System.IdentityModel.Tokens.Jwt;
-using System.Net;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
@@ -60,14 +58,13 @@ public class AuthService : IAuthService
 
     #region Public Methods
 
-    public async Task<ApiResponse<AuthResponse>> RegisterAsync(RegisterRequest request, RegisterRole? targetRole)
+    public async Task<AuthResponse> RegisterAsync(RegisterRequest request, RegisterRole? targetRole)
     {
         // Check if email already exists
         var existingUser = await _userManager.FindByEmailAsync(request.Email);
         if (existingUser != null)
         {
-            return ApiResponseBuilder.CreateResponse<AuthResponse>(
-                null, false, "Email is already in use.", HttpStatusCode.BadRequest, "EMAIL_IN_USE");
+            throw new ConflictException("Email is already in use.");
         }
 
         //Map role
@@ -78,8 +75,7 @@ public class AuthService : IAuthService
 
         if (!RegisterRoleMap.TryGetValue(targetRole.Value, out var role))
         {
-            return ApiResponseBuilder.CreateResponse<AuthResponse>(
-                null, false, "Invalid role.", HttpStatusCode.BadRequest, "INVALID_ROLE");
+            throw new BadRequestException("Invalid role.");
         }
 
         // Create new account
@@ -99,15 +95,11 @@ public class AuthService : IAuthService
         var result = await _userManager.CreateAsync(user, request.Password);
         if (!result.Succeeded)
         {
-            var errors = new Dictionary<string, string[]>
-            {
-                ["Identity"] = result.Errors.Select(e => e.Description).ToArray()
-            };
-            return ApiResponseBuilder.CreateResponse<AuthResponse>(
-                null, false, "Registration failed.", HttpStatusCode.UnprocessableEntity, "VALIDATION_ERROR", errors);
+            var errorMessages = string.Join("; ", result.Errors.Select(e => e.Description));
+            throw new BadRequestException($"Registration failed: {errorMessages}");
         }
 
-        
+
 
         switch (targetRole)
         {
@@ -127,13 +119,12 @@ public class AuthService : IAuthService
                     break;
                 }
 
-                case RegisterRole.Rescuer:
+            case RegisterRole.Rescuer:
                 {
                     var rescuerRepository = _unitOfWork.GetRepository<RescuerProfile>();
                     if (request.Type == null)
                     {
-                        return ApiResponseBuilder.CreateResponse<AuthResponse>(
-                            null, false, "Rescuer registration details are required.", HttpStatusCode.BadRequest, "MISSING_RESCUER_DETAILS");
+                        throw new BadRequestException("Rescuer registration details are required.");
                     }
 
                     var selectedType = RescuerType.Emergency;
@@ -163,13 +154,12 @@ public class AuthService : IAuthService
                     break;
                 }
 
-                case RegisterRole.Expert:
+            case RegisterRole.Expert:
                 {
                     var expertRepository = _unitOfWork.GetRepository<ExpertProfile>();
                     if (String.IsNullOrEmpty(request.Biography))
                     {
-                        return ApiResponseBuilder.CreateResponse<AuthResponse>(
-                            null, false, "Expert registration details are required.", HttpStatusCode.BadRequest, "MISSING_EXPERT_DETAILS");
+                        throw new BadRequestException("Expert registration details are required.");
                     }
                     var expert = new ExpertProfile
                     {
@@ -188,25 +178,22 @@ public class AuthService : IAuthService
         _logger.LogInformation("User registered successfully: {Email}", request.Email);
 
         // Generate tokens
-        var tokens = await GenerateTokensAsync(user);
-        return ApiResponseBuilder.BuildSuccessResponse(tokens, "Registration successful.");
+        return await GenerateTokensAsync(user);
     }
 
-    public async Task<ApiResponse<AuthResponse>> LoginAsync(LoginRequest request)
+    public async Task<AuthResponse> LoginAsync(LoginRequest request)
     {
         // Find user by email
         var user = await _userManager.FindByEmailAsync(request.Email);
         if (user == null)
         {
-            return ApiResponseBuilder.CreateResponse<AuthResponse>(
-                null, false, "Invalid email or password.", HttpStatusCode.Unauthorized, "INVALID_CREDENTIALS");
+            throw new UnauthorizedException("Invalid email or password.");
         }
 
         // Check if account is active
         if (!user.IsActive)
         {
-            return ApiResponseBuilder.CreateResponse<AuthResponse>(
-                null, false, "Account is inactive.", HttpStatusCode.Forbidden, "ACCOUNT_INACTIVE");
+            throw new ForbiddenException("Account is inactive.");
         }
 
         // Check password with lockout
@@ -215,46 +202,40 @@ public class AuthService : IAuthService
         if (result.IsLockedOut)
         {
             _logger.LogWarning("Account locked out: {Email}", request.Email);
-            return ApiResponseBuilder.CreateResponse<AuthResponse>(
-                null, false, "Account is locked. Please try again later.", HttpStatusCode.Forbidden, "ACCOUNT_LOCKED");
+            throw new ForbiddenException("Account is locked. Please try again later.");
         }
 
         if (!result.Succeeded)
         {
-            return ApiResponseBuilder.CreateResponse<AuthResponse>(
-                null, false, "Invalid email or password.", HttpStatusCode.Unauthorized, "INVALID_CREDENTIALS");
+            throw new UnauthorizedException("Invalid email or password.");
         }
 
         _logger.LogInformation("User logged in: {Email}", request.Email);
 
         // Generate tokens
-        var tokens = await GenerateTokensAsync(user);
-        return ApiResponseBuilder.BuildSuccessResponse(tokens, "Login successful.");
+        return await GenerateTokensAsync(user);
     }
 
-    public async Task<ApiResponse<AuthResponse>> RefreshTokenAsync(RefreshTokenRequest request)
+    public async Task<AuthResponse> RefreshTokenAsync(RefreshTokenRequest request)
     {
         // Find user
         var user = await _userManager.FindByIdAsync(request.UserId.ToString());
         if (user == null)
         {
-            return ApiResponseBuilder.CreateResponse<AuthResponse>(
-                null, false, "Invalid refresh token.", HttpStatusCode.Unauthorized, "INVALID_TOKEN");
+            throw new UnauthorizedException("Invalid refresh token.");
         }
 
         // Check if account is active
         if (!user.IsActive)
         {
-            return ApiResponseBuilder.CreateResponse<AuthResponse>(
-                null, false, "Account is inactive.", HttpStatusCode.Forbidden, "ACCOUNT_INACTIVE");
+            throw new ForbiddenException("Account is inactive.");
         }
 
         // Validate refresh token
         var isValid = await ValidateRefreshTokenAsync(user, request.RefreshToken);
         if (!isValid)
         {
-            return ApiResponseBuilder.CreateResponse<AuthResponse>(
-                null, false, "Invalid or expired refresh token.", HttpStatusCode.Unauthorized, "INVALID_TOKEN");
+            throw new UnauthorizedException("Invalid or expired refresh token.");
         }
 
         // Token rotation: Remove old tokens
@@ -264,19 +245,17 @@ public class AuthService : IAuthService
         _logger.LogInformation("Token refreshed for user: {Email}", user.Email);
 
         // Generate new tokens
-        var tokens = await GenerateTokensAsync(user);
-        return ApiResponseBuilder.BuildSuccessResponse(tokens, "Token refreshed successfully.");
+        return await GenerateTokensAsync(user);
     }
 
-    public async Task<ApiResponse<AuthResponse>> GoogleLoginAsync(GoogleLoginRequest request)
+    public async Task<AuthResponse> GoogleLoginAsync(GoogleLoginRequest request)
     {
         // Get Google Client ID
         var clientId = _configuration["Authentication:Google:ClientId"];
         if (string.IsNullOrWhiteSpace(clientId))
         {
             _logger.LogError("Google Client ID is not configured");
-            return ApiResponseBuilder.CreateResponse<AuthResponse>(
-                null, false, "Google authentication is not configured.", HttpStatusCode.BadRequest, "GOOGLE_CONFIG_ERROR");
+            throw new BadRequestException("Google authentication is not configured.");
         }
 
         // Validate Google ID token
@@ -292,15 +271,13 @@ public class AuthService : IAuthService
         catch (InvalidJwtException ex)
         {
             _logger.LogWarning("Invalid Google token: {Message}", ex.Message);
-            return ApiResponseBuilder.CreateResponse<AuthResponse>(
-                null, false, "Invalid Google token.", HttpStatusCode.Unauthorized, "INVALID_GOOGLE_TOKEN");
+            throw new UnauthorizedException("Invalid Google token.");
         }
 
         // Check if email is verified
         if (!payload.EmailVerified)
         {
-            return ApiResponseBuilder.CreateResponse<AuthResponse>(
-                null, false, "Google email is not verified.", HttpStatusCode.Unauthorized, "EMAIL_NOT_VERIFIED");
+            throw new UnauthorizedException("Google email is not verified.");
         }
 
         // Find or create user
@@ -325,12 +302,8 @@ public class AuthService : IAuthService
             var createResult = await _userManager.CreateAsync(user);
             if (!createResult.Succeeded)
             {
-                var errors = new Dictionary<string, string[]>
-                {
-                    ["Identity"] = createResult.Errors.Select(e => e.Description).ToArray()
-                };
-                return ApiResponseBuilder.CreateResponse<AuthResponse>(
-                    null, false, "Failed to create account.", HttpStatusCode.UnprocessableEntity, "ACCOUNT_CREATE_FAILED", errors);
+                var errorMessages = string.Join("; ", createResult.Errors.Select(e => e.Description));
+                throw new BadRequestException($"Failed to create account: {errorMessages}");
             }
 
             _logger.LogInformation("New user created via Google: {Email}", payload.Email);
@@ -339,8 +312,7 @@ public class AuthService : IAuthService
         // Check if account is active
         if (!user.IsActive)
         {
-            return ApiResponseBuilder.CreateResponse<AuthResponse>(
-                null, false, "Account is inactive.", HttpStatusCode.Forbidden, "ACCOUNT_INACTIVE");
+            throw new ForbiddenException("Account is inactive.");
         }
 
         // Link Google login if not already linked
@@ -354,16 +326,15 @@ public class AuthService : IAuthService
         _logger.LogInformation("Google login successful: {Email}", payload.Email);
 
         // Generate tokens
-        var tokens = await GenerateTokensAsync(user);
-        return ApiResponseBuilder.BuildSuccessResponse(tokens, "Google login successful.");
+        return await GenerateTokensAsync(user);
     }
 
-    public async Task<ApiResponse<object>> LogoutAsync(Guid userId)
+    public async Task LogoutAsync(Guid userId)
     {
         var user = await _userManager.FindByIdAsync(userId.ToString());
         if (user == null)
         {
-            return ApiResponseBuilder.BuildNotFoundResponse("User not found.");
+            throw new NotFoundException("User not found.");
         }
 
         // Remove refresh tokens
@@ -371,46 +342,32 @@ public class AuthService : IAuthService
         await _userManager.RemoveAuthenticationTokenAsync(user, RefreshTokenProvider, RefreshTokenExpiryName);
 
         _logger.LogInformation("User logged out: {Email}", user.Email);
-
-        return ApiResponseBuilder.BuildSuccessResponse("Logged out successfully.");
     }
 
-    public async Task<ApiResponse<VerifyAccountResponse>> VerifyAccountAsync(VerifyAccountRequest request)
+    public async Task<VerifyAccountResponse> VerifyAccountAsync(VerifyAccountRequest request)
     {
         // Find user by email
         var user = await _userManager.FindByEmailAsync(request.Email);
         if (user == null)
         {
-            return ApiResponseBuilder.CreateResponse<VerifyAccountResponse>(
-                null, false, "User not found.", HttpStatusCode.NotFound, "USER_NOT_FOUND");
+            throw new NotFoundException("User not found.");
         }
 
         // Check if already active
         if (user.IsActive)
         {
-            var response = new VerifyAccountResponse
+            return new VerifyAccountResponse
             {
                 Success = true,
                 Message = "Account is already verified and active."
             };
-            return ApiResponseBuilder.BuildSuccessResponse(response, response.Message);
         }
 
         // Validate OTP
         var otpValidation = await _otpService.ValidateOtp(request.Email, request.Otp);
         if (!otpValidation.Success)
         {
-            return ApiResponseBuilder.CreateResponse(
-                new VerifyAccountResponse
-                {
-                    Success = false,
-                    Message = otpValidation.Message,
-                    AuthData = null
-                },
-                false,
-                otpValidation.Message,
-                HttpStatusCode.BadRequest,
-                "OTP_VALIDATION_FAILED");
+            throw new BadRequestException(otpValidation.Message);
         }
 
         // Activate user account
@@ -421,22 +378,19 @@ public class AuthService : IAuthService
         if (!updateResult.Succeeded)
         {
             _logger.LogError("Failed to activate user {Email}", request.Email);
-            return ApiResponseBuilder.CreateResponse<VerifyAccountResponse>(
-                null, false, "Failed to activate account.", HttpStatusCode.InternalServerError, "ACTIVATION_FAILED");
+            throw new ApiException("Failed to activate account.", System.Net.HttpStatusCode.InternalServerError);
         }
 
         _logger.LogInformation("User account verified and activated successfully: {Email}", request.Email);
 
         // Generate tokens for immediate login
         var authTokens = await GenerateTokensAsync(user);
-        var verifyResponse = new VerifyAccountResponse
+        return new VerifyAccountResponse
         {
             Success = true,
             Message = "Account verified and activated successfully.",
             AuthData = authTokens
         };
-
-        return ApiResponseBuilder.BuildSuccessResponse(verifyResponse, verifyResponse.Message);
     }
 
     #endregion
@@ -544,4 +498,3 @@ public class AuthService : IAuthService
     };
     #endregion
 }
-

@@ -29,7 +29,6 @@ def ociLabelArgs(String tag) {
         "org.opencontainers.image.version=${tag}"
     ].collect { "--label ${it}" }.join(' ')
 
-    // `docker.build(name, args)` already sets `-t name`, so only pass Dockerfile + labels + context
     return "-f Dockerfile ${labels} ."
 }
 
@@ -57,54 +56,67 @@ pipeline {
             }
         }
 
-        stage('Build Code (PR & Dev)') {
+        stage('Build Check (PR to dev)') {
             when {
-                anyOf {
-                    // PRs and direct pushes to 'dev' (build only; do not push).
-                    expression { env.CHANGE_ID != null }
-                    allOf {
-                        branch 'dev'
-                        not { changeRequest() }
-                    }
-                }
-            }
-
-            steps {
-                script {
-                    def tag = env.CHANGE_ID ? "pr-${env.CHANGE_ID}" : env.BUILD_NUMBER
-                    docker.build("${IMAGE}:${tag}", ociLabelArgs(tag))
-
-                    // Preserve original cleanup behavior
-                    sh "docker rmi ${IMAGE}:${tag} --force || true"
-                }
-            }
-        }
-
-        stage('Build & Push Docker (PR -> main)') {
-            when {
-                // PR targeting 'main': push pr-<id> only (no latest)
-                expression { env.CHANGE_ID != null && env.CHANGE_TARGET == 'main' }
+                expression { env.CHANGE_ID != null && env.CHANGE_TARGET == 'dev' }
             }
 
             steps {
                 script {
                     def tag = "pr-${env.CHANGE_ID}"
+                    docker.build("${IMAGE}:${tag}", ociLabelArgs(tag))
+
+                    // Cleanup: remove local image after build check
+                    sh "docker rmi ${IMAGE}:${tag} --force || true"
+                }
+            }
+        }
+
+        stage('Publish Dev (Merged to dev)') {
+            when {
+                allOf {
+                    branch 'dev'
+                    not { changeRequest() }
+                }
+            }
+
+            steps {
+                script {
+                    def tag = "dev"
                     def img = docker.build("${IMAGE}:${tag}", ociLabelArgs(tag))
 
                     docker.withRegistry(REGISTRY_URL, REGISTRY_CREDENTIAL) {
                         img.push()
                     }
 
-                    // Preserve original cleanup behavior
+                    // Cleanup
                     sh "docker rmi ${IMAGE}:${tag} --force || true"
-                    sh "docker rmi ${IMAGE}:latest --force || true"
                 }
             }
         }
 
-        stage('Build & Push Docker (Release main)') {
+        stage('Publish Preview (PR to main)') {
             when {
-                // Only real pushes/merges to main (non-PR) can push latest
+                expression { env.CHANGE_ID != null && env.CHANGE_TARGET == 'main' }
+            }
+
+            steps {
+                script {
+                    def tag = "preview-${env.CHANGE_ID}"
+                    def img = docker.build("${IMAGE}:${tag}", ociLabelArgs(tag))
+
+                    docker.withRegistry(REGISTRY_URL, REGISTRY_CREDENTIAL) {
+                        img.push()
+                    }
+
+                    // Cleanup
+                    sh "docker rmi ${IMAGE}:${tag} --force || true"
+                }
+            }
+        }
+
+        stage('Publish Latest (Merged to main)') {
+            when {
                 allOf {
                     branch 'main'
                     not { changeRequest() }
@@ -117,18 +129,17 @@ pipeline {
                     def img = docker.build("${IMAGE}:${tag}", ociLabelArgs(tag))
 
                     docker.withRegistry(REGISTRY_URL, REGISTRY_CREDENTIAL) {
-                        img.push('latest')
+                        img.push()
                     }
 
-                    // Preserve original cleanup behavior
-                    sh "docker rmi ${IMAGE}:latest --force || true"
+                    // Cleanup
+                    sh "docker rmi ${IMAGE}:${tag} --force || true"
                 }
             }
         }
 
         stage('Deploy (Portainer Webhook)') {
             when {
-                // Deploy only on real pushes/merges to main (non-PR)
                 allOf {
                     branch 'main'
                     not { changeRequest() }

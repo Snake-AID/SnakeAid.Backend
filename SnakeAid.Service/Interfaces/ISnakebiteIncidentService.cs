@@ -1,12 +1,7 @@
-﻿using SnakeAid.Core.Requests;
+using SnakeAid.Core.Requests;
 using SnakeAid.Core.Requests.RescueRequestSession;
 using SnakeAid.Core.Requests.SnakebiteIncident;
 using SnakeAid.Core.Responses.SnakebiteIncident;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace SnakeAid.Service.Interfaces
 {
@@ -14,8 +9,12 @@ namespace SnakeAid.Service.Interfaces
     {
         Task<CreateIncidentResponse> CreateIncidentAsync(CreateIncidentRequest request, Guid userId);
 
+        Task<DetailSnakebiteIncidentReposne> GetDetailIncidentAsync(Guid incidentId);
+
+        Task<CreateIncidentResponse> RaiseSessionRangeAsync(RaiseSessionRangeRequest request);
         Task<CreateIncidentResponse> RaiseSessionRangeAsync(RaiseSessionRangeRequest request);
 
+        Task<UpdateSymptomReportResponse> UpdateSymptomReportAsync(Guid incidentId, UpdateSymptomReportRequest request);
         Task<UpdateSymptomReportResponse> UpdateSymptomReportAsync(Guid incidentId, UpdateSymptomReportRequest request);
 
         Task<CreateIncidentResponse> CancelIncidentAsync(Guid incidentId);
