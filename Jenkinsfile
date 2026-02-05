@@ -66,48 +66,31 @@ def ociLabelArgs(String tag) {
         "org.opencontainers.image.environment=${ctx.environment}",
     ].collect { "--label ${it}" }.join(' ')
 
-    return "-f Dockerfile ${labels} ."
+    return "-f Dockerfile ${labels}"
 }
 
-def dockerBuildOnly(String tag) {
-    docker.build("${env.IMAGE}:${tag}", ociLabelArgs(tag))
-}
-
-def dockerBuildAndPush(String tag) {
-    def img = docker.build("${env.IMAGE}:${tag}", ociLabelArgs(tag))
-    docker.withRegistry(env.REGISTRY_URL, env.REGISTRY_CREDENTIAL) {
-        img.push(tag)
+// ---------- Docker wrapper (AUTO CLEANUP) ----------
+def withDockerImage(String tag, Closure body) {
+    try {
+        body()
+    } finally {
+        sh "docker rmi ${env.IMAGE}:${tag} --force || true"
     }
 }
 
-@NonCPS
-int resolveCacheTtlHours(String branchName, String changeId) {
-    final int PR_TTL_HOURS      = 24
-    final int DEV_TTL_HOURS     = 48
-    final int MAIN_TTL_HOURS    = 48
-    final int DEFAULT_TTL_HOURS = 24
-
-    if (changeId != null)     return PR_TTL_HOURS
-    if (branchName == 'main') return MAIN_TTL_HOURS
-    if (branchName == 'dev')  return DEV_TTL_HOURS
-    return DEFAULT_TTL_HOURS
+def dockerBuildOnly(String tag) {
+    withDockerImage(tag) {
+        docker.build("${env.IMAGE}:${tag}","${ociLabelArgs(tag)} .")
+    }
 }
 
-void dockerCleanup(int cacheTtlHours) {
-    sh """
-        set +e
-
-        echo "[cleanup] docker image prune (dangling only)"
-        docker image prune -f
-
-        echo "[cleanup] docker builder prune (until=${cacheTtlHours}h)"
-        docker builder prune -f --filter "until=${cacheTtlHours}h"
-
-        echo "[cleanup] docker container prune (stopped)"
-        docker container prune -f
-
-        exit 0
-    """
+def dockerBuildAndPush(String tag) {
+    withDockerImage(tag) {
+        def img = docker.build("${env.IMAGE}:${tag}","${ociLabelArgs(tag)} .")
+        docker.withRegistry(env.REGISTRY_URL, env.REGISTRY_CREDENTIAL) {
+            img.push(tag)
+        }
+    }
 }
 
 // ---------- Pipeline ----------
@@ -131,52 +114,67 @@ pipeline {
         }
 
         stage('Build Check (PR -> dev)') {
-            when { expression { env.CHANGE_ID != null && env.CHANGE_TARGET == 'dev' } }
+            when {
+                expression { env.CHANGE_ID != null && env.CHANGE_TARGET == 'dev' }
+            }
             steps {
-                script { dockerBuildOnly("pr-${env.CHANGE_ID}") }
+                script {
+                    dockerBuildOnly("pr-${env.CHANGE_ID}")
+                }
             }
         }
 
         stage('Publish Dev (Merged to dev)') {
-            when { allOf { branch 'dev'; not { changeRequest() } } }
+            when {
+                allOf {
+                    branch 'dev'
+                    not { changeRequest() }
+                }
+            }
             steps {
-                script { dockerBuildAndPush('dev') }
+                script {
+                    dockerBuildAndPush('dev')
+                }
             }
         }
 
         stage('Publish Preview (PR to main)') {
-            when { expression { env.CHANGE_ID != null && env.CHANGE_TARGET == 'main' } }
+            when {
+                expression { env.CHANGE_ID != null && env.CHANGE_TARGET == 'main' }
+            }
             steps {
-                script { dockerBuildAndPush("preview-${env.CHANGE_ID}") }
+                script {
+                    dockerBuildAndPush("preview-${env.CHANGE_ID}")
+                }
             }
         }
 
         stage('Publish Latest (Merged to main)') {
-            when { allOf { branch 'main'; not { changeRequest() } } }
+            when {
+                allOf {
+                    branch 'main'
+                    not { changeRequest() }
+                }
+            }
             steps {
-                script { dockerBuildAndPush('latest') }
+                script {
+                    dockerBuildAndPush('latest')
+                }
             }
         }
 
         stage('Deploy (Portainer Webhook)') {
-            when { allOf { branch 'main'; not { changeRequest() } } }
-            steps {
-                withCredentials([string(credentialsId: 'portainer-snakeaid-webhook', variable: 'PORTAINER_WEBHOOK')]) {
-                    sh 'curl -fsS -X POST "$PORTAINER_WEBHOOK"'
+            when {
+                allOf {
+                    branch 'main'
+                    not { changeRequest() }
                 }
             }
-        }
-    }
-
-    post {
-        always {
-            script {
-                stage('Docker Cleanup') {
-                    catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
-                        def ttl = resolveCacheTtlHours(env.BRANCH_NAME, env.CHANGE_ID)
-                        echo "[cleanup] ttl=${ttl}h"
-                        dockerCleanup(ttl)
-                    }
+            steps {
+                withCredentials([
+                    string(credentialsId: 'portainer-snakeaid-webhook', variable: 'PORTAINER_WEBHOOK')
+                ]) {
+                    sh 'curl -fsS -X POST "$PORTAINER_WEBHOOK"'
                 }
             }
         }
