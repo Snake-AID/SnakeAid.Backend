@@ -80,15 +80,14 @@ def withDockerImage(String tag, Closure body) {
 
 def dockerBuildOnly(String tag) {
     withDockerImage(tag) {
-        docker.build("${env.IMAGE}:${tag}","${ociLabelArgs(tag)} .")
+        sh "docker buildx build -t ${env.IMAGE}:${tag} ${ociLabelArgs(tag)} --load ."
     }
 }
 
 def dockerBuildAndPush(String tag) {
     withDockerImage(tag) {
-        def img = docker.build("${env.IMAGE}:${tag}","${ociLabelArgs(tag)} .")
         docker.withRegistry(env.REGISTRY_URL, env.REGISTRY_CREDENTIAL) {
-            img.push(tag)
+            sh "docker buildx build -t ${env.IMAGE}:${tag} ${ociLabelArgs(tag)} --push ."
         }
     }
 }
