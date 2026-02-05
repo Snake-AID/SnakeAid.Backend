@@ -64,7 +64,7 @@ def ociLabelArgs(String tag) {
 
         "org.opencontainers.image.stage=${ctx.stage}",
         "org.opencontainers.image.environment=${ctx.environment}",
-    ].collect { "--label ${it}" }.join(' ')
+    ].collect { "--label \"${it}\"" }.join(' ')
 
     return "-f Dockerfile ${labels}"
 }
@@ -80,14 +80,15 @@ def withDockerImage(String tag, Closure body) {
 
 def dockerBuildOnly(String tag) {
     withDockerImage(tag) {
-        sh "docker buildx build -t ${env.IMAGE}:${tag} ${ociLabelArgs(tag)} --load ."
+        docker.build("${env.IMAGE}:${tag}","${ociLabelArgs(tag)} .")
     }
 }
 
 def dockerBuildAndPush(String tag) {
     withDockerImage(tag) {
+        def img = docker.build("${env.IMAGE}:${tag}","${ociLabelArgs(tag)} .")
         docker.withRegistry(env.REGISTRY_URL, env.REGISTRY_CREDENTIAL) {
-            sh "docker buildx build -t ${env.IMAGE}:${tag} ${ociLabelArgs(tag)} --push ."
+            img.push(tag)
         }
     }
 }
