@@ -38,7 +38,6 @@ namespace SnakeAid.Service.Implements
         }
 
         public async Task<CreateIncidentResponse> CancelIncidentAsync(Guid incidentId)
-        public async Task<CreateIncidentResponse> CancelIncidentAsync(Guid incidentId)
         {
             try
             {
@@ -70,7 +69,6 @@ namespace SnakeAid.Service.Implements
             }
         }
 
-        public async Task<CreateIncidentResponse> CreateIncidentAsync(CreateIncidentRequest request, Guid userId)
         public async Task<CreateIncidentResponse> CreateIncidentAsync(CreateIncidentRequest request, Guid userId)
         {
             try
@@ -125,7 +123,6 @@ namespace SnakeAid.Service.Implements
             }
         }
 
-        public async Task<CreateIncidentResponse> RaiseSessionRangeAsync(RaiseSessionRangeRequest request)
         public async Task<CreateIncidentResponse> RaiseSessionRangeAsync(RaiseSessionRangeRequest request)
         {
             try
@@ -228,7 +225,41 @@ namespace SnakeAid.Service.Implements
             }
         }
 
-        public async Task<UpdateSymptomReportResponse> UpdateSymptomReportAsync(Guid incidentId, UpdateSymptomReportRequest request)
+        public async Task<DetailSnakebiteIncidentReposne> GetDetailIncidentAsync(Guid incidentId)
+        {
+            try
+            {
+                return await _unitOfWork.ExecuteInTransactionAsync(async () =>
+            {
+                var existingIncident = await _unitOfWork.GetRepository<SnakebiteIncident>().FirstOrDefaultAsync(
+                        predicate: s => s.Id == incidentId,
+                        include: query => query
+                            .Include(i => i.User)
+                            .Include(i => i.AssignedRescuer)
+                            .Include(i => i.Sessions)
+                            .Include(i => i.AllRequests)
+                                .ThenInclude(r => r.Rescuer)
+                            .Include(i => i.RescueMission)
+                            .Include(i => i.Media)
+                    );
+
+                if (existingIncident == null)
+                {
+                    throw new NotFoundException("Snakebite incident not found.");
+                }
+
+                var responseData = existingIncident.Adapt<DetailSnakebiteIncidentReposne>();
+
+                return responseData;
+            });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving snakebite incident details: {Message}", ex.Message);
+                throw;
+            }
+        }
+
         public async Task<UpdateSymptomReportResponse> UpdateSymptomReportAsync(Guid incidentId, UpdateSymptomReportRequest request)
         {
             try
@@ -341,7 +372,6 @@ namespace SnakeAid.Service.Implements
             }
 
             // Find the TimeScorePoint where elapsedMinutes falls within MinMinutes and MaxMinutes
-            var matchingScore = timeScoreList.FirstOrDefault(ts =>
             var matchingScore = timeScoreList.FirstOrDefault(ts =>
                 elapsedMinutes >= ts.MinMinutes && elapsedMinutes <= ts.MaxMinutes
             );

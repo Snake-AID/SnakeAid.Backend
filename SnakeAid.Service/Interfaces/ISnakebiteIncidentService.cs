@@ -12,9 +12,7 @@ namespace SnakeAid.Service.Interfaces
         Task<DetailSnakebiteIncidentReposne> GetDetailIncidentAsync(Guid incidentId);
 
         Task<CreateIncidentResponse> RaiseSessionRangeAsync(RaiseSessionRangeRequest request);
-        Task<CreateIncidentResponse> RaiseSessionRangeAsync(RaiseSessionRangeRequest request);
 
-        Task<UpdateSymptomReportResponse> UpdateSymptomReportAsync(Guid incidentId, UpdateSymptomReportRequest request);
         Task<UpdateSymptomReportResponse> UpdateSymptomReportAsync(Guid incidentId, UpdateSymptomReportRequest request);
 
         Task<CreateIncidentResponse> CancelIncidentAsync(Guid incidentId);
