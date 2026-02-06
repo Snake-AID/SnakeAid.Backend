@@ -102,5 +102,16 @@ namespace SnakeAid.Api.Controllers
             var result = await _incidentService.UpdateSymptomReportAsync(incidentId, request);
             return Ok(ApiResponseBuilder.BuildSuccessResponse(result, "Symptom report updated successfully!"));
         }
+
+        [HttpPut("{incidentId}/cancel")]
+        [SwaggerOperation(Summary = "Cancel Incident", Description = "Cancel a snakebite incident if it is in Pending or Assigned status")]
+        [SwaggerResponse(200, "Incident cancelled successfully", typeof(ApiResponse<CreateIncidentResponse>))]
+        [SwaggerResponse(404, "Incident not found")]
+        [SwaggerResponse(422, "Validation error")]
+        public async Task<IActionResult> CancelIncident(Guid incidentId)
+        {
+            var result = await _incidentService.CancelIncidentAsync(incidentId);
+            return Ok(ApiResponseBuilder.BuildSuccessResponse(result, "Incident cancelled successfully!"));
+        }
     }
 }

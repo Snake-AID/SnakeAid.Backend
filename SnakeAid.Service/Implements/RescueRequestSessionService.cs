@@ -130,6 +130,14 @@ namespace SnakeAid.Service.Implements
                         throw new NotFoundException("Session not found.");
                     }
 
+                    // Validate session is still active before broadcasting
+                    if (session.Status != SessionStatus.Active)
+                    {
+                        _logger.LogWarning("Cannot broadcast requests for session {SessionId} with status {Status}",
+                            sessionId, session.Status);
+                        throw new BadRequestException($"Cannot broadcast requests for session with status: {session.Status}");
+                    }
+
                     var incident = session.Incident;
 
                     // Query rescuers online trong radius bằng PostGIS
@@ -145,18 +153,42 @@ namespace SnakeAid.Service.Implements
                         return session;
                     }
 
+                    // Get rescuer IDs for filtering
+                    var rescuerIds = rescuersInRadius.Select(r => r.AccountId).ToList();
+
+                    // Query existing pending requests for these rescuers to avoid double-ping
+                    var rescuersWithPending = await _unitOfWork.GetRepository<RescuerRequest>()
+                        .CreateBaseQuery()
+                        .Where(r => rescuerIds.Contains(r.RescuerId) && r.Status == RescueRequestStatus.Pending)
+                        .Select(r => r.RescuerId)
+                        .Distinct()
+                        .ToListAsync();
+
+                    var rescuersWithPendingSet = new HashSet<Guid>(rescuersWithPending);
+
                     var expiredAt = DateTime.UtcNow.AddSeconds(REQUEST_TIMEOUT_SECONDS);
                     var requests = new List<RescuerRequest>();
 
-                    // Build all RescuerRequest objects
+                    // only for rescuers without any pending request
                     foreach (var rescuer in rescuersInRadius)
                     {
+                        var rescuerId = rescuer.AccountId;
+
+                        // Skip if rescuer already has a pending request (preserve existing session)
+                        if (rescuersWithPendingSet.Contains(rescuerId))
+                        {
+                            _logger.LogDebug(
+                                "Skipping rescuer {RescuerId} - already has pending request for another incident (preserving existing session)",
+                                rescuerId);
+                            continue;
+                        }
+
                         requests.Add(new RescuerRequest
                         {
                             Id = Guid.NewGuid(),
                             SessionId = sessionId,
                             IncidentId = incident.Id,
-                            RescuerId = rescuer.AccountId,
+                            RescuerId = rescuerId,
                             Status = RescueRequestStatus.Pending,
                             RequestSentAt = DateTime.UtcNow,
                             ExpiredAt = expiredAt,
@@ -224,9 +256,9 @@ namespace SnakeAid.Service.Implements
             return connectedRescuers;
         }
 
-        /// <summary>
+
         /// Push request đến rescuer qua notification service
-        /// </summary>
+
         private async Task SendRequestToRescuerAsync(string userId, RescuerRequest request, RescueRequestSession session)
         {
             await _notificationService.SendNewRequestAsync(userId, new
@@ -289,6 +321,15 @@ namespace SnakeAid.Service.Implements
 
                     _logger.LogInformation("Session {SessionId} timed out, {Count} requests expired",
                         sessionId, pendingRequests.Count);
+
+                    // Notify all rescuers that their requests have expired (parallel notifications)
+                    if (pendingRequests.Any())
+                    {
+                        var expiredNotificationTasks = pendingRequests.Select(request =>
+                            NotifyRequestExpiredAsync(request.RescuerId.ToString(), request.Id)
+                        );
+                        await Task.WhenAll(expiredNotificationTasks);
+                    }
 
                     // Try expand and create new session
                     await TryExpandAndCreateNewSessionAsync(session.IncidentId);
@@ -418,59 +459,23 @@ namespace SnakeAid.Service.Implements
             }
         }
 
-        /// <summary>
+
         /// Notify rescuer that request was taken by someone else
-        /// </summary>
+
         private async Task NotifyRequestTakenAsync(string userId, Guid requestId)
         {
             await _notificationService.NotifyRequestTakenAsync(userId, requestId);
         }
 
-        /// <summary>
-        /// Reject request: Update status
-        /// </summary>
-        public async Task RejectRequestAsync(Guid requestId)
+
+        /// Notify rescuer that request has expired
+        private async Task NotifyRequestExpiredAsync(string userId, Guid requestId)
         {
-            try
-            {
-                await _unitOfWork.ExecuteInTransactionAsync(async () =>
-                {
-                    var request = await _unitOfWork.GetRepository<RescuerRequest>().FirstOrDefaultAsync(
-                        predicate: r => r.Id == requestId
-                    );
-
-                    if (request == null)
-                    {
-                        throw new NotFoundException("Request not found.");
-                    }
-
-                    if (request.Status != RescueRequestStatus.Pending)
-                    {
-                        throw new BadRequestException($"Cannot reject request with status: {request.Status}");
-                    }
-
-                    request.Status = RescueRequestStatus.Rejected;
-                    request.ResponseAt = DateTime.UtcNow;
-                    request.UpdatedAt = DateTime.UtcNow;
-
-                    _unitOfWork.GetRepository<RescuerRequest>().Update(request);
-                    await _unitOfWork.CommitAsync();
-
-                    _logger.LogInformation("Request {RequestId} rejected", requestId);
-
-                    return request;
-                });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error rejecting request {RequestId}: {Message}", requestId, ex.Message);
-                throw;
-            }
+            await _notificationService.NotifyRequestExpiredAsync(userId, requestId);
         }
 
-        /// <summary>
+
         /// Cancel session (user cancel incident)
-        /// </summary>
         public async Task CancelSessionAsync(Guid sessionId)
         {
             try
@@ -519,17 +524,15 @@ namespace SnakeAid.Service.Implements
             }
         }
 
-        /// <summary>
+
         /// Notify rescuer that request was cancelled
-        /// </summary>
         private async Task NotifyRequestCancelledAsync(string userId, Guid requestId)
         {
             await _notificationService.NotifyRequestCancelledAsync(userId, requestId);
         }
 
-        /// <summary>
+
         /// Expand radius và tạo session mới nếu cần
-        /// </summary>
         public async Task<bool> TryExpandAndCreateNewSessionAsync(Guid incidentId)
         {
             try
@@ -593,9 +596,8 @@ namespace SnakeAid.Service.Implements
             }
         }
 
-        /// <summary>
+
         /// Start initial rescue session for incident (called from SnakebiteIncidentService)
-        /// </summary>
         public async Task StartRescueSessionAsync(Guid incidentId)
         {
             var initialRadius = RADIUS_PROGRESSION[0]; // 10km
@@ -603,10 +605,9 @@ namespace SnakeAid.Service.Implements
             await BroadcastRequestsAsync(session.Id);
         }
 
-        /// <summary>
+
         /// Handle mission abort: Create new session with increased radius
         /// Called when rescuer aborts mission (after accepting request)
-        /// </summary>
         public async Task HandleMissionAbortAsync(Guid incidentId)
         {
             try

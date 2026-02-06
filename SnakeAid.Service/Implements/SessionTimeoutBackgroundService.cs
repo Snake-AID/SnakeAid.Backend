@@ -178,8 +178,13 @@ namespace SnakeAid.Service.Implements
             {
                 try
                 {
-                    // Remove from monitoring queue first
-                    _sessionTimeouts.TryRemove(sessionId, out _);
+                    // Check if session was rescheduled after we selected it
+                    if (_sessionTimeouts.TryGetValue(sessionId, out var newTimeout) && newTimeout > currentTime)
+                    {
+                        _logger.LogDebug("Session {SessionId} was rescheduled to {NewTimeout}; skipping timeout processing",
+                            sessionId, newTimeout);
+                        continue;
+                    }
 
                     // Handle the session timeout (includes expanding to new session if possible)
                     await sessionService.HandleSessionTimeoutAsync(sessionId);

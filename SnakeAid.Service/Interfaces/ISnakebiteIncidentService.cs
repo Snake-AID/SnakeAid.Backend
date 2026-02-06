@@ -26,7 +26,5 @@ namespace SnakeAid.Service.Interfaces
         // Handle rescuer accept (từ SignalR callback)
         Task<AcceptRescueResponse> AcceptRescueAsync(Guid requestId, Guid rescuerId);
 
-        // Handle rescuer reject (từ SignalR callback)
-        Task<RejectRescueResponse> RejectRescueAsync(Guid requestId);
     }
 }

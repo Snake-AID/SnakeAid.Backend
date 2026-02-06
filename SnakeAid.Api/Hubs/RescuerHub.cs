@@ -70,31 +70,6 @@ namespace SnakeAid.Api.Hubs
             }
         }
 
-        /// Rescuer reject request
-        public async Task RejectRequest(Guid requestId)
-        {
-            try
-            {
-                await _sessionService.RejectRequestAsync(requestId);
-
-                await Clients.Caller.SendAsync("RequestRejected", new
-                {
-                    RequestId = requestId,
-                    Message = "Request rejected."
-                });
-
-                _logger.LogInformation("Request {RequestId} rejected", requestId);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error rejecting request {RequestId}: {Message}", requestId, ex.Message);
-                await Clients.Caller.SendAsync("RequestError", new
-                {
-                    RequestId = requestId,
-                    Error = ex.Message
-                });
-            }
-        }
 
         public async Task UpdateLocation(string userId, double latitude, double longitude)
         {

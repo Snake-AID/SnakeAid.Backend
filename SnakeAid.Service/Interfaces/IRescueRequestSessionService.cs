@@ -25,8 +25,8 @@ namespace SnakeAid.Service.Interfaces
         // Accept request: Update RescuerRequest, tạo RescueMission, mark others Taken
         Task AcceptRequestAsync(Guid requestId, Guid rescuerId);
 
-        // Reject request: Update status
-        Task RejectRequestAsync(Guid requestId);
+        // Reject removed: Rescuers cannot reject due to emergency nature - requests timeout automatically
+        // Task RejectRequestAsync(Guid requestId);
 
         // Cancel session (user cancel incident)
         Task CancelSessionAsync(Guid sessionId);
