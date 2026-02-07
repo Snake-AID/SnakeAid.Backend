@@ -43,4 +43,11 @@ public class SnakeAISettings
     public bool SaveImage { get; set; } = false;
     public float Confidence { get; set; } = 0.25f;
     public int TimeoutSeconds { get; set; } = 30;
-} 
+}
+
+public class ConfigControl
+{
+    public bool UseDoppler { get; set; } = true;
+    public bool UseAppSettings { get; set; } = true;
+    public string Priority { get; set; } = "DOPPLER"; // "DOPPLER" or "APPSETTINGS"
+}

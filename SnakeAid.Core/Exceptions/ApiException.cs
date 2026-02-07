@@ -112,3 +112,11 @@ public class TooManyRequestsException : ApiException
         Endpoint = endpoint;
     }
 }
+
+public class ConfigurationException : ApiException
+{
+    public ConfigurationException(string reason)
+        : base(reason, HttpStatusCode.InternalServerError)
+    {
+    }
+}
