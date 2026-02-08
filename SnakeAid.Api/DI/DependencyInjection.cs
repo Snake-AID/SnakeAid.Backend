@@ -22,109 +22,42 @@ public static class DependencyInjection
 {
     #region service he thong
 
-    #region AppSettings
-    public static WebApplicationBuilder AddAppsettings(this WebApplicationBuilder builder)
+    #region Doppler
+    public static WebApplicationBuilder AddConfigurationFromDopplerCloud(this WebApplicationBuilder builder)
     {
-        var dopplerAccessToken = LoadDopplerToken();
-
-        var configStrategy = new ConfigControl
-        {
-            UseDoppler = Environment.GetEnvironmentVariable("SNAKEAID_CONF_USE_DOPPLER") != "false",
-            UseAppSettings = Environment.GetEnvironmentVariable("SNAKEAID_CONF_USE_APPSETTINGS") != "false",
-            Priority = Environment.GetEnvironmentVariable("SNAKEAID_CONF_PRIORITY")?.ToUpper() ?? "DOPPLER"
-        };
-
-        ManageAppSettings(builder, configStrategy);
-        ManageDoppler(builder, configStrategy, dopplerAccessToken);
-        ValidateConfiguration(configStrategy);
-
-        return builder;
-    }
-
-    private static string? LoadDopplerToken()
-    {
+        // 1. Load Doppler Token (Process -> User)
         var token = Environment.GetEnvironmentVariable("DOPPLER_TOKEN");
-        if (!string.IsNullOrEmpty(token)) return token;
-
-        token = Environment.GetEnvironmentVariable("DOPPLER_TOKEN", EnvironmentVariableTarget.User);
-        if (string.IsNullOrEmpty(token)) return null;
-
-        Environment.SetEnvironmentVariable("DOPPLER_TOKEN", token, EnvironmentVariableTarget.Process);
-
-        // Propagate other user env vars
-        foreach (System.Collections.DictionaryEntry userEnvVar in Environment.GetEnvironmentVariables(EnvironmentVariableTarget.User))
-        {
-            if (userEnvVar.Key is string key && userEnvVar.Value is string value && key != "DOPPLER_TOKEN")
-            {
-                Environment.SetEnvironmentVariable(key, value, EnvironmentVariableTarget.Process);
-            }
-        }
-
-        return token;
-    }
-
-    private static void ManageAppSettings(WebApplicationBuilder builder, ConfigControl strategy)
-    {
-        if (strategy.UseAppSettings)
-        {
-            Serilog.Log.Information("✅ Configuration Source: AppSettings (ENABLED)");
-            return;
-        }
-
-        var jsonSourcesToDiscard = builder.Configuration.Sources
-            .Where(source => source is Microsoft.Extensions.Configuration.Json.JsonConfigurationSource)
-            .ToList();
-
-        foreach (var source in jsonSourcesToDiscard)
-        {
-            builder.Configuration.Sources.Remove(source);
-        }
-        Serilog.Log.Information("🚫 Configuration Source: AppSettings (DISABLED via Env Var)");
-    }
-
-    private static void ManageDoppler(WebApplicationBuilder builder, ConfigControl strategy, string? token)
-    {
-        if (!strategy.UseDoppler)
-        {
-            Serilog.Log.Information("🚫 Configuration Source: Doppler (DISABLED via Env Var)");
-            return;
-        }
 
         if (string.IsNullOrEmpty(token))
         {
-            Serilog.Log.Warning("⚠️ Doppler enabled but DOPPLER_TOKEN is missing.");
-            return;
+            token = Environment.GetEnvironmentVariable("DOPPLER_TOKEN", EnvironmentVariableTarget.User);
+            if (!string.IsNullOrEmpty(token))
+            {
+                // Propagate User token and other User env vars to Process
+                Environment.SetEnvironmentVariable("DOPPLER_TOKEN", token, EnvironmentVariableTarget.Process);
+                foreach (System.Collections.DictionaryEntry userEnvVar in Environment.GetEnvironmentVariables(EnvironmentVariableTarget.User))
+                {
+                    if (userEnvVar.Key is string key && userEnvVar.Value is string value && key != "DOPPLER_TOKEN")
+                    {
+                        Environment.SetEnvironmentVariable(key, value, EnvironmentVariableTarget.Process);
+                    }
+                }
+            }
         }
 
-        builder.Configuration.AddDoppler(token);
-
-        if (strategy.Priority == "APPSETTINGS" && strategy.UseAppSettings)
+        // 2. Register and Log results
+        if (!string.IsNullOrEmpty(token))
         {
-            var jsonSourcesToReorder = builder.Configuration.Sources
-                .Where(source => source is Microsoft.Extensions.Configuration.Json.JsonConfigurationSource)
-                .ToList();
-
-            foreach (var source in jsonSourcesToReorder)
-            {
-                builder.Configuration.Sources.Remove(source);
-                builder.Configuration.Sources.Add(source);
-            }
-            Serilog.Log.Information("✅ Configuration Source: Doppler (ENABLED, Priority: LOW)");
+            builder.Configuration.AddDoppler(token);
+            Serilog.Log.Information("🚀 Configuration: Doppler Cloud (ENABLED)");
         }
         else
         {
-            Serilog.Log.Information("✅ Configuration Source: Doppler (ENABLED, Priority: HIGH)");
+            Serilog.Log.Information("ℹ️ Configuration: Local Settings (AppSettings.json & Env Vars)");
         }
-    }
 
-    private static void ValidateConfiguration(ConfigControl strategy)
-    {
-        if (!strategy.UseAppSettings && !strategy.UseDoppler)
-        {
-            throw new Core.Exceptions.ConfigurationException("❌ Critical Error: All configuration sources (Doppler and AppSettings) are DISABLED.");
-        }
+        return builder;
     }
-
     #endregion
 
     #region Services

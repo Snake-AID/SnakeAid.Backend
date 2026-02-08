@@ -45,9 +45,3 @@ public class SnakeAISettings
     public int TimeoutSeconds { get; set; } = 30;
 }
 
-public class ConfigControl
-{
-    public bool UseDoppler { get; set; } = true;
-    public bool UseAppSettings { get; set; } = true;
-    public string Priority { get; set; } = "DOPPLER"; // "DOPPLER" or "APPSETTINGS"
-}

@@ -34,7 +34,7 @@ namespace SnakeAid.Api
             {
                 var builder = WebApplication.CreateBuilder(args);
 
-                builder.AddAppsettings();
+                builder.AddConfigurationFromDopplerCloud();
 
                 Batteries_V2.Init();
 
