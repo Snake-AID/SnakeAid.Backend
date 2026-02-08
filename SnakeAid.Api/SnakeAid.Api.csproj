@@ -9,6 +9,7 @@
 
   <ItemGroup>
         <PackageReference Include="Carter" />
+        <PackageReference Include="Doppler.Extensions.Configuration" />
         <PackageReference Include="FirebaseAdmin" />
         <PackageReference Include="Microsoft.AspNetCore.SignalR"/>
         <PackageReference Include="Serilog.AspNetCore" />
