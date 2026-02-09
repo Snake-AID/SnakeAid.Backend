@@ -18,8 +18,18 @@ namespace SnakeAid.Service.Interfaces
         /// Get current queue status for monitoring
         (int TotalSessions, int ExpiredCount, int PendingCount) GetQueueStatus();
 
+        /// Get detailed monitoring info for all tracked sessions
+        List<SessionMonitorInfo> GetMonitoringInfo();
 
         /// Health check for the service
         bool IsHealthy();
+    }
+
+    public class SessionMonitorInfo
+    {
+        public Guid SessionId { get; set; }
+        public DateTime TimeoutAt { get; set; }
+        public TimeSpan TimeRemaining { get; set; }
+        public bool IsExpired { get; set; }
     }
 }

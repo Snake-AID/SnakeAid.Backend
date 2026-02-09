@@ -57,6 +57,9 @@ public static class DependencyInjection
 
         services.AddScoped<ISnakeAIService, SnakeAIService>();
 
+        // Register Demo Data Seeder for testing
+        services.AddScoped<Services.DemoDataSeeder>();
+
         return services;
     }
 

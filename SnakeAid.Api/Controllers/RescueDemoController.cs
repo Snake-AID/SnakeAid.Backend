@@ -1,14 +1,21 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
+using Microsoft.EntityFrameworkCore;
 using SnakeAid.Api.Hubs;
 using SnakeAid.Api.Services;
 using SnakeAid.Core.Domains;
-using System.Collections.Concurrent;
+using SnakeAid.Core.Requests.RescueRequestSession;
+using SnakeAid.Core.Requests.SnakebiteIncident;
+using SnakeAid.Repository.Data;
+using SnakeAid.Repository.Interfaces;
+using SnakeAid.Service.Interfaces;
 
 namespace SnakeAid.Api.Controllers
 {
     /// <summary>
-    /// Demo controller for testing rescue SignalR flow with mock data (no database required)
+    /// Demo controller for testing rescue flow with REAL services but DEMO data
+    /// Uses DemoDataSeeder to create test users/rescuers in actual database
+    /// All service logic (session, broadcast, timeout, notifications) works exactly as production
     /// </summary>
     [Route("api/[controller]")]
     [ApiController]
@@ -16,470 +23,320 @@ namespace SnakeAid.Api.Controllers
     {
         private readonly IHubContext<RescuerHub> _hubContext;
         private readonly ILogger<RescueDemoController> _logger;
+        private readonly DemoDataSeeder _demoDataSeeder;
+        private readonly ISnakebiteIncidentService _incidentService;
+        private readonly IRescueRequestSessionService _sessionService;
+        private readonly ISessionTimeoutService _timeoutService;
+        private readonly IUnitOfWork<SnakeAidDbContext> _unitOfWork;
 
-        // ====== MOCK DATA STORAGE (thay vì database) ======
+        // Track current demo incident for UI convenience
+        private static Guid? _currentDemoIncidentId = null;
 
-        // Mock Users
-        public static ConcurrentDictionary<Guid, MockUser> MockUsers { get; } = new()
-        {
-            [Guid.Parse("11111111-1111-1111-1111-111111111111")] = new MockUser
-            {
-                Id = Guid.Parse("11111111-1111-1111-1111-111111111111"),
-                Name = "Demo User",
-                Role = "Member",
-                Lat = 10.762622,  // HCM City center
-                Lng = 106.660172
-            }
-        };
-
-        // Mock Rescuers (4 rescuers at different locations around HCM)
-        public static ConcurrentDictionary<Guid, MockRescuer> MockRescuers { get; } = new()
-        {
-            [Guid.Parse("22222222-2222-2222-2222-222222222221")] = new MockRescuer
-            {
-                Id = Guid.Parse("22222222-2222-2222-2222-222222222221"),
-                Name = "Rescuer A - Quận 1",
-                Lat = 10.7700,
-                Lng = 106.6980,
-                IsOnline = false,
-                DistanceFromUserKm = 4.5
-            },
-            [Guid.Parse("22222222-2222-2222-2222-222222222222")] = new MockRescuer
-            {
-                Id = Guid.Parse("22222222-2222-2222-2222-222222222222"),
-                Name = "Rescuer B - Quận 3",
-                Lat = 10.7831,
-                Lng = 106.6859,
-                IsOnline = false,
-                DistanceFromUserKm = 3.2
-            },
-            [Guid.Parse("22222222-2222-2222-2222-222222222223")] = new MockRescuer
-            {
-                Id = Guid.Parse("22222222-2222-2222-2222-222222222223"),
-                Name = "Rescuer C - Quận 7",
-                Lat = 10.7295,
-                Lng = 106.7215,
-                IsOnline = false,
-                DistanceFromUserKm = 8.0
-            },
-            [Guid.Parse("22222222-2222-2222-2222-222222222224")] = new MockRescuer
-            {
-                Id = Guid.Parse("22222222-2222-2222-2222-222222222224"),
-                Name = "Rescuer D - Tân Bình",
-                Lat = 10.8053,
-                Lng = 106.6482,
-                IsOnline = false,
-                DistanceFromUserKm = 6.5
-            }
-        };
-
-        // Mock Incidents
-        public static ConcurrentDictionary<Guid, MockIncident> MockIncidents { get; } = new();
-
-        // Mock Sessions
-        public static ConcurrentDictionary<Guid, MockSession> MockSessions { get; } = new();
-
-        // Mock Requests (per rescuer per session)
-        public static ConcurrentDictionary<Guid, MockRescuerRequest> MockRequests { get; } = new();
-
-        // Mock Missions
-        public static ConcurrentDictionary<Guid, MockMission> MockMissions { get; } = new();
-
-        // Session timeout timers
-        private static ConcurrentDictionary<Guid, System.Timers.Timer> SessionTimers { get; } = new();
-
-        public RescueDemoController(IHubContext<RescuerHub> hubContext, ILogger<RescueDemoController> logger)
+        public RescueDemoController(
+            IHubContext<RescuerHub> hubContext,
+            ILogger<RescueDemoController> logger,
+            DemoDataSeeder demoDataSeeder,
+            ISnakebiteIncidentService incidentService,
+            IRescueRequestSessionService sessionService,
+            ISessionTimeoutService timeoutService,
+            IUnitOfWork<SnakeAidDbContext> unitOfWork)
         {
             _hubContext = hubContext;
             _logger = logger;
+            _demoDataSeeder = demoDataSeeder;
+            _incidentService = incidentService;
+            _sessionService = sessionService;
+            _timeoutService = timeoutService;
+            _unitOfWork = unitOfWork;
         }
 
-        #region User Actions
+        #region Demo Data Management
 
         /// <summary>
-        /// User tạo incident mới
+        /// Seed demo users and rescuers into database
         /// </summary>
-        [HttpPost("incident/create")]
-        public async Task<IActionResult> CreateIncident([FromBody] CreateIncidentDto dto)
+        [HttpPost("seed")]
+        public async Task<IActionResult> SeedDemoData()
         {
-            var userId = Guid.Parse("11111111-1111-1111-1111-111111111111");
-
-            var incident = new MockIncident
+            var success = await _demoDataSeeder.SeedDemoDataAsync();
+            if (!success)
             {
-                Id = Guid.NewGuid(),
-                UserId = userId,
-                Lat = dto.Lat,
-                Lng = dto.Lng,
-                Status = "Pending",
-                CurrentSessionNumber = 0,
-                CurrentRadiusKm = 0,
-                CreatedAt = DateTime.UtcNow
-            };
-
-            MockIncidents[incident.Id] = incident;
-
-            _logger.LogInformation("Created mock incident {IncidentId}", incident.Id);
-
-            // Notify all connected clients about new incident
-            await _hubContext.Clients.All.SendAsync("IncidentCreated", incident);
-
-            return Ok(new { incident, message = "Incident created successfully. Ready to trigger rescue." });
-        }
-
-        /// <summary>
-        /// User trigger rescue session (bắt đầu tìm rescuer)
-        /// </summary>
-        [HttpPost("incident/{incidentId}/trigger")]
-        public async Task<IActionResult> TriggerRescue(Guid incidentId)
-        {
-            if (!MockIncidents.TryGetValue(incidentId, out var incident))
-            {
-                return NotFound("Incident not found");
+                return BadRequest("Failed to seed demo data. Check if data already exists or see logs.");
             }
 
-            if (incident.Status != "Pending")
+            return Ok(new
             {
-                return BadRequest($"Cannot trigger rescue for incident with status: {incident.Status}");
-            }
-
-            // Create first session
-            var session = await CreateNewSessionAsync(incident, 1, 5, "Initial");
-
-            // Start timeout timer (60 seconds)
-            StartSessionTimer(session.Id, 60);
-
-            return Ok(new { session, message = "Rescue triggered. Broadcasting to nearby rescuers..." });
-        }
-
-        /// <summary>
-        /// User cancel incident
-        /// </summary>
-        [HttpPost("incident/{incidentId}/cancel")]
-        public async Task<IActionResult> CancelIncident(Guid incidentId)
-        {
-            if (!MockIncidents.TryGetValue(incidentId, out var incident))
-            {
-                return NotFound("Incident not found");
-            }
-
-            if (incident.Status != "Pending" && incident.Status != "Assigned")
-            {
-                return BadRequest($"Cannot cancel incident with status: {incident.Status}");
-            }
-
-            incident.Status = "Cancelled";
-
-            // Cancel all active sessions and requests
-            var activeSessions = MockSessions.Values.Where(s => s.IncidentId == incidentId && s.Status == "Active");
-            foreach (var session in activeSessions)
-            {
-                await CancelSessionAsync(session.Id);
-            }
-
-            // Cancel mission if exists
-            var mission = MockMissions.Values.FirstOrDefault(m => m.IncidentId == incidentId);
-            if (mission != null && (mission.Status == "Preparing" || mission.Status == "EnRoute"))
-            {
-                mission.Status = "Cancelled";
-                mission.UpdatedAt = DateTime.UtcNow;
-
-                // Notify rescuer
-                var rescuerId = mission.RescuerId.ToString();
-                if (SignalRRescueNotificationService.ConnectedRescuers.ContainsKey(rescuerId))
+                message = "Demo data seeded successfully",
+                userId = DemoDataSeeder.DEMO_USER_ID,
+                rescuers = new[]
                 {
-                    await _hubContext.Clients.Client(SignalRRescueNotificationService.ConnectedRescuers[rescuerId])
-                        .SendAsync("MissionCancelled", new { MissionId = mission.Id, Reason = "User cancelled incident" });
+                    new { id = DemoDataSeeder.DEMO_RESCUER_A_ID, name = "Rescuer A - Quận 1" },
+                    new { id = DemoDataSeeder.DEMO_RESCUER_B_ID, name = "Rescuer B - Quận 3" },
+                    new { id = DemoDataSeeder.DEMO_RESCUER_C_ID, name = "Rescuer C - Quận 7" },
+                    new { id = DemoDataSeeder.DEMO_RESCUER_D_ID, name = "Rescuer D - Tân Bình" }
                 }
-            }
-
-            await _hubContext.Clients.All.SendAsync("IncidentCancelled", incident);
-
-            return Ok(new { incident, message = "Incident cancelled" });
+            });
         }
 
         /// <summary>
-        /// User raise session range (mở rộng bán kính tìm kiếm)
+        /// Clean up all demo data (incidents, sessions, requests, missions, users)
         /// </summary>
-        [HttpPost("incident/{incidentId}/raise-range")]
-        public async Task<IActionResult> RaiseSessionRange(Guid incidentId)
+        [HttpPost("cleanup")]
+        public async Task<IActionResult> CleanupDemoData()
         {
-            if (!MockIncidents.TryGetValue(incidentId, out var incident))
+            var success = await _demoDataSeeder.CleanupDemoDataAsync();
+            if (!success)
             {
-                return NotFound("Incident not found");
+                return BadRequest("Failed to cleanup demo data. See logs for details.");
             }
 
-            if (incident.Status != "Pending")
+            _currentDemoIncidentId = null;
+
+            await _hubContext.Clients.All.SendAsync("DemoDataCleanedUp", new { Message = "Demo data cleaned up" });
+
+            return Ok(new { message = "Demo data cleaned up successfully" });
+        }
+
+        /// <summary>
+        /// Get demo data status
+        /// </summary>
+        [HttpGet("status")]
+        public async Task<IActionResult> GetDemoStatus()
+        {
+            var status = await _demoDataSeeder.GetStatusAsync();
+            return Ok(new
             {
-                return BadRequest($"Cannot raise range for incident with status: {incident.Status}");
-            }
-
-            // Close current session as Failed
-            var currentSession = MockSessions.Values
-                .FirstOrDefault(s => s.IncidentId == incidentId && s.SessionNumber == incident.CurrentSessionNumber);
-
-            if (currentSession != null)
-            {
-                // Stop timer
-                StopSessionTimer(currentSession.Id);
-
-                currentSession.Status = "Failed";
-                currentSession.CompletedAt = DateTime.UtcNow;
-
-                // Mark all pending requests as expired
-                var pendingRequests = MockRequests.Values.Where(r => r.SessionId == currentSession.Id && r.Status == "Pending");
-                foreach (var req in pendingRequests)
-                {
-                    req.Status = "Expired";
-                    req.UpdatedAt = DateTime.UtcNow;
-
-                    // Notify rescuer
-                    await NotifyRescuerAsync(req.RescuerId.ToString(), "RequestExpired", new { RequestId = req.Id });
-                }
-            }
-
-            // Check max sessions
-            if (incident.CurrentSessionNumber >= 3)
-            {
-                incident.Status = "NoRescuerFound";
-                await _hubContext.Clients.All.SendAsync("IncidentNoRescuerFound", incident);
-                return Ok(new { incident, message = "Maximum session range expansions reached. No rescuers found." });
-            }
-
-            // Calculate new radius
-            int newRadius = incident.CurrentRadiusKm switch
-            {
-                5 => 7,
-                7 => 10,
-                _ => incident.CurrentRadiusKm + 5
-            };
-
-            // Create new session
-            var newSession = await CreateNewSessionAsync(incident, incident.CurrentSessionNumber + 1, newRadius, "RadiusExpanded");
-
-            // Start timeout timer
-            StartSessionTimer(newSession.Id, 60);
-
-            return Ok(new { session = newSession, message = $"Range expanded to {newRadius}km" });
+                status,
+                currentIncidentId = _currentDemoIncidentId,
+                connectedRescuers = SignalRRescueNotificationService.ConnectedRescuers.Keys.ToList()
+            });
         }
 
         #endregion
 
-        #region Rescuer Actions
+        #region User Actions (Using Real Services)
 
         /// <summary>
-        /// Rescuer accept request
+        /// Create incident + Start rescue session (matches real flow from SnakebiteIncidentController)
+        /// This combines:
+        /// 1. CreateIncidentAsync - Creates incident record
+        /// 2. StartRescueAsync - Creates initial session + broadcasts to rescuers
+        /// </summary>
+        [HttpPost("incident/create")]
+        public async Task<IActionResult> CreateIncident([FromBody] CreateIncidentDto dto)
+        {
+            try
+            {
+                // Check if demo data is seeded
+                var status = await _demoDataSeeder.GetStatusAsync();
+                if (!status.IsSeeded)
+                {
+                    return BadRequest("Demo data not seeded. Call POST /api/rescuedemo/seed first.");
+                }
+
+                // Step 1: Create incident using REAL service (matches SnakebiteIncidentController line 55)
+                var request = new CreateIncidentRequest
+                {
+                    Lat = dto.Lat,
+                    Lng = dto.Lng
+                };
+
+                var response = await _incidentService.CreateIncidentAsync(request, DemoDataSeeder.DEMO_USER_ID);
+                _currentDemoIncidentId = response.Id;
+
+                _logger.LogInformation("Demo incident created: {IncidentId}", response.Id);
+
+                // Step 2: Start rescue session and broadcast to rescuers (matches line 58)
+                var rescueResult = await _incidentService.StartRescueAsync(response.Id);
+
+                // Combine response data (matches line 61-65)
+                response.SessionId = rescueResult.SessionId;
+                response.SessionNumber = rescueResult.SessionNumber;
+                response.RadiusKm = rescueResult.RadiusKm;
+                response.RescuersPinged = rescueResult.RescuersPinged;
+
+                _logger.LogInformation("Rescue session started: SessionId={SessionId}, Radius={Radius}km, Rescuers={Count}",
+                    rescueResult.SessionId, rescueResult.RadiusKm, rescueResult.RescuersPinged);
+
+                // Notify all clients
+                await _hubContext.Clients.All.SendAsync("IncidentCreated", new
+                {
+                    IncidentId = response.Id,
+                    SessionId = response.SessionId,
+                    SessionNumber = response.SessionNumber,
+                    RadiusKm = response.RadiusKm,
+                    RescuersPinged = response.RescuersPinged,
+                    UserId = DemoDataSeeder.DEMO_USER_ID,
+                    Lat = dto.Lat,
+                    Lng = dto.Lng,
+                    Status = "Pending"
+                });
+
+                return Ok(new
+                {
+                    incidentId = response.Id,
+                    sessionId = response.SessionId,
+                    sessionNumber = response.SessionNumber,
+                    radiusKm = response.RadiusKm,
+                    rescuersPinged = response.RescuersPinged,
+                    message = $"Incident created and rescue session started! {response.RescuersPinged} rescuers pinged within {response.RadiusKm}km radius."
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to create demo incident");
+                return BadRequest(ex.Message);
+            }
+        }
+
+        /// <summary>
+        /// Trigger rescue using REAL session service (creates session, broadcasts to rescuers)
+        /// This will:
+        /// 1. Create initial session (sessionNumber=1, radius=5km)
+        /// 2. Query rescuers within radius
+        /// 3. Create RescuerRequest records
+        /// 4. Broadcast via SignalR using IRescueNotificationService
+        /// 5. Register 60s timeout in SessionTimeoutBackgroundService
+        /// </summary>
+        [HttpPost("incident/{incidentId}/trigger")]
+        public async Task<IActionResult> TriggerRescue(Guid incidentId)
+        {
+            try
+            {
+                // Call REAL service
+                var response = await _incidentService.TriggerRescueAsync(incidentId);
+
+                _logger.LogInformation("Rescue triggered for incident {IncidentId}, session {SessionId}",
+                    incidentId, response.SessionId);
+
+                return Ok(new
+                {
+                    sessionId = response.SessionId,
+                    sessionNumber = response.SessionNumber,
+                    radiusKm = response.RadiusKm,
+                    rescuersPinged = response.RescuersPinged,
+                    message = $"Rescue triggered! {response.RescuersPinged} rescuers notified within {response.RadiusKm}km. Real background timeout (60s) is active."
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to trigger rescue");
+                return BadRequest(ex.Message);
+            }
+        }
+
+        /// <summary>
+        /// Raise session range (expand radius) using REAL service
+        /// This will:
+        /// 1. Mark current session as Failed
+        /// 2. Expire all pending requests
+        /// 3. Create new session with expanded radius
+        /// 4. Broadcast to new rescuers
+        /// 5. Register new 60s timeout
+        /// </summary>
+        [HttpPost("incident/{incidentId}/raise-range")]
+        public async Task<IActionResult> RaiseRange(Guid incidentId)
+        {
+            try
+            {
+                var response = await _incidentService.RaiseSessionRangeAsync(new RaiseSessionRangeRequest
+                {
+                    IncidentId = incidentId
+                });
+
+                _logger.LogInformation("Range raised for incident {IncidentId}, new session {SessionId}",
+                    incidentId, response.SessionId);
+
+                return Ok(new
+                {
+                    sessionId = response.SessionId,
+                    sessionNumber = response.SessionNumber,
+                    radiusKm = response.RadiusKm,
+                    rescuersPinged = response.RescuersPinged,
+                    message = $"Range expanded to {response.RadiusKm}km! {response.RescuersPinged} new rescuers notified."
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to raise range");
+                return BadRequest(ex.Message);
+            }
+        }
+
+        /// <summary>
+        /// Cancel incident using REAL service
+        /// This will:
+        /// 1. Mark incident as Cancelled
+        /// 2. Cancel all active sessions
+        /// 3. Expire all pending requests
+        /// 4. Cancel mission if exists
+        /// 5. Notify all involved rescuers
+        /// </summary>
+        [HttpPost("incident/{incidentId}/cancel")]
+        public async Task<IActionResult> CancelIncident(Guid incidentId)
+        {
+            try
+            {
+                var response = await _incidentService.CancelIncidentAsync(incidentId);
+
+                _logger.LogInformation("Incident {IncidentId} cancelled", incidentId);
+
+                if (incidentId == _currentDemoIncidentId)
+                {
+                    _currentDemoIncidentId = null;
+                }
+
+                return Ok(new
+                {
+                    incidentId = response.Id,
+                    message = "Incident cancelled successfully. All sessions and requests terminated."
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to cancel incident");
+                return BadRequest(ex.Message);
+            }
+        }
+
+        #endregion
+
+        #region Rescuer Actions (Using Real Services)
+
+        /// <summary>
+        /// Rescuer accept request using REAL service
+        /// This will:
+        /// 1. Validate request is Pending and not expired
+        /// 2. Mark request as Accepted
+        /// 3. Mark all other requests in session as Taken
+        /// 4. Mark session as Completed
+        /// 5. Create RescueMission
+        /// 6. Update incident status to Assigned
+        /// 7. Notify all rescuers (accepted, taken)
+        /// 8. Cancel timeout in background service
         /// </summary>
         [HttpPost("request/{requestId}/accept")]
         public async Task<IActionResult> AcceptRequest(Guid requestId, [FromQuery] Guid rescuerId)
         {
-            if (!MockRequests.TryGetValue(requestId, out var request))
+            try
             {
-                return NotFound("Request not found");
-            }
+                var response = await _incidentService.AcceptRescueAsync(requestId, rescuerId);
 
-            if (request.RescuerId != rescuerId)
-            {
-                return BadRequest("This request is not assigned to you");
-            }
+                _logger.LogInformation("Rescuer {RescuerId} accepted request {RequestId}, mission {MissionId}",
+                    rescuerId, requestId, response.MissionId);
 
-            if (request.Status != "Pending")
-            {
-                return BadRequest($"Cannot accept request with status: {request.Status}");
-            }
-
-            // Check if expired
-            if (DateTime.UtcNow > request.ExpiredAt)
-            {
-                request.Status = "Expired";
-                request.UpdatedAt = DateTime.UtcNow;
-                return BadRequest("Request has expired");
-            }
-
-            // Check if session already completed
-            var session = MockSessions[request.SessionId];
-            if (session.Status == "Completed")
-            {
-                request.Status = "Taken";
-                request.UpdatedAt = DateTime.UtcNow;
-                return BadRequest("Another rescuer has already accepted this incident");
-            }
-
-            // Accept this request
-            request.Status = "Accepted";
-            request.ResponseAt = DateTime.UtcNow;
-            request.UpdatedAt = DateTime.UtcNow;
-
-            // Stop session timer
-            StopSessionTimer(session.Id);
-
-            // Mark all other requests in session as Taken
-            var otherRequests = MockRequests.Values.Where(r => r.SessionId == session.Id && r.Id != requestId && r.Status == "Pending").ToList();
-            foreach (var otherReq in otherRequests)
-            {
-                otherReq.Status = "Taken";
-                otherReq.UpdatedAt = DateTime.UtcNow;
-
-                // Notify other rescuers
-                await NotifyRescuerAsync(otherReq.RescuerId.ToString(), "RequestTaken", new
+                return Ok(new
                 {
-                    RequestId = otherReq.Id,
-                    Message = "This request has been taken by another rescuer."
+                    requestId,
+                    missionId = response.MissionId,
+                    message = "Request accepted! Mission created. You have been assigned to this rescue."
                 });
             }
-
-            // Mark session as completed
-            session.Status = "Completed";
-            session.CompletedAt = DateTime.UtcNow;
-
-            // Create mission
-            var incident = MockIncidents[request.IncidentId];
-            incident.Status = "Assigned";
-            incident.AssignedRescuerId = rescuerId;
-            incident.AssignedAt = DateTime.UtcNow;
-
-            var mission = new MockMission
+            catch (Exception ex)
             {
-                Id = Guid.NewGuid(),
-                IncidentId = request.IncidentId,
-                RescuerId = rescuerId,
-                Status = "Preparing",
-                CreatedAt = DateTime.UtcNow
-            };
-            MockMissions[mission.Id] = mission;
-
-            // Notify caller
-            await NotifyRescuerAsync(rescuerId.ToString(), "RequestAccepted", new
-            {
-                RequestId = requestId,
-                MissionId = mission.Id,
-                Message = "Request accepted! You have been assigned to this rescue mission."
-            });
-
-            // Notify user
-            await _hubContext.Clients.All.SendAsync("IncidentAssigned", new
-            {
-                IncidentId = incident.Id,
-                RescuerId = rescuerId,
-                RescuerName = MockRescuers[rescuerId].Name,
-                MissionId = mission.Id
-            });
-
-            _logger.LogInformation("Rescuer {RescuerId} accepted request {RequestId}, mission {MissionId} created",
-                rescuerId, requestId, mission.Id);
-
-            return Ok(new { request, mission, message = "Request accepted successfully" });
-        }
-
-        /// <summary>
-        /// Rescuer reject request
-        /// </summary>
-        [HttpPost("request/{requestId}/reject")]
-        public async Task<IActionResult> RejectRequest(Guid requestId)
-        {
-            if (!MockRequests.TryGetValue(requestId, out var request))
-            {
-                return NotFound("Request not found");
+                _logger.LogError(ex, "Failed to accept request");
+                return BadRequest(ex.Message);
             }
-
-            if (request.Status != "Pending")
-            {
-                return BadRequest($"Cannot reject request with status: {request.Status}");
-            }
-
-            request.Status = "Rejected";
-            request.ResponseAt = DateTime.UtcNow;
-            request.UpdatedAt = DateTime.UtcNow;
-
-            await NotifyRescuerAsync(request.RescuerId.ToString(), "RequestRejected", new { RequestId = requestId });
-
-            return Ok(new { request, message = "Request rejected" });
-        }
-
-        /// <summary>
-        /// Cancel mission by rescuer
-        /// </summary>
-        [HttpPost("mission/{missionId}/cancel")]
-        public async Task<IActionResult> CancelMission(Guid missionId, [FromQuery] string reason = "Rescuer cancelled")
-        {
-            if (!MockMissions.TryGetValue(missionId, out var mission))
-            {
-                return NotFound("Mission not found");
-            }
-
-            if (mission.Status != "Preparing" && mission.Status != "EnRoute")
-            {
-                return BadRequest($"Cannot cancel mission with status: {mission.Status}");
-            }
-
-            mission.Status = "Cancelled";
-            mission.CancellationReason = reason;
-            mission.UpdatedAt = DateTime.UtcNow;
-
-            var incident = MockIncidents[mission.IncidentId];
-
-            // Reset incident to Pending for retry
-            incident.Status = "Pending";
-            incident.AssignedRescuerId = null;
-            incident.AssignedAt = null;
-
-            // Create new session triggered by mission cancellation
-            var newSession = await CreateNewSessionAsync(incident, incident.CurrentSessionNumber + 1, incident.CurrentRadiusKm, "MissionCancelled");
-
-            // Start timeout timer
-            StartSessionTimer(newSession.Id, 60);
-
-            // Notify user
-            await _hubContext.Clients.All.SendAsync("MissionCancelledByRescuer", new
-            {
-                MissionId = missionId,
-                IncidentId = incident.Id,
-                Reason = reason,
-                NewSessionId = newSession.Id,
-                Message = "Rescuer cancelled. Looking for another rescuer..."
-            });
-
-            return Ok(new { mission, newSession, message = "Mission cancelled, new session created" });
-        }
-
-        /// <summary>
-        /// Update mission status
-        /// </summary>
-        [HttpPost("mission/{missionId}/status")]
-        public async Task<IActionResult> UpdateMissionStatus(Guid missionId, [FromQuery] string status)
-        {
-            if (!MockMissions.TryGetValue(missionId, out var mission))
-            {
-                return NotFound("Mission not found");
-            }
-
-            var oldStatus = mission.Status;
-            mission.Status = status;
-            mission.UpdatedAt = DateTime.UtcNow;
-
-            switch (status)
-            {
-                case "EnRoute":
-                    mission.StartedAt = DateTime.UtcNow;
-                    break;
-                case "RescuerArrived":
-                    mission.ArrivedAt = DateTime.UtcNow;
-                    break;
-                case "MissionCompleted":
-                    mission.CompletedAt = DateTime.UtcNow;
-                    var incident = MockIncidents[mission.IncidentId];
-                    incident.Status = "Finished";
-                    break;
-            }
-
-            await _hubContext.Clients.All.SendAsync("MissionStatusUpdated", new
-            {
-                MissionId = missionId,
-                OldStatus = oldStatus,
-                NewStatus = status,
-                Mission = mission
-            });
-
-            return Ok(new { mission, message = $"Mission status updated to {status}" });
         }
 
         #endregion
@@ -487,393 +344,199 @@ namespace SnakeAid.Api.Controllers
         #region Query APIs
 
         /// <summary>
-        /// Get all mock data state
+        /// Get current demo incident details (from real database)
         /// </summary>
-        [HttpGet("state")]
-        public IActionResult GetState()
+        [HttpGet("incident/current")]
+        public async Task<IActionResult> GetCurrentIncident()
         {
+            if (_currentDemoIncidentId == null)
+            {
+                return NotFound("No active demo incident");
+            }
+
+            try
+            {
+                var incident = await _incidentService.GetDetailIncidentAsync(_currentDemoIncidentId.Value);
+                return Ok(incident);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to get incident details");
+                return NotFound(ex.Message);
+            }
+        }
+
+        /// <summary>
+        /// Get comprehensive monitoring data for current incident (incident + sessions + requests + mission)
+        /// </summary>
+        [HttpGet("incident/monitor")]
+        public async Task<IActionResult> GetIncidentMonitoring()
+        {
+            if (_currentDemoIncidentId == null)
+            {
+                return Ok(new { hasIncident = false, message = "No active demo incident" });
+            }
+
+            try
+            {
+                // Get incident details
+                var incident = await _incidentService.GetDetailIncidentAsync(_currentDemoIncidentId.Value);
+
+                // Query all sessions for this incident
+                var sessions = await _unitOfWork.GetRepository<RescueRequestSession>()
+                    .CreateBaseQuery()
+                    .Where(s => s.IncidentId == _currentDemoIncidentId.Value)
+                    .OrderBy(s => s.SessionNumber)
+                    .Select(s => new
+                    {
+                        s.Id,
+                        s.SessionNumber,
+                        s.RadiusKm,
+                        s.Status,
+                        s.TriggerType,
+                        s.RescuersPinged,
+                        s.CreatedAt
+                    })
+                    .ToListAsync();
+
+                // Query all requests for this incident
+                var requests = await _unitOfWork.GetRepository<RescuerRequest>()
+                    .CreateBaseQuery()
+                    .Where(r => r.IncidentId == _currentDemoIncidentId.Value)
+                    .OrderByDescending(r => r.CreatedAt)
+                    .Select(r => new
+                    {
+                        r.Id,
+                        r.SessionId,
+                        r.RescuerId,
+                        RescuerName = r.Rescuer.Account.FullName,
+                        r.Status,
+                        r.RequestSentAt,
+                        r.ExpiredAt,
+                        r.ResponseAt
+                    })
+                    .ToListAsync();
+
+                // Query mission if exists
+                var mission = await _unitOfWork.GetRepository<RescueMission>()
+                    .CreateBaseQuery()
+                    .Where(m => m.IncidentId == _currentDemoIncidentId.Value)
+                    .Select(m => new
+                    {
+                        m.Id,
+                        m.RescuerId,
+                        RescuerName = m.Rescuer.Account.FullName,
+                        m.Status,
+                        m.StartedAt,
+                        m.ArrivedAt,
+                        m.CompletedAt,
+                        m.Price
+                    })
+                    .FirstOrDefaultAsync();
+
+                return Ok(new
+                {
+                    hasIncident = true,
+                    incident = new
+                    {
+                        incident.Id,
+                        incident.Status,
+                        incident.CurrentSessionNumber,
+                        incident.CurrentRadiusKm,
+                        incident.LastSessionAt,
+                        incident.AssignedAt,
+                        incident.AssignedRescuerId
+                    },
+                    sessions = sessions,
+                    requests = requests.Select(r => new
+                    {
+                        r.Id,
+                        r.SessionId,
+                        r.RescuerId,
+                        r.RescuerName,
+                        r.Status,
+                        r.RequestSentAt,
+                        r.ExpiredAt,
+                        r.ResponseAt,
+                        SessionNumber = sessions.FirstOrDefault(s => s.Id == r.SessionId)?.SessionNumber
+                    }),
+                    mission = mission,
+                    timestamp = DateTime.UtcNow
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to get incident monitoring data");
+                return StatusCode(500, new { error = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Get all demo rescuers with connection status
+        /// </summary>
+        [HttpGet("rescuers")]
+        public IActionResult GetRescuers()
+        {
+            var rescuers = new[]
+            {
+                new { id = DemoDataSeeder.DEMO_RESCUER_A_ID, name = "Rescuer A - Quận 1", distanceKm = 4.5 },
+                new { id = DemoDataSeeder.DEMO_RESCUER_B_ID, name = "Rescuer B - Quận 3", distanceKm = 3.2 },
+                new { id = DemoDataSeeder.DEMO_RESCUER_C_ID, name = "Rescuer C - Quận 7", distanceKm = 8.0 },
+                new { id = DemoDataSeeder.DEMO_RESCUER_D_ID, name = "Rescuer D - Tân Bình", distanceKm = 6.5 }
+            };
+
+            var result = rescuers.Select(r => new
+            {
+                r.id,
+                r.name,
+                r.distanceKm,
+                isConnected = SignalRRescueNotificationService.ConnectedRescuers.ContainsKey(r.id.ToString())
+            });
+
+            return Ok(result);
+        }
+
+        /// <summary>
+        /// Monitor background service sessions with real-time timeout tracking
+        /// </summary>
+        [HttpGet("sessions/monitor")]
+        public IActionResult GetSessionMonitoring()
+        {
+            var monitoringInfo = _timeoutService.GetMonitoringInfo();
+            var (totalSessions, expiredCount, pendingCount) = _timeoutService.GetQueueStatus();
+
             return Ok(new
             {
-                users = MockUsers.Values.ToList(),
-                rescuers = MockRescuers.Values.Select(r => new
+                summary = new
                 {
-                    r.Id,
-                    r.Name,
-                    r.Lat,
-                    r.Lng,
-                    r.IsOnline,
-                    r.DistanceFromUserKm,
-                    IsConnected = SignalRRescueNotificationService.ConnectedRescuers.ContainsKey(r.Id.ToString())
-                }).ToList(),
-                incidents = MockIncidents.Values.ToList(),
-                sessions = MockSessions.Values.ToList(),
-                requests = MockRequests.Values.ToList(),
-                missions = MockMissions.Values.ToList(),
-                connectedRescuers = SignalRRescueNotificationService.ConnectedRescuers.Keys.ToList()
+                    totalTracked = totalSessions,
+                    expired = expiredCount,
+                    pending = pendingCount,
+                    healthy = _timeoutService.IsHealthy()
+                },
+                sessions = monitoringInfo.Select(s => new
+                {
+                    sessionId = s.SessionId,
+                    timeoutAt = s.TimeoutAt,
+                    timeRemainingSeconds = (int)s.TimeRemaining.TotalSeconds,
+                    isExpired = s.IsExpired,
+                    status = s.IsExpired ? "Expired" :
+                            s.TimeRemaining.TotalSeconds < 10 ? "Expiring Soon" : "Active"
+                }),
+                timestamp = DateTime.UtcNow
             });
-        }
-
-        /// <summary>
-        /// Get incident details
-        /// </summary>
-        [HttpGet("incident/{incidentId}")]
-        public IActionResult GetIncident(Guid incidentId)
-        {
-            if (!MockIncidents.TryGetValue(incidentId, out var incident))
-            {
-                return NotFound("Incident not found");
-            }
-
-            var sessions = MockSessions.Values.Where(s => s.IncidentId == incidentId).OrderBy(s => s.SessionNumber).ToList();
-            var requests = MockRequests.Values.Where(r => r.IncidentId == incidentId).ToList();
-            var mission = MockMissions.Values.FirstOrDefault(m => m.IncidentId == incidentId);
-
-            return Ok(new { incident, sessions, requests, mission });
-        }
-
-        /// <summary>
-        /// Get requests for a rescuer
-        /// </summary>
-        [HttpGet("rescuer/{rescuerId}/requests")]
-        public IActionResult GetRescuerRequests(Guid rescuerId)
-        {
-            var requests = MockRequests.Values.Where(r => r.RescuerId == rescuerId).ToList();
-            return Ok(requests);
-        }
-
-        /// <summary>
-        /// Reset all mock data
-        /// </summary>
-        [HttpPost("reset")]
-        public async Task<IActionResult> ResetMockData()
-        {
-            // Stop all timers
-            foreach (var timer in SessionTimers.Values)
-            {
-                timer.Stop();
-                timer.Dispose();
-            }
-            SessionTimers.Clear();
-
-            MockIncidents.Clear();
-            MockSessions.Clear();
-            MockRequests.Clear();
-            MockMissions.Clear();
-
-            // Reset rescuer online status
-            foreach (var rescuer in MockRescuers.Values)
-            {
-                rescuer.IsOnline = SignalRRescueNotificationService.ConnectedRescuers.ContainsKey(rescuer.Id.ToString());
-            }
-
-            await _hubContext.Clients.All.SendAsync("DataReset", new { Message = "All mock data has been reset" });
-
-            return Ok(new { message = "Mock data reset successfully" });
-        }
-
-        /// <summary>
-        /// Simulate session timeout manually (for testing)
-        /// </summary>
-        [HttpPost("session/{sessionId}/timeout")]
-        public async Task<IActionResult> SimulateTimeout(Guid sessionId)
-        {
-            await HandleSessionTimeoutAsync(sessionId);
-            return Ok(new { message = "Session timeout handled" });
-        }
-
-        #endregion
-
-        #region Private Helper Methods
-
-        private async Task<MockSession> CreateNewSessionAsync(MockIncident incident, int sessionNumber, int radiusKm, string trigger)
-        {
-            var session = new MockSession
-            {
-                Id = Guid.NewGuid(),
-                IncidentId = incident.Id,
-                SessionNumber = sessionNumber,
-                RadiusKm = radiusKm,
-                Status = "Active",
-                TriggerType = trigger,
-                RescuersPinged = 0,
-                CreatedAt = DateTime.UtcNow
-            };
-
-            MockSessions[session.Id] = session;
-
-            // Update incident
-            incident.CurrentSessionNumber = sessionNumber;
-            incident.CurrentRadiusKm = radiusKm;
-            incident.LastSessionAt = DateTime.UtcNow;
-
-            // Find and ping connected rescuers within radius
-            var connectedRescuers = MockRescuers.Values
-                .Where(r => SignalRRescueNotificationService.ConnectedRescuers.ContainsKey(r.Id.ToString()))
-                .Where(r => r.DistanceFromUserKm <= radiusKm)
-                .ToList();
-
-            session.RescuersPinged = connectedRescuers.Count;
-
-            var expiredAt = DateTime.UtcNow.AddSeconds(60);
-
-            foreach (var rescuer in connectedRescuers)
-            {
-                var request = new MockRescuerRequest
-                {
-                    Id = Guid.NewGuid(),
-                    SessionId = session.Id,
-                    IncidentId = incident.Id,
-                    RescuerId = rescuer.Id,
-                    Status = "Pending",
-                    RequestSentAt = DateTime.UtcNow,
-                    ExpiredAt = expiredAt,
-                    CreatedAt = DateTime.UtcNow
-                };
-
-                MockRequests[request.Id] = request;
-
-                // Send request to rescuer via SignalR
-                await NotifyRescuerAsync(rescuer.Id.ToString(), "NewRescueRequest", new
-                {
-                    RequestId = request.Id,
-                    SessionId = session.Id,
-                    IncidentId = incident.Id,
-                    IncidentLat = incident.Lat,
-                    IncidentLng = incident.Lng,
-                    RadiusKm = radiusKm,
-                    SessionNumber = sessionNumber,
-                    ExpiredAt = expiredAt,
-                    RequestSentAt = request.RequestSentAt,
-                    TimeoutSeconds = 60
-                });
-            }
-
-            // Notify all about session creation
-            await _hubContext.Clients.All.SendAsync("SessionCreated", new
-            {
-                Session = session,
-                RescuersPinged = connectedRescuers.Count,
-                RescuerNames = connectedRescuers.Select(r => r.Name).ToList()
-            });
-
-            _logger.LogInformation("Session {SessionId} created with {Count} rescuers pinged in {RadiusKm}km",
-                session.Id, connectedRescuers.Count, radiusKm);
-
-            return session;
-        }
-
-        private async Task CancelSessionAsync(Guid sessionId)
-        {
-            if (!MockSessions.TryGetValue(sessionId, out var session))
-                return;
-
-            StopSessionTimer(sessionId);
-
-            session.Status = "Cancelled";
-            session.CompletedAt = DateTime.UtcNow;
-
-            // Cancel all pending requests
-            var pendingRequests = MockRequests.Values.Where(r => r.SessionId == sessionId && r.Status == "Pending");
-            foreach (var req in pendingRequests)
-            {
-                req.Status = "Cancelled";
-                req.UpdatedAt = DateTime.UtcNow;
-
-                await NotifyRescuerAsync(req.RescuerId.ToString(), "RequestCancelled", new
-                {
-                    RequestId = req.Id,
-                    Message = "Request cancelled by user"
-                });
-            }
-
-            await _hubContext.Clients.All.SendAsync("SessionCancelled", session);
-        }
-
-        private async Task HandleSessionTimeoutAsync(Guid sessionId)
-        {
-            if (!MockSessions.TryGetValue(sessionId, out var session))
-                return;
-
-            if (session.Status != "Active")
-                return;
-
-            // Mark all pending requests as expired
-            var pendingRequests = MockRequests.Values.Where(r => r.SessionId == sessionId && r.Status == "Pending").ToList();
-            foreach (var req in pendingRequests)
-            {
-                req.Status = "Expired";
-                req.UpdatedAt = DateTime.UtcNow;
-
-                await NotifyRescuerAsync(req.RescuerId.ToString(), "RequestExpired", new
-                {
-                    RequestId = req.Id,
-                    Message = "Request has expired"
-                });
-            }
-
-            session.Status = "Failed";
-            session.CompletedAt = DateTime.UtcNow;
-
-            await _hubContext.Clients.All.SendAsync("SessionTimeout", new
-            {
-                SessionId = sessionId,
-                ExpiredRequests = pendingRequests.Count,
-                Message = "Session timed out. All pending requests expired."
-            });
-
-            // Try to expand and create new session
-            var incident = MockIncidents[session.IncidentId];
-
-            if (incident.Status == "Pending" && incident.CurrentSessionNumber < 3)
-            {
-                int nextRadius = session.RadiusKm switch
-                {
-                    5 => 7,
-                    7 => 10,
-                    _ => session.RadiusKm + 5
-                };
-
-                var newSession = await CreateNewSessionAsync(incident, incident.CurrentSessionNumber + 1, nextRadius, "RadiusExpanded");
-                StartSessionTimer(newSession.Id, 60);
-
-                await _hubContext.Clients.All.SendAsync("SessionAutoExpanded", new
-                {
-                    OldSessionId = sessionId,
-                    NewSession = newSession,
-                    Message = $"Auto-expanded to {nextRadius}km"
-                });
-            }
-            else if (incident.CurrentSessionNumber >= 3)
-            {
-                incident.Status = "NoRescuerFound";
-                await _hubContext.Clients.All.SendAsync("IncidentNoRescuerFound", incident);
-            }
-        }
-
-        private void StartSessionTimer(Guid sessionId, int seconds)
-        {
-            var timer = new System.Timers.Timer(seconds * 1000);
-            timer.Elapsed += async (sender, e) =>
-            {
-                timer.Stop();
-                await HandleSessionTimeoutAsync(sessionId);
-            };
-            timer.AutoReset = false;
-            timer.Start();
-
-            SessionTimers[sessionId] = timer;
-            _logger.LogInformation("Started {Seconds}s timer for session {SessionId}", seconds, sessionId);
-        }
-
-        private void StopSessionTimer(Guid sessionId)
-        {
-            if (SessionTimers.TryRemove(sessionId, out var timer))
-            {
-                timer.Stop();
-                timer.Dispose();
-                _logger.LogInformation("Stopped timer for session {SessionId}", sessionId);
-            }
-        }
-
-        private async Task NotifyRescuerAsync(string rescuerId, string method, object data)
-        {
-            if (SignalRRescueNotificationService.ConnectedRescuers.TryGetValue(rescuerId, out var connectionId))
-            {
-                try
-                {
-                    await _hubContext.Clients.Client(connectionId).SendAsync(method, data);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Error sending {Method} to rescuer {RescuerId}", method, rescuerId);
-                }
-            }
         }
 
         #endregion
     }
 
-    #region Mock DTOs
+    #region DTOs
 
     public class CreateIncidentDto
     {
         public double Lat { get; set; } = 10.762622;
         public double Lng { get; set; } = 106.660172;
-    }
-
-    public class MockUser
-    {
-        public Guid Id { get; set; }
-        public string Name { get; set; } = string.Empty;
-        public string Role { get; set; } = "Member";
-        public double Lat { get; set; }
-        public double Lng { get; set; }
-    }
-
-    public class MockRescuer
-    {
-        public Guid Id { get; set; }
-        public string Name { get; set; } = string.Empty;
-        public double Lat { get; set; }
-        public double Lng { get; set; }
-        public bool IsOnline { get; set; }
-        public double DistanceFromUserKm { get; set; }
-    }
-
-    public class MockIncident
-    {
-        public Guid Id { get; set; }
-        public Guid UserId { get; set; }
-        public double Lat { get; set; }
-        public double Lng { get; set; }
-        public string Status { get; set; } = "Pending";
-        public int CurrentSessionNumber { get; set; }
-        public int CurrentRadiusKm { get; set; }
-        public DateTime? LastSessionAt { get; set; }
-        public Guid? AssignedRescuerId { get; set; }
-        public DateTime? AssignedAt { get; set; }
-        public DateTime CreatedAt { get; set; }
-    }
-
-    public class MockSession
-    {
-        public Guid Id { get; set; }
-        public Guid IncidentId { get; set; }
-        public int SessionNumber { get; set; }
-        public int RadiusKm { get; set; }
-        public string Status { get; set; } = "Active";
-        public string TriggerType { get; set; } = "Initial";
-        public int RescuersPinged { get; set; }
-        public DateTime CreatedAt { get; set; }
-        public DateTime? CompletedAt { get; set; }
-    }
-
-    public class MockRescuerRequest
-    {
-        public Guid Id { get; set; }
-        public Guid SessionId { get; set; }
-        public Guid IncidentId { get; set; }
-        public Guid RescuerId { get; set; }
-        public string Status { get; set; } = "Pending";
-        public DateTime RequestSentAt { get; set; }
-        public DateTime? ResponseAt { get; set; }
-        public DateTime ExpiredAt { get; set; }
-        public DateTime CreatedAt { get; set; }
-        public DateTime? UpdatedAt { get; set; }
-    }
-
-    public class MockMission
-    {
-        public Guid Id { get; set; }
-        public Guid IncidentId { get; set; }
-        public Guid RescuerId { get; set; }
-        public string Status { get; set; } = "Preparing";
-        public string? CancellationReason { get; set; }
-        public DateTime CreatedAt { get; set; }
-        public DateTime? StartedAt { get; set; }
-        public DateTime? ArrivedAt { get; set; }
-        public DateTime? CompletedAt { get; set; }
-        public DateTime? UpdatedAt { get; set; }
+        public string? SymptomsReport { get; set; }
     }
 
     #endregion

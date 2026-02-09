@@ -17,7 +17,7 @@ namespace SnakeAid.Core.Domains
         [ForeignKey(nameof(User))]
         public Guid UserId { get; set; }  // FK to MemberProfile
 
-         [Required]
+        [Required]
         [Column(TypeName = "geometry(Point, 4326)")]
         public Point LocationCoordinates { get; set; }
 
@@ -32,7 +32,7 @@ namespace SnakeAid.Core.Domains
         public int CurrentSessionNumber { get; set; } = 0;   // Track session hiện tại
 
         [Required]
-        [Range(1, 50)]
+        [Range(0, 50)]
         public int CurrentRadiusKm { get; set; } = 5;        // Radius hiện tại
 
         public DateTime? LastSessionAt { get; set; }         // Tránh spam sessions

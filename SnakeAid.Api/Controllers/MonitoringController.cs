@@ -8,7 +8,7 @@ namespace SnakeAid.Api.Controllers
 {
     [Route("api/monitoring")]
     [ApiController]
-    [Authorize] // Only authenticated users can access monitoring
+    // [Authorize] // Only authenticated users can access monitoring
     public class MonitoringController : ControllerBase
     {
         private readonly ISessionTimeoutService _timeoutService;

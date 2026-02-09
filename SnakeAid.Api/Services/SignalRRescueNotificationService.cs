@@ -97,16 +97,26 @@ namespace SnakeAid.Api.Services
             {
                 try
                 {
+                    _logger.LogInformation("Sending RequestExpired notification to rescuer {RescuerId} (connectionId: {ConnectionId})",
+                        rescuerId, connectionId);
+
                     await _hubContext.Clients.Client(connectionId).SendAsync("RequestExpired", new
                     {
                         RequestId = requestId,
                         Message = "This request has expired."
                     });
+
+                    _logger.LogInformation("Successfully sent RequestExpired notification to rescuer {RescuerId}", rescuerId);
                 }
                 catch (Exception ex)
                 {
                     _logger.LogError(ex, "Error notifying rescuer {RescuerId} about expired request: {Message}", rescuerId, ex.Message);
                 }
+            }
+            else
+            {
+                _logger.LogWarning("Cannot send RequestExpired to rescuer {RescuerId} - not in ConnectedRescuers dictionary. Current connections: {Count}",
+                    rescuerId, ConnectedRescuers.Count);
             }
         }
 
@@ -114,12 +124,18 @@ namespace SnakeAid.Api.Services
 
         public static void AddConnection(string userId, string connectionId)
         {
+            var sizeBefore = ConnectedRescuers.Count;
             ConnectedRescuers[userId] = connectionId;
+            var sizeAfter = ConnectedRescuers.Count;
+            Console.WriteLine($"[SignalR] AddConnection: userId={userId}, connId={connectionId}, size: {sizeBefore}→{sizeAfter}");
         }
 
         public static void RemoveConnection(string userId)
         {
-            ConnectedRescuers.TryRemove(userId, out _);
+            var sizeBefore = ConnectedRescuers.Count;
+            var removed = ConnectedRescuers.TryRemove(userId, out var removedConnId);
+            var sizeAfter = ConnectedRescuers.Count;
+            Console.WriteLine($"[SignalR] RemoveConnection: userId={userId}, removed={removed}, connId={removedConnId}, size: {sizeBefore}→{sizeAfter}");
         }
 
         public static string? GetConnectionId(string userId)
