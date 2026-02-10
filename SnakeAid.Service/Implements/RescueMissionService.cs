@@ -226,7 +226,7 @@ namespace SnakeAid.Service.Implements
         {
             var response = mission.Adapt<RescueMissionStatusResponse>();
             response.PreviousStatus = previousStatus;
-            response.UpdatedAt = DateTime.UtcNow;
+            response.UpdatedAt = mission.UpdatedAt;
 
             // Get incident status if loaded
             if (mission.Incident != null)
