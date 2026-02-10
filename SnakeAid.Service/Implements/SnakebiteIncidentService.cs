@@ -223,7 +223,7 @@ namespace SnakeAid.Service.Implements
             }
         }
 
-        public async Task<DetailSnakebiteIncidentReposne> GetDetailIncidentAsync(Guid incidentId)
+        public async Task<DetailSnakebiteIncidentResponse> GetDetailIncidentAsync(Guid incidentId)
         {
             try
             {
@@ -237,7 +237,7 @@ namespace SnakeAid.Service.Implements
                                 .Include(i => i.Sessions)
                                 .Include(i => i.AllRequests)
                                     .ThenInclude(r => r.Rescuer)
-                                .Include(i => i.RescueMission)
+                                .Include(i => i.Missions)
                                 .Include(i => i.Media)
                         );
 
@@ -246,7 +246,7 @@ namespace SnakeAid.Service.Implements
                         throw new NotFoundException("Snakebite incident not found.");
                     }
 
-                    var responseData = existingIncident.Adapt<DetailSnakebiteIncidentReposne>();
+                    var responseData = existingIncident.Adapt<DetailSnakebiteIncidentResponse>();
 
                     return responseData;
                 });

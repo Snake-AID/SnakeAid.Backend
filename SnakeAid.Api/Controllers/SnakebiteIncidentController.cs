@@ -81,7 +81,7 @@ namespace SnakeAid.Api.Controllers
         /// </summary>
         [HttpGet("{incidentId}")]
         [SwaggerOperation(Summary = "Get Incident Detail", Description = "Retrieve detailed information about a snakebite incident including user, rescuer, sessions, and media")]
-        [SwaggerResponse(200, "Incident details retrieved successfully", typeof(ApiResponse<DetailSnakebiteIncidentReposne>))]
+        [SwaggerResponse(200, "Incident details retrieved successfully", typeof(ApiResponse<DetailSnakebiteIncidentResponse>))]
         [SwaggerResponse(404, "Incident not found")]
         public async Task<IActionResult> GetIncidentDetail(Guid incidentId)
         {

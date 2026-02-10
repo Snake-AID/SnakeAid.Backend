@@ -275,6 +275,12 @@
         color: #9d174d;
         }
 
+        .request-status.aborted {
+        background: #fee2e2;
+        color: #991b1b;
+        font-weight: 600;
+        }
+
         /* Status Panel */
         .status-panel {
         height: calc(100vh - 160px);
@@ -627,15 +633,23 @@
                     <!-- Mission Info -->
                     <div class="mission-info" id="missionInfo" style="display: none;">
                         <h3>🎯 Active Mission</h3>
-                        <div>Rescuer: <strong id="missionRescuer">-</strong></div>
-                        <div>Status: <strong id="missionStatus">-</strong></div>
-                        <div class="mission-status-btn">
-                            <select id="missionStatusSelect" onchange="updateMissionStatus()">
-                                <option value="">Update Status...</option>
+                        <div style="margin-bottom: 8px;">
+                            <div>Rescuer: <strong id="missionRescuer">-</strong></div>
+                            <div style="margin-top: 4px;">Status: <strong id="missionStatus">-</strong></div>
+                            <div style="margin-top: 4px; font-size: 0.85rem; opacity: 0.9;">Price: ₫<span id="missionPrice">-</span></div>
+                        </div>
+                        
+                        <div style="margin-top: 12px;">
+                            <label style="font-size: 0.85rem; display: block; margin-bottom: 6px;">Update Status:</label>
+                            <select id="missionStatusSelect" class="btn btn-secondary" style="width: 100%; padding: 8px;">
+                                <option value="">Select new status...</option>
                                 <option value="EnRoute">🚗 En Route</option>
                                 <option value="RescuerArrived">📍 Arrived</option>
                                 <option value="MissionCompleted">✅ Completed</option>
                             </select>
+                            <button class="btn btn-success" style="margin-top: 8px;" onclick="updateMissionStatus()">
+                                Update Status
+                            </button>
                         </div>
                     </div>
 
@@ -659,6 +673,7 @@
         let currentMissionId = null;
         let timerInterval = null;
         let timerSeconds = 60;
+        const excludedRescuers = new Set(); // Track rescuers who aborted missions
 
         const mockRescuers = [
         { id: '22222222-2222-2222-2222-222222222221', name: 'Rescuer A - Quận 1', distance: 4.5 },
@@ -737,6 +752,8 @@
         log('✅ Demo data cleaned up from database', 'success');
 
         currentIncidentId = null;
+        currentMissionId = null;
+        excludedRescuers.clear(); // Clear excluded rescuers
         Object.keys(rescuerRequests).forEach(k => delete rescuerRequests[k]);
 
         document.getElementById('demoAlert').style.display = 'block';
@@ -810,7 +827,12 @@
         });
 
         connection.on('NewRescueRequest', (data) => {
-        handleNewRequest(rescuerId, data);
+        // Only process if not excluded (backend should already filter, but double check)
+        if (!excludedRescuers.has(rescuerId)) {
+            handleNewRequest(rescuerId, data);
+        } else {
+            log(`⚠️ Rescuer ${rescuerId.slice(-1)} is excluded - should not receive request`, 'warning');
+        }
         });
 
         connection.on('RequestAccepted', (data) => {
@@ -866,6 +888,11 @@
         // ====== USER ACTIONS ======
         async function createIncident() {
         try {
+        // Clear previous state
+        currentMissionId = null;
+        excludedRescuers.clear();
+        Object.keys(rescuerRequests).forEach(k => delete rescuerRequests[k]);
+        
         log('Creating incident with REAL SnakebiteIncidentService...', 'info');
         const response = await fetch('/api/rescuedemo/incident/create', {
         method: 'POST',
@@ -884,6 +911,7 @@
         document.getElementById('btnTriggerRescue').disabled = false;
 
         log(`✅ Incident created in database: ${currentIncidentId.slice(0, 8)}...`, 'success');
+        renderRescuers(); // Update UI to clear excluded badges
         } catch (err) {
         log('❌ Failed to create incident: ' + err.message, 'error');
         }
@@ -976,9 +1004,18 @@
         }
 
         const data = await response.json();
-        currentMissionId = data.mission.id;
-        log(`Rescuer ${rescuerId.slice(-1)} accepted request!`, 'success');
+        currentMissionId = data.missionId;
+        
+        // Update state immediately for instant UI feedback
+        rescuerRequests[rescuerId] = { ...request, status: 'Accepted' };
+        
+        log(`Rescuer ${rescuerId.slice(-1)} accepted request! Mission ${data.missionId?.slice(0, 8)}... created`, 'success');
         stopTimer();
+        
+        // Render UI immediately before async refreshState
+        renderRescuers();
+        
+        // Then fetch full state from server
         refreshState();
         } catch (err) {
         log('Accept failed: ' + err.message, 'error');
@@ -1003,34 +1040,79 @@
         }
 
         async function cancelMission(rescuerId) {
-        if (!currentMissionId) return;
+        if (!currentMissionId) {
+        log('No active mission to cancel', 'warning');
+        return;
+        }
+
+        if (!confirm('Cancel this mission? This will create a new session with expanded radius (excluding you).')) {
+        return;
+        }
 
         try {
-        const response = await fetch(`/api/rescuedemo/mission/${currentMissionId}/cancel?reason=Rescuer%20cancelled`, {
+        log('Aborting mission...', 'info');
+        const response = await fetch(`/api/rescuedemo/mission/${currentMissionId}/abort?reason=Rescuer%20cancelled`, {
         method: 'POST'
         });
-        const data = await response.json();
 
-        log('Mission cancelled by rescuer, new session created', 'warning');
+        if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Abort failed');
+        }
+
+        const data = await response.json();
+        log(`🔄 Mission aborted! New session #${data.newSession.sessionNumber} created with ${data.newSession.radiusKm}km radius`, 'warning');
+        log(`📡 ${data.newSession.rescuersPinged} rescuers notified (excluding Rescuer ${rescuerId.slice(-1)})`, 'info');
+        log(`🚫 Rescuer ${rescuerId.slice(-1)} is now EXCLUDED from this incident`, 'error');
+        
         currentMissionId = null;
+        // Mark this rescuer as aborted/excluded
+        excludedRescuers.add(rescuerId);
+        rescuerRequests[rescuerId] = { status: 'Aborted', reason: 'Mission cancelled by rescuer' };
+        
         startTimer(60);
         refreshState();
+        renderRescuers();
         } catch (err) {
-        log('Cancel mission failed: ' + err.message, 'error');
+        log('❌ Abort mission failed: ' + err.message, 'error');
         }
         }
 
         async function updateMissionStatus() {
         const select = document.getElementById('missionStatusSelect');
         const status = select.value;
-        if (!status || !currentMissionId) return;
+        if (!status || !currentMissionId) {
+        log('Please select a status', 'warning');
+        return;
+        }
 
         try {
-        await fetch(`/api/rescuedemo/mission/${currentMissionId}/status?status=${status}`, {
+        const response = await fetch(`/api/rescuedemo/mission/${currentMissionId}/status?status=${status}`, {
         method: 'POST'
         });
-        log(`Mission status updated to ${status}`, 'success');
+        
+        if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Update failed');
+        }
+        
+        const data = await response.json();
+        log(`✅ Mission status updated to ${data.newStatus}`, 'success');
         select.value = '';
+        
+        // Update mission status in UI immediately
+        const missionStatusEl = document.getElementById('missionStatus');
+        if (missionStatusEl) {
+        missionStatusEl.textContent = data.newStatus;
+        }
+        
+        // Stop timer if mission completed
+        if (status === 'MissionCompleted') {
+        stopTimer();
+        log('🎉 Mission completed! Incident resolved.', 'success');
+        }
+        
+        // Then fetch full state
         refreshState();
         } catch (err) {
         log('Update status failed: ' + err.message, 'error');
@@ -1121,10 +1203,11 @@
         const isConnected = !!rescuerConnections[r.id];
         const request = rescuerRequests[r.id];
         const hasRequest = request && request.status === 'Pending';
+        const isExcluded = excludedRescuers.has(r.id);
 
         return `
         <div class="rescuer-card ${isConnected ? 'connected' : ''} ${hasRequest ? 'has-request' : ''}">
-        <div class="name">${r.name}</div>
+        <div class="name">${r.name} ${isExcluded ? '🚫' : ''}</div>
         <div class="distance">📍 ${r.distance} km from user</div>
         <div class="actions">
         ${!isConnected ? `
@@ -1144,9 +1227,19 @@
         ` : ''}
         ${request.status === 'Accepted' ? `
         <div style="margin-top: 8px;">
-        <button class="btn btn-warning" style="padding: 6px;" onclick="cancelMission('${r.id}')">Cancel Mission</button>
+        <button class="btn btn-warning" style="padding: 6px;" onclick="cancelMission('${r.id}')">🚫 Abort Mission</button>
         </div>
         ` : ''}
+        ${request.status === 'Aborted' ? `
+        <div style="margin-top: 4px; font-size: 0.8rem; color: #991b1b;">
+        ⚠️ Excluded from this incident
+        </div>
+        ` : ''}
+        </div>
+        ` : ''}
+        ${isExcluded && !request ? `
+        <div class="request-status" style="background: #fee2e2; color: #991b1b;">
+        🚫 <strong>Excluded</strong> - Aborted previous mission
         </div>
         ` : ''}
         </div>
@@ -1188,6 +1281,7 @@
         document.getElementById('missionInfo').style.display = 'block';
         document.getElementById('missionRescuer').textContent = data.mission.rescuerName || data.mission.rescuerId;
         document.getElementById('missionStatus').textContent = data.mission.status;
+        document.getElementById('missionPrice').textContent = (data.mission.price || 0).toLocaleString('vi-VN');
         } else {
         document.getElementById('missionInfo').style.display = 'none';
         }

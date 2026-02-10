@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using SnakeAid.Api.Hubs;
 using SnakeAid.Api.Services;
 using SnakeAid.Core.Domains;
+using SnakeAid.Core.Exceptions;
 using SnakeAid.Core.Requests.RescueRequestSession;
 using SnakeAid.Core.Requests.SnakebiteIncident;
 using SnakeAid.Repository.Data;
@@ -320,22 +321,137 @@ namespace SnakeAid.Api.Controllers
         {
             try
             {
-                var response = await _incidentService.AcceptRescueAsync(requestId, rescuerId);
+                // Call the REAL session service to accept request (not just validation)
+                await _sessionService.AcceptRequestAsync(requestId, rescuerId);
+
+                // Query created mission
+                var request = await _unitOfWork.GetRepository<RescuerRequest>().FirstOrDefaultAsync(
+                    predicate: r => r.Id == requestId
+                );
+
+                if (request == null)
+                {
+                    throw new NotFoundException("Request not found");
+                }
+
+                var mission = await _unitOfWork.GetRepository<RescueMission>().FirstOrDefaultAsync(
+                    predicate: m => m.IncidentId == request.IncidentId
+                );
 
                 _logger.LogInformation("Rescuer {RescuerId} accepted request {RequestId}, mission {MissionId}",
-                    rescuerId, requestId, response.MissionId);
+                    rescuerId, requestId, mission?.Id);
 
                 return Ok(new
                 {
                     requestId,
-                    missionId = response.MissionId,
+                    missionId = mission?.Id,
+                    incidentId = request.IncidentId,
                     message = "Request accepted! Mission created. You have been assigned to this rescue."
                 });
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to accept request");
-                return BadRequest(ex.Message);
+                return BadRequest(new { error = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Rescuer abort/cancel mission using REAL service
+        /// This will:
+        /// 1. Mark mission as MissionAborted
+        /// 2. Reset incident to Pending
+        /// 3. Create new session with increased radius
+        /// 4. Exclude this rescuer from new session
+        /// 5. Broadcast to other rescuers
+        /// </summary>
+        [HttpPost("mission/{missionId}/abort")]
+        public async Task<IActionResult> AbortMission(Guid missionId, [FromQuery] string? reason = "Rescuer cancelled")
+        {
+            try
+            {
+                // Query mission to get rescuer and incident info
+                // IMPORTANT: Use asNoTracking to avoid polluting DbContext with tracked entities
+                // This ensures the mission service gets fresh data
+                var mission = await _unitOfWork.GetRepository<RescueMission>().FirstOrDefaultAsync(
+                    predicate: m => m.Id == missionId,
+                    include: q => q.Include(m => m.Incident),
+                    asNoTracking: true
+                );
+
+                if (mission == null)
+                {
+                    throw new NotFoundException("Mission not found");
+                }
+
+                var rescuerId = mission.RescuerId;
+                var incidentId = mission.IncidentId;
+
+                // Use MissionService to abort (it will call SessionService.HandleMissionAbortAsync)
+                var missionService = HttpContext.RequestServices.GetRequiredService<IRescueMissionService>();
+                await missionService.RescuerAbortMissionAsync(missionId, reason ?? "Rescuer cancelled");
+
+                _logger.LogInformation("Rescuer {RescuerId} aborted mission {MissionId}, new session created for incident {IncidentId}",
+                    rescuerId, missionId, incidentId);
+
+                // Get updated incident info
+                var updatedIncident = await _unitOfWork.GetRepository<SnakebiteIncident>().FirstOrDefaultAsync(
+                    predicate: i => i.Id == incidentId,
+                    include: q => q.Include(i => i.Sessions.OrderByDescending(s => s.SessionNumber).Take(1))
+                );
+
+                var latestSession = updatedIncident?.Sessions?.FirstOrDefault();
+
+                return Ok(new
+                {
+                    message = "Mission aborted. Creating new session with expanded radius...",
+                    incidentId,
+                    newSession = new
+                    {
+                        sessionId = latestSession?.Id,
+                        sessionNumber = latestSession?.SessionNumber,
+                        radiusKm = latestSession?.RadiusKm,
+                        rescuersPinged = latestSession?.RescuersPinged
+                    },
+                    excludedRescuerId = rescuerId
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to abort mission");
+                return BadRequest(new { error = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Update mission status (for demo: EnRoute, Arrived, Completed)
+        /// </summary>
+        [HttpPost("mission/{missionId}/status")]
+        public async Task<IActionResult> UpdateMissionStatus(Guid missionId, [FromQuery] string status)
+        {
+            try
+            {
+                if (!Enum.TryParse<RescueMissionStatus>(status, true, out var missionStatus))
+                {
+                    return BadRequest(new { error = "Invalid mission status" });
+                }
+
+                var missionService = HttpContext.RequestServices.GetRequiredService<IRescueMissionService>();
+                await missionService.UpdateMissionStatusAsync(missionId, missionStatus);
+
+                _logger.LogInformation("Mission {MissionId} status updated to {Status}", missionId, status);
+
+                return Ok(new
+                {
+                    missionId,
+                    newStatus = status,
+                    message = $"Mission status updated to {status}"
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to update mission status");
+                return BadRequest(new { error = ex.Message });
             }
         }
 

@@ -187,22 +187,45 @@ namespace SnakeAid.Service.Implements
             _logger.LogInformation("Found {Count} rescuers with pending requests for OTHER incidents",
                 rescuersWithPending.Count);
 
+            // Query rescuers who have aborted missions for THIS incident
+            // These rescuers should NOT receive requests again for the same incident
+            var rescuersWhoAborted = await _unitOfWork.GetRepository<RescueMission>()
+                .CreateBaseQuery()
+                .Where(m => m.IncidentId == session.IncidentId
+                    && m.Status == RescueMissionStatus.MissionAborted)
+                .Select(m => m.RescuerId)
+                .Distinct()
+                .ToListAsync();
+
+            _logger.LogInformation("Found {Count} rescuers who previously aborted missions for incident {IncidentId}: {RescuerIds}",
+                rescuersWhoAborted.Count, session.IncidentId,
+                string.Join(", ", rescuersWhoAborted));
+
             var rescuersWithPendingSet = new HashSet<Guid>(rescuersWithPending);
+            var rescuersWhoAbortedSet = new HashSet<Guid>(rescuersWhoAborted);
 
             var expiredAt = DateTime.UtcNow.AddSeconds(REQUEST_TIMEOUT_SECONDS);
             var requests = new List<RescuerRequest>();
 
-            // only for rescuers without any pending request
+            // Only send to rescuers without any pending request AND who haven't aborted this incident
             foreach (var rescuer in rescuersInRadius)
             {
                 var rescuerId = rescuer.AccountId;
 
-                // Skip if rescuer already has a pending request (preserve existing session)
+                // Skip if rescuer already has a pending request for OTHER incidents (preserve existing session)
                 if (rescuersWithPendingSet.Contains(rescuerId))
                 {
                     _logger.LogDebug(
                         "Skipping rescuer {RescuerId} - already has pending request for ANOTHER incident (preserving existing session)",
                         rescuerId);
+                    continue;
+                }
+
+                // Skip if rescuer previously aborted mission for THIS incident
+                if (rescuersWhoAbortedSet.Contains(rescuerId))
+                {
+                    _logger.LogInformation("❌ Excluding rescuer {RescuerId} - previously aborted mission for incident {IncidentId}",
+                        rescuerId, session.IncidentId);
                     continue;
                 }
 
@@ -219,8 +242,11 @@ namespace SnakeAid.Service.Implements
                 });
             }
 
-            _logger.LogInformation("Created {RequestCount} requests for session {SessionId} ({SkippedCount} rescuers skipped due to pending requests for other incidents)",
-                requests.Count, session.Id, rescuersInRadius.Count - requests.Count);
+            _logger.LogInformation("Created {RequestCount} requests for session {SessionId}. " +
+                "Skipped: {SkippedPending} with pending requests + {SkippedAborted} who aborted this incident",
+                requests.Count, session.Id,
+                rescuersWithPending.Count,
+                rescuersWhoAborted.Count);
 
             // Bulk insert all requests at once
             await _unitOfWork.GetRepository<RescuerRequest>().InsertRangeAsync(requests);
@@ -437,9 +463,11 @@ namespace SnakeAid.Service.Implements
             {
                 await _unitOfWork.ExecuteInTransactionAsync(async () =>
                 {
+                    // Load request with session only (no circular reference)
                     var request = await _unitOfWork.GetRepository<RescuerRequest>().FirstOrDefaultAsync(
                         predicate: r => r.Id == requestId && r.RescuerId == rescuerId,
-                        include: q => q.Include(r => r.Session).ThenInclude(s => s.Requests)
+                        include: q => q.Include(r => r.Session),
+                        asNoTracking: false
                     );
 
                     if (request == null)
@@ -475,8 +503,11 @@ namespace SnakeAid.Service.Implements
                     request.UpdatedAt = DateTime.UtcNow;
                     _unitOfWork.GetRepository<RescuerRequest>().Update(request);
 
-                    // Mark all other requests in the session as Taken
-                    var otherRequests = request.Session.Requests.Where(r => r.Id != requestId && r.Status == RescueRequestStatus.Pending).ToList();
+                    // Query other pending requests in the same session separately (no circular reference)
+                    var otherRequests = await _unitOfWork.GetRepository<RescuerRequest>().GetListAsync(
+                        predicate: r => r.SessionId == request.SessionId && r.Id != requestId && r.Status == RescueRequestStatus.Pending,
+                        asNoTracking: false
+                    );
                     if (otherRequests.Any())
                     {
                         var updateTime = DateTime.UtcNow;
@@ -521,6 +552,19 @@ namespace SnakeAid.Service.Implements
                     if (rescuer == null)
                     {
                         throw new NotFoundException("Rescuer not found.");
+                    }
+
+                    // Check for existing active missions only (allow multiple missions per incident for retry scenarios)
+                    var existingActiveMission = await _unitOfWork.GetRepository<RescueMission>().FirstOrDefaultAsync(
+                        predicate: m => m.IncidentId == request.IncidentId && 
+                            (m.Status == RescueMissionStatus.Preparing || 
+                             m.Status == RescueMissionStatus.EnRoute || 
+                             m.Status == RescueMissionStatus.RescuerArrived)
+                    );
+
+                    if (existingActiveMission != null)
+                    {
+                        throw new BadRequestException($"Active mission {existingActiveMission.Id} already exists for this incident.");
                     }
 
                     // Create new mission
@@ -709,14 +753,22 @@ namespace SnakeAid.Service.Implements
         {
             try
             {
-                var incident = await _unitOfWork.GetRepository<SnakebiteIncident>().FirstOrDefaultAsync(
-                    predicate: i => i.Id == incidentId
-                );
+                // CRITICAL: Use CreateBaseQuery + AsNoTracking to completely bypass EF cache
+                // FirstOrDefaultAsync with asNoTracking can still return tracked entities
+                var incident = await _unitOfWork.GetRepository<SnakebiteIncident>()
+                    .CreateBaseQuery(asNoTracking: true)
+                    .Where(i => i.Id == incidentId)
+                    .FirstOrDefaultAsync();
 
                 if (incident == null)
                 {
                     throw new NotFoundException("Incident not found.");
                 }
+
+                // Diagnostic: Check entity state to verify it's truly detached
+                var entityState = _unitOfWork.Context.Entry(incident).State;
+                _logger.LogInformation("Incident {IncidentId} status after mission abort: Status={Status} (raw: {StatusInt}), CurrentSession={Session}, EntityState={EntityState}",
+                    incidentId, incident.Status, (int)incident.Status, incident.CurrentSessionNumber, entityState);
 
                 // Check if incident is still pending (should be reset by mission abort)
                 if (incident.Status != SnakebiteIncidentStatus.Pending)

@@ -240,729 +240,729 @@ namespace SnakeAid.Repository.Seeds
                 };
                 context.FilterOptions.AddRange(filterOptions);
 
-                // var snakes = new List<SnakeSpecies>
-                // {
-                //     // 1. RẮN CẠP NIA BẮC (Bungarus multicinctus)
-                //     new SnakeSpecies
-                //     {
-                //         Id = 1,
-                //         ScientificName = "Bungarus multicinctus",
-                //         CommonName = "Rắn Cạp Nia Bắc",
-                //         Slug = "ran-cap-nia-bac",
-                //         Description = "Một trong những loài rắn độc nhất châu Á, thường gặp ở vùng đồng bằng và trung du Bắc Bộ.",
-                //         IdentificationSummary = "Chiều dài trung bình 1.0m - 1.5m. Thân có các khoanh trắng và đen rõ rệt, vảy trơn bóng.",
-                //         PrimaryVenomType = PrimaryVenomType.Neurotoxic,
-                //         RiskLevel = 9.5f,
-                //         IsVenomous = true,
-                //         ImageUrl = "https://e.khoahoc.tv/photos/image/2020/09/19/ran-cap-nia-1.jpg",
-                //         Identification = new IdentificationFeature
-                //         {
-                //             PhysicalTraits = new List<string> { "Chiều dài: 100 - 150 cm", "Khoanh trắng đen rõ rệt", "Đầu bầu dục", "Vảy bóng", "Thân hình tam giác nhẹ" },
-                //             Behaviors = new List<string> { "Hoạt động mạnh về đêm", "Thích nơi ẩm ướt", "Thường chui vào nhà dân tìm mồi" },
-                //             Habitat = "Cánh đồng, ven sông, khu dân cư miền Bắc"
-                //         },
-                //         SymptomsByTime = new List<SymptomTimeline>
-                //         {
-                //             new SymptomTimeline { TimeRange = "0 - 30 phút", Signs = new List<string> { "Đau nhẹ tại vết cắn, ít cảm giác", "Tê nhẹ" }, IsCritical = false },
-                //             new SymptomTimeline { TimeRange = "1 - 3 giờ", Signs = new List<string> { "Sụp mí mắt", "Khó nói", "Khó nuốt", "Yếu cơ" }, IsCritical = true },
-                //             new SymptomTimeline { TimeRange = "3 - 6 giờ", Signs = new List<string> { "Liệt cơ hô hấp", "Ngừng thở" }, IsCritical = true }
-                //         },
-                //         FirstAidGuidelineOverride = new FirstAidOverride
-                //         {
-                //             Mode = OverrideMode.Append,
-                //             Content = new FirstAidContent
-                //             {
-                //                 Steps = new List<FirstAidStep>
-                //                 {
-                //                     new FirstAidStep { Text = "Đặc biệt chú ý hỗ trợ hô hấp nhân tạo nếu nạn nhân có dấu hiệu ngưng thở." }
-                //                 }
-                //             }
-                //         }
-                //     },
+                var snakes = new List<SnakeSpecies>
+                {
+                    // 1. RẮN CẠP NIA BẮC (Bungarus multicinctus)
+                    new SnakeSpecies
+                    {
+                        Id = 1,
+                        ScientificName = "Bungarus multicinctus",
+                        CommonName = "Rắn Cạp Nia Bắc",
+                        Slug = "ran-cap-nia-bac",
+                        Description = "Một trong những loài rắn độc nhất châu Á, thường gặp ở vùng đồng bằng và trung du Bắc Bộ.",
+                        IdentificationSummary = "Chiều dài trung bình 1.0m - 1.5m. Thân có các khoanh trắng và đen rõ rệt, vảy trơn bóng.",
+                        PrimaryVenomType = PrimaryVenomType.Neurotoxic,
+                        RiskLevel = 9.5f,
+                        IsVenomous = true,
+                        ImageUrl = "https://e.khoahoc.tv/photos/image/2020/09/19/ran-cap-nia-1.jpg",
+                        Identification = new IdentificationFeature
+                        {
+                            PhysicalTraits = new List<string> { "Chiều dài: 100 - 150 cm", "Khoanh trắng đen rõ rệt", "Đầu bầu dục", "Vảy bóng", "Thân hình tam giác nhẹ" },
+                            Behaviors = new List<string> { "Hoạt động mạnh về đêm", "Thích nơi ẩm ướt", "Thường chui vào nhà dân tìm mồi" },
+                            Habitat = "Cánh đồng, ven sông, khu dân cư miền Bắc"
+                        },
+                        SymptomsByTime = new List<SymptomTimeline>
+                        {
+                            new SymptomTimeline { TimeRange = "0 - 30 phút", Signs = new List<string> { "Đau nhẹ tại vết cắn, ít cảm giác", "Tê nhẹ" }, IsCritical = false },
+                            new SymptomTimeline { TimeRange = "1 - 3 giờ", Signs = new List<string> { "Sụp mí mắt", "Khó nói", "Khó nuốt", "Yếu cơ" }, IsCritical = true },
+                            new SymptomTimeline { TimeRange = "3 - 6 giờ", Signs = new List<string> { "Liệt cơ hô hấp", "Ngừng thở" }, IsCritical = true }
+                        },
+                        FirstAidGuidelineOverride = new FirstAidOverride
+                        {
+                            Mode = OverrideMode.Append,
+                            Content = new FirstAidContent
+                            {
+                                Steps = new List<FirstAidStep>
+                                {
+                                    new FirstAidStep { Text = "Đặc biệt chú ý hỗ trợ hô hấp nhân tạo nếu nạn nhân có dấu hiệu ngưng thở." }
+                                }
+                            }
+                        }
+                    },
 
-                //     // 2. RẮN LỤC ĐUÔI ĐỎ (Trimeresurus albolabris)
-                //     new SnakeSpecies
-                //     {
-                //         Id = 2,
-                //         ScientificName = "Trimeresurus albolabris",
-                //         CommonName = "Rắn Lục Đuôi Đỏ",
-                //         Slug = "ran-luc-duoi-do",
-                //         Description = "Loài rắn lục phổ biến nhất, thường sống trên cây và gây ra nhiều vụ tai nạn tại Việt Nam.",
-                //         IdentificationSummary = "Chiều dài trung bình 60cm - 90cm. Thân màu xanh lá cây, đầu hình tam giác rõ rệt, chót đuôi có màu đỏ cam.",
-                //         PrimaryVenomType = PrimaryVenomType.Hemotoxic,
-                //         RiskLevel = 7.5f,
-                //         IsVenomous = true,
-                //         ImageUrl = "https://vietnamsnakes.com/storage/snakes/species/32/1736395426_0.jpg",
-                //         Identification = new IdentificationFeature
-                //         {
-                //             PhysicalTraits = new List<string> { "Chiều dài: 60 - 90 cm", "Thân xanh lá", "Đuôi màu đỏ", "Đầu tam giác phình to", "Vảy nhám" },
-                //             Behaviors = new List<string> { "Sống trên cây", "Ngụy trang cực tốt trong lá cây", "Hay xuất hiện ở bụi hoa, vườn nhà" },
-                //             Habitat = "Vườn cây, bụi rậm, rừng thưa trên toàn quốc"
-                //         },
-                //         SymptomsByTime = new List<SymptomTimeline>
-                //         {
-                //             new SymptomTimeline { TimeRange = "0 - 15 phút", Signs = new List<string> { "Đau nhức dữ dội", "Sưng nề nhanh chóng" }, IsCritical = false },
-                //             new SymptomTimeline { TimeRange = "1 - 6 giờ", Signs = new List<string> { "Xuất hiện bọng nước", "Chảy máu không cầm", "Bầm tím diện rộng" }, IsCritical = true }
-                //         },
-                //         FirstAidGuidelineOverride = new FirstAidOverride
-                //         {
-                //             Mode = OverrideMode.Replace,
-                //             Content = new FirstAidContent
-                //             {
-                //                 Steps = new List<FirstAidStep>
-                //                 {
-                //                     new FirstAidStep { Text = "Rửa sạch vết thương." },
-                //                     new FirstAidStep { Text = "Bất động lỏng chi." },
-                //                     new FirstAidStep { Text = "TUYỆT ĐỐI KHÔNG BĂNG ÉP CHẶT vì gây hoại tử nhanh." }
-                //                 }
-                //             }
-                //         }
-                //     },
+                    // 2. RẮN LỤC ĐUÔI ĐỎ (Trimeresurus albolabris)
+                    new SnakeSpecies
+                    {
+                        Id = 2,
+                        ScientificName = "Trimeresurus albolabris",
+                        CommonName = "Rắn Lục Đuôi Đỏ",
+                        Slug = "ran-luc-duoi-do",
+                        Description = "Loài rắn lục phổ biến nhất, thường sống trên cây và gây ra nhiều vụ tai nạn tại Việt Nam.",
+                        IdentificationSummary = "Chiều dài trung bình 60cm - 90cm. Thân màu xanh lá cây, đầu hình tam giác rõ rệt, chót đuôi có màu đỏ cam.",
+                        PrimaryVenomType = PrimaryVenomType.Hemotoxic,
+                        RiskLevel = 7.5f,
+                        IsVenomous = true,
+                        ImageUrl = "https://vietnamsnakes.com/storage/snakes/species/32/1736395426_0.jpg",
+                        Identification = new IdentificationFeature
+                        {
+                            PhysicalTraits = new List<string> { "Chiều dài: 60 - 90 cm", "Thân xanh lá", "Đuôi màu đỏ", "Đầu tam giác phình to", "Vảy nhám" },
+                            Behaviors = new List<string> { "Sống trên cây", "Ngụy trang cực tốt trong lá cây", "Hay xuất hiện ở bụi hoa, vườn nhà" },
+                            Habitat = "Vườn cây, bụi rậm, rừng thưa trên toàn quốc"
+                        },
+                        SymptomsByTime = new List<SymptomTimeline>
+                        {
+                            new SymptomTimeline { TimeRange = "0 - 15 phút", Signs = new List<string> { "Đau nhức dữ dội", "Sưng nề nhanh chóng" }, IsCritical = false },
+                            new SymptomTimeline { TimeRange = "1 - 6 giờ", Signs = new List<string> { "Xuất hiện bọng nước", "Chảy máu không cầm", "Bầm tím diện rộng" }, IsCritical = true }
+                        },
+                        FirstAidGuidelineOverride = new FirstAidOverride
+                        {
+                            Mode = OverrideMode.Replace,
+                            Content = new FirstAidContent
+                            {
+                                Steps = new List<FirstAidStep>
+                                {
+                                    new FirstAidStep { Text = "Rửa sạch vết thương." },
+                                    new FirstAidStep { Text = "Bất động lỏng chi." },
+                                    new FirstAidStep { Text = "TUYỆT ĐỐI KHÔNG BĂNG ÉP CHẶT vì gây hoại tử nhanh." }
+                                }
+                            }
+                        }
+                    },
 
-                //     // 3. RẮN HỔ MANG CHÚA (Ophiophagus hannah)
-                //     new SnakeSpecies
-                //     {
-                //         Id = 3,
-                //         ScientificName = "Ophiophagus hannah",
-                //         CommonName = "Rắn Hổ Mang Chúa",
-                //         Slug = "ran-ho-mang-chua",
-                //         Description = "Loài rắn độc dài nhất thế giới, cực kỳ nguy hiểm với lượng nọc độc khổng lồ.",
-                //         IdentificationSummary = "Kích thước khổng lồ (4-6m), Vảy đầu lớn, Cổ phình mang hẹp, vân chữ V ngược ở cổ.",
-                //         PrimaryVenomType = PrimaryVenomType.Neurotoxic,
-                //         RiskLevel = 10.0f,
-                //         IsVenomous = true,
-                //         ImageUrl = "https://vietnamsnakes.com/storage/snakes/species/55/1737107747_0.jpg",
-                //         Identification = new IdentificationFeature
-                //         {
-                //             PhysicalTraits = new List<string> { "Kích thước khổng lồ (4-6m)",
-                //             "Cặp vảy chẩm hình cánh bướm, nằm ở ngay phía sau vảy đầu",
-                //             "Phình mang hẹp dài", "Màu đen, nâu hoặc vàng chì" },
-                //             Behaviors = new List<string> { "Chủ động tấn công nếu bị kích động", "Có khả năng rướn cao thân mình" ,"Là một loài rắn thông minh, sẽ quan sát và phản ứng." },
-                //             Habitat = "Rừng rậm, nương rẫy, gần nguồn nước"
-                //         },
-                //         SymptomsByTime = new List<SymptomTimeline>
-                //         {
-                //             new SymptomTimeline { TimeRange = "0 - 15 phút", Signs = new List<string> { "Đau nhức", "Chóng mặt", "Hoa mắt" }, IsCritical = true },
-                //             new SymptomTimeline { TimeRange = "30 - 60 phút", Signs = new List<string> { "Hôn mê", "Suy hô hấp cấp", "Tử vong nhanh nếu không cấp cứu" }, IsCritical = true }
-                //         },
-                //         FirstAidGuidelineOverride = new FirstAidOverride
-                //         {
-                //             Mode = OverrideMode.Append,
-                //             Content = new FirstAidContent
-                //             {
-                //                 Steps = new List<FirstAidStep>
-                //                 {
-                //                     new FirstAidStep { Text = "Vận chuyển nạn nhân bằng phương tiện nhanh nhất có thể đến bệnh viện lớn." }
-                //                 }
-                //             }
-                //         }
-                //     },
+                    // 3. RẮN HỔ MANG CHÚA (Ophiophagus hannah)
+                    new SnakeSpecies
+                    {
+                        Id = 3,
+                        ScientificName = "Ophiophagus hannah",
+                        CommonName = "Rắn Hổ Mang Chúa",
+                        Slug = "ran-ho-mang-chua",
+                        Description = "Loài rắn độc dài nhất thế giới, cực kỳ nguy hiểm với lượng nọc độc khổng lồ.",
+                        IdentificationSummary = "Kích thước khổng lồ (4-6m), Vảy đầu lớn, Cổ phình mang hẹp, vân chữ V ngược ở cổ.",
+                        PrimaryVenomType = PrimaryVenomType.Neurotoxic,
+                        RiskLevel = 10.0f,
+                        IsVenomous = true,
+                        ImageUrl = "https://vietnamsnakes.com/storage/snakes/species/55/1737107747_0.jpg",
+                        Identification = new IdentificationFeature
+                        {
+                            PhysicalTraits = new List<string> { "Kích thước khổng lồ (4-6m)",
+                            "Cặp vảy chẩm hình cánh bướm, nằm ở ngay phía sau vảy đầu",
+                            "Phình mang hẹp dài", "Màu đen, nâu hoặc vàng chì" },
+                            Behaviors = new List<string> { "Chủ động tấn công nếu bị kích động", "Có khả năng rướn cao thân mình" ,"Là một loài rắn thông minh, sẽ quan sát và phản ứng." },
+                            Habitat = "Rừng rậm, nương rẫy, gần nguồn nước"
+                        },
+                        SymptomsByTime = new List<SymptomTimeline>
+                        {
+                            new SymptomTimeline { TimeRange = "0 - 15 phút", Signs = new List<string> { "Đau nhức", "Chóng mặt", "Hoa mắt" }, IsCritical = true },
+                            new SymptomTimeline { TimeRange = "30 - 60 phút", Signs = new List<string> { "Hôn mê", "Suy hô hấp cấp", "Tử vong nhanh nếu không cấp cứu" }, IsCritical = true }
+                        },
+                        FirstAidGuidelineOverride = new FirstAidOverride
+                        {
+                            Mode = OverrideMode.Append,
+                            Content = new FirstAidContent
+                            {
+                                Steps = new List<FirstAidStep>
+                                {
+                                    new FirstAidStep { Text = "Vận chuyển nạn nhân bằng phương tiện nhanh nhất có thể đến bệnh viện lớn." }
+                                }
+                            }
+                        }
+                    },
 
-                //     // 4. RẮN RÁO (Ptyas korros) - KHÔNG ĐỘC
-                //     new SnakeSpecies
-                //     {
-                //         Id = 4,
-                //         ScientificName = "Ptyas korros",
-                //         CommonName = "Rắn Ráo",
-                //         Slug = "ran-rao",
-                //         Description = "Loài rắn không độc phổ biến, thường bị nhầm lẫn với rắn hổ mang.",
-                //         IdentificationSummary = "Dài trung bình 1,2 - 2,0m. Mắt rất lớn, thân thon dài màu nâu đất hoặc xám chì, di chuyển cực nhanh.",
-                //         PrimaryVenomType = PrimaryVenomType.None,
-                //         RiskLevel = 1.0f,
-                //         IsVenomous = false,
-                //         ImageUrl = "https://www.cakhotranluan.com/images/2022/2ran-rao1.jpg",
-                //         Identification = new IdentificationFeature
-                //         {
-                //             PhysicalTraits = new List<string> { "Chiều dài: 120 - 200 cm", "Mắt to", "Thân dài thon", "Vảy trơn bóng", "Đầu bầu dục" },
-                //             Behaviors = new List<string> { "Di chuyển rất nhanh", "Hoạt động ban ngày", "Thường chạy trốn khi gặp người" },
-                //             Habitat = "Đồng ruộng, bụi rậm, vườn nhà"
-                //         },
-                //         SymptomsByTime = new List<SymptomTimeline>
-                //         {
-                //             new SymptomTimeline { TimeRange = "Sau khi cắn", Signs = new List<string> { "Chảy máu nhẹ", "Vết xước li ti", "Không sưng nề" }, IsCritical = false }
-                //         },
-                //         FirstAidGuidelineOverride = new FirstAidOverride
-                //         {
-                //             Mode = OverrideMode.Append,
-                //             Content = new FirstAidContent
-                //             {
-                //                 Steps = new List<FirstAidStep>
-                //                 {
-                //                     new FirstAidStep { Text = "Sát trùng vết thương bằng cồn hoặc nước sạch." }
-                //                 }
-                //             }
-                //         }
-                //     },
+                    // 4. RẮN RÁO (Ptyas korros) - KHÔNG ĐỘC
+                    new SnakeSpecies
+                    {
+                        Id = 4,
+                        ScientificName = "Ptyas korros",
+                        CommonName = "Rắn Ráo",
+                        Slug = "ran-rao",
+                        Description = "Loài rắn không độc phổ biến, thường bị nhầm lẫn với rắn hổ mang.",
+                        IdentificationSummary = "Dài trung bình 1,2 - 2,0m. Mắt rất lớn, thân thon dài màu nâu đất hoặc xám chì, di chuyển cực nhanh.",
+                        PrimaryVenomType = PrimaryVenomType.None,
+                        RiskLevel = 1.0f,
+                        IsVenomous = false,
+                        ImageUrl = "https://www.cakhotranluan.com/images/2022/2ran-rao1.jpg",
+                        Identification = new IdentificationFeature
+                        {
+                            PhysicalTraits = new List<string> { "Chiều dài: 120 - 200 cm", "Mắt to", "Thân dài thon", "Vảy trơn bóng", "Đầu bầu dục" },
+                            Behaviors = new List<string> { "Di chuyển rất nhanh", "Hoạt động ban ngày", "Thường chạy trốn khi gặp người" },
+                            Habitat = "Đồng ruộng, bụi rậm, vườn nhà"
+                        },
+                        SymptomsByTime = new List<SymptomTimeline>
+                        {
+                            new SymptomTimeline { TimeRange = "Sau khi cắn", Signs = new List<string> { "Chảy máu nhẹ", "Vết xước li ti", "Không sưng nề" }, IsCritical = false }
+                        },
+                        FirstAidGuidelineOverride = new FirstAidOverride
+                        {
+                            Mode = OverrideMode.Append,
+                            Content = new FirstAidContent
+                            {
+                                Steps = new List<FirstAidStep>
+                                {
+                                    new FirstAidStep { Text = "Sát trùng vết thương bằng cồn hoặc nước sạch." }
+                                }
+                            }
+                        }
+                    },
 
-                //     new SnakeSpecies
-                //     {
-                //         Id = 5,
-                //         ScientificName = "Bungarus fasciatus",
-                //         CommonName = "Rắn Cạp Nong",
-                //         Slug = "ran-cap-nong",
-                //         Description = "Loài rắn độc thần kinh nguy hiểm, dễ nhận biết với các khoanh vàng đen xen kẽ đều nhau.",
-                //         IdentificationSummary = "Kích thước 1.8 - 2.3m. Thân hình tam giác với sống lưng gồ cao, đầu có vệt vàng hình mũi tên.",
-                //         PrimaryVenomType = PrimaryVenomType.Neurotoxic,
-                //         RiskLevel = 9.0f,
-                //         IsVenomous = true,
-                //         ImageUrl = "https://vietnamsnakes.com/storage/snakes/species/46/1736402914_0.jpg",
-                //         Identification = new IdentificationFeature
-                //         {
-                //             PhysicalTraits = new List<string> { "Khoanh đen và vàng xen kẽ đều nhau", "Thân hình tam giác, sống lưng gồ", "Vệt vàng hai bên má tạo hình mũi tên" },
-                //             Behaviors = new List<string> { "Săn mồi ban đêm", "Bị thu hút bởi ánh lửa", "Tính tình thường nhút nhát nhưng độc tính rất mạnh" },
-                //             Habitat = "Rừng núi, bụi rậm, ven nguồn nước"
-                //         },
-                //         SymptomsByTime = new List<SymptomTimeline>
-                //         {
-                //             new SymptomTimeline { TimeRange = "0 - 30 phút", Signs = new List<string> { "Ngứa nhẹ hoặc tê rát tại vết cắn", "Ít đau khiến nạn nhân chủ quan" }, IsCritical = false },
-                //             new SymptomTimeline { TimeRange = "1 - 2 giờ", Signs = new List<string> { "Mệt mỏi bất thường", "Tức ngực nhẹ", "Sụp mí mắt nhẹ" }, IsCritical = true },
-                //             new SymptomTimeline { TimeRange = "2 - 6 giờ", Signs = new List<string> { "Đau nhức toàn thân", "Yếu liệt cơ tiến triển", "Suy hô hấp cấp" }, IsCritical = true }
-                //         },
-                //         FirstAidGuidelineOverride = new FirstAidOverride
-                //         {
-                //             Mode = OverrideMode.Append,
-                //             Content = new FirstAidContent
-                //             {
-                //                 Steps = new List<FirstAidStep>
-                //                 {
-                //                     new FirstAidStep { Text = "Cảnh giác cao độ nếu bị cắn khi đang cắm trại hoặc đi rừng ban đêm." }
-                //                 }
-                //             }
-                //         }
-                //     },
+                    new SnakeSpecies
+                    {
+                        Id = 5,
+                        ScientificName = "Bungarus fasciatus",
+                        CommonName = "Rắn Cạp Nong",
+                        Slug = "ran-cap-nong",
+                        Description = "Loài rắn độc thần kinh nguy hiểm, dễ nhận biết với các khoanh vàng đen xen kẽ đều nhau.",
+                        IdentificationSummary = "Kích thước 1.8 - 2.3m. Thân hình tam giác với sống lưng gồ cao, đầu có vệt vàng hình mũi tên.",
+                        PrimaryVenomType = PrimaryVenomType.Neurotoxic,
+                        RiskLevel = 9.0f,
+                        IsVenomous = true,
+                        ImageUrl = "https://vietnamsnakes.com/storage/snakes/species/46/1736402914_0.jpg",
+                        Identification = new IdentificationFeature
+                        {
+                            PhysicalTraits = new List<string> { "Khoanh đen và vàng xen kẽ đều nhau", "Thân hình tam giác, sống lưng gồ", "Vệt vàng hai bên má tạo hình mũi tên" },
+                            Behaviors = new List<string> { "Săn mồi ban đêm", "Bị thu hút bởi ánh lửa", "Tính tình thường nhút nhát nhưng độc tính rất mạnh" },
+                            Habitat = "Rừng núi, bụi rậm, ven nguồn nước"
+                        },
+                        SymptomsByTime = new List<SymptomTimeline>
+                        {
+                            new SymptomTimeline { TimeRange = "0 - 30 phút", Signs = new List<string> { "Ngứa nhẹ hoặc tê rát tại vết cắn", "Ít đau khiến nạn nhân chủ quan" }, IsCritical = false },
+                            new SymptomTimeline { TimeRange = "1 - 2 giờ", Signs = new List<string> { "Mệt mỏi bất thường", "Tức ngực nhẹ", "Sụp mí mắt nhẹ" }, IsCritical = true },
+                            new SymptomTimeline { TimeRange = "2 - 6 giờ", Signs = new List<string> { "Đau nhức toàn thân", "Yếu liệt cơ tiến triển", "Suy hô hấp cấp" }, IsCritical = true }
+                        },
+                        FirstAidGuidelineOverride = new FirstAidOverride
+                        {
+                            Mode = OverrideMode.Append,
+                            Content = new FirstAidContent
+                            {
+                                Steps = new List<FirstAidStep>
+                                {
+                                    new FirstAidStep { Text = "Cảnh giác cao độ nếu bị cắn khi đang cắm trại hoặc đi rừng ban đêm." }
+                                }
+                            }
+                        }
+                    },
 
-                //     new SnakeSpecies
-                //     {
-                //         Id = 6,
-                //         ScientificName = "Bungarus candidus",
-                //         CommonName = "Rắn Cạp Nia Nam",
-                //         Slug = "ran-cap-nia-nam",
-                //         Description = "Loài rắn độc thần kinh cực mạnh ở miền Nam, có tập tính lẻn vào nhà người dân.",
-                //         IdentificationSummary = "Khoanh đen và trắng có độ rộng gần bằng nhau, thân tròn bóng, đầu nhỏ.",
-                //         PrimaryVenomType = PrimaryVenomType.Neurotoxic,
-                //         RiskLevel = 9.8f,
-                //         IsVenomous = true,
-                //         ImageUrl = "https://vietnamsnakes.com/storage/snakes/species/38/1736401130_0.jpg",
-                //         Identification = new IdentificationFeature
-                //         {
-                //             PhysicalTraits = new List<string> { "Khoanh đen và trắng/vàng nhạt đều nhau", "Thân tròn, vảy trơn bóng", "Đầu nhỏ không phân biệt rõ với cổ" },
-                //             Behaviors = new List<string> { "Hoạt động đêm", "Hay chui vào nhà dân", "Cắn người khi đang ngủ" },
-                //             Habitat = "Vùng đồng bằng, khu dân cư miền Nam Việt Nam"
-                //         },
-                //         SymptomsByTime = new List<SymptomTimeline>
-                //         {
-                //             new SymptomTimeline { TimeRange = "0 - 15 phút", Signs = new List<string> { "Vết cắn rất nhẹ, không sưng đau", "Khó thấy dấu răng" }, IsCritical = false },
-                //             new SymptomTimeline { TimeRange = "2 - 3 giờ", Signs = new List<string> { "Sụp mí mắt nặng", "Đồng tử giãn", "Nói ngọng", "Yếu chi" }, IsCritical = true },
-                //             new SymptomTimeline { TimeRange = "3 - 6 giờ", Signs = new List<string> { "Liệt cơ toàn thân", "Suy hô hấp hoàn toàn" }, IsCritical = true }
-                //         },
-                //         FirstAidGuidelineOverride = new FirstAidOverride
-                //         {
-                //             Mode = OverrideMode.Append,
-                //             Content = new FirstAidContent
-                //             {
-                //                 Steps = new List<FirstAidStep>
-                //                 {
-                //                     new FirstAidStep { Text = "Tuyệt đối không chờ triệu chứng đau mới đi viện vì nọc cạp nia không gây đau." }
-                //                 }
-                //             }
-                //         }
-                //     },
+                    new SnakeSpecies
+                    {
+                        Id = 6,
+                        ScientificName = "Bungarus candidus",
+                        CommonName = "Rắn Cạp Nia Nam",
+                        Slug = "ran-cap-nia-nam",
+                        Description = "Loài rắn độc thần kinh cực mạnh ở miền Nam, có tập tính lẻn vào nhà người dân.",
+                        IdentificationSummary = "Khoanh đen và trắng có độ rộng gần bằng nhau, thân tròn bóng, đầu nhỏ.",
+                        PrimaryVenomType = PrimaryVenomType.Neurotoxic,
+                        RiskLevel = 9.8f,
+                        IsVenomous = true,
+                        ImageUrl = "https://vietnamsnakes.com/storage/snakes/species/38/1736401130_0.jpg",
+                        Identification = new IdentificationFeature
+                        {
+                            PhysicalTraits = new List<string> { "Khoanh đen và trắng/vàng nhạt đều nhau", "Thân tròn, vảy trơn bóng", "Đầu nhỏ không phân biệt rõ với cổ" },
+                            Behaviors = new List<string> { "Hoạt động đêm", "Hay chui vào nhà dân", "Cắn người khi đang ngủ" },
+                            Habitat = "Vùng đồng bằng, khu dân cư miền Nam Việt Nam"
+                        },
+                        SymptomsByTime = new List<SymptomTimeline>
+                        {
+                            new SymptomTimeline { TimeRange = "0 - 15 phút", Signs = new List<string> { "Vết cắn rất nhẹ, không sưng đau", "Khó thấy dấu răng" }, IsCritical = false },
+                            new SymptomTimeline { TimeRange = "2 - 3 giờ", Signs = new List<string> { "Sụp mí mắt nặng", "Đồng tử giãn", "Nói ngọng", "Yếu chi" }, IsCritical = true },
+                            new SymptomTimeline { TimeRange = "3 - 6 giờ", Signs = new List<string> { "Liệt cơ toàn thân", "Suy hô hấp hoàn toàn" }, IsCritical = true }
+                        },
+                        FirstAidGuidelineOverride = new FirstAidOverride
+                        {
+                            Mode = OverrideMode.Append,
+                            Content = new FirstAidContent
+                            {
+                                Steps = new List<FirstAidStep>
+                                {
+                                    new FirstAidStep { Text = "Tuyệt đối không chờ triệu chứng đau mới đi viện vì nọc cạp nia không gây đau." }
+                                }
+                            }
+                        }
+                    },
 
-                //     new SnakeSpecies
-                //     {
-                //         Id = 7,
-                //         ScientificName = "Naja kaouthia",
-                //         CommonName = "Rắn Hổ Mang Xiêm",
-                //         Slug = "ran-ho-mang-xiem",
-                //         Description = "Loài rắn hổ mang có nọc độc hỗn hợp, gây hoại tử mô nghiêm trọng và liệt thần kinh.",
-                //         IdentificationSummary = "Màu nâu xám hoặc đen, có bành cổ với một hình tròn đơn (hình kính mắt) ở mặt sau.",
-                //         PrimaryVenomType = PrimaryVenomType.Neurotoxic, // Lưu ý: Hỗn hợp thần kinh và tế bào
-                //         RiskLevel = 9.0f,
-                //         IsVenomous = true,
-                //         ImageUrl = "https://photo.znews.vn/w660/Uploaded/rotnrz/2023_07_04/ho_meo_1.jpg",
-                //         Identification = new IdentificationFeature
-                //         {
-                //             PhysicalTraits = new List<string> { "Bành cổ rộng", "Hình kính mắt một vòng tròn sau cổ", "Màu nâu hoặc xám đen" },
-                //             Behaviors = new List<string> { "Có thể phun nọc độc xa và chuẩn", "Ngóc đầu cao và phình mang khi tấn công" },
-                //             Habitat = "Ruộng lúa, vườn tược, khu dân cư gần nguồn nước"
-                //         },
-                //         SymptomsByTime = new List<SymptomTimeline>
-                //         {
-                //             new SymptomTimeline { TimeRange = "0 - 10 phút", Signs = new List<string> { "Đau rõ rệt", "Chảy máu tại vết cắn" }, IsCritical = false },
-                //             new SymptomTimeline { TimeRange = "10 - 60 phút", Signs = new List<string> { "Sưng nhanh", "Đau tăng dần", "Có thể phồng rộp da" }, IsCritical = false },
-                //             new SymptomTimeline { TimeRange = "1 - 3 giờ", Signs = new List<string> { "Sụp mí mắt", "Yếu cơ", "Khó nuốt" }, IsCritical = true },
-                //             new SymptomTimeline { TimeRange = "6 - 24 giờ", Signs = new List<string> { "Hoại tử mô tại chỗ", "Nhiễm trùng vết thương" }, IsCritical = true }
-                //         },
-                //         FirstAidGuidelineOverride = new FirstAidOverride
-                //         {
-                //             Mode = OverrideMode.Append,
-                //             Content = new FirstAidContent
-                //             {
-                //                 Steps = new List<FirstAidStep>
-                //                 {
-                //                     new FirstAidStep { Text = "Nếu bị nọc phun vào mắt, phải rửa bằng nước sạch liên tục 15-20 phút." }
-                //                 }
-                //             }
-                //         }
-                //     },
+                    new SnakeSpecies
+                    {
+                        Id = 7,
+                        ScientificName = "Naja kaouthia",
+                        CommonName = "Rắn Hổ Mang Xiêm",
+                        Slug = "ran-ho-mang-xiem",
+                        Description = "Loài rắn hổ mang có nọc độc hỗn hợp, gây hoại tử mô nghiêm trọng và liệt thần kinh.",
+                        IdentificationSummary = "Màu nâu xám hoặc đen, có bành cổ với một hình tròn đơn (hình kính mắt) ở mặt sau.",
+                        PrimaryVenomType = PrimaryVenomType.Neurotoxic, // Lưu ý: Hỗn hợp thần kinh và tế bào
+                        RiskLevel = 9.0f,
+                        IsVenomous = true,
+                        ImageUrl = "https://photo.znews.vn/w660/Uploaded/rotnrz/2023_07_04/ho_meo_1.jpg",
+                        Identification = new IdentificationFeature
+                        {
+                            PhysicalTraits = new List<string> { "Bành cổ rộng", "Hình kính mắt một vòng tròn sau cổ", "Màu nâu hoặc xám đen" },
+                            Behaviors = new List<string> { "Có thể phun nọc độc xa và chuẩn", "Ngóc đầu cao và phình mang khi tấn công" },
+                            Habitat = "Ruộng lúa, vườn tược, khu dân cư gần nguồn nước"
+                        },
+                        SymptomsByTime = new List<SymptomTimeline>
+                        {
+                            new SymptomTimeline { TimeRange = "0 - 10 phút", Signs = new List<string> { "Đau rõ rệt", "Chảy máu tại vết cắn" }, IsCritical = false },
+                            new SymptomTimeline { TimeRange = "10 - 60 phút", Signs = new List<string> { "Sưng nhanh", "Đau tăng dần", "Có thể phồng rộp da" }, IsCritical = false },
+                            new SymptomTimeline { TimeRange = "1 - 3 giờ", Signs = new List<string> { "Sụp mí mắt", "Yếu cơ", "Khó nuốt" }, IsCritical = true },
+                            new SymptomTimeline { TimeRange = "6 - 24 giờ", Signs = new List<string> { "Hoại tử mô tại chỗ", "Nhiễm trùng vết thương" }, IsCritical = true }
+                        },
+                        FirstAidGuidelineOverride = new FirstAidOverride
+                        {
+                            Mode = OverrideMode.Append,
+                            Content = new FirstAidContent
+                            {
+                                Steps = new List<FirstAidStep>
+                                {
+                                    new FirstAidStep { Text = "Nếu bị nọc phun vào mắt, phải rửa bằng nước sạch liên tục 15-20 phút." }
+                                }
+                            }
+                        }
+                    },
 
-                //     new SnakeSpecies
-                //     {
-                //         Id = 8,
-                //         ScientificName = "Rhabdophis subminiatus",
-                //         CommonName = "Rắn Hoa Cỏ Cổ Đỏ",
-                //         Slug = "ran-hoa-co-co-do",
-                //         Description = "Loài rắn có độc nguy hiểm điều kiện (độc nanh sau và độc da vùng cổ), gây rối loạn đông máu nặng và chưa có huyết thanh đặc hiệu.",
-                //         IdentificationSummary = "Cổ màu đỏ rực hoặc cam vàng đặc trưng, thân xanh ô liu, mắt tròn lớn.",
-                //         PrimaryVenomType = PrimaryVenomType.Hemotoxic,
-                //         RiskLevel = 8.5f,
-                //         IsVenomous = true,
-                //         ImageUrl = "https://vietnamsnakes.com/storage/snakes/species/93/1737024030_0.jpeg",
-                //         Identification = new IdentificationFeature
-                //         {
-                //             PhysicalTraits = new List<string> { "Vòng cổ màu đỏ rực hoặc vàng cam", "Đầu thuôn không hình tam giác", "Mắt tròn, đồng tử tròn" },
-                //             Behaviors = new List<string> { "Ngóc đầu, tiết độc trắng đục và bẹt cổ giống rắn hổ khi bị đe dọa", "Tính khí không ổn định (lúc hiền lúc dữ)" },
-                //             Habitat = "Rừng, nương rẫy, gần nguồn nước"
-                //         },
-                //         SymptomsByTime = new List<SymptomTimeline>
-                //         {
-                //             new SymptomTimeline {
-                //                 TimeRange = "0 - 1 giờ",
-                //                 Signs = new List<string> { "Vết cắn đau nhẹ", "Sưng nhẹ cục bộ", "Có thể không có cảm giác bị nhiễm độc ngay" },
-                //                 IsCritical = false
-                //             },
-                //             new SymptomTimeline {
-                //                 TimeRange = "1 - 6 giờ",
-                //                 Signs = new List<string> { "Máu rỉ rả không cầm tại vết cắn", "Bầm tím lan rộng", "Đau bụng, buồn nôn" },
-                //                 IsCritical = true
-                //             },
-                //             new SymptomTimeline {
-                //                 TimeRange = "6 - 24 giờ",
-                //                 Signs = new List<string> { "Chảy máu chân răng, máu cam", "Tiểu ra máu", "Nôn ra máu", "Dấu hiệu suy thận" },
-                //                 IsCritical = true
-                //             }
-                //         },
-                //         FirstAidGuidelineOverride = new FirstAidOverride
-                //         {
-                //             Mode = OverrideMode.Replace, // Thay thế hoàn toàn vì cách tiếp cận điều trị rất khác
-                //             Content = new FirstAidContent
-                //             {
-                //                 Steps = new List<FirstAidStep> {
-                //                     new FirstAidStep { Text = "Đặt nạn nhân nằm yên, bất động hoàn toàn chi bị cắn.", MediaUrl = "https://assets.snakeaid.vn/aid/immobilize.gif" },
-                //                     new FirstAidStep { Text = "Băng ép nhẹ bằng băng vải rộng để bảo vệ vết thương.", MediaUrl = "https://assets.snakeaid.vn/aid/light-bandage.jpg" },
-                //                     new FirstAidStep { Text = "Nhanh chóng chuyển nạn nhân đến bệnh viện tuyến tỉnh hoặc trung ương có khả năng lọc máu và truyền máu.", MediaUrl = "" }
-                //                 },
-                //                 Dos = new List<FirstAidStep> {
-                //                     new FirstAidStep { Text = "Báo cho bác sĩ đây là rắn 'Rhabdophis subminiatus' (Hoa cỏ cổ đỏ).", MediaUrl = "" },
-                //                     new FirstAidStep { Text = "Theo dõi sát màu nước tiểu và tình trạng chảy máu.", MediaUrl = "" }
-                //                 },
-                //                 Donts = new List<FirstAidStep> {
-                //                     new FirstAidStep { Text = "KHÔNG ĐƯỢC CHỦ QUAN nếu thấy vết cắn không sưng đau nhiều lúc đầu.", MediaUrl = "" },
-                //                     new FirstAidStep { Text = "KHÔNG dùng ga-rô chặt (làm tăng hoại tử và rối loạn đông máu tại chỗ).", MediaUrl = "" },
-                //                     new FirstAidStep { Text = "KHÔNG rạch hoặc hút máu tại vết cắn.", MediaUrl = "" }
-                //                 },
-                //                 Notes = new List<string> {
-                //                     "Lưu ý quan trọng: Việt Nam chưa có huyết thanh kháng độc cho loài này. Việc điều trị chủ yếu là hỗ trợ, truyền máu và lọc thận.",
-                //                     "Loài này có răng độc nằm sâu phía sau hàm (Hậu nha), nọc độc chỉ tiết ra khi rắn nhai hoặc cắn sâu."
-                //                 }
-                //             }
-                //         }
-                //     },
+                    new SnakeSpecies
+                    {
+                        Id = 8,
+                        ScientificName = "Rhabdophis subminiatus",
+                        CommonName = "Rắn Hoa Cỏ Cổ Đỏ",
+                        Slug = "ran-hoa-co-co-do",
+                        Description = "Loài rắn có độc nguy hiểm điều kiện (độc nanh sau và độc da vùng cổ), gây rối loạn đông máu nặng và chưa có huyết thanh đặc hiệu.",
+                        IdentificationSummary = "Cổ màu đỏ rực hoặc cam vàng đặc trưng, thân xanh ô liu, mắt tròn lớn.",
+                        PrimaryVenomType = PrimaryVenomType.Hemotoxic,
+                        RiskLevel = 8.5f,
+                        IsVenomous = true,
+                        ImageUrl = "https://vietnamsnakes.com/storage/snakes/species/93/1737024030_0.jpeg",
+                        Identification = new IdentificationFeature
+                        {
+                            PhysicalTraits = new List<string> { "Vòng cổ màu đỏ rực hoặc vàng cam", "Đầu thuôn không hình tam giác", "Mắt tròn, đồng tử tròn" },
+                            Behaviors = new List<string> { "Ngóc đầu, tiết độc trắng đục và bẹt cổ giống rắn hổ khi bị đe dọa", "Tính khí không ổn định (lúc hiền lúc dữ)" },
+                            Habitat = "Rừng, nương rẫy, gần nguồn nước"
+                        },
+                        SymptomsByTime = new List<SymptomTimeline>
+                        {
+                            new SymptomTimeline {
+                                TimeRange = "0 - 1 giờ",
+                                Signs = new List<string> { "Vết cắn đau nhẹ", "Sưng nhẹ cục bộ", "Có thể không có cảm giác bị nhiễm độc ngay" },
+                                IsCritical = false
+                            },
+                            new SymptomTimeline {
+                                TimeRange = "1 - 6 giờ",
+                                Signs = new List<string> { "Máu rỉ rả không cầm tại vết cắn", "Bầm tím lan rộng", "Đau bụng, buồn nôn" },
+                                IsCritical = true
+                            },
+                            new SymptomTimeline {
+                                TimeRange = "6 - 24 giờ",
+                                Signs = new List<string> { "Chảy máu chân răng, máu cam", "Tiểu ra máu", "Nôn ra máu", "Dấu hiệu suy thận" },
+                                IsCritical = true
+                            }
+                        },
+                        FirstAidGuidelineOverride = new FirstAidOverride
+                        {
+                            Mode = OverrideMode.Replace, // Thay thế hoàn toàn vì cách tiếp cận điều trị rất khác
+                            Content = new FirstAidContent
+                            {
+                                Steps = new List<FirstAidStep> {
+                                    new FirstAidStep { Text = "Đặt nạn nhân nằm yên, bất động hoàn toàn chi bị cắn.", MediaUrl = "https://assets.snakeaid.vn/aid/immobilize.gif" },
+                                    new FirstAidStep { Text = "Băng ép nhẹ bằng băng vải rộng để bảo vệ vết thương.", MediaUrl = "https://assets.snakeaid.vn/aid/light-bandage.jpg" },
+                                    new FirstAidStep { Text = "Nhanh chóng chuyển nạn nhân đến bệnh viện tuyến tỉnh hoặc trung ương có khả năng lọc máu và truyền máu.", MediaUrl = "" }
+                                },
+                                Dos = new List<FirstAidStep> {
+                                    new FirstAidStep { Text = "Báo cho bác sĩ đây là rắn 'Rhabdophis subminiatus' (Hoa cỏ cổ đỏ).", MediaUrl = "" },
+                                    new FirstAidStep { Text = "Theo dõi sát màu nước tiểu và tình trạng chảy máu.", MediaUrl = "" }
+                                },
+                                Donts = new List<FirstAidStep> {
+                                    new FirstAidStep { Text = "KHÔNG ĐƯỢC CHỦ QUAN nếu thấy vết cắn không sưng đau nhiều lúc đầu.", MediaUrl = "" },
+                                    new FirstAidStep { Text = "KHÔNG dùng ga-rô chặt (làm tăng hoại tử và rối loạn đông máu tại chỗ).", MediaUrl = "" },
+                                    new FirstAidStep { Text = "KHÔNG rạch hoặc hút máu tại vết cắn.", MediaUrl = "" }
+                                },
+                                Notes = new List<string> {
+                                    "Lưu ý quan trọng: Việt Nam chưa có huyết thanh kháng độc cho loài này. Việc điều trị chủ yếu là hỗ trợ, truyền máu và lọc thận.",
+                                    "Loài này có răng độc nằm sâu phía sau hàm (Hậu nha), nọc độc chỉ tiết ra khi rắn nhai hoặc cắn sâu."
+                                }
+                            }
+                        }
+                    },
 
-                //     new SnakeSpecies
-                //     {
-                //         Id = 9,
-                //         ScientificName = "Coelognathus radiatus",
-                //         CommonName = "Rắn Hổ Ngựa",
-                //         Slug = "ran-ho-ngua",
-                //         Description = "Loài rắn không độc, di chuyển cực nhanh và thường có hành vi tự vệ hung dữ.",
-                //         IdentificationSummary = "Màu nâu vàng, có 4 sọc đen chạy dọc phần trước thân, đầu dài.",
-                //         PrimaryVenomType = PrimaryVenomType.None,
-                //         RiskLevel = 1.0f,
-                //         IsVenomous = false,
-                //         ImageUrl = "https://vietnamsnakes.com/storage/snakes/species/122/1737364008_0.jpg",
-                //         Identification = new IdentificationFeature
-                //         {
-                //             PhysicalTraits = new List<string> { "Có thể dài đến 2m", "4 sọc đen trên thân trước", "Đầu dài bầu dục", "Mắt lớn" },
-                //             Behaviors = new List<string> { "Ngóc cao thân mình, bẹt cổ để hù dọa giống rắn hổ", " Miệng há rộng, hung hăng, doạ nạt, dữ tợn khi bị đe dọa", "Giả chết nếu cảm thấy nguy hiểm trước đối phương" },
-                //             Habitat = "Đồng ruộng, bụi cây, khu vực nông nghiệp"
-                //         },
-                //         SymptomsByTime = new List<SymptomTimeline>
-                //         {
-                //             new SymptomTimeline { TimeRange = "Sau khi cắn", Signs = new List<string> { "Vết xước li ti", "Chảy máu nhẹ", "Không có triệu chứng thần kinh hay sưng nề lớn" }, IsCritical = false }
-                //         },
-                //         FirstAidGuidelineOverride = new FirstAidOverride
-                //         {
-                //             Mode = OverrideMode.Append,
-                //             Content = new FirstAidContent
-                //             {
-                //                 Steps = new List<FirstAidStep>
-                //                 {
-                //                     new FirstAidStep { Text = "Chỉ cần rửa sạch vết thương bằng xà phòng để tránh nhiễm trùng." }
-                //                 }
-                //             }
-                //         }
-                //     },
+                    new SnakeSpecies
+                    {
+                        Id = 9,
+                        ScientificName = "Coelognathus radiatus",
+                        CommonName = "Rắn Hổ Ngựa",
+                        Slug = "ran-ho-ngua",
+                        Description = "Loài rắn không độc, di chuyển cực nhanh và thường có hành vi tự vệ hung dữ.",
+                        IdentificationSummary = "Màu nâu vàng, có 4 sọc đen chạy dọc phần trước thân, đầu dài.",
+                        PrimaryVenomType = PrimaryVenomType.None,
+                        RiskLevel = 1.0f,
+                        IsVenomous = false,
+                        ImageUrl = "https://vietnamsnakes.com/storage/snakes/species/122/1737364008_0.jpg",
+                        Identification = new IdentificationFeature
+                        {
+                            PhysicalTraits = new List<string> { "Có thể dài đến 2m", "4 sọc đen trên thân trước", "Đầu dài bầu dục", "Mắt lớn" },
+                            Behaviors = new List<string> { "Ngóc cao thân mình, bẹt cổ để hù dọa giống rắn hổ", " Miệng há rộng, hung hăng, doạ nạt, dữ tợn khi bị đe dọa", "Giả chết nếu cảm thấy nguy hiểm trước đối phương" },
+                            Habitat = "Đồng ruộng, bụi cây, khu vực nông nghiệp"
+                        },
+                        SymptomsByTime = new List<SymptomTimeline>
+                        {
+                            new SymptomTimeline { TimeRange = "Sau khi cắn", Signs = new List<string> { "Vết xước li ti", "Chảy máu nhẹ", "Không có triệu chứng thần kinh hay sưng nề lớn" }, IsCritical = false }
+                        },
+                        FirstAidGuidelineOverride = new FirstAidOverride
+                        {
+                            Mode = OverrideMode.Append,
+                            Content = new FirstAidContent
+                            {
+                                Steps = new List<FirstAidStep>
+                                {
+                                    new FirstAidStep { Text = "Chỉ cần rửa sạch vết thương bằng xà phòng để tránh nhiễm trùng." }
+                                }
+                            }
+                        }
+                    },
 
-                //     new SnakeSpecies
-                //     {
-                //         Id = 10,
-                //         ScientificName = "Elaphe carinata",
-                //         CommonName = "Rắn Chuột Vua",
-                //         Slug = "ran-chuot-vua",
-                //         Description = "Loài rắn không độc nhưng cực kỳ hung dữ, có kích thước lớn và mùi hôi đặc trưng để xua đuổi kẻ thù. Dễ bị nhầm lẫn với rắn hổ mang chúa do kích thước lớn và họa tiết đầu gần giống nhau.",
-                //         IdentificationSummary = "Thân màu nâu vàng hoặc xám đen với các vảy có gờ nổi rất mạnh (nhám). Không có nanh độc, không phình mang.",
-                //         PrimaryVenomType = PrimaryVenomType.None,
-                //         RiskLevel = 2.0f,
-                //         IsVenomous = false,
-                //         ImageUrl = "https://vietnamsnakes.com/storage/snakes/species/123/1737365069_2.jpeg",
-                //         Identification = new IdentificationFeature
-                //         {
-                //             PhysicalTraits = new List<string> { "Vảy có gờ nổi rất rõ (thân nhám)", "Mắt lớn, đầu thuôn dài", "Kích thước có thể lên tới 2.4m", "Màu sắc pha trộn vàng - đen - nâu ô liu" },
-                //             Behaviors = new List<string> { "Cực kỳ hung dữ, sẵn sàng tấn công khi bị kích động", "Phát ra mùi hôi thối nồng nặc từ tuyến sau", "Ăn thịt các loài rắn khác (kể cả rắn độc)" },
-                //             Habitat = "Vùng đồi núi, bụi rậm, trang trại chăn nuôi"
-                //         },
-                //         SymptomsByTime = new List<SymptomTimeline>
-                //         {
-                //             new SymptomTimeline { TimeRange = "Sau khi cắn", Signs = new List<string> { "Vết cắn hình vòng cung", "Chảy máu khá nhiều do răng sắc nhọn", "Đau rát cục bộ" }, IsCritical = false }
-                //         },
-                //         FirstAidGuidelineOverride = new FirstAidOverride
-                //         {
-                //             Mode = OverrideMode.Append,
-                //             Content = new FirstAidContent
-                //             {
-                //                 Steps = new List<FirstAidStep>
-                //                 {
-                //                     new FirstAidStep { Text = "Sát trùng kỹ vết thương vì miệng loài này chứa nhiều vi khuẩn do ăn chuột và thịt thối." }
-                //                 }
-                //             }
-                //         }
-                //     },
+                    new SnakeSpecies
+                    {
+                        Id = 10,
+                        ScientificName = "Elaphe carinata",
+                        CommonName = "Rắn Chuột Vua",
+                        Slug = "ran-chuot-vua",
+                        Description = "Loài rắn không độc nhưng cực kỳ hung dữ, có kích thước lớn và mùi hôi đặc trưng để xua đuổi kẻ thù. Dễ bị nhầm lẫn với rắn hổ mang chúa do kích thước lớn và họa tiết đầu gần giống nhau.",
+                        IdentificationSummary = "Thân màu nâu vàng hoặc xám đen với các vảy có gờ nổi rất mạnh (nhám). Không có nanh độc, không phình mang.",
+                        PrimaryVenomType = PrimaryVenomType.None,
+                        RiskLevel = 2.0f,
+                        IsVenomous = false,
+                        ImageUrl = "https://vietnamsnakes.com/storage/snakes/species/123/1737365069_2.jpeg",
+                        Identification = new IdentificationFeature
+                        {
+                            PhysicalTraits = new List<string> { "Vảy có gờ nổi rất rõ (thân nhám)", "Mắt lớn, đầu thuôn dài", "Kích thước có thể lên tới 2.4m", "Màu sắc pha trộn vàng - đen - nâu ô liu" },
+                            Behaviors = new List<string> { "Cực kỳ hung dữ, sẵn sàng tấn công khi bị kích động", "Phát ra mùi hôi thối nồng nặc từ tuyến sau", "Ăn thịt các loài rắn khác (kể cả rắn độc)" },
+                            Habitat = "Vùng đồi núi, bụi rậm, trang trại chăn nuôi"
+                        },
+                        SymptomsByTime = new List<SymptomTimeline>
+                        {
+                            new SymptomTimeline { TimeRange = "Sau khi cắn", Signs = new List<string> { "Vết cắn hình vòng cung", "Chảy máu khá nhiều do răng sắc nhọn", "Đau rát cục bộ" }, IsCritical = false }
+                        },
+                        FirstAidGuidelineOverride = new FirstAidOverride
+                        {
+                            Mode = OverrideMode.Append,
+                            Content = new FirstAidContent
+                            {
+                                Steps = new List<FirstAidStep>
+                                {
+                                    new FirstAidStep { Text = "Sát trùng kỹ vết thương vì miệng loài này chứa nhiều vi khuẩn do ăn chuột và thịt thối." }
+                                }
+                            }
+                        }
+                    },
 
-                //     // 11. RẮN LỤC CƯỜM (LỤC GẤM) - Protobothrops mucrosquamatus
-                //     new SnakeSpecies
-                //     {
-                //         Id = 11,
-                //         ScientificName = "Protobothrops mucrosquamatus",
-                //         CommonName = "Rắn Lục Cườm",
-                //         Slug = "ran-luc-cuom",
-                //         Description = "Loài rắn độc máu nguy hiểm, đầu hình tam giác lớn, hoa văn đốm sâm so le nhau ở sống lưng.",
-                //         IdentificationSummary = "Đầu tam giác rõ rệt, thân có các vệt hoa văn màu nâu đen trên nền xám/vàng đất, vảy nhám.",
-                //         PrimaryVenomType = PrimaryVenomType.Hemotoxic,
-                //         RiskLevel = 8.5f,
-                //         IsVenomous = true,
-                //         ImageUrl = "https://vietnamsnakes.com/storage/snakes/species/54/1736524361_0.jpg",
-                //         Identification = new IdentificationFeature {
-                //             PhysicalTraits = new List<string> { "Đầu tam giác lớn", "Hoa văn vện gấm đốm nâu", "Vảy nhám", "Mắt có con ngươi dọc" },
-                //             Behaviors = new List<string> { "Hoạt động đêm",", Chuyên phục kích săn mồi", "Tính hung dữ, sẵn sàng tấn công", "Thường ở hốc đá, bụi rậm, lá khô" },
-                //             Habitat = "Rừng núi, vùng đồi gò, hang hốc"
-                //         },
-                //         SymptomsByTime = new List<SymptomTimeline> {
-                //             new SymptomTimeline { TimeRange = "0 - 15 phút", Signs = new List<string> { "Đau rát dữ dội", "Sưng nề tức thì" }, IsCritical = false },
-                //             new SymptomTimeline { TimeRange = "1 - 6 giờ", Signs = new List<string> { "Xuất huyết dưới da", "Máu chảy không cầm tại vết cắn", "Bầm tím nặng" }, IsCritical = true }
-                //         },
-                //         FirstAidGuidelineOverride = new FirstAidOverride {
-                //             Mode = OverrideMode.Replace, Content = new FirstAidContent { Steps = new List<FirstAidStep> { new FirstAidStep { Text = "KHÔNG garô/băng ép." }, new FirstAidStep { Text = "Bất động chi bằng nẹp lỏng." }, new FirstAidStep { Text = "Chuyển viện gấp." } } } }
-                //     },
+                    // 11. RẮN LỤC CƯỜM (LỤC GẤM) - Protobothrops mucrosquamatus
+                    new SnakeSpecies
+                    {
+                        Id = 11,
+                        ScientificName = "Protobothrops mucrosquamatus",
+                        CommonName = "Rắn Lục Cườm",
+                        Slug = "ran-luc-cuom",
+                        Description = "Loài rắn độc máu nguy hiểm, đầu hình tam giác lớn, hoa văn đốm sâm so le nhau ở sống lưng.",
+                        IdentificationSummary = "Đầu tam giác rõ rệt, thân có các vệt hoa văn màu nâu đen trên nền xám/vàng đất, vảy nhám.",
+                        PrimaryVenomType = PrimaryVenomType.Hemotoxic,
+                        RiskLevel = 8.5f,
+                        IsVenomous = true,
+                        ImageUrl = "https://vietnamsnakes.com/storage/snakes/species/54/1736524361_0.jpg",
+                        Identification = new IdentificationFeature {
+                            PhysicalTraits = new List<string> { "Đầu tam giác lớn", "Hoa văn vện gấm đốm nâu", "Vảy nhám", "Mắt có con ngươi dọc" },
+                            Behaviors = new List<string> { "Hoạt động đêm",", Chuyên phục kích săn mồi", "Tính hung dữ, sẵn sàng tấn công", "Thường ở hốc đá, bụi rậm, lá khô" },
+                            Habitat = "Rừng núi, vùng đồi gò, hang hốc"
+                        },
+                        SymptomsByTime = new List<SymptomTimeline> {
+                            new SymptomTimeline { TimeRange = "0 - 15 phút", Signs = new List<string> { "Đau rát dữ dội", "Sưng nề tức thì" }, IsCritical = false },
+                            new SymptomTimeline { TimeRange = "1 - 6 giờ", Signs = new List<string> { "Xuất huyết dưới da", "Máu chảy không cầm tại vết cắn", "Bầm tím nặng" }, IsCritical = true }
+                        },
+                        FirstAidGuidelineOverride = new FirstAidOverride {
+                            Mode = OverrideMode.Replace, Content = new FirstAidContent { Steps = new List<FirstAidStep> { new FirstAidStep { Text = "KHÔNG garô/băng ép." }, new FirstAidStep { Text = "Bất động chi bằng nẹp lỏng." }, new FirstAidStep { Text = "Chuyển viện gấp." } } } }
+                    },
 
-                //     // 12. RẮN LỤC NƯA (CHÀM QUẠP) - Calloselasma rhodostoma
-                //     new SnakeSpecies
-                //     {
-                //         Id = 12,
-                //         ScientificName = "Calloselasma rhodostoma",
-                //         CommonName = "Rắn Lục Nưa",
-                //         Slug = "ran-luc-nua",
-                //         Description = "Loài rắn cực nguy hiểm ở miền Nam/Tây Nguyên, ngụy trang hoàn hảo dưới lá khô.",
-                //         IdentificationSummary = "Thân mập, đầu tam giác, hoa văn hình tam giác sẫm màu dọc hai bên thân.",
-                //         PrimaryVenomType = PrimaryVenomType.Hemotoxic, // và có độc tế bào cytotoxic
-                //         RiskLevel = 9.5f,
-                //         IsVenomous = true,
-                //         ImageUrl = "https://cdn.kienthuc.net.vn/images/cf739f51f3276a5be16e9cbb75eb670590e4e1a049c04ce64210426ce976f3c08b805acba731385fd614eebaf46f4c3502d128915c73af35a8698059b85f0f9824f61d459aaa6ca7ad4acb289d18b91958ebfab71a3d1d5ad62d6dd95e9bd598a65c32335617c1b43812b9de6f4caea5/thot-tim-loai-ran-cuc-doc-nam-im-lim-cho-can-nguoi-o-viet-nam-Hinh-9.png",
-                //         Identification = new IdentificationFeature {
-                //             PhysicalTraits = new List<string> { "Thân mập, ngắn", "Hoa văn hình tam giác đối xứng", "Màu nâu lá khô", "Đầu tam giác rất nhọn" },
-                //             Behaviors = new List<string> { "Nằm bất động dưới lá khô", "Không bỏ chạy khi có người, chủ động cắn", "Tấn công bất ngờ cực nhanh" },
-                //             Habitat = "Rừng cao su, vườn điều, rừng khộp"
-                //         },
-                //         SymptomsByTime = new List<SymptomTimeline> {
-                //             new SymptomTimeline { TimeRange = "0 - 30 phút", Signs = new List<string> { "Sưng nề cực nhanh", "Đau buốt như lửa đốt" }, IsCritical = true },
-                //             new SymptomTimeline { TimeRange = "6 - 12 giờ", Signs = new List<string> { "Hoại tử mô diện rộng", "Xuất huyết toàn thân", "Phồng rộp máu" }, IsCritical = true }
-                //         },
-                //         FirstAidGuidelineOverride = new FirstAidOverride { Mode = OverrideMode.Replace, Content = new FirstAidContent { Steps = new List<FirstAidStep> { new FirstAidStep { Text = "Tuyệt đối không rạch vết thương vì nọc gây rối loạn đông máu cực nặng." }, new FirstAidStep { Text = "Băng ép nhẹ bằng băng thun (không chặt)." } } } }
-                //     },
+                    // 12. RẮN LỤC NƯA (CHÀM QUẠP) - Calloselasma rhodostoma
+                    new SnakeSpecies
+                    {
+                        Id = 12,
+                        ScientificName = "Calloselasma rhodostoma",
+                        CommonName = "Rắn Lục Nưa",
+                        Slug = "ran-luc-nua",
+                        Description = "Loài rắn cực nguy hiểm ở miền Nam/Tây Nguyên, ngụy trang hoàn hảo dưới lá khô.",
+                        IdentificationSummary = "Thân mập, đầu tam giác, hoa văn hình tam giác sẫm màu dọc hai bên thân.",
+                        PrimaryVenomType = PrimaryVenomType.Hemotoxic, // và có độc tế bào cytotoxic
+                        RiskLevel = 9.5f,
+                        IsVenomous = true,
+                        ImageUrl = "https://cdn.kienthuc.net.vn/images/cf739f51f3276a5be16e9cbb75eb670590e4e1a049c04ce64210426ce976f3c08b805acba731385fd614eebaf46f4c3502d128915c73af35a8698059b85f0f9824f61d459aaa6ca7ad4acb289d18b91958ebfab71a3d1d5ad62d6dd95e9bd598a65c32335617c1b43812b9de6f4caea5/thot-tim-loai-ran-cuc-doc-nam-im-lim-cho-can-nguoi-o-viet-nam-Hinh-9.png",
+                        Identification = new IdentificationFeature {
+                            PhysicalTraits = new List<string> { "Thân mập, ngắn", "Hoa văn hình tam giác đối xứng", "Màu nâu lá khô", "Đầu tam giác rất nhọn" },
+                            Behaviors = new List<string> { "Nằm bất động dưới lá khô", "Không bỏ chạy khi có người, chủ động cắn", "Tấn công bất ngờ cực nhanh" },
+                            Habitat = "Rừng cao su, vườn điều, rừng khộp"
+                        },
+                        SymptomsByTime = new List<SymptomTimeline> {
+                            new SymptomTimeline { TimeRange = "0 - 30 phút", Signs = new List<string> { "Sưng nề cực nhanh", "Đau buốt như lửa đốt" }, IsCritical = true },
+                            new SymptomTimeline { TimeRange = "6 - 12 giờ", Signs = new List<string> { "Hoại tử mô diện rộng", "Xuất huyết toàn thân", "Phồng rộp máu" }, IsCritical = true }
+                        },
+                        FirstAidGuidelineOverride = new FirstAidOverride { Mode = OverrideMode.Replace, Content = new FirstAidContent { Steps = new List<FirstAidStep> { new FirstAidStep { Text = "Tuyệt đối không rạch vết thương vì nọc gây rối loạn đông máu cực nặng." }, new FirstAidStep { Text = "Băng ép nhẹ bằng băng thun (không chặt)." } } } }
+                    },
 
-                //     // 13. RẮN LỤC XANH - Trimeresurus stejnegeri
-                //     new SnakeSpecies
-                //     {
-                //         Id = 13,
-                //         ScientificName = "Trimeresurus stejnegeri",
-                //         CommonName = "Rắn Lục Xanh (Lục Vẻ)",
-                //         Slug = "ran-luc-xanh",
-                //         Description = "Thường bị nhầm với lục đuôi đỏ nhưng không có màu đỏ ở đuôi, độc tính tương tự.",
-                //         IdentificationSummary = "Toàn thân xanh lá, đầu tam giác, có hố nhiệt giữa mắt và mũi.",
-                //         PrimaryVenomType = PrimaryVenomType.Hemotoxic,
-                //         RiskLevel = 7.0f,
-                //         IsVenomous = true,
-                //         ImageUrl = "https://vietnamsnakes.com/storage/snakes/species/34/1736396208_0.jpg",
-                //         Identification = new IdentificationFeature {
-                //             PhysicalTraits = new List<string> { "Thân xanh mướt", "Đầu tam giác", "Mắt vàng/cam", "Không có đuôi đỏ" },
-                //             Behaviors = new List<string> { "Sống hoàn toàn trên cây", "Ngụy trang trong lá", "Hoạt động ban đêm" },
-                //             Habitat = "Bụi rậm, vườn cây trái, rừng rậm"
-                //         },
-                //         SymptomsByTime = new List<SymptomTimeline> {
-                //             new SymptomTimeline { TimeRange = "0 - 15 phút", Signs = new List<string> { "Sưng đau cục bộ", "Buồn nôn" }, IsCritical = false },
-                //             new SymptomTimeline { TimeRange = "2 - 12 giờ", Signs = new List<string> { "Vết thương thâm đen", "Chảy máu chân răng" }, IsCritical = true }
-                //         }
-                //     },
+                    // 13. RẮN LỤC XANH - Trimeresurus stejnegeri
+                    new SnakeSpecies
+                    {
+                        Id = 13,
+                        ScientificName = "Trimeresurus stejnegeri",
+                        CommonName = "Rắn Lục Xanh (Lục Vẻ)",
+                        Slug = "ran-luc-xanh",
+                        Description = "Thường bị nhầm với lục đuôi đỏ nhưng không có màu đỏ ở đuôi, độc tính tương tự.",
+                        IdentificationSummary = "Toàn thân xanh lá, đầu tam giác, có hố nhiệt giữa mắt và mũi.",
+                        PrimaryVenomType = PrimaryVenomType.Hemotoxic,
+                        RiskLevel = 7.0f,
+                        IsVenomous = true,
+                        ImageUrl = "https://vietnamsnakes.com/storage/snakes/species/34/1736396208_0.jpg",
+                        Identification = new IdentificationFeature {
+                            PhysicalTraits = new List<string> { "Thân xanh mướt", "Đầu tam giác", "Mắt vàng/cam", "Không có đuôi đỏ" },
+                            Behaviors = new List<string> { "Sống hoàn toàn trên cây", "Ngụy trang trong lá", "Hoạt động ban đêm" },
+                            Habitat = "Bụi rậm, vườn cây trái, rừng rậm"
+                        },
+                        SymptomsByTime = new List<SymptomTimeline> {
+                            new SymptomTimeline { TimeRange = "0 - 15 phút", Signs = new List<string> { "Sưng đau cục bộ", "Buồn nôn" }, IsCritical = false },
+                            new SymptomTimeline { TimeRange = "2 - 12 giờ", Signs = new List<string> { "Vết thương thâm đen", "Chảy máu chân răng" }, IsCritical = true }
+                        }
+                    },
 
-                //     // 14. RẮN KHIẾM VẠCH - Oligodon fasciolatus
-                //     new SnakeSpecies
-                //     {
-                //         Id = 14,
-                //         ScientificName = "Oligodon fasciolatus",
-                //         CommonName = "Rắn Khiếm Vạch",
-                //         Slug = "ran-khiem-vach",
-                //         Description = "Loài rắn không độc nhưng có răng sắc nhọn để ăn trứng chim/bò sát.",
-                //         IdentificationSummary = "Kích thước nhỏ, tối đa 45 cm. Màu nâu/xám, có các vạch ngang mờ và hình chữ V trên đỉnh đầu.",
-                //         PrimaryVenomType = PrimaryVenomType.None,
-                //         RiskLevel = 1.5f,
-                //         IsVenomous = false,
-                //         ImageUrl = "https://vietnamsnakes.com/storage/snakes/species/154/1737700148_0.jpg",
-                //         Identification = new IdentificationFeature {
-                //             PhysicalTraits = new List<string> { "Hình chữ V trên đầu", "Vảy trơn bóng", "Đầu bầu dục", "Kích thước nhỏ (tối đa 45 cm)", "Có 2 sọc đen dọc thân" },
-                //             Behaviors = new List<string> { "Săn mồi ban ngày", "Khá nhút nhát", "Thường gặp dưới đống gạch đá" },
-                //             Habitat = "Vườn nhà, khu vực nông nghiệp, rừng thưa"
-                //         },
-                //         SymptomsByTime = new List<SymptomTimeline> {
-                //             new SymptomTimeline { TimeRange = "Sau khi cắn", Signs = new List<string> { "Vết thương lớn", "Chảy máu nhiều", "Không sưng nề" }, IsCritical = false }
-                //         },
-                //         FirstAidGuidelineOverride = new FirstAidOverride
-                //         {
-                //             Mode = OverrideMode.Replace,
-                //             Content = new FirstAidContent
-                //             {
-                //                 Steps = new List<FirstAidStep>
-                //                 {
-                //                     new FirstAidStep { Text = "Rửa sạch vết thương bằng xà phòng hoặc dung dịch sát khuẩn." },
-                //                     new FirstAidStep { Text = "Cầm máu nếu cần thiết." },
-                //                     new FirstAidStep { Text = "Theo dõi dấu hiệu nhiễm trùng (sưng, đỏ, mưng mủ)." },
-                //                     new FirstAidStep { Text = "Đến cơ sở y tế nếu vết thương không lành hoặc có dấu hiệu nhiễm trùng." }
-                //                 }
-                //             }
-                //         }
-                //     },
+                    // 14. RẮN KHIẾM VẠCH - Oligodon fasciolatus
+                    new SnakeSpecies
+                    {
+                        Id = 14,
+                        ScientificName = "Oligodon fasciolatus",
+                        CommonName = "Rắn Khiếm Vạch",
+                        Slug = "ran-khiem-vach",
+                        Description = "Loài rắn không độc nhưng có răng sắc nhọn để ăn trứng chim/bò sát.",
+                        IdentificationSummary = "Kích thước nhỏ, tối đa 45 cm. Màu nâu/xám, có các vạch ngang mờ và hình chữ V trên đỉnh đầu.",
+                        PrimaryVenomType = PrimaryVenomType.None,
+                        RiskLevel = 1.5f,
+                        IsVenomous = false,
+                        ImageUrl = "https://vietnamsnakes.com/storage/snakes/species/154/1737700148_0.jpg",
+                        Identification = new IdentificationFeature {
+                            PhysicalTraits = new List<string> { "Hình chữ V trên đầu", "Vảy trơn bóng", "Đầu bầu dục", "Kích thước nhỏ (tối đa 45 cm)", "Có 2 sọc đen dọc thân" },
+                            Behaviors = new List<string> { "Săn mồi ban ngày", "Khá nhút nhát", "Thường gặp dưới đống gạch đá" },
+                            Habitat = "Vườn nhà, khu vực nông nghiệp, rừng thưa"
+                        },
+                        SymptomsByTime = new List<SymptomTimeline> {
+                            new SymptomTimeline { TimeRange = "Sau khi cắn", Signs = new List<string> { "Vết thương lớn", "Chảy máu nhiều", "Không sưng nề" }, IsCritical = false }
+                        },
+                        FirstAidGuidelineOverride = new FirstAidOverride
+                        {
+                            Mode = OverrideMode.Replace,
+                            Content = new FirstAidContent
+                            {
+                                Steps = new List<FirstAidStep>
+                                {
+                                    new FirstAidStep { Text = "Rửa sạch vết thương bằng xà phòng hoặc dung dịch sát khuẩn." },
+                                    new FirstAidStep { Text = "Cầm máu nếu cần thiết." },
+                                    new FirstAidStep { Text = "Theo dõi dấu hiệu nhiễm trùng (sưng, đỏ, mưng mủ)." },
+                                    new FirstAidStep { Text = "Đến cơ sở y tế nếu vết thương không lành hoặc có dấu hiệu nhiễm trùng." }
+                                }
+                            }
+                        }
+                    },
 
-                //     // 15. RẮN CƯỜM (HẢI XÀ) - Chrysopelea ornata
-                //     new SnakeSpecies
-                //     {
-                //         Id = 15,
-                //         ScientificName = "Chrysopelea ornata",
-                //         CommonName = "Rắn Cườm (Rắn Bay)",
-                //         Slug = "ran-cuom",
-                //         Description = "Loài rắn nước có khả năng 'bay' bằng cách hóp bụng để lượn qua các cành cây.",
-                //         IdentificationSummary = "Màu xanh vàng nhạt với các họa tiết viền đen chi tiết trên từng vảy.",
-                //         PrimaryVenomType = PrimaryVenomType.None,
-                //         RiskLevel = 1.0f,
-                //         IsVenomous = false,
-                //         ImageUrl = "https://vietnamsnakes.com/storage/snakes/species/3/1737361056_0.jpg",
-                //         Identification = new IdentificationFeature {
-                //             PhysicalTraits = new List<string> { "Vảy màu vàng chanh viền đen", "Thân thon dài", "Mắt to tròn" },
-                //             Behaviors = new List<string> { "Leo trèo cực giỏi", "Nhảy từ trên cây cao xuống", "Rất hiền lành" },
-                //             Habitat = "Cây cao, vườn nhà, rừng rậm"
-                //         }
-                //     },
+                    // 15. RẮN CƯỜM (HẢI XÀ) - Chrysopelea ornata
+                    new SnakeSpecies
+                    {
+                        Id = 15,
+                        ScientificName = "Chrysopelea ornata",
+                        CommonName = "Rắn Cườm (Rắn Bay)",
+                        Slug = "ran-cuom",
+                        Description = "Loài rắn nước có khả năng 'bay' bằng cách hóp bụng để lượn qua các cành cây.",
+                        IdentificationSummary = "Màu xanh vàng nhạt với các họa tiết viền đen chi tiết trên từng vảy.",
+                        PrimaryVenomType = PrimaryVenomType.None,
+                        RiskLevel = 1.0f,
+                        IsVenomous = false,
+                        ImageUrl = "https://vietnamsnakes.com/storage/snakes/species/3/1737361056_0.jpg",
+                        Identification = new IdentificationFeature {
+                            PhysicalTraits = new List<string> { "Vảy màu vàng chanh viền đen", "Thân thon dài", "Mắt to tròn" },
+                            Behaviors = new List<string> { "Leo trèo cực giỏi", "Nhảy từ trên cây cao xuống", "Rất hiền lành" },
+                            Habitat = "Cây cao, vườn nhà, rừng rậm"
+                        }
+                    },
 
-                //     // 16. RẮN RÁO TRÂU - Ptyas mucosa
-                //     new SnakeSpecies
-                //     {
-                //         Id = 16,
-                //         ScientificName = "Ptyas mucosa",
-                //         CommonName = "Rắn Ráo Trâu (Rắn Lãi Lớn)",
-                //         Slug = "ran-rao-trau",
-                //         Description = "Loài rắn không độc có kích thước lớn, di chuyển tốc độ rất nhanh.",
-                //         IdentificationSummary = "Màu nâu/vàng đất, nửa thân sau có các vạch đen ngang rõ rệt như vằn hổ. Mắt rất to. Họa tiet đầu giống rắn hổ mang.",
-                //         PrimaryVenomType = PrimaryVenomType.None,
-                //         RiskLevel = 2.0f,
-                //         IsVenomous = false,
-                //         ImageUrl = "https://sgaqua.vn/wp-content/uploads/2026/01/ran-rao-trau-co-doc-khong-1.jpg",
-                //         Identification = new IdentificationFeature {
-                //             PhysicalTraits = new List<string> { "Kích thước lớn (tới 3m)", "Vằn ngang zig zag trắng nửa thân trước chuyển đen nửa thân sau", "Mắt rất to, tròn", "Vảy trơn, óng ánh, xếp đều", "Họa tiết vảy đầu giống rắn hổ mang" },
-                //             Behaviors = new List<string> { "Chạy trốn cực nhanh", "Hung dữ khi bị dồn vào đường cùng", "Bị đe dọa sẽ mở rộng vùng cổ và tạo âm thanh rít liên tục" },
-                //             Habitat = "Đồng ruộng, bụi rậm, hang hốc"
-                //         }
-                //     },
+                    // 16. RẮN RÁO TRÂU - Ptyas mucosa
+                    new SnakeSpecies
+                    {
+                        Id = 16,
+                        ScientificName = "Ptyas mucosa",
+                        CommonName = "Rắn Ráo Trâu (Rắn Lãi Lớn)",
+                        Slug = "ran-rao-trau",
+                        Description = "Loài rắn không độc có kích thước lớn, di chuyển tốc độ rất nhanh.",
+                        IdentificationSummary = "Màu nâu/vàng đất, nửa thân sau có các vạch đen ngang rõ rệt như vằn hổ. Mắt rất to. Họa tiet đầu giống rắn hổ mang.",
+                        PrimaryVenomType = PrimaryVenomType.None,
+                        RiskLevel = 2.0f,
+                        IsVenomous = false,
+                        ImageUrl = "https://sgaqua.vn/wp-content/uploads/2026/01/ran-rao-trau-co-doc-khong-1.jpg",
+                        Identification = new IdentificationFeature {
+                            PhysicalTraits = new List<string> { "Kích thước lớn (tới 3m)", "Vằn ngang zig zag trắng nửa thân trước chuyển đen nửa thân sau", "Mắt rất to, tròn", "Vảy trơn, óng ánh, xếp đều", "Họa tiết vảy đầu giống rắn hổ mang" },
+                            Behaviors = new List<string> { "Chạy trốn cực nhanh", "Hung dữ khi bị dồn vào đường cùng", "Bị đe dọa sẽ mở rộng vùng cổ và tạo âm thanh rít liên tục" },
+                            Habitat = "Đồng ruộng, bụi rậm, hang hốc"
+                        }
+                    },
 
-                //     // 17. RẮN HOA CÂN VÂN ĐỐM - Sinonatrix aequifasciata
-                //     new SnakeSpecies
-                //     {
-                //         Id = 17,
-                //         ScientificName = "Sinonatrix aequifasciata",
-                //         CommonName = "Rắn Hoa Cân Vân Đốm",
-                //         Slug = "ran-hoa-can-van-dom",
-                //         Description = "Rắn nước không độc, thường sống gần các khe suối.",
-                //         IdentificationSummary = "Kích thước trung bình từ 0.7-1.4m. Thân mập, có các hoa văn hình mắt màu vàng đen chạy dọc thân.",
-                //         PrimaryVenomType = PrimaryVenomType.None,
-                //         RiskLevel = 1.0f,
-                //         IsVenomous = false,
-                //         ImageUrl = "https://vietnamsnakes.com/storage/snakes/species/171/trimerodytes-aequifasciatus_1740063874_0.jpg",
-                //         Identification = new IdentificationFeature {
-                //             PhysicalTraits = new List<string> { "Thân mập hình trụ", "Hoa văn hình mắt màu vàng đen chạy dọc thân", "Đầu bầu dục" },
-                //             Behaviors = new List<string> { "Sống bán thủy sinh", "Ăn cá và ếch nhái" },
-                //             Habitat = "Suối, ao hồ, đầm lầy vùng núi"
-                //         }
-                //     },
+                    // 17. RẮN HOA CÂN VÂN ĐỐM - Sinonatrix aequifasciata
+                    new SnakeSpecies
+                    {
+                        Id = 17,
+                        ScientificName = "Sinonatrix aequifasciata",
+                        CommonName = "Rắn Hoa Cân Vân Đốm",
+                        Slug = "ran-hoa-can-van-dom",
+                        Description = "Rắn nước không độc, thường sống gần các khe suối.",
+                        IdentificationSummary = "Kích thước trung bình từ 0.7-1.4m. Thân mập, có các hoa văn hình mắt màu vàng đen chạy dọc thân.",
+                        PrimaryVenomType = PrimaryVenomType.None,
+                        RiskLevel = 1.0f,
+                        IsVenomous = false,
+                        ImageUrl = "https://vietnamsnakes.com/storage/snakes/species/171/trimerodytes-aequifasciatus_1740063874_0.jpg",
+                        Identification = new IdentificationFeature {
+                            PhysicalTraits = new List<string> { "Thân mập hình trụ", "Hoa văn hình mắt màu vàng đen chạy dọc thân", "Đầu bầu dục" },
+                            Behaviors = new List<string> { "Sống bán thủy sinh", "Ăn cá và ếch nhái" },
+                            Habitat = "Suối, ao hồ, đầm lầy vùng núi"
+                        }
+                    },
 
-                //     // 18. RẮN RI CÁ - Homalopsis buccata
-                //     new SnakeSpecies
-                //     {
-                //         Id = 18,
-                //         ScientificName = "Homalopsis buccata",
-                //         CommonName = "Rắn Ri Cá",
-                //         Slug = "ran-ri-ca",
-                //         Description = "Rắn nước phổ biến ở Nam Bộ, thịt ngon nhưng không có độc.",
-                //         IdentificationSummary = "Kích thước trung bình khoảng 70cm.Đầu to, có hình mặt nạ trắng trên đầu, thân có nhiều khoanh màu nâu đỏ nhạt.",
-                //         PrimaryVenomType = PrimaryVenomType.None,
-                //         RiskLevel = 1.0f,
-                //         IsVenomous = false,
-                //         ImageUrl = "https://upload.wikimedia.org/wikipedia/commons/c/c1/Homalopsis_buccata.png",
-                //         Identification = new IdentificationFeature {
-                //             PhysicalTraits = new List<string> { "Kích thước trung bình khoảng 70cm", "Đầu to rộng", "Hoa văn mặt nạ trên đỉnh đầu", "Thân chắc, vảy gồ" },
-                //             Behaviors = new List<string> { "Ăn đêm", "Sống dưới nước", "Nhút nhát" },
-                //             Habitat = "Kênh rạch, ao hồ, đầm lầy bùn"
-                //         }
-                //     },
+                    // 18. RẮN RI CÁ - Homalopsis buccata
+                    new SnakeSpecies
+                    {
+                        Id = 18,
+                        ScientificName = "Homalopsis buccata",
+                        CommonName = "Rắn Ri Cá",
+                        Slug = "ran-ri-ca",
+                        Description = "Rắn nước phổ biến ở Nam Bộ, thịt ngon nhưng không có độc.",
+                        IdentificationSummary = "Kích thước trung bình khoảng 70cm.Đầu to, có hình mặt nạ trắng trên đầu, thân có nhiều khoanh màu nâu đỏ nhạt.",
+                        PrimaryVenomType = PrimaryVenomType.None,
+                        RiskLevel = 1.0f,
+                        IsVenomous = false,
+                        ImageUrl = "https://upload.wikimedia.org/wikipedia/commons/c/c1/Homalopsis_buccata.png",
+                        Identification = new IdentificationFeature {
+                            PhysicalTraits = new List<string> { "Kích thước trung bình khoảng 70cm", "Đầu to rộng", "Hoa văn mặt nạ trên đỉnh đầu", "Thân chắc, vảy gồ" },
+                            Behaviors = new List<string> { "Ăn đêm", "Sống dưới nước", "Nhút nhát" },
+                            Habitat = "Kênh rạch, ao hồ, đầm lầy bùn"
+                        }
+                    },
 
-                //     // 19. RẮN ROI - Ahaetulla prasina
-                //     new SnakeSpecies
-                //     {
-                //         Id = 19,
-                //         ScientificName = "Ahaetulla prasina",
-                //         CommonName = "Rắn Roi (Rắn Sinh Viên)",
-                //         Slug = "ran-roi",
-                //         Description = "Thân mảnh như sợi dây thừng, đầu rất nhọn, độc nhẹ, không gây nguy hiểm cho người.",
-                //         IdentificationSummary = "Màu xanh lá huỳnh quang nổi bật, mõm dài và nhọn, con ngươi nằm ngang.",
-                //         PrimaryVenomType = PrimaryVenomType.None,
-                //         RiskLevel = 1.0f,
-                //         IsVenomous = false,
-                //         ImageUrl = "https://cdn-i.vtcnews.vn/files/f2/2015/01/21/nhung-loai-ran-ky-di-nhat-the-gioi-tai-viet-nam-0.jpg",
-                //         Identification = new IdentificationFeature {
-                //             PhysicalTraits = new List<string> { "Thân cực mảnh", "Mõm nhọn dài", "Con ngươi ngang đặc trưng", "Màu xanh lá hoặc nâu nhạt" },
-                //             Behaviors = new List<string> { "Sống trên cây", "Di chuyển chậm chạp", "Hay thò thụt lưỡi đánh hơi" },
-                //             Habitat = "Vườn cây, rừng thưa, bụi rậm"
-                //         }
-                //     },
+                    // 19. RẮN ROI - Ahaetulla prasina
+                    new SnakeSpecies
+                    {
+                        Id = 19,
+                        ScientificName = "Ahaetulla prasina",
+                        CommonName = "Rắn Roi (Rắn Sinh Viên)",
+                        Slug = "ran-roi",
+                        Description = "Thân mảnh như sợi dây thừng, đầu rất nhọn, độc nhẹ, không gây nguy hiểm cho người.",
+                        IdentificationSummary = "Màu xanh lá huỳnh quang nổi bật, mõm dài và nhọn, con ngươi nằm ngang.",
+                        PrimaryVenomType = PrimaryVenomType.None,
+                        RiskLevel = 1.0f,
+                        IsVenomous = false,
+                        ImageUrl = "https://cdn-i.vtcnews.vn/files/f2/2015/01/21/nhung-loai-ran-ky-di-nhat-the-gioi-tai-viet-nam-0.jpg",
+                        Identification = new IdentificationFeature {
+                            PhysicalTraits = new List<string> { "Thân cực mảnh", "Mõm nhọn dài", "Con ngươi ngang đặc trưng", "Màu xanh lá hoặc nâu nhạt" },
+                            Behaviors = new List<string> { "Sống trên cây", "Di chuyển chậm chạp", "Hay thò thụt lưỡi đánh hơi" },
+                            Habitat = "Vườn cây, rừng thưa, bụi rậm"
+                        }
+                    },
 
-                //     // 20. RẮN TRUN - Cylindrophis ruffus
-                //     new SnakeSpecies
-                //     {
-                //         Id = 20,
-                //         ScientificName = "Cylindrophis ruffus",
-                //         CommonName = "Rắn Trun",
-                //         Slug = "ran-trun",
-                //         Description = "Loài rắn không độc, thân hình trụ tròn, thường bị nhầm với rắn độc do màu sắc.",
-                //         IdentificationSummary = "Thân đen bóng có vạch vàng/trắng, đuôi ngắn tịt và có màu đỏ dưới mặt đuôi.",
-                //         PrimaryVenomType = PrimaryVenomType.None,
-                //         RiskLevel = 1.0f,
-                //         IsVenomous = false,
-                //         ImageUrl = "https://vietnamsnakes.com/storage/snakes/species/131/1737365540_0.jpg",
-                //         Identification = new IdentificationFeature {
-                //             PhysicalTraits = new List<string> { "Thân hình trụ đồng nhất", "Đuôi ngắn giống đầu", "Mặt dưới đuôi màu đỏ" },
-                //             Behaviors = new List<string> { "Chui rúc trong bùn đất", "Khi gặp nguy hiểm sẽ cuộn tròn và giơ đuôi đỏ lên để lừa kẻ thù" },
-                //             Habitat = "Đầm lầy, ruộng lúa, nơi đất ẩm"
-                //         }
-                //     },
+                    // 20. RẮN TRUN - Cylindrophis ruffus
+                    new SnakeSpecies
+                    {
+                        Id = 20,
+                        ScientificName = "Cylindrophis ruffus",
+                        CommonName = "Rắn Trun",
+                        Slug = "ran-trun",
+                        Description = "Loài rắn không độc, thân hình trụ tròn, thường bị nhầm với rắn độc do màu sắc.",
+                        IdentificationSummary = "Thân đen bóng có vạch vàng/trắng, đuôi ngắn tịt và có màu đỏ dưới mặt đuôi.",
+                        PrimaryVenomType = PrimaryVenomType.None,
+                        RiskLevel = 1.0f,
+                        IsVenomous = false,
+                        ImageUrl = "https://vietnamsnakes.com/storage/snakes/species/131/1737365540_0.jpg",
+                        Identification = new IdentificationFeature {
+                            PhysicalTraits = new List<string> { "Thân hình trụ đồng nhất", "Đuôi ngắn giống đầu", "Mặt dưới đuôi màu đỏ" },
+                            Behaviors = new List<string> { "Chui rúc trong bùn đất", "Khi gặp nguy hiểm sẽ cuộn tròn và giơ đuôi đỏ lên để lừa kẻ thù" },
+                            Habitat = "Đầm lầy, ruộng lúa, nơi đất ẩm"
+                        }
+                    },
 
-                //     // 22. RẮN ĐAI LỚN - Lycodon fasciatus
-                //     new SnakeSpecies
-                //     {
-                //         Id = 21,
-                //         ScientificName = "Ptyas major", // Tên khoa học chính xác của Rắn Đại Lớn
-                //         CommonName = "Rắn Đai Lớn (Rắn Xanh Lớn)",
-                //         Slug = "ran-dai-lon-xanh",
-                //         Description = "Loài rắn hoàn toàn không độc, hiền lành, thường bị nhầm với rắn lục do màu xanh lục toàn thân.",
-                //         IdentificationSummary = "Kích thước có thể đạt 1,5-2,5m. Không độc, toàn thân màu xanh lá mượt mà, mắt rất to và tròn, đuôi thuôn dài.",
-                //         PrimaryVenomType = PrimaryVenomType.None,
-                //         RiskLevel = 1.0f,
-                //         IsVenomous = false,
-                //         ImageUrl = "https://vietnamsnakes.com/storage/snakes/species/101/ptyas-major_1743324730_0.jpg",
-                //         Identification = new IdentificationFeature {
-                //             PhysicalTraits = new List<string> {
-                //                 "Thân dài, có thể đạt 1,5-2,5 mét",
-                //                 "Toàn thân màu xanh lá cây đồng nhất",
-                //                 "Bụng màu vàng nhạt hoặc trắng xanh",
-                //                 "Mắt rất to, con ngươi tròn đen",
-                //                 "Vảy trơn mịn, bóng mượt"
-                //             },
-                //             Behaviors = new List<string> {
-                //                 "Hoạt động chủ yếu ban ngày",
-                //                 "Rất hiền lành, hiếm khi cắn người kể cả khi bị bắt",
-                //                 "Di chuyển nhanh nhẹn trên mặt đất và cây cỏ"
-                //             },
-                //             Habitat = "Vườn tược, bụi rậm, rừng thưa, thường gặp ở vùng đồi núi và trung du"
-                //         },
-                //         SymptomsByTime = new List<SymptomTimeline> {
-                //             new SymptomTimeline {
-                //                 TimeRange = "Sau khi cắn",
-                //                 Signs = new List<string> { "Vết xước rất nhỏ", "Hầu như không đau", "Không sưng nề" },
-                //                 IsCritical = false
-                //             }
-                //         },
-                //         FirstAidGuidelineOverride = new FirstAidOverride {
-                //             Mode = OverrideMode.Replace,
-                //             Content = new FirstAidContent {
-                //                 Steps = new List<FirstAidStep> {
-                //                     new FirstAidStep { Text = "Rửa sạch vết thương bằng nước hoặc xà phòng." },
-                //                     new FirstAidStep { Text = "Bình tĩnh vì đây là loài rắn ích lợi, chuyên ăn côn trùng và sâu bọ." }
-                //                 }
-                //             }
-                //         }
-                //     },
-                //     new SnakeSpecies
-                //     {
-                //         Id = 22,
-                //         ScientificName = "Amphiesma stolatum",
-                //         CommonName = "Rắn Sãi Cỏ",
-                //         Slug = "ran-sai-co",
-                //         Description = "Loài rắn nước không độc, hiền lành và có ích cho nông nghiệp. Chúng thường bị nhầm lẫn với một số loài rắn khác do hoa văn phức tạp.",
-                //         IdentificationSummary = "Không độc, dài trung bình 40cm - 80cm. Thân có 2 sọc sáng màu song song, nối với nhau bởi các vạch ngang tối màu trông như chiếc thang.",
-                //         PrimaryVenomType = PrimaryVenomType.None,
-                //         RiskLevel = 1.0f,
-                //         IsVenomous = false,
-                //         ImageUrl = "https://vietnamsnakes.com/storage/snakes/species/27/1736340349_0.jpg",
-                //         Identification = new IdentificationFeature {
-                //             PhysicalTraits = new List<string> {
-                //                 "Chiều dài trung bình 40 - 80 cm",
-                //                 "2 sọc sáng màu chạy dọc song song trên lưng",
-                //                 "Các vạch ngang tối màu nối 2 sọc giống hình chiếc thang",
-                //                 "Bụng màu kem nhạt với đốm đen nhỏ hai bên thân",
-                //                 "Mép miệng màu vàng nhạt với vạch đen trước và sau mắt"
-                //             },
-                //             Behaviors = new List<string> {
-                //                 "Hoạt động chủ yếu vào ban ngày (nhật hành)",
-                //                 "Tính tình nhút nhát, thường bỏ chạy khi gặp người",
-                //                 "Săn các sinh vật nhỏ như cá, giun đất và tắc kè"
-                //             },
-                //             Habitat = "Vùng đồng bằng và đồi núi, thường ở gần nguồn nước (ao, hồ, suối)"
-                //         },
-                //         SymptomsByTime = new List<SymptomTimeline> {
-                //             new SymptomTimeline {
-                //                 TimeRange = "Sau khi cắn",
-                //                 Signs = new List<string> { "Vết xước nhỏ hình vòng cung", "Chảy máu nhẹ", "Không sưng nề, không gây độc" },
-                //                 IsCritical = false
-                //             }
-                //         },
-                //         FirstAidGuidelineOverride = new FirstAidOverride {
-                //             Mode = OverrideMode.Replace,
-                //             Content = new FirstAidContent {
-                //                 Steps = new List<FirstAidStep> {
-                //                     new FirstAidStep { Text = "Rửa vết thương bằng xà phòng và nước sạch để tránh nhiễm trùng." },
-                //                     new FirstAidStep { Text = "Bình tĩnh vì đây là loài rắn hoàn toàn vô hại." }
-                //                 }
-                //             }
-                //         }
-                //     }
-                // };
+                    // 22. RẮN ĐAI LỚN - Lycodon fasciatus
+                    new SnakeSpecies
+                    {
+                        Id = 21,
+                        ScientificName = "Ptyas major", // Tên khoa học chính xác của Rắn Đại Lớn
+                        CommonName = "Rắn Đai Lớn (Rắn Xanh Lớn)",
+                        Slug = "ran-dai-lon-xanh",
+                        Description = "Loài rắn hoàn toàn không độc, hiền lành, thường bị nhầm với rắn lục do màu xanh lục toàn thân.",
+                        IdentificationSummary = "Kích thước có thể đạt 1,5-2,5m. Không độc, toàn thân màu xanh lá mượt mà, mắt rất to và tròn, đuôi thuôn dài.",
+                        PrimaryVenomType = PrimaryVenomType.None,
+                        RiskLevel = 1.0f,
+                        IsVenomous = false,
+                        ImageUrl = "https://vietnamsnakes.com/storage/snakes/species/101/ptyas-major_1743324730_0.jpg",
+                        Identification = new IdentificationFeature {
+                            PhysicalTraits = new List<string> {
+                                "Thân dài, có thể đạt 1,5-2,5 mét",
+                                "Toàn thân màu xanh lá cây đồng nhất",
+                                "Bụng màu vàng nhạt hoặc trắng xanh",
+                                "Mắt rất to, con ngươi tròn đen",
+                                "Vảy trơn mịn, bóng mượt"
+                            },
+                            Behaviors = new List<string> {
+                                "Hoạt động chủ yếu ban ngày",
+                                "Rất hiền lành, hiếm khi cắn người kể cả khi bị bắt",
+                                "Di chuyển nhanh nhẹn trên mặt đất và cây cỏ"
+                            },
+                            Habitat = "Vườn tược, bụi rậm, rừng thưa, thường gặp ở vùng đồi núi và trung du"
+                        },
+                        SymptomsByTime = new List<SymptomTimeline> {
+                            new SymptomTimeline {
+                                TimeRange = "Sau khi cắn",
+                                Signs = new List<string> { "Vết xước rất nhỏ", "Hầu như không đau", "Không sưng nề" },
+                                IsCritical = false
+                            }
+                        },
+                        FirstAidGuidelineOverride = new FirstAidOverride {
+                            Mode = OverrideMode.Replace,
+                            Content = new FirstAidContent {
+                                Steps = new List<FirstAidStep> {
+                                    new FirstAidStep { Text = "Rửa sạch vết thương bằng nước hoặc xà phòng." },
+                                    new FirstAidStep { Text = "Bình tĩnh vì đây là loài rắn ích lợi, chuyên ăn côn trùng và sâu bọ." }
+                                }
+                            }
+                        }
+                    },
+                    new SnakeSpecies
+                    {
+                        Id = 22,
+                        ScientificName = "Amphiesma stolatum",
+                        CommonName = "Rắn Sãi Cỏ",
+                        Slug = "ran-sai-co",
+                        Description = "Loài rắn nước không độc, hiền lành và có ích cho nông nghiệp. Chúng thường bị nhầm lẫn với một số loài rắn khác do hoa văn phức tạp.",
+                        IdentificationSummary = "Không độc, dài trung bình 40cm - 80cm. Thân có 2 sọc sáng màu song song, nối với nhau bởi các vạch ngang tối màu trông như chiếc thang.",
+                        PrimaryVenomType = PrimaryVenomType.None,
+                        RiskLevel = 1.0f,
+                        IsVenomous = false,
+                        ImageUrl = "https://vietnamsnakes.com/storage/snakes/species/27/1736340349_0.jpg",
+                        Identification = new IdentificationFeature {
+                            PhysicalTraits = new List<string> {
+                                "Chiều dài trung bình 40 - 80 cm",
+                                "2 sọc sáng màu chạy dọc song song trên lưng",
+                                "Các vạch ngang tối màu nối 2 sọc giống hình chiếc thang",
+                                "Bụng màu kem nhạt với đốm đen nhỏ hai bên thân",
+                                "Mép miệng màu vàng nhạt với vạch đen trước và sau mắt"
+                            },
+                            Behaviors = new List<string> {
+                                "Hoạt động chủ yếu vào ban ngày (nhật hành)",
+                                "Tính tình nhút nhát, thường bỏ chạy khi gặp người",
+                                "Săn các sinh vật nhỏ như cá, giun đất và tắc kè"
+                            },
+                            Habitat = "Vùng đồng bằng và đồi núi, thường ở gần nguồn nước (ao, hồ, suối)"
+                        },
+                        SymptomsByTime = new List<SymptomTimeline> {
+                            new SymptomTimeline {
+                                TimeRange = "Sau khi cắn",
+                                Signs = new List<string> { "Vết xước nhỏ hình vòng cung", "Chảy máu nhẹ", "Không sưng nề, không gây độc" },
+                                IsCritical = false
+                            }
+                        },
+                        FirstAidGuidelineOverride = new FirstAidOverride {
+                            Mode = OverrideMode.Replace,
+                            Content = new FirstAidContent {
+                                Steps = new List<FirstAidStep> {
+                                    new FirstAidStep { Text = "Rửa vết thương bằng xà phòng và nước sạch để tránh nhiễm trùng." },
+                                    new FirstAidStep { Text = "Bình tĩnh vì đây là loài rắn hoàn toàn vô hại." }
+                                }
+                            }
+                        }
+                    }
+                };
 
-                // context.SnakeSpecies.AddRange(snakes);
+                context.SnakeSpecies.AddRange(snakes);
 
                 var speciesVenoms = new List<SpeciesVenom>
                 {

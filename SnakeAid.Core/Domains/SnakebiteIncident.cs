@@ -55,7 +55,7 @@ namespace SnakeAid.Core.Domains
         public RescuerProfile? AssignedRescuer { get; set; }
         public ICollection<RescueRequestSession> Sessions { get; set; } = new List<RescueRequestSession>();
         public ICollection<RescuerRequest> AllRequests { get; set; } = new List<RescuerRequest>(); // Denormalized for easy query
-        public RescueMission? RescueMission { get; set; }
+        public ICollection<RescueMission> Missions { get; set; } = new List<RescueMission>();
         public ICollection<ReportMedia> Media { get; set; } = new List<ReportMedia>();
     }
 

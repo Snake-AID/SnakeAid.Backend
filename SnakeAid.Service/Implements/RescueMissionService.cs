@@ -67,14 +67,17 @@ namespace SnakeAid.Service.Implements
                         throw new NotFoundException("Rescuer not found.");
                     }
 
-                    // Check if mission already exists for this incident
-                    var existingMission = await _unitOfWork.GetRepository<RescueMission>().FirstOrDefaultAsync(
-                        predicate: m => m.IncidentId == incidentId
+                    // Check for active missions only (allow multiple missions per incident for retry scenarios)
+                    var existingActiveMission = await _unitOfWork.GetRepository<RescueMission>().FirstOrDefaultAsync(
+                        predicate: m => m.IncidentId == incidentId && 
+                            (m.Status == RescueMissionStatus.Preparing || 
+                             m.Status == RescueMissionStatus.EnRoute || 
+                             m.Status == RescueMissionStatus.RescuerArrived)
                     );
 
-                    if (existingMission != null)
+                    if (existingActiveMission != null)
                     {
-                        throw new BadRequestException("Mission already exists for this incident.");
+                        throw new BadRequestException($"Active mission {existingActiveMission.Id} already exists for this incident.");
                     }
 
                     // Create new mission
@@ -230,13 +233,16 @@ namespace SnakeAid.Service.Implements
         /// Allowed during Preparing or EnRoute phases
         public async Task RescuerAbortMissionAsync(Guid missionId, string reason)
         {
+            Guid incidentId = Guid.Empty;
+
             try
             {
+                // Step 1: Abort mission in transaction
                 await _unitOfWork.ExecuteInTransactionAsync(async () =>
                 {
+                    // Query mission WITHOUT Include to avoid navigation property tracking issues
                     var mission = await _unitOfWork.GetRepository<RescueMission>().FirstOrDefaultAsync(
-                        predicate: m => m.Id == missionId,
-                        include: q => q.Include(m => m.Incident)
+                        predicate: m => m.Id == missionId
                     );
 
                     if (mission == null)
@@ -250,37 +256,56 @@ namespace SnakeAid.Service.Implements
                         throw new BadRequestException($"Cannot abort mission with status: {mission.Status}. Only allowed during Preparing or EnRoute phases.");
                     }
 
+                    // Query incident SEPARATELY to ensure proper EF tracking
+                    // Using navigation property (mission.Incident) causes Update() to not mark entity as Modified
+                    var incident = await _unitOfWork.GetRepository<SnakebiteIncident>().FirstOrDefaultAsync(
+                        predicate: i => i.Id == mission.IncidentId
+                    );
+
+                    if (incident == null)
+                    {
+                        throw new NotFoundException("Incident not found.");
+                    }
+
+                    _logger.LogInformation("Aborting mission {MissionId}: Current incident status before update: {Status}",
+                        missionId, incident.Status);
+
+                    // Update mission
                     mission.Status = RescueMissionStatus.MissionAborted;
                     mission.CancellationReason = reason;
                     mission.UpdatedAt = DateTime.UtcNow;
 
                     // Reset incident to Pending for retry with increased radius
-                    var incident = mission.Incident;
                     incident.Status = SnakebiteIncidentStatus.Pending;
                     incident.AssignedRescuerId = null;
                     incident.AssignedAt = null;
 
                     _unitOfWork.GetRepository<RescueMission>().Update(mission);
                     _unitOfWork.GetRepository<SnakebiteIncident>().Update(incident);
-                    await _unitOfWork.CommitAsync();
 
-                    _logger.LogInformation("Rescuer aborted mission {MissionId} with reason: {Reason}", missionId, reason);
+                    _logger.LogInformation("Updated incident {IncidentId} to Pending status in transaction", incident.Id);
 
-                    // Create new session with increased radius after rescuer abort
-                    try
-                    {
-                        await _sessionService.HandleMissionAbortAsync(incident.Id);
-                        _logger.LogInformation("Created new rescue session after rescuer abort for incident {IncidentId}", incident.Id);
-                    }
-                    catch (Exception sessionEx)
-                    {
-                        // Log but don't fail the mission abort
-                        _logger.LogError(sessionEx, "Failed to create new session after rescuer abort for incident {IncidentId}: {Message}",
-                            incident.Id, sessionEx.Message);
-                    }
-
+                    incidentId = incident.Id;
                     return mission;
                 });
+
+                _unitOfWork.ClearChangeTracker();
+
+                _logger.LogInformation("Transaction committed and change tracker cleared for incident {IncidentId}. Tracked entities after clear: {TrackedCount}",
+                    incidentId, _unitOfWork.Context.ChangeTracker.Entries().Count());
+
+                // Step 2: Create new session AFTER transaction committed
+                try
+                {
+                    await _sessionService.HandleMissionAbortAsync(incidentId);
+                    _logger.LogInformation("Created new rescue session after rescuer abort for incident {IncidentId}", incidentId);
+                }
+                catch (Exception sessionEx)
+                {
+                    _logger.LogError(sessionEx, "Failed to create new session after rescuer abort for incident {IncidentId}: {Message}",
+                        incidentId, sessionEx.Message);
+                    throw;
+                }
             }
             catch (Exception ex)
             {

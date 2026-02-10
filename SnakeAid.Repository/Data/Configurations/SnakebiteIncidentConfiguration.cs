@@ -23,10 +23,11 @@ namespace SnakeAid.Repository.Data.Configurations
 
             // Relationship với MemberProfile (User) đã config tại MemberProfileConfiguration
 
-            // Relationship: Incident -> RescueMission (1-1)
-            builder.HasOne(i => i.RescueMission)
+            // Relationship: Incident -> Missions (1-N)
+            // An incident can have multiple missions due to rescuer abort and retry
+            builder.HasMany(i => i.Missions)
                 .WithOne(m => m.Incident)
-                .HasForeignKey<RescueMission>(m => m.IncidentId)
+                .HasForeignKey(m => m.IncidentId)
                 .OnDelete(DeleteBehavior.Cascade);
 
             // Relationship: Incident -> Sessions (1-N)

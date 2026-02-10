@@ -14,11 +14,11 @@ using System.Threading.Tasks;
 
 namespace SnakeAid.Core.Responses.SnakebiteIncident
 {
-    public class DetailSnakebiteIncidentReposne
+    public class DetailSnakebiteIncidentResponse
     {
         public Guid Id { get; set; }
 
-        
+
         public Guid UserId { get; set; }  // FK to MemberProfile
 
         [Column(TypeName = "geometry(Point, 4326)")]
