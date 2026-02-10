@@ -17,6 +17,7 @@ using SnakeAid.Repository.Seeds;
 using SQLitePCL;
 using Swashbuckle.AspNetCore.SwaggerUI;
 using System.Text.Json.Serialization;
+using Doppler.Extensions.Configuration;
 
 namespace SnakeAid.Api
 {
@@ -32,6 +33,8 @@ namespace SnakeAid.Api
             try
             {
                 var builder = WebApplication.CreateBuilder(args);
+
+                builder.AddConfigurationFromDopplerCloud();
 
                 Batteries_V2.Init();
 
@@ -149,7 +152,7 @@ namespace SnakeAid.Api
                 });
 
                 builder.Services.AddControllers();
-                
+
                 // Add Razor Pages for lightweight UI admin pages
                 builder.Services.AddRazorPages();
 
