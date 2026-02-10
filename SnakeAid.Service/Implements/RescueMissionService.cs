@@ -80,12 +80,10 @@ namespace SnakeAid.Service.Implements
                     }
 
                     // Validate cancellation reason for Cancelled and Aborted statuses
-                    if (request.Status == RescueMissionStatus.Cancelled || request.Status == RescueMissionStatus.MissionAborted)
+                    if ((request.Status == RescueMissionStatus.Cancelled || request.Status == RescueMissionStatus.MissionAborted)
+                        && string.IsNullOrWhiteSpace(request.CancellationReason))
                     {
-                        if (string.IsNullOrWhiteSpace(request.CancellationReason))
-                        {
-                            throw new BadRequestException($"CancellationReason is required when status is {request.Status}");
-                        }
+                        throw new BadRequestException($"CancellationReason is required when status is {request.Status}");
                     }
 
                     // Update status-specific timestamps
