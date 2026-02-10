@@ -1,0 +1,41 @@
+{
+    "dotnet.defaultSolution": "SnakeAid.Backend.sln",
+    "files.exclude": {
+        "**/bin": false,
+        "**/obj": false,
+        "**/Properties": false,
+        ".vscode": false,
+        "**/node_modules": false,
+        "**/packages": false,
+        "**/.vs": false,
+        "**/dist": false,
+        "**/coverage": false,
+        "**/artifacts": false,
+        "**/logs": false,
+        "**/*.dll": false,
+        "**/*.pdb": false,
+        "**/*.exe": false,
+        "**/*.nupkg": false,
+        "**/*.zip": false,
+        "**/*.tar.gz": false,
+        "**/*.so": false,
+        "**/*.dylib": false,
+        "**/*.pyc": false,
+        "**/*.db": false,
+        "**/*.sqlite": false
+    },
+    "search.exclude": {
+        "**/bin": true,
+        "**/obj": true,
+        "**/node_modules": true,
+        "**/.vs": true,
+        "**/dist": true
+    },
+    "files.watcherExclude": {
+        "**/bin/**": true,
+        "**/obj/**": true,
+        "**/.git/**": true,
+        "**/node_modules/**": true,
+        "**/.vs/**": true
+    }
+}

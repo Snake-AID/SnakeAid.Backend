@@ -43,4 +43,5 @@ public class SnakeAISettings
     public bool SaveImage { get; set; } = false;
     public float Confidence { get; set; } = 0.25f;
     public int TimeoutSeconds { get; set; } = 30;
-} 
+}
+
