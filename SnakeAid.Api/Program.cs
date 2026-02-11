@@ -149,6 +149,9 @@ namespace SnakeAid.Api
                 {
                     options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
                     options.JsonSerializerOptions.Converters.Add(new SnakeAid.Core.Converters.PointJsonConverter());
+                    
+                    // Handle circular references in JSON serialization
+                    options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
                 });
 
                 builder.Services.AddControllers();
