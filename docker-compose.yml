@@ -1,18 +1,14 @@
 services:
   snakeaid-api:
+    container_name: snakeaid-api
     image: thekhiem7/snakeaid-api:latest
     pull_policy: always
     # build:
     #   context: .
     #   dockerfile: Dockerfile
     ports:
-      - "8080:8080"
+      - "5110:8080"
     environment:
-      - ASPNETCORE_ENVIRONMENT=Development
-      - ASPNETCORE_URLS=http://+:8080
-
-      # Settings for container 
-      - ASPNETCORE_HTTPS_PORT=
-      - ASPNETCORE_Kestrel__Certificates__Default__Path=
-
+      - DOPPLER_TOKEN=
+      - DOPPLER_CONFIG=snake-aid/dev
     restart: unless-stopped
