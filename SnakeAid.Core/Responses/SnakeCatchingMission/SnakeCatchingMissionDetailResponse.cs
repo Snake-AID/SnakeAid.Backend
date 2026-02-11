@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using SnakeAid.Core.Domains;
 
 namespace SnakeAid.Core.Responses.SnakeCatchingMission
@@ -19,5 +20,6 @@ namespace SnakeAid.Core.Responses.SnakeCatchingMission
         public decimal? ActualCost { get; set; }
         public DateTime CreatedAt { get; set; }
         public DateTime? UpdatedAt { get; set; }
+        public List<CatchingMissionDetailResponse>? MissionDetails { get; set; }
     }
 }
