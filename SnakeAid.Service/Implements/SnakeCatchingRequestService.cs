@@ -332,5 +332,43 @@ namespace SnakeAid.Service.Implements
                 throw;
             }
         }
+
+        public async Task<CreateSnakeCatchingRequestResponse> GetDetailAsync(Guid requestId)
+        {
+            try
+            {
+                // Get the snake catching request with all related data
+                var request = await _unitOfWork.GetRepository<SnakeCatchingRequest>().FirstOrDefaultAsync(
+                    predicate: r => r.Id == requestId,
+                    include: query => query
+                        .Include(r => r.User)
+                            .ThenInclude(u => u.Account)
+                        .Include(r => r.AssignedRescuer)
+                            .ThenInclude(ar => ar.Account)
+                        .Include(r => r.Media)
+                        .Include(r => r.Mission)
+                        .Include(r => r.Details)
+                            .ThenInclude(d => d.SnakeSpecies)
+                );
+
+                if (request == null)
+                {
+                    throw new NotFoundException($"Snake catching request with ID {requestId} not found.");
+                }
+
+                var response = request.Adapt<CreateSnakeCatchingRequestResponse>();
+
+                _logger.LogInformation(
+                    "Snake catching request details retrieved successfully. RequestId: {RequestId}",
+                    requestId);
+
+                return response;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting snake catching request detail: {Message}", ex.Message);
+                throw;
+            }
+        }
     }
 }

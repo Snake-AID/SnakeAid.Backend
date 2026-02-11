@@ -78,5 +78,27 @@ namespace SnakeAid.Api.Controllers
                 result,
                 "Snake catching request accepted successfully! Mission created."));
         }
+
+        /// <summary>
+        /// Get snake catching request details by ID
+        /// </summary>
+        /// <param name="requestId">The ID of the snake catching request</param>
+        [HttpGet("{requestId:guid}")]
+        [SwaggerOperation(
+            Summary = "Get Snake Catching Request Details",
+            Description = "Retrieve detailed information about a specific snake catching request including user, rescuer, media, and mission information")]
+        [SwaggerResponse(200, "Request details retrieved successfully", typeof(ApiResponse<CreateSnakeCatchingRequestResponse>))]
+        [SwaggerResponse(401, "User not authenticated")]
+        [SwaggerResponse(404, "Request not found")]
+        [ProducesResponseType(typeof(ApiResponse<CreateSnakeCatchingRequestResponse>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> GetSnakeCatchingRequestDetail([FromRoute] Guid requestId)
+        {
+            var result = await _snakeCatchingRequestService.GetDetailAsync(requestId);
+            
+            return Ok(ApiResponseBuilder.BuildSuccessResponse(
+                result,
+                "Snake catching request details retrieved successfully."));
+        }
     }
 }
