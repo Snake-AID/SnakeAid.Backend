@@ -556,9 +556,9 @@ namespace SnakeAid.Service.Implements
 
                     // Check for existing active missions only (allow multiple missions per incident for retry scenarios)
                     var existingActiveMission = await _unitOfWork.GetRepository<RescueMission>().FirstOrDefaultAsync(
-                        predicate: m => m.IncidentId == request.IncidentId && 
-                            (m.Status == RescueMissionStatus.Preparing || 
-                             m.Status == RescueMissionStatus.EnRoute || 
+                        predicate: m => m.IncidentId == request.IncidentId &&
+                            (m.Status == RescueMissionStatus.Preparing ||
+                             m.Status == RescueMissionStatus.EnRoute ||
                              m.Status == RescueMissionStatus.RescuerArrived)
                     );
 
@@ -753,12 +753,11 @@ namespace SnakeAid.Service.Implements
         {
             try
             {
-                // CRITICAL: Use CreateBaseQuery + AsNoTracking to completely bypass EF cache
-                // FirstOrDefaultAsync with asNoTracking can still return tracked entities
                 var incident = await _unitOfWork.GetRepository<SnakebiteIncident>()
-                    .CreateBaseQuery(asNoTracking: true)
-                    .Where(i => i.Id == incidentId)
-                    .FirstOrDefaultAsync();
+                    .FirstOrDefaultAsync(
+                        predicate: i => i.Id == incidentId,
+                        asNoTracking: false
+                    );
 
                 if (incident == null)
                 {
