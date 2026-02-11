@@ -2,6 +2,7 @@
 using SnakeAid.Core.Domains;
 using SnakeAid.Core.Responses.Media;
 using SnakeAid.Core.Responses.MemberProfile;
+using SnakeAid.Core.Responses.RescueMission;
 using SnakeAid.Core.Responses.RescueRequestSession;
 using SnakeAid.Core.Responses.RescuerProfile;
 using System;
@@ -14,11 +15,11 @@ using System.Threading.Tasks;
 
 namespace SnakeAid.Core.Responses.SnakebiteIncident
 {
-    public class DetailSnakebiteIncidentReposne
+    public class DetailSnakebiteIncidentResponse
     {
         public Guid Id { get; set; }
 
-        
+
         public Guid UserId { get; set; }  // FK to MemberProfile
 
         [Column(TypeName = "geometry(Point, 4326)")]

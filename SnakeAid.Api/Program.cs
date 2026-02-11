@@ -3,6 +3,7 @@ using MapsterMapper;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Scrutor;
 using Serilog;
 using Serilog.Ui.Core.Extensions;
@@ -18,6 +19,7 @@ using SQLitePCL;
 using Swashbuckle.AspNetCore.SwaggerUI;
 using System.Text.Json.Serialization;
 using Doppler.Extensions.Configuration;
+using SnakeAid.Service.Interfaces;
 
 namespace SnakeAid.Api
 {
@@ -106,16 +108,26 @@ namespace SnakeAid.Api
 
                 builder.Services.AddServices(builder.Configuration);
 
-                // Register services using Scrutor
+                // Register services using Scrutor (excluding background services)
                 builder.Services.Scan(scan => scan
                     .FromAssemblies(
                         typeof(Program).Assembly,                               // SnakeAid.Api
                         typeof(SnakeAid.Core.Domains.BaseEntity).Assembly,     // SnakeAid.Core
                         typeof(SnakeAid.Service.Interfaces.IAuthService).Assembly,  // SnakeAid.Service
                         typeof(SnakeAid.Repository.Interfaces.IGenericRepository<>).Assembly) // SnakeAid.Repository
-                    .AddClasses(classes => classes.Where(type => type.Name.EndsWith("Service") || type.Name.EndsWith("Repository")))
+                    .AddClasses(classes => classes
+                        .Where(type => (type.Name.EndsWith("Service") || type.Name.EndsWith("Repository"))
+                            && !type.Name.Contains("BackgroundService"))) // Exclude background services
                     .AsImplementedInterfaces()
                     .WithScopedLifetime());
+
+                // Register SessionTimeoutBackgroundService as singleton
+                // It implements both IHostedService and ISessionTimeoutService
+                builder.Services.AddSingleton<SnakeAid.Service.Implements.SessionTimeoutBackgroundService>();
+                builder.Services.AddSingleton<SnakeAid.Service.Interfaces.ISessionTimeoutService>(provider =>
+                    provider.GetRequiredService<SnakeAid.Service.Implements.SessionTimeoutBackgroundService>());
+                builder.Services.AddSingleton<IHostedService>(provider =>
+                    provider.GetRequiredService<SnakeAid.Service.Implements.SessionTimeoutBackgroundService>());
 
                 builder.Services.AddMemoryCache();
 
@@ -149,6 +161,9 @@ namespace SnakeAid.Api
                 {
                     options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
                     options.JsonSerializerOptions.Converters.Add(new SnakeAid.Core.Converters.PointJsonConverter());
+
+                    // Handle circular references in JSON serialization
+                    options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
                 });
 
                 builder.Services.AddControllers();
@@ -160,7 +175,7 @@ namespace SnakeAid.Api
                 builder.Services.AddSignalR(options =>
                 {
                     options.EnableDetailedErrors = builder.Environment.IsDevelopment();
-                    options.KeepAliveInterval = TimeSpan.FromMinutes(1);
+                    options.KeepAliveInterval = TimeSpan.FromSeconds(15);
                     options.ClientTimeoutInterval = TimeSpan.FromMinutes(2);
                     options.HandshakeTimeout = TimeSpan.FromSeconds(30);
                     options.MaximumReceiveMessageSize = 64 * 1024; // 64KB
@@ -191,27 +206,15 @@ namespace SnakeAid.Api
                 // Bind Kestrel to all network interfaces
                 builder.WebHost.ConfigureKestrel((context, options) =>
                 {
+                    // Always listen on port 8080 (HTTP)
+                    // This creates consistency across Local, Docker, and Production environments
+                    options.ListenAnyIP(8080);
+
+                    // For Local Development, also listen on port 8081 (HTTPS)
+                    // This allows debugging secure features (Cookies, OAuth, etc.) locally
                     if (context.HostingEnvironment.IsDevelopment())
                     {
-                        // Check if running in container
-                        var isContainer = Environment.GetEnvironmentVariable("DOTNET_RUNNING_IN_CONTAINER") == "true";
-
-                        if (isContainer)
-                        {
-                            // Docker container: HTTP only
-                            options.ListenAnyIP(8080);
-                        }
-                        else
-                        {
-                            // Local dev: both HTTP and HTTPS
-                            options.ListenAnyIP(5009);
-                            options.ListenLocalhost(7026, listenOptions => listenOptions.UseHttps());
-                        }
-                    }
-                    else
-                    {
-                        // Production: HTTP only (HTTPS termination at reverse proxy)
-                        options.ListenAnyIP(8080);
+                        options.ListenLocalhost(8081, listenOptions => listenOptions.UseHttps());
                     }
                 });
 
@@ -310,6 +313,8 @@ namespace SnakeAid.Api
                 // Map SignalR Hub with specific CORS policy
                 app.MapHub<TestChatHub>("/chat-hub").RequireCors("SignalRCorsPolicy");
 
+                app.MapHub<RescuerHub>("/rescuer-hub").RequireCors("SignalRCorsPolicy");
+
                 // Map Razor pages
                 app.MapRazorPages();
 
@@ -317,6 +322,35 @@ namespace SnakeAid.Api
 
                 // Health checks endpoint
                 app.MapHealthChecks("/health");
+
+                // Test database connection endpoint
+                app.MapGet("/api/test/db", async (SnakeAidDbContext dbContext) =>
+                {
+                    try
+                    {
+                        var canConnect = await dbContext.Database.CanConnectAsync();
+                        if (canConnect)
+                        {
+                            var accountCount = await dbContext.MemberProfiles.CountAsync();
+                            return Results.Ok(new
+                            {
+                                status = "Connected",
+                                message = "Database connection successful",
+                                accountCount,
+                                timestamp = DateTime.UtcNow
+                            });
+                        }
+                        return Results.Problem("Cannot connect to database");
+                    }
+                    catch (Exception ex)
+                    {
+                        return Results.Problem(
+                            detail: ex.Message,
+                            title: "Database Connection Failed",
+                            statusCode: 500
+                        );
+                    }
+                }).WithTags("Diagnostics");
 
                 app.Run();
             }

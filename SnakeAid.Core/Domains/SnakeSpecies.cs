@@ -98,6 +98,6 @@ namespace SnakeAid.Core.Domains
     public class FirstAidOverride
     {
         public OverrideMode Mode { get; set; } = OverrideMode.Append;
-        public List<string> Steps { get; set; } = new();
+        public FirstAidContent Content { get; set; } = new();
     }
 }

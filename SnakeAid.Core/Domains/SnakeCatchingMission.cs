@@ -48,6 +48,7 @@ namespace SnakeAid.Core.Domains
         // Navigation properties
         public RescuerProfile Rescuer { get; set; }
         public SnakeCatchingRequest SnakeCatchingRequest { get; set; }
+        public ICollection<CatchingMissionDetail> MissionDetails { get; set; } = new List<CatchingMissionDetail>();
     }
 
     public enum CatchingMissionStatus

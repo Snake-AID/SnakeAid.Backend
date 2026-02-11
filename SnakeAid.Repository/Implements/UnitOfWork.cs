@@ -91,6 +91,11 @@ namespace SnakeAid.Repository.Implements
             return Task.CompletedTask;
         }
 
+        public void ClearChangeTracker()
+        {
+            Context.ChangeTracker.Clear();
+        }
+
 
         private void TrackChanges()
         {

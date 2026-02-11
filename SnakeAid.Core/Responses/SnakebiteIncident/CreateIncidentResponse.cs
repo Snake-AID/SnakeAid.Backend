@@ -17,7 +17,7 @@ namespace SnakeAid.Core.Responses.SnakebiteIncident
 
         public Guid UserId { get; set; }  // FK to MemberProfile
 
-        public Point LocationCoordinates { get; set; }
+        public GeoPointResponse LocationCoordinates { get; set; }
 
         public SnakebiteIncidentStatus Status { get; set; } = SnakebiteIncidentStatus.Pending;
 
@@ -28,6 +28,19 @@ namespace SnakeAid.Core.Responses.SnakebiteIncident
 
         public DateTime? IncidentOccurredAt { get; set; }  // Khi nào bị cắn
 
+        // Session details (populated when StartRescueAsync is called)
+        public Guid? SessionId { get; set; }
+        public int SessionNumber { get; set; }
+        public int RadiusKm { get; set; }
+        public int RescuersPinged { get; set; }
+
         public List<CreateRescueRequestSessionResponse> Sessions { get; set; } = new List<CreateRescueRequestSessionResponse>();
     }
+
+    public class GeoPointResponse
+    {
+        public double Latitude { get; set; }
+        public double Longitude { get; set; }
+    }
+
 }

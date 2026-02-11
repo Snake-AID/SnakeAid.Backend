@@ -19,7 +19,7 @@ namespace SnakeAid.Repository.Migrations
 #pragma warning disable 612, 618
             modelBuilder
                 .HasDefaultSchema("SnakeAid")
-                .HasAnnotation("ProductVersion", "8.0.23")
+                .HasAnnotation("ProductVersion", "8.0.11")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.HasPostgresExtension(modelBuilder, "postgis");
@@ -1538,7 +1538,6 @@ namespace SnakeAid.Repository.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("IncidentId")
-                        .IsUnique()
                         .HasDatabaseName("IX_RescueMissions_IncidentId");
 
                     b.HasIndex("RescuerId")
@@ -3066,8 +3065,8 @@ namespace SnakeAid.Repository.Migrations
             modelBuilder.Entity("SnakeAid.Core.Domains.RescueMission", b =>
                 {
                     b.HasOne("SnakeAid.Core.Domains.SnakebiteIncident", "Incident")
-                        .WithOne("RescueMission")
-                        .HasForeignKey("SnakeAid.Core.Domains.RescueMission", "IncidentId")
+                        .WithMany("Missions")
+                        .HasForeignKey("IncidentId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
@@ -3472,7 +3471,7 @@ namespace SnakeAid.Repository.Migrations
 
                     b.Navigation("Media");
 
-                    b.Navigation("RescueMission");
+                    b.Navigation("Missions");
 
                     b.Navigation("Sessions");
                 });

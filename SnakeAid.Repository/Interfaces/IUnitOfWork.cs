@@ -9,6 +9,7 @@ namespace SnakeAid.Repository.Interfaces
         int Commit();
         Task<int> CommitAsync();
         Task RollbackAsync();
+        void ClearChangeTracker();
 
     }
 
