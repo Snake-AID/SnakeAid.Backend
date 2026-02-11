@@ -44,6 +44,10 @@ namespace SnakeAid.Core.Requests.SnakeCatchingRequest
         [MaxLength(1000)]
         public string? Notes { get; set; }
 
+        /// <summary>
+        /// Optional: List of snake species if user identified the snakes
+        /// </summary>
+        public List<SnakeSpeciesRequestItem> SnakeSpeciesList { get; set; } = new List<SnakeSpeciesRequestItem>();
 
         public List<string?> MediaURLList { get; set; } = new List<string>();
     }

@@ -60,5 +60,6 @@ namespace SnakeAid.Core.Responses.SnakeCatchingRequest
         public BriefRescuerProfileResponse? AssignedRescuer { get; set; }
         public CreateSnakeCatchingMissionResponse? Mission { get; set; }
         public List<ReportMediaResponse> Media { get; set; } = new List<ReportMediaResponse>();
+        public List<CatchingRequestDetailResponse> Details { get; set; } = new List<CatchingRequestDetailResponse>();
     }
 }

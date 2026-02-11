@@ -96,6 +96,33 @@ namespace SnakeAid.Service.Implements
                         Notes = request.Notes
                     };
 
+                    // Handle snake species identification if provided
+                    if (request.SnakeSpeciesList != null && request.SnakeSpeciesList.Any())
+                    {
+                        foreach (var speciesItem in request.SnakeSpeciesList)
+                        {
+                            // Validate snake species exists
+                            var snakeSpecies = await _unitOfWork.GetRepository<SnakeSpecies>().FirstOrDefaultAsync(
+                                predicate: s => s.Id == speciesItem.SnakeSpeciesId);
+
+                            if (snakeSpecies == null)
+                            {
+                                throw new BadRequestException($"Snake species with ID {speciesItem.SnakeSpeciesId} not found.");
+                            }
+
+                            // Create CatchingRequestDetail
+                            var requestDetail = new CatchingRequestDetail
+                            {
+                                Id = Guid.NewGuid(),
+                                SnakeCatchingRequestId = newRequest.Id,
+                                SnakeSpeciesId = speciesItem.SnakeSpeciesId,
+                                Quantity = speciesItem.Quantity
+                            };
+
+                            await _unitOfWork.GetRepository<CatchingRequestDetail>().InsertAsync(requestDetail);
+                        }
+                    }
+
                     // Handle media if provided
                     if (request.MediaURLList != null && request.MediaURLList.Any())
                     {
@@ -142,6 +169,8 @@ namespace SnakeAid.Service.Implements
                         include: query => query
                             .Include(r => r.User)
                             .Include(r => r.Media)
+                            .Include(r => r.Details)
+                                .ThenInclude(d => d.SnakeSpecies)
                     );
 
                     if (createdRequest == null)
@@ -279,6 +308,8 @@ namespace SnakeAid.Service.Implements
                                 .ThenInclude(ar => ar.Account)
                             .Include(r => r.Media)
                             .Include(r => r.Mission)
+                            .Include(r => r.Details)
+                                .ThenInclude(d => d.SnakeSpecies)
                     );
 
                     if (updatedRequest == null)
