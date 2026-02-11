@@ -211,20 +211,44 @@ namespace SnakeAid.Repository.Implements
 
             try
             {
-                var entityEntry = _dbContext.Entry(entity);
+                // Get primary key values
+                var keyValues = GetKeyValues(entity);
+                if (keyValues == null || keyValues.Length == 0)
+                    return false;
 
-                // If entity is detached (not being tracked), attach it
-                if (entityEntry.State == EntityState.Detached)
+                // Check if entity with same key is already tracked
+                var tracked = _dbSet.Local.FirstOrDefault(e =>
+                    GetKeyValues(e)?.SequenceEqual(keyValues) == true);
+
+                if (tracked != null)
+                {
+                    // Update the tracked entity's values instead of attaching new instance
+                    _dbContext.Entry(tracked).CurrentValues.SetValues(entity);
+                    return true;
+                }
+
+                // Not tracked - safe to attach and mark as modified
+                var entry = _dbContext.Entry(entity);
+                if (entry.State == EntityState.Detached)
                     _dbSet.Attach(entity);
 
-                // Mark entity as modified
-                entityEntry.State = EntityState.Modified;
+                entry.State = EntityState.Modified;
                 return true;
             }
             catch (Exception)
             {
                 return false;
             }
+        }
+
+        private object[]? GetKeyValues(T entity)
+        {
+            var key = _dbContext.Model.FindEntityType(typeof(T))?.FindPrimaryKey();
+            if (key == null) return null;
+
+            return key.Properties
+                .Select(p => _dbContext.Entry(entity).Property(p.Name).CurrentValue!)
+                .ToArray();
         }
 
         public virtual bool UpdateProperties(

@@ -270,7 +270,13 @@ namespace SnakeAid.Repository.Seeds
                         FirstAidGuidelineOverride = new FirstAidOverride
                         {
                             Mode = OverrideMode.Append,
-                            Steps = new List<string> { "Đặc biệt chú ý hỗ trợ hô hấp nhân tạo nếu nạn nhân có dấu hiệu ngưng thở." }
+                            Content = new FirstAidContent
+                            {
+                                Steps = new List<FirstAidStep>
+                                {
+                                    new FirstAidStep { Text = "Đặc biệt chú ý hỗ trợ hô hấp nhân tạo nếu nạn nhân có dấu hiệu ngưng thở." }
+                                }
+                            }
                         }
                     },
 
@@ -301,7 +307,15 @@ namespace SnakeAid.Repository.Seeds
                         FirstAidGuidelineOverride = new FirstAidOverride
                         {
                             Mode = OverrideMode.Replace,
-                            Steps = new List<string> { "Rửa sạch vết thương.", "Bất động lỏng chi.", "TUYỆT ĐỐI KHÔNG BĂNG ÉP CHẶT vì gây hoại tử nhanh." }
+                            Content = new FirstAidContent
+                            {
+                                Steps = new List<FirstAidStep>
+                                {
+                                    new FirstAidStep { Text = "Rửa sạch vết thương." },
+                                    new FirstAidStep { Text = "Bất động lỏng chi." },
+                                    new FirstAidStep { Text = "TUYỆT ĐỐI KHÔNG BĂNG ÉP CHẶT vì gây hoại tử nhanh." }
+                                }
+                            }
                         }
                     },
 
@@ -334,7 +348,13 @@ namespace SnakeAid.Repository.Seeds
                         FirstAidGuidelineOverride = new FirstAidOverride
                         {
                             Mode = OverrideMode.Append,
-                            Steps = new List<string> { "Vận chuyển nạn nhân bằng phương tiện nhanh nhất có thể đến bệnh viện lớn." }
+                            Content = new FirstAidContent
+                            {
+                                Steps = new List<FirstAidStep>
+                                {
+                                    new FirstAidStep { Text = "Vận chuyển nạn nhân bằng phương tiện nhanh nhất có thể đến bệnh viện lớn." }
+                                }
+                            }
                         }
                     },
 
@@ -361,7 +381,17 @@ namespace SnakeAid.Repository.Seeds
                         {
                             new SymptomTimeline { TimeRange = "Sau khi cắn", Signs = new List<string> { "Chảy máu nhẹ", "Vết xước li ti", "Không sưng nề" }, IsCritical = false }
                         },
-                        FirstAidGuidelineOverride = new FirstAidOverride { Mode = OverrideMode.Append, Steps = new List<string> { "Sát trùng vết thương bằng cồn hoặc nước sạch." } }
+                        FirstAidGuidelineOverride = new FirstAidOverride
+                        {
+                            Mode = OverrideMode.Append,
+                            Content = new FirstAidContent
+                            {
+                                Steps = new List<FirstAidStep>
+                                {
+                                    new FirstAidStep { Text = "Sát trùng vết thương bằng cồn hoặc nước sạch." }
+                                }
+                            }
+                        }
                     },
 
                     new SnakeSpecies
@@ -391,7 +421,13 @@ namespace SnakeAid.Repository.Seeds
                         FirstAidGuidelineOverride = new FirstAidOverride
                         {
                             Mode = OverrideMode.Append,
-                            Steps = new List<string> { "Cảnh giác cao độ nếu bị cắn khi đang cắm trại hoặc đi rừng ban đêm." }
+                            Content = new FirstAidContent
+                            {
+                                Steps = new List<FirstAidStep>
+                                {
+                                    new FirstAidStep { Text = "Cảnh giác cao độ nếu bị cắn khi đang cắm trại hoặc đi rừng ban đêm." }
+                                }
+                            }
                         }
                     },
 
@@ -422,7 +458,13 @@ namespace SnakeAid.Repository.Seeds
                         FirstAidGuidelineOverride = new FirstAidOverride
                         {
                             Mode = OverrideMode.Append,
-                            Steps = new List<string> { "Tuyệt đối không chờ triệu chứng đau mới đi viện vì nọc cạp nia không gây đau." }
+                            Content = new FirstAidContent
+                            {
+                                Steps = new List<FirstAidStep>
+                                {
+                                    new FirstAidStep { Text = "Tuyệt đối không chờ triệu chứng đau mới đi viện vì nọc cạp nia không gây đau." }
+                                }
+                            }
                         }
                     },
 
@@ -454,7 +496,13 @@ namespace SnakeAid.Repository.Seeds
                         FirstAidGuidelineOverride = new FirstAidOverride
                         {
                             Mode = OverrideMode.Append,
-                            Steps = new List<string> { "Nếu bị nọc phun vào mắt, phải rửa bằng nước sạch liên tục 15-20 phút." }
+                            Content = new FirstAidContent
+                            {
+                                Steps = new List<FirstAidStep>
+                                {
+                                    new FirstAidStep { Text = "Nếu bị nọc phun vào mắt, phải rửa bằng nước sạch liên tục 15-20 phút." }
+                                }
+                            }
                         }
                     },
 
@@ -478,14 +526,46 @@ namespace SnakeAid.Repository.Seeds
                         },
                         SymptomsByTime = new List<SymptomTimeline>
                         {
-                            new SymptomTimeline { TimeRange = "0 - 1 giờ", Signs = new List<string> { "Đau rát tại chỗ", "Ít sưng ban đầu" }, IsCritical = false },
-                            new SymptomTimeline { TimeRange = "6 - 24 giờ", Signs = new List<string> { "Rối loạn đông máu nặng", "Chảy máu cam", "Tiểu ra máu" }, IsCritical = true },
-                            new SymptomTimeline { TimeRange = "Sau 24 giờ", Signs = new List<string> { "Suy thận cấp", "Tụt huyết áp" }, IsCritical = true }
+                            new SymptomTimeline {
+                                TimeRange = "0 - 1 giờ",
+                                Signs = new List<string> { "Vết cắn đau nhẹ", "Sưng nhẹ cục bộ", "Có thể không có cảm giác bị nhiễm độc ngay" },
+                                IsCritical = false
+                            },
+                            new SymptomTimeline {
+                                TimeRange = "1 - 6 giờ",
+                                Signs = new List<string> { "Máu rỉ rả không cầm tại vết cắn", "Bầm tím lan rộng", "Đau bụng, buồn nôn" },
+                                IsCritical = true
+                            },
+                            new SymptomTimeline {
+                                TimeRange = "6 - 24 giờ",
+                                Signs = new List<string> { "Chảy máu chân răng, máu cam", "Tiểu ra máu", "Nôn ra máu", "Dấu hiệu suy thận" },
+                                IsCritical = true
+                            }
                         },
                         FirstAidGuidelineOverride = new FirstAidOverride
                         {
-                            Mode = OverrideMode.Replace,
-                            Steps = new List<string> { "HIỆN CHƯA CÓ HUYẾT THANH ĐẶC HIỆU. Chuyển ngay đến bệnh viện có khả năng hồi sức cấp cứu và truyền máu." }
+                            Mode = OverrideMode.Replace, // Thay thế hoàn toàn vì cách tiếp cận điều trị rất khác
+                            Content = new FirstAidContent
+                            {
+                                Steps = new List<FirstAidStep> {
+                                    new FirstAidStep { Text = "Đặt nạn nhân nằm yên, bất động hoàn toàn chi bị cắn.", MediaUrl = "https://assets.snakeaid.vn/aid/immobilize.gif" },
+                                    new FirstAidStep { Text = "Băng ép nhẹ bằng băng vải rộng để bảo vệ vết thương.", MediaUrl = "https://assets.snakeaid.vn/aid/light-bandage.jpg" },
+                                    new FirstAidStep { Text = "Nhanh chóng chuyển nạn nhân đến bệnh viện tuyến tỉnh hoặc trung ương có khả năng lọc máu và truyền máu.", MediaUrl = "" }
+                                },
+                                Dos = new List<FirstAidStep> {
+                                    new FirstAidStep { Text = "Báo cho bác sĩ đây là rắn 'Rhabdophis subminiatus' (Hoa cỏ cổ đỏ).", MediaUrl = "" },
+                                    new FirstAidStep { Text = "Theo dõi sát màu nước tiểu và tình trạng chảy máu.", MediaUrl = "" }
+                                },
+                                Donts = new List<FirstAidStep> {
+                                    new FirstAidStep { Text = "KHÔNG ĐƯỢC CHỦ QUAN nếu thấy vết cắn không sưng đau nhiều lúc đầu.", MediaUrl = "" },
+                                    new FirstAidStep { Text = "KHÔNG dùng ga-rô chặt (làm tăng hoại tử và rối loạn đông máu tại chỗ).", MediaUrl = "" },
+                                    new FirstAidStep { Text = "KHÔNG rạch hoặc hút máu tại vết cắn.", MediaUrl = "" }
+                                },
+                                Notes = new List<string> {
+                                    "Lưu ý quan trọng: Việt Nam chưa có huyết thanh kháng độc cho loài này. Việc điều trị chủ yếu là hỗ trợ, truyền máu và lọc thận.",
+                                    "Loài này có răng độc nằm sâu phía sau hàm (Hậu nha), nọc độc chỉ tiết ra khi rắn nhai hoặc cắn sâu."
+                                }
+                            }
                         }
                     },
 
@@ -514,7 +594,13 @@ namespace SnakeAid.Repository.Seeds
                         FirstAidGuidelineOverride = new FirstAidOverride
                         {
                             Mode = OverrideMode.Append,
-                            Steps = new List<string> { "Chỉ cần rửa sạch vết thương bằng xà phòng để tránh nhiễm trùng." }
+                            Content = new FirstAidContent
+                            {
+                                Steps = new List<FirstAidStep>
+                                {
+                                    new FirstAidStep { Text = "Chỉ cần rửa sạch vết thương bằng xà phòng để tránh nhiễm trùng." }
+                                }
+                            }
                         }
                     },
 
@@ -543,7 +629,13 @@ namespace SnakeAid.Repository.Seeds
                         FirstAidGuidelineOverride = new FirstAidOverride
                         {
                             Mode = OverrideMode.Append,
-                            Steps = new List<string> { "Sát trùng kỹ vết thương vì miệng loài này chứa nhiều vi khuẩn do ăn chuột và thịt thối." }
+                            Content = new FirstAidContent
+                            {
+                                Steps = new List<FirstAidStep>
+                                {
+                                    new FirstAidStep { Text = "Sát trùng kỹ vết thương vì miệng loài này chứa nhiều vi khuẩn do ăn chuột và thịt thối." }
+                                }
+                            }
                         }
                     },
 
@@ -569,7 +661,8 @@ namespace SnakeAid.Repository.Seeds
                             new SymptomTimeline { TimeRange = "0 - 15 phút", Signs = new List<string> { "Đau rát dữ dội", "Sưng nề tức thì" }, IsCritical = false },
                             new SymptomTimeline { TimeRange = "1 - 6 giờ", Signs = new List<string> { "Xuất huyết dưới da", "Máu chảy không cầm tại vết cắn", "Bầm tím nặng" }, IsCritical = true }
                         },
-                        FirstAidGuidelineOverride = new FirstAidOverride { Mode = OverrideMode.Replace, Steps = new List<string> { "KHÔNG garô/băng ép.", "Bất động chi bằng nẹp lỏng.", "Chuyển viện gấp." } }
+                        FirstAidGuidelineOverride = new FirstAidOverride {
+                            Mode = OverrideMode.Replace, Content = new FirstAidContent { Steps = new List<FirstAidStep> { new FirstAidStep { Text = "KHÔNG garô/băng ép." }, new FirstAidStep { Text = "Bất động chi bằng nẹp lỏng." }, new FirstAidStep { Text = "Chuyển viện gấp." } } } }
                     },
 
                     // 12. RẮN LỤC NƯA (CHÀM QUẠP) - Calloselasma rhodostoma
@@ -594,7 +687,7 @@ namespace SnakeAid.Repository.Seeds
                             new SymptomTimeline { TimeRange = "0 - 30 phút", Signs = new List<string> { "Sưng nề cực nhanh", "Đau buốt như lửa đốt" }, IsCritical = true },
                             new SymptomTimeline { TimeRange = "6 - 12 giờ", Signs = new List<string> { "Hoại tử mô diện rộng", "Xuất huyết toàn thân", "Phồng rộp máu" }, IsCritical = true }
                         },
-                        FirstAidGuidelineOverride = new FirstAidOverride { Mode = OverrideMode.Replace, Steps = new List<string> { "Tuyệt đối không rạch vết thương vì nọc gây rối loạn đông máu cực nặng.", "Băng ép nhẹ bằng băng thun (không chặt)." } }
+                        FirstAidGuidelineOverride = new FirstAidOverride { Mode = OverrideMode.Replace, Content = new FirstAidContent { Steps = new List<FirstAidStep> { new FirstAidStep { Text = "Tuyệt đối không rạch vết thương vì nọc gây rối loạn đông máu cực nặng." }, new FirstAidStep { Text = "Băng ép nhẹ bằng băng thun (không chặt)." } } } }
                     },
 
                     // 13. RẮN LỤC XANH - Trimeresurus stejnegeri
@@ -645,12 +738,15 @@ namespace SnakeAid.Repository.Seeds
                         FirstAidGuidelineOverride = new FirstAidOverride
                         {
                             Mode = OverrideMode.Replace,
-                            Steps = new List<string>
+                            Content = new FirstAidContent
                             {
-                                "Rửa sạch vết thương bằng xà phòng hoặc dung dịch sát khuẩn.",
-                                "Cầm máu nếu cần thiết.",
-                                "Theo dõi dấu hiệu nhiễm trùng (sưng, đỏ, mưng mủ).",
-                                "Đến cơ sở y tế nếu vết thương không lành hoặc có dấu hiệu nhiễm trùng."
+                                Steps = new List<FirstAidStep>
+                                {
+                                    new FirstAidStep { Text = "Rửa sạch vết thương bằng xà phòng hoặc dung dịch sát khuẩn." },
+                                    new FirstAidStep { Text = "Cầm máu nếu cần thiết." },
+                                    new FirstAidStep { Text = "Theo dõi dấu hiệu nhiễm trùng (sưng, đỏ, mưng mủ)." },
+                                    new FirstAidStep { Text = "Đến cơ sở y tế nếu vết thương không lành hoặc có dấu hiệu nhiễm trùng." }
+                                }
                             }
                         }
                     },
@@ -774,7 +870,7 @@ namespace SnakeAid.Repository.Seeds
                             Habitat = "Đầm lầy, ruộng lúa, nơi đất ẩm"
                         }
                     },
-                    
+
                     // 22. RẮN ĐAI LỚN - Lycodon fasciatus
                     new SnakeSpecies
                     {
@@ -812,9 +908,11 @@ namespace SnakeAid.Repository.Seeds
                         },
                         FirstAidGuidelineOverride = new FirstAidOverride {
                             Mode = OverrideMode.Replace,
-                            Steps = new List<string> {
-                                "Rửa sạch vết thương bằng nước hoặc xà phòng.",
-                                "Bình tĩnh vì đây là loài rắn ích lợi, chuyên ăn côn trùng và sâu bọ."
+                            Content = new FirstAidContent {
+                                Steps = new List<FirstAidStep> {
+                                    new FirstAidStep { Text = "Rửa sạch vết thương bằng nước hoặc xà phòng." },
+                                    new FirstAidStep { Text = "Bình tĩnh vì đây là loài rắn ích lợi, chuyên ăn côn trùng và sâu bọ." }
+                                }
                             }
                         }
                     },
@@ -854,9 +952,11 @@ namespace SnakeAid.Repository.Seeds
                         },
                         FirstAidGuidelineOverride = new FirstAidOverride {
                             Mode = OverrideMode.Replace,
-                            Steps = new List<string> {
-                                "Rửa vết thương bằng xà phòng và nước sạch để tránh nhiễm trùng.",
-                                "Bình tĩnh vì đây là loài rắn hoàn toàn vô hại."
+                            Content = new FirstAidContent {
+                                Steps = new List<FirstAidStep> {
+                                    new FirstAidStep { Text = "Rửa vết thương bằng xà phòng và nước sạch để tránh nhiễm trùng." },
+                                    new FirstAidStep { Text = "Bình tĩnh vì đây là loài rắn hoàn toàn vô hại." }
+                                }
                             }
                         }
                     }

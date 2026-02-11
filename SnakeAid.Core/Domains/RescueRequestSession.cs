@@ -17,7 +17,7 @@ namespace SnakeAid.Core.Domains
         public Guid IncidentId { get; set; }
 
         [Required]
-        public int SessionNumber { get; set; }        // 1, 2, 3, 4, 5, 6
+        public int SessionNumber { get; set; }        // 1, 2, 3
 
         [Required]
         public int RadiusKm { get; set; }             // 5, 10, 20 - radius hiện tại đang quét

@@ -20,12 +20,21 @@ namespace SnakeAid.Service.Implements
         private readonly IUnitOfWork<SnakeAidDbContext> _unitOfWork;
         private readonly ILogger<SnakebiteIncidentService> _logger;
         private readonly IConfiguration _configuration;
+        private readonly IRescueRequestSessionService _sessionService;
+        private const int MAX_SESSIONS = 3;
+        private const int REQUEST_TIMEOUT_SECONDS = 60;
+        private static readonly int[] RADIUS_PROGRESSION = { 10, 20, 30 }; // km
 
-        public SnakebiteIncidentService(IUnitOfWork<SnakeAidDbContext> unitOfWork, ILogger<SnakebiteIncidentService> logger, IConfiguration configuration)
+        public SnakebiteIncidentService(
+            IUnitOfWork<SnakeAidDbContext> unitOfWork,
+            ILogger<SnakebiteIncidentService> logger,
+            IConfiguration configuration,
+            IRescueRequestSessionService sessionService)
         {
             _unitOfWork = unitOfWork;
             _logger = logger;
             _configuration = configuration;
+            _sessionService = sessionService;
         }
 
         public async Task<CreateIncidentResponse> CancelIncidentAsync(Guid incidentId)
@@ -33,23 +42,24 @@ namespace SnakeAid.Service.Implements
             try
             {
                 return await _unitOfWork.ExecuteInTransactionAsync(async () =>
-            {
-                var existingIncident = await _unitOfWork.GetRepository<SnakebiteIncident>().FirstOrDefaultAsync(
-                        predicate: s => s.Id == incidentId
-                    );
-                if (existingIncident == null)
                 {
-                    throw new NotFoundException("Snakebite incident not found.");
-                }
-                // Validate incident status - only allow cancelling for Pending incidents
-                if (existingIncident.Status != SnakebiteIncidentStatus.Pending && existingIncident.Status != SnakebiteIncidentStatus.Assigned)
-                {
-                    throw new BadRequestException($"Cannot cancel incident with status: {existingIncident.Status}");
-                }
-                existingIncident.Status = SnakebiteIncidentStatus.Cancelled;
-                _unitOfWork.GetRepository<SnakebiteIncident>().Update(existingIncident);
-                await _unitOfWork.CommitAsync();
-                return existingIncident.Adapt<CreateIncidentResponse>();
+                    var existingIncident = await _unitOfWork.GetRepository<SnakebiteIncident>().FirstOrDefaultAsync(
+                            predicate: s => s.Id == incidentId
+                        );
+                    if (existingIncident == null)
+                    {
+                        throw new NotFoundException("Snakebite incident not found.");
+                    }
+                    // only in Pending or Assigned status can be cancelled
+                    if (existingIncident.Status != SnakebiteIncidentStatus.Pending && existingIncident.Status != SnakebiteIncidentStatus.Assigned)
+                    {
+                        throw new BadRequestException($"Cannot cancel incident with status: {existingIncident.Status}");
+                    }
+                    existingIncident.Status = SnakebiteIncidentStatus.Cancelled;
+                    _unitOfWork.GetRepository<SnakebiteIncident>().Update(existingIncident);
+                    await _unitOfWork.CommitAsync();
+                    var responseData = existingIncident.Adapt<CreateIncidentResponse>();
+                    return responseData;
                 });
             }
             catch (Exception ex)
@@ -90,36 +100,21 @@ namespace SnakeAid.Service.Implements
                     UserId = existingAccount.Id,
                     LocationCoordinates = locationPoint,
                     Status = SnakebiteIncidentStatus.Pending,
-                    CurrentSessionNumber = 1,
-                    CurrentRadiusKm = 5,
-                    LastSessionAt = DateTime.UtcNow,
+                    CurrentSessionNumber = 0, // Will be set when first session is created
+                    CurrentRadiusKm = 0,     // Will be set when first session is created  
+                    LastSessionAt = null,    // Will be set when first session is created
                     IncidentOccurredAt = DateTime.UtcNow
                 };
 
-                var firstRescueSession = new RescueRequestSession
-                {
-                    Id = Guid.NewGuid(),
-                    IncidentId = newIncident.Id,
-                    SessionNumber = newIncident.CurrentSessionNumber,
-                    RadiusKm = newIncident.CurrentRadiusKm,
-                    Status = SessionStatus.Active,
-                    CreatedAt = DateTime.UtcNow,
-                    TriggerType = SessionTrigger.Initial,
-                    RescuersPinged = 0
-                };
-
                 await _unitOfWork.GetRepository<SnakebiteIncident>().InsertAsync(newIncident);
-                await _unitOfWork.GetRepository<RescueRequestSession>().InsertAsync(firstRescueSession);
                 await _unitOfWork.CommitAsync();
 
                 var responseData = newIncident.Adapt<CreateIncidentResponse>();
-                responseData.Sessions = new List<CreateRescueRequestSessionResponse>
-                {
-                    firstRescueSession.Adapt<CreateRescueRequestSessionResponse>()
-                };
+                responseData.Sessions = new List<CreateRescueRequestSessionResponse>();
 
                 return responseData;
-                });
+            });
+
             }
             catch (Exception ex)
             {
@@ -138,128 +133,122 @@ namespace SnakeAid.Service.Implements
                 }
 
                 return await _unitOfWork.ExecuteInTransactionAsync(async () =>
-            {
-                // Load incident with all required navigation properties
-                var existingIncident = await _unitOfWork.GetRepository<SnakebiteIncident>().FirstOrDefaultAsync(
-                        predicate: s => s.Id == request.IncidentId,
-                        include: query => query
-                            .Include(i => i.Sessions)
-                            .Include(i => i.User)
-                    );
-
-                if (existingIncident == null)
                 {
-                    throw new NotFoundException("Snakebite incident not found.");
-                }
+                    // Load incident with all required navigation properties
+                    var existingIncident = await _unitOfWork.GetRepository<SnakebiteIncident>().FirstOrDefaultAsync(
+                            predicate: s => s.Id == request.IncidentId,
+                            include: query => query
+                                .Include(i => i.Sessions)
+                        );
 
-                // Validate incident status - only allow raising range for Pending incidents
-                if (existingIncident.Status != SnakebiteIncidentStatus.Pending)
-                {
-                    throw new BadRequestException($"Cannot raise session range for incident with status: {existingIncident.Status}");
-                }
+                    if (existingIncident == null)
+                    {
+                        throw new NotFoundException("Snakebite incident not found.");
+                    }
 
-                // Close current session as Failed
-                var currentSession = existingIncident.Sessions
-                    .FirstOrDefault(s => s.SessionNumber == existingIncident.CurrentSessionNumber);
+                    // Validate incident status - only allow raising range for Pending incidents
+                    if (existingIncident.Status != SnakebiteIncidentStatus.Pending)
+                    {
+                        throw new BadRequestException($"Cannot raise session range for incident with status: {existingIncident.Status}");
+                    }
 
-                if (currentSession != null)
-                {
-                    currentSession.Status = SessionStatus.Failed;
-                    currentSession.CompletedAt = DateTime.UtcNow;
-                    _unitOfWork.GetRepository<RescueRequestSession>().Update(currentSession);
-                }
+                    // Close current session as Failed
+                    var currentSession = existingIncident.Sessions
+                        .FirstOrDefault(s => s.SessionNumber == existingIncident.CurrentSessionNumber);
 
-                // Check if maximum sessions reached (max 3 sessions)
-                if (existingIncident.CurrentSessionNumber >= 3)
-                {
-                    existingIncident.Status = SnakebiteIncidentStatus.NoRescuerFound;
+                    if (currentSession != null)
+                    {
+                        currentSession.Status = SessionStatus.Failed;
+                        currentSession.CompletedAt = DateTime.UtcNow;
+                        _unitOfWork.GetRepository<RescueRequestSession>().Update(currentSession);
+                    }
+
+                    // Check if maximum sessions reached (max 3 sessions)
+                    // Check max session (trước khi tăng)
+                    if (existingIncident.CurrentSessionNumber >= RADIUS_PROGRESSION.Length)
+                    {
+                        existingIncident.Status = SnakebiteIncidentStatus.NoRescuerFound;
+                        existingIncident.LastSessionAt = DateTime.UtcNow;
+                        _unitOfWork.GetRepository<SnakebiteIncident>().Update(existingIncident);
+                        await _unitOfWork.CommitAsync();
+
+                        throw new BadRequestException(
+                            $"Maximum session range expansions reached ({RADIUS_PROGRESSION.Length} sessions). No rescuers found."
+                        );
+                    }
+
+                    existingIncident.CurrentSessionNumber += 1;
+
+                    int radiusIndex = existingIncident.CurrentSessionNumber - 1;
+                    int newRadius = RADIUS_PROGRESSION[radiusIndex];
+
+                    existingIncident.CurrentRadiusKm = newRadius;
                     existingIncident.LastSessionAt = DateTime.UtcNow;
-                    _unitOfWork.GetRepository<SnakebiteIncident>().Update(existingIncident);
+
+                    // Create new session
+                    var newSession = new RescueRequestSession
+                    {
+                        Id = Guid.NewGuid(),
+                        IncidentId = existingIncident.Id,
+                        SessionNumber = existingIncident.CurrentSessionNumber,
+                        RadiusKm = existingIncident.CurrentRadiusKm,
+                        Status = SessionStatus.Active,
+                        CreatedAt = DateTime.UtcNow,
+                        TriggerType = SessionTrigger.RadiusExpanded,
+                        RescuersPinged = 0
+                    };
+
+                    await _unitOfWork.GetRepository<RescueRequestSession>().InsertAsync(newSession);
+
                     await _unitOfWork.CommitAsync();
 
-                    throw new BadRequestException("Maximum session range expansions reached (3 sessions). No rescuers found in area.");
-                }
+                    // Reload sessions collection from DB to ensure consistency and proper order
+                    await _unitOfWork.Context.Entry(existingIncident)
+                        .Collection(i => i.Sessions)
+                        .LoadAsync();
 
-                // Calculate new radius with progressive increment (5km -> 7km -> 10km)
-                int radiusIncrement = existingIncident.CurrentSessionNumber switch
-                {
-                    1 => 2,  // Session 1 (5km) -> Session 2 (7km)
-                    2 => 3, // Session 2 (7km) -> Session 3 (10km)
-                    _ => 5   // Fallback
-                };
+                    var responseData = existingIncident.Adapt<CreateIncidentResponse>();
+                    responseData.Sessions = existingIncident.Sessions
+                        .OrderBy(s => s.SessionNumber)
+                        .Select(s => s.Adapt<CreateRescueRequestSessionResponse>())
+                        .ToList();
 
-                int newRadius = existingIncident.CurrentRadiusKm + radiusIncrement;
-
-                // Update incident for new session
-                existingIncident.CurrentSessionNumber += 1;
-                existingIncident.CurrentRadiusKm = newRadius;
-                existingIncident.LastSessionAt = DateTime.UtcNow;
-
-                // Create new session
-                var newSession = new RescueRequestSession
-                {
-                    Id = Guid.NewGuid(),
-                    IncidentId = existingIncident.Id,
-                    SessionNumber = existingIncident.CurrentSessionNumber,
-                    RadiusKm = existingIncident.CurrentRadiusKm,
-                    Status = SessionStatus.Active,
-                    CreatedAt = DateTime.UtcNow,
-                    TriggerType = SessionTrigger.RadiusExpanded,
-                    RescuersPinged = 0
-                };
-
-                await _unitOfWork.GetRepository<RescueRequestSession>().InsertAsync(newSession);
-                await _unitOfWork.CommitAsync();
-
-                // Reload sessions collection from DB to ensure consistency and proper order
-                await _unitOfWork.Context.Entry(existingIncident)
-                    .Collection(i => i.Sessions)
-                    .LoadAsync();
-
-                var responseData = existingIncident.Adapt<CreateIncidentResponse>();
-                // Manually set LocationCoordinates since Mapster doesn't handle NetTopologySuite Point
-                responseData.LocationCoordinates = existingIncident.LocationCoordinates;
-                responseData.Sessions = existingIncident.Sessions
-                    .OrderBy(s => s.SessionNumber)
-                    .Select(s => s.Adapt<CreateRescueRequestSessionResponse>())
-                    .ToList();
-
-                return responseData;
+                    return responseData;
                 });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error raising session range: {Message}", ex.Message);
+                _logger.LogError(ex, "Error retrieving snakebite incident details: {Message}", ex.Message);
                 throw;
             }
         }
 
-        public async Task<DetailSnakebiteIncidentReposne> GetDetailIncidentAsync(Guid incidentId)
+        public async Task<DetailSnakebiteIncidentResponse> GetDetailIncidentAsync(Guid incidentId)
         {
             try
             {
                 return await _unitOfWork.ExecuteInTransactionAsync(async () =>
-            {
-                var existingIncident = await _unitOfWork.GetRepository<SnakebiteIncident>().FirstOrDefaultAsync(
-                        predicate: s => s.Id == incidentId,
-                        include: query => query
-                            .Include(i => i.User)
-                            .Include(i => i.AssignedRescuer)
-                            .Include(i => i.Sessions)
-                            .Include(i => i.AllRequests)
-                                .ThenInclude(r => r.Rescuer)
-                            .Include(i => i.RescueMission)
-                            .Include(i => i.Media)
-                    );
-
-                if (existingIncident == null)
                 {
-                    throw new NotFoundException("Snakebite incident not found.");
-                }
+                    var existingIncident = await _unitOfWork.GetRepository<SnakebiteIncident>().FirstOrDefaultAsync(
+                            predicate: s => s.Id == incidentId,
+                            include: query => query
+                                .Include(i => i.User)
+                                .Include(i => i.AssignedRescuer)
+                                .Include(i => i.Sessions)
+                                .Include(i => i.AllRequests)
+                                    .ThenInclude(r => r.Rescuer)
+                                .Include(i => i.Missions)
+                                .Include(i => i.Media)
+                        );
 
-                var responseData = existingIncident.Adapt<DetailSnakebiteIncidentReposne>();
+                    if (existingIncident == null)
+                    {
+                        throw new NotFoundException("Snakebite incident not found.");
+                    }
 
-                return responseData;
+                    var responseData = existingIncident.Adapt<DetailSnakebiteIncidentResponse>();
+
+                    return responseData;
                 });
             }
             catch (Exception ex)
@@ -279,84 +268,85 @@ namespace SnakeAid.Service.Implements
                 }
 
                 return await _unitOfWork.ExecuteInTransactionAsync(async () =>
-            {
-                var existingIncident = await _unitOfWork.GetRepository<SnakebiteIncident>().FirstOrDefaultAsync(
-                        predicate: s => s.Id == incidentId
-                    );
-                if (existingIncident == null)
                 {
-                    throw new NotFoundException("Snakebite incident not found.");
-                }
-
-                // Calculate elapsed time from incident occurrence
-                var currentTime = DateTime.UtcNow;
-                var elapsedMinutes = existingIncident.IncidentOccurredAt.HasValue
-                    ? (int)(currentTime - existingIncident.IncidentOccurredAt.Value).TotalMinutes
-                    : 0;
-
-                // Collect symptom descriptions and calculate severity
-                var symptomDescriptions = new List<string>();
-                var coreSymptomScores = new List<int>();
-                var modifierSymptomScores = new List<int>();
-
-                foreach (var symptomId in request.SymptomIdList)
-                {
-                    var symptom = await _unitOfWork.GetRepository<SymptomConfig>().FirstOrDefaultAsync(
-                        predicate: s => s.Id == symptomId
-                    );
-
-                    if (symptom != null)
+                    var existingIncident = await _unitOfWork.GetRepository<SnakebiteIncident>().FirstOrDefaultAsync(
+                            predicate: s => s.Id == incidentId
+                        );
+                    if (existingIncident == null)
                     {
-                        // Add symptom description
-                        if (!string.IsNullOrEmpty(symptom.Description))
-                        {
-                            symptomDescriptions.Add(symptom.Description);
-                        }
+                        throw new NotFoundException("Snakebite incident not found.");
+                    }
 
-                        // Calculate score based on TimeScoreList
-                        var score = CalculateScoreByElapsedTime(symptom.TimeScoreList, elapsedMinutes);
+                    // Calculate elapsed time from incident occurrence
+                    var currentTime = DateTime.UtcNow;
+                    var elapsedMinutes = existingIncident.IncidentOccurredAt.HasValue
+                        ? (int)(currentTime - existingIncident.IncidentOccurredAt.Value).TotalMinutes
+                        : 0;
 
-                        // Categorize by symptom category
-                        if (symptom.Category == SymptomCategory.Core)
+                    // Collect symptom descriptions and calculate severity
+                    var symptomDescriptions = new List<string>();
+                    var coreSymptomScores = new List<int>();
+                    var modifierSymptomScores = new List<int>();
+
+                    foreach (var symptomId in request.SymptomIdList)
+                    {
+                        var symptom = await _unitOfWork.GetRepository<SymptomConfig>().FirstOrDefaultAsync(
+                            predicate: s => s.Id == symptomId
+                        );
+
+                        if (symptom != null)
                         {
-                            coreSymptomScores.Add(score);
-                        }
-                        else if (symptom.Category == SymptomCategory.Modifier)
-                        {
-                            modifierSymptomScores.Add(score);
+                            // Add symptom description
+                            if (!string.IsNullOrEmpty(symptom.Description))
+                            {
+                                symptomDescriptions.Add(symptom.Description);
+                            }
+
+                            // Calculate score based on TimeScoreList
+                            var score = CalculateScoreByElapsedTime(symptom.TimeScoreList, elapsedMinutes);
+
+                            // Categorize by symptom category
+                            if (symptom.Category == SymptomCategory.Core)
+                            {
+                                coreSymptomScores.Add(score);
+                            }
+                            else if (symptom.Category == SymptomCategory.Modifier)
+                            {
+                                modifierSymptomScores.Add(score);
+                            }
                         }
                     }
-                }
 
-                // Calculate severity level
-                // Core: take maximum score
-                var severityLevel = 0;
-                if (coreSymptomScores.Any())
-                {
-                    severityLevel = coreSymptomScores.Max();
-                }
+                    // Calculate severity level
+                    // Core: take maximum score
+                    var severityLevel = 0;
+                    if (coreSymptomScores.Any())
+                    {
+                        severityLevel = coreSymptomScores.Max();
+                    }
 
-                // Modifier: sum all scores
-                if (modifierSymptomScores.Any())
-                {
-                    severityLevel += modifierSymptomScores.Sum();
-                }
+                    // Modifier: sum all scores
+                    if (modifierSymptomScores.Any())
+                    {
+                        severityLevel += modifierSymptomScores.Sum();
+                    }
 
-                if (severityLevel > 100)
-                    severityLevel = 100;
+                    if (severityLevel > 100)
+                        severityLevel = 100;
 
-                // Update symptom report and severity level
-                var jsonOptions = new System.Text.Json.JsonSerializerOptions
-                {
-                    Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
-                    WriteIndented = false
-                };
-                existingIncident.SymptomsReport = System.Text.Json.JsonSerializer.Serialize(symptomDescriptions, jsonOptions);
-                existingIncident.SeverityLevel = severityLevel;
-                _unitOfWork.GetRepository<SnakebiteIncident>().Update(existingIncident);
-                await _unitOfWork.CommitAsync();
+                    // Update symptom report and severity level
+                    var jsonOptions = new System.Text.Json.JsonSerializerOptions
+                    {
+                        Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+                        WriteIndented = false
+                    };
+                    existingIncident.SymptomsReport = System.Text.Json.JsonSerializer.Serialize(symptomDescriptions, jsonOptions);
+                    existingIncident.SeverityLevel = severityLevel;
+                    _unitOfWork.GetRepository<SnakebiteIncident>().Update(existingIncident);
+                    await _unitOfWork.CommitAsync();
 
-                return existingIncident.Adapt<UpdateSymptomReportResponse>();
+                    var responseData = existingIncident.Adapt<UpdateSymptomReportResponse>();
+                    return responseData;
                 });
             }
             catch (Exception ex)
@@ -385,6 +375,132 @@ namespace SnakeAid.Service.Implements
             );
 
             return matchingScore?.Score ?? 0;
+        }
+
+
+        public async Task<TriggerRescueResponse> TriggerRescueAsync(Guid incidentId)
+        {
+            try
+            {
+                // Validate incident exists and is pending
+                var incident = await _unitOfWork.GetRepository<SnakebiteIncident>().FirstOrDefaultAsync(
+                    predicate: i => i.Id == incidentId
+                );
+
+                if (incident == null)
+                {
+                    throw new NotFoundException("Incident not found.");
+                }
+
+                if (incident.Status != SnakebiteIncidentStatus.Pending)
+                {
+                    throw new BadRequestException($"Cannot trigger rescue for incident with status: {incident.Status}");
+                }
+
+                // Note: Actual session creation and broadcast will be handled by RescueRequestSessionService
+                // This method is called from Controller, which should also call RescueRequestSessionService.StartRescueSessionAsync
+
+                return new TriggerRescueResponse
+                {
+                    IncidentId = incidentId,
+                    SessionId = Guid.Empty, // Will be set by session service
+                    SessionNumber = 1,
+                    RadiusKm = 10,
+                    RescuersPinged = 0,
+                    CreatedAt = DateTime.UtcNow,
+                    Message = "Rescue session triggered, broadcasting to nearby rescuers."
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error triggering rescue for incident {IncidentId}: {Message}", incidentId, ex.Message);
+                throw;
+            }
+        }
+
+        /// Handle rescuer accept - delegate to RescueRequestSessionService
+        public async Task<AcceptRescueResponse> AcceptRescueAsync(Guid requestId, Guid rescuerId)
+        {
+            try
+            {
+                // Get request to return info
+                var request = await _unitOfWork.GetRepository<RescuerRequest>().FirstOrDefaultAsync(
+                    predicate: r => r.Id == requestId && r.RescuerId == rescuerId
+                );
+
+                if (request == null)
+                {
+                    throw new NotFoundException("Request not found or not assigned to this rescuer.");
+                }
+
+                // Note: Actual accept logic will be handled by RescueRequestSessionService.AcceptRequestAsync
+                // This is just validation and response building
+
+                return new AcceptRescueResponse
+                {
+                    RequestId = requestId,
+                    IncidentId = request.IncidentId,
+                    RescuerId = rescuerId,
+                    MissionId = Guid.Empty, // Will be set by session service
+                    AcceptedAt = DateTime.UtcNow,
+                    Message = "Request accepted successfully."
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error accepting rescue request {RequestId}: {Message}", requestId, ex.Message);
+                throw;
+            }
+        }
+
+
+        /// Start rescue session for existing incident (tạo session và broadcast qua SignalR)
+        public async Task<TriggerRescueResponse> StartRescueAsync(Guid incidentId)
+        {
+            try
+            {
+                // Validate incident exists and is pending
+                var incident = await _unitOfWork.GetRepository<SnakebiteIncident>().FirstOrDefaultAsync(
+                    predicate: i => i.Id == incidentId
+                );
+
+                if (incident == null)
+                {
+                    throw new NotFoundException("Incident not found.");
+                }
+
+                if (incident.Status != SnakebiteIncidentStatus.Pending)
+                {
+                    throw new BadRequestException($"Cannot start rescue for incident with status: {incident.Status}");
+                }
+
+                // Delegate to session service to create session and broadcast
+                await _sessionService.StartRescueSessionAsync(incidentId);
+
+                // Get updated incident info
+                var updatedIncident = await _unitOfWork.GetRepository<SnakebiteIncident>().FirstOrDefaultAsync(
+                    predicate: i => i.Id == incidentId,
+                    include: q => q.Include(i => i.Sessions.OrderByDescending(s => s.SessionNumber).Take(1))
+                );
+
+                var latestSession = updatedIncident?.Sessions?.FirstOrDefault();
+
+                return new TriggerRescueResponse
+                {
+                    IncidentId = incidentId,
+                    SessionId = latestSession?.Id ?? Guid.Empty,
+                    SessionNumber = latestSession?.SessionNumber ?? 1,
+                    RadiusKm = latestSession?.RadiusKm ?? 10,
+                    RescuersPinged = latestSession?.RescuersPinged ?? 0,
+                    CreatedAt = DateTime.UtcNow,
+                    Message = "Rescue session started, broadcasting to nearby rescuers."
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error starting rescue for incident {IncidentId}: {Message}", incidentId, ex.Message);
+                throw;
+            }
         }
     }
 }

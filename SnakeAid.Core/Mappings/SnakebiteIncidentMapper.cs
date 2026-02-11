@@ -1,5 +1,7 @@
 ﻿using Mapster;
+using NetTopologySuite.Geometries;
 using SnakeAid.Core.Domains;
+using SnakeAid.Core.Responses;
 using SnakeAid.Core.Responses.SnakebiteIncident;
 using System;
 using System.Collections.Generic;
@@ -13,9 +15,18 @@ namespace SnakeAid.Core.Mappings
     {
         public void Register(TypeAdapterConfig config)
         {
-            TypeAdapterConfig<SnakebiteIncident, CreateIncidentResponse>
-                .NewConfig()
+            // Map Point → GeoPointResponse
+            config.NewConfig<Point, GeoPointResponse>()
+                .Map(dest => dest.Latitude, src => src.Y)
+                .Map(dest => dest.Longitude, src => src.X);
+
+            // Map Incident → Response
+            config.NewConfig<SnakebiteIncident, CreateIncidentResponse>()
                 .Map(dest => dest.LocationCoordinates, src => src.LocationCoordinates);
+
+            config.NewConfig<SnakebiteIncident, DetailSnakebiteIncidentResponse>()
+                .Map(dest => dest.RescueMission, src =>
+                    src.Missions.OrderByDescending(m => m.CreatedAt).FirstOrDefault());
         }
     }
 }

@@ -28,8 +28,8 @@ namespace SnakeAid.Repository.Data.Configurations
             builder.HasIndex(m => m.RescuerId)
                 .HasDatabaseName("IX_RescueMissions_RescuerId");
 
+            // Not unique anymore - an incident can have multiple missions (due to abort/retry)
             builder.HasIndex(m => m.IncidentId)
-                .IsUnique()
                 .HasDatabaseName("IX_RescueMissions_IncidentId");
         }
     }
