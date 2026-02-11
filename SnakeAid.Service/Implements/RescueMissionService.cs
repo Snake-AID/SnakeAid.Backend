@@ -69,9 +69,9 @@ namespace SnakeAid.Service.Implements
 
                     // Check for active missions only (allow multiple missions per incident for retry scenarios)
                     var existingActiveMission = await _unitOfWork.GetRepository<RescueMission>().FirstOrDefaultAsync(
-                        predicate: m => m.IncidentId == incidentId && 
-                            (m.Status == RescueMissionStatus.Preparing || 
-                             m.Status == RescueMissionStatus.EnRoute || 
+                        predicate: m => m.IncidentId == incidentId &&
+                            (m.Status == RescueMissionStatus.Preparing ||
+                             m.Status == RescueMissionStatus.EnRoute ||
                              m.Status == RescueMissionStatus.RescuerArrived)
                     );
 

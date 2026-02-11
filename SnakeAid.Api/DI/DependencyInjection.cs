@@ -13,12 +13,54 @@ using SnakeAid.Service.Interfaces;
 using System.Security.Claims;
 using System.Text;
 
+using Serilog;
+using Doppler.Extensions.Configuration; // Ensure this is available
+
 namespace SnakeAid.Api.DI;
 
 public static class DependencyInjection
 {
     #region service he thong
 
+    #region Doppler
+    public static WebApplicationBuilder AddConfigurationFromDopplerCloud(this WebApplicationBuilder builder)
+    {
+        // 1. Load Doppler Token (Process -> User)
+        var token = Environment.GetEnvironmentVariable("DOPPLER_TOKEN");
+
+        if (string.IsNullOrEmpty(token))
+        {
+            token = Environment.GetEnvironmentVariable("DOPPLER_TOKEN", EnvironmentVariableTarget.User);
+            if (!string.IsNullOrEmpty(token))
+            {
+                // Propagate User token and other User env vars to Process
+                Environment.SetEnvironmentVariable("DOPPLER_TOKEN", token, EnvironmentVariableTarget.Process);
+                foreach (System.Collections.DictionaryEntry userEnvVar in Environment.GetEnvironmentVariables(EnvironmentVariableTarget.User))
+                {
+                    if (userEnvVar.Key is string key && userEnvVar.Value is string value && key != "DOPPLER_TOKEN")
+                    {
+                        Environment.SetEnvironmentVariable(key, value, EnvironmentVariableTarget.Process);
+                    }
+                }
+            }
+        }
+
+        // 2. Register and Log results
+        if (!string.IsNullOrEmpty(token))
+        {
+            builder.Configuration.AddDoppler(token);
+            Serilog.Log.Information("🚀 Configuration: Doppler Cloud (ENABLED)");
+        }
+        else
+        {
+            Serilog.Log.Information("ℹ️ Configuration: Local Settings (AppSettings.json & Env Vars)");
+        }
+
+        return builder;
+    }
+    #endregion
+
+    #region Services
     public static IServiceCollection AddServices(this IServiceCollection services, IConfiguration configuration)
     {
         var cloudinarySection = configuration.GetSection("Cloudinary");
@@ -77,6 +119,8 @@ public static class DependencyInjection
             .HandleTransientHttpError()
             .CircuitBreakerAsync(5, TimeSpan.FromSeconds(30));
     }
+
+    #endregion
 
     #endregion
 

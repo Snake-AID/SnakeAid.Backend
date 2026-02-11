@@ -12,7 +12,7 @@ namespace SnakeAid.Repository.Data.Configurations
 
             // Relationship: Detail -> SnakeCatchingRequest
             builder.HasOne(d => d.SnakeCatchingRequest)
-                .WithMany()
+                .WithMany(sr => sr.Details)
                 .HasForeignKey(d => d.SnakeCatchingRequestId)
                 .OnDelete(DeleteBehavior.Cascade);
 

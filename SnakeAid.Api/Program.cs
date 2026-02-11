@@ -18,6 +18,7 @@ using SnakeAid.Repository.Seeds;
 using SQLitePCL;
 using Swashbuckle.AspNetCore.SwaggerUI;
 using System.Text.Json.Serialization;
+using Doppler.Extensions.Configuration;
 using SnakeAid.Service.Interfaces;
 
 namespace SnakeAid.Api
@@ -34,6 +35,8 @@ namespace SnakeAid.Api
             try
             {
                 var builder = WebApplication.CreateBuilder(args);
+
+                builder.AddConfigurationFromDopplerCloud();
 
                 Batteries_V2.Init();
 
@@ -158,6 +161,9 @@ namespace SnakeAid.Api
                 {
                     options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
                     options.JsonSerializerOptions.Converters.Add(new SnakeAid.Core.Converters.PointJsonConverter());
+
+                    // Handle circular references in JSON serialization
+                    options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
                 });
 
                 builder.Services.AddControllers();
