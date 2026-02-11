@@ -2,6 +2,7 @@
 using SnakeAid.Core.Domains;
 using SnakeAid.Core.Responses.Media;
 using SnakeAid.Core.Responses.MemberProfile;
+using SnakeAid.Core.Responses.RescueMission;
 using SnakeAid.Core.Responses.RescueRequestSession;
 using SnakeAid.Core.Responses.RescuerProfile;
 using System;

@@ -7,7 +7,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace SnakeAid.Core.Responses
+namespace SnakeAid.Core.Responses.RescueMission
 {
     public class CreateRescueMissionResponse
     {
