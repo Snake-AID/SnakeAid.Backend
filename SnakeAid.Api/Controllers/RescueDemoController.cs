@@ -533,10 +533,16 @@ namespace SnakeAid.Api.Controllers
                     })
                     .ToListAsync();
 
-                // Query mission if exists
+                // Query ACTIVE mission only (exclude aborted/cancelled/completed)
+                var activeMissionStatuses = new[] {
+                    RescueMissionStatus.Preparing,
+                    RescueMissionStatus.EnRoute,
+                    RescueMissionStatus.RescuerArrived
+                };
                 var mission = await _unitOfWork.GetRepository<RescueMission>()
                     .CreateBaseQuery()
-                    .Where(m => m.IncidentId == _currentDemoIncidentId.Value)
+                    .Where(m => m.IncidentId == _currentDemoIncidentId.Value && activeMissionStatuses.Contains(m.Status))
+                    .OrderByDescending(m => m.CreatedAt)
                     .Select(m => new
                     {
                         m.Id,
