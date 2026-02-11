@@ -193,5 +193,113 @@ namespace SnakeAid.Service.Implements
                 _ => "application/octet-stream"
             };
         }
+
+        public async Task<CreateSnakeCatchingRequestResponse> AcceptSnakeCatchingRequestAsync(
+            Guid rescuerId,
+            Guid requestId)
+        {
+            try
+            {
+                return await _unitOfWork.ExecuteInTransactionAsync(async () =>
+                {
+                    // Validate rescuer exists and has rescuer profile
+                    var existingAccount = await _unitOfWork.GetRepository<Account>().FirstOrDefaultAsync(
+                        predicate: a => a.Id == rescuerId,
+                        include: r => r.Include(i => i.RescuerProfile)
+                    );
+
+                    if (existingAccount == null)
+                    {
+                        throw new NotFoundException("Account not found.");
+                    }
+
+                    if (existingAccount.RescuerProfile == null)
+                    {
+                        throw new BadRequestException("Rescuer profile not found. Only rescuers can accept requests.");
+                    }
+
+                    // Check if rescuer is online
+                    if (!existingAccount.RescuerProfile.IsOnline)
+                    {
+                        throw new BadRequestException("Rescuer must be online to accept requests.");
+                    }
+
+                    // Get the snake catching request
+                    var request = await _unitOfWork.GetRepository<SnakeCatchingRequest>().FirstOrDefaultAsync(
+                        predicate: r => r.Id == requestId,
+                        include: query => query
+                            .Include(r => r.User)
+                            .Include(r => r.Media)
+                    );
+
+                    if (request == null)
+                    {
+                        throw new NotFoundException("Snake catching request not found.");
+                    }
+
+                    // Validate request status
+                    if (request.Status != RequestStatus.Pending)
+                    {
+                        throw new BadRequestException($"Request cannot be accepted. Current status: {request.Status}");
+                    }
+
+                    // Check if request is already assigned
+                    if (request.AssignedRescuerId.HasValue)
+                    {
+                        throw new BadRequestException("This request has already been assigned to another rescuer.");
+                    }
+
+                    // Update the request
+                    request.AssignedRescuerId = rescuerId;
+                    request.AssignedAt = DateTime.UtcNow;
+                    request.Status = RequestStatus.Assigned;
+
+                    _unitOfWork.GetRepository<SnakeCatchingRequest>().Update(request);
+
+                    // Create a new mission for this request
+                    var newMission = new SnakeCatchingMission
+                    {
+                        Id = Guid.NewGuid(),
+                        RescuerId = rescuerId,
+                        SnakeCatchingRequestId = requestId,
+                        Status = CatchingMissionStatus.Preparing,
+                        Price = request.EstimatedPrice ?? 0, // Use estimated price or 0
+                        EstimatedCost = request.EstimatedPrice
+                    };
+
+                    await _unitOfWork.GetRepository<SnakeCatchingMission>().InsertAsync(newMission);
+                    await _unitOfWork.CommitAsync();
+
+                    // Reload the request with all navigation properties for response
+                    var updatedRequest = await _unitOfWork.GetRepository<SnakeCatchingRequest>().FirstOrDefaultAsync(
+                        predicate: r => r.Id == requestId,
+                        include: query => query
+                            .Include(r => r.User)
+                            .Include(r => r.AssignedRescuer)
+                                .ThenInclude(ar => ar.Account)
+                            .Include(r => r.Media)
+                            .Include(r => r.Mission)
+                    );
+
+                    if (updatedRequest == null)
+                    {
+                        throw new Exception("Failed to retrieve updated request.");
+                    }
+
+                    var response = updatedRequest.Adapt<CreateSnakeCatchingRequestResponse>();
+
+                    _logger.LogInformation(
+                        "Snake catching request accepted successfully. RequestId: {RequestId}, RescuerId: {RescuerId}",
+                        requestId, rescuerId);
+
+                    return response;
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error accepting snake catching request: {Message}", ex.Message);
+                throw;
+            }
+        }
     }
 }

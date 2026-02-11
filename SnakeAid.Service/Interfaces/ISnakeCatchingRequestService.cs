@@ -11,5 +11,7 @@ namespace SnakeAid.Service.Interfaces
     public interface ISnakeCatchingRequestService
     {
         Task<CreateSnakeCatchingRequestResponse> CreateSnakeCatchingRequestAsync(Guid userId, CreateSnakeCatchingRequestRequest request);
+
+        Task<CreateSnakeCatchingRequestResponse> AcceptSnakeCatchingRequestAsync(Guid rescuerId, Guid requestId);
     }
 }

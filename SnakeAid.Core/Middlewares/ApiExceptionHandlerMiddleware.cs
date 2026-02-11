@@ -203,11 +203,19 @@ public class ApiExceptionHandlerMiddleware
             _logger.LogDebug("Development error details: {@DevDetails}", devDetails);
         }
 
+        // Check if response has already started before modifying headers
+        if (context.Response.HasStarted)
+        {
+            _logger.LogWarning(
+                "Response has already started (Status: {StatusCode}). Cannot send error response for ErrorId: {ErrorId}",
+                context.Response.StatusCode,
+                errorId);
+            return;
+        }
+
         context.Response.ContentType = "application/json";
         context.Response.StatusCode = statusCode;
-
-        if (!context.Response.HasStarted)
-            await context.Response.WriteAsJsonAsync(apiResponse);
+        await context.Response.WriteAsJsonAsync(apiResponse);
     }
 }
 
