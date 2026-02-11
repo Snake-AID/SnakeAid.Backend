@@ -178,11 +178,19 @@ namespace SnakeAid.Service.Implements
                         mission.Notes = request.Notes;
                     }
 
-                    // Update SnakeCatchingRequest to Finished
-                    mission.SnakeCatchingRequest.Status = RequestStatus.Finished;
-
+                    // Update mission first
                     _unitOfWork.GetRepository<SnakeCatchingMission>().Update(mission);
-                    _unitOfWork.GetRepository<SnakeCatchingRequest>().Update(mission.SnakeCatchingRequest);
+
+                    // Update SnakeCatchingRequest to Finished
+                    var catchingRequest = await _unitOfWork.GetRepository<SnakeCatchingRequest>()
+                        .FirstOrDefaultAsync(predicate: r => r.Id == mission.SnakeCatchingRequestId);
+                    
+                    if (catchingRequest != null)
+                    {
+                        catchingRequest.Status = RequestStatus.Finished;
+                        _unitOfWork.GetRepository<SnakeCatchingRequest>().Update(catchingRequest);
+                    }
+
                     await _unitOfWork.CommitAsync();
 
                     _logger.LogInformation(

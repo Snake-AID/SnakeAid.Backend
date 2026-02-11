@@ -13,7 +13,7 @@ using System.Threading.Tasks;
 
 namespace SnakeAid.Api.Controllers
 {
-    [Route("api/snake-catching-missions")]
+    [Route("api/snakecatching/missions")]
     [ApiController]
     [Authorize]
     public class SnakeCatchingMissionController : BaseController<SnakeCatchingMissionController>
@@ -87,7 +87,7 @@ Requirements:
 When completed successfully:
 - Mission status is updated to MissionCompleted
 - CompletedAt timestamp is set
-- SnakeCatchingRequest status is automatically updated to Finished
+- SnakeCatchingRequest status is automatically updated to Completed
 - Response includes list of catching mission details (snake species and quantities) if available")]
         [SwaggerResponse(200, "Mission completed successfully", typeof(ApiResponse<SnakeCatchingMissionDetailResponse>))]
         [SwaggerResponse(400, "Invalid status transition or missing evidence media")]
@@ -101,7 +101,7 @@ When completed successfully:
             var result = await _missionService.CompleteMissionAsync(rescuerId, missionId, request);
             return Ok(ApiResponseBuilder.BuildSuccessResponse(
                 result,
-                "Mission completed successfully! Request marked as finished."));
+                "Mission completed successfully! Request marked as completed."));
         }
     }
 }

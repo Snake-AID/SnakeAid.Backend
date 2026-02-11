@@ -10,7 +10,7 @@ using Swashbuckle.AspNetCore.Annotations;
 
 namespace SnakeAid.Api.Controllers
 {
-    [Route("api/snake-catching")]
+    [Route("api/snakecatching/requests")]
     [ApiController]
     [Authorize]
     public class SnakeCatchingRequestController : BaseController<SnakeCatchingRequestController>
@@ -25,6 +25,25 @@ namespace SnakeAid.Api.Controllers
             : base(logger, httpContextAccessor, mapper)
         {
             _snakeCatchingRequestService = snakeCatchingRequestService;
+        }
+
+        /// <summary>
+        /// Get all snake catching requests
+        /// </summary>
+        [HttpGet]
+        [SwaggerOperation(
+            Summary = "Get All Snake Catching Requests",
+            Description = "Retrieve all snake catching requests with user information, media, and snake species details. Results are ordered by request date (newest first)")]
+        [SwaggerResponse(200, "Requests retrieved successfully", typeof(ApiResponse<List<ListSnakeCatchingRequestResponse>>))]
+        [SwaggerResponse(401, "User not authenticated")]
+        [ProducesResponseType(typeof(ApiResponse<List<ListSnakeCatchingRequestResponse>>), StatusCodes.Status200OK)]
+        public async Task<IActionResult> GetAllSnakeCatchingRequests()
+        {
+            var result = await _snakeCatchingRequestService.GetAllRequestAsync();
+            
+            return Ok(ApiResponseBuilder.BuildSuccessResponse(
+                result,
+                $"Retrieved {result.Count} snake catching request(s) successfully."));
         }
 
         /// <summary>
