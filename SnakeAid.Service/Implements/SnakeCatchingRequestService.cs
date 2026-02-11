@@ -370,5 +370,35 @@ namespace SnakeAid.Service.Implements
                 throw;
             }
         }
+
+        public async Task<List<ListSnakeCatchingRequestResponse>> GetAllRequestAsync()
+        {
+            try
+            {
+                // Get all snake catching requests with related data
+                var requests = await _unitOfWork.GetRepository<SnakeCatchingRequest>().GetListAsync(
+                    include: query => query
+                        .Include(r => r.User)
+                            .ThenInclude(u => u.Account)
+                        .Include(r => r.Media)
+                        .Include(r => r.Details)
+                            .ThenInclude(d => d.SnakeSpecies),
+                    orderBy: q => q.OrderByDescending(r => r.RequestDate)
+                );
+
+                var response = requests.Adapt<List<ListSnakeCatchingRequestResponse>>();
+
+                _logger.LogInformation(
+                    "Retrieved {Count} snake catching requests successfully.",
+                    response.Count);
+
+                return response;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting all snake catching requests: {Message}", ex.Message);
+                throw;
+            }
+        }
     }
 }
