@@ -125,7 +125,7 @@ public class SnakeAIService : ISnakeAIService
                                 species.FirstAidGuidelineOverride = new FirstAidOverride
                                 {
                                     Mode = OverrideMode.Append, // Append mode (0)
-                                    Steps = venomWithGuide.FirstAidGuideline.Content?.Steps?.Select(s => s.Text).ToList() ?? new List<string>()
+                                    Content = venomWithGuide.FirstAidGuideline.Content ?? new FirstAidContent()
                                 };
                             }
                         }
@@ -335,7 +335,7 @@ public class SnakeAIService : ISnakeAIService
                     species.FirstAidGuidelineOverride = new FirstAidOverride
                     {
                         Mode = OverrideMode.Append,
-                        Steps = venomWithGuide.FirstAidGuideline.Content?.Steps?.Select(s => s.Text).ToList() ?? new List<string>()
+                        Content = venomWithGuide.FirstAidGuideline.Content ?? new FirstAidContent()
                     };
                 }
             }

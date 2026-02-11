@@ -18,15 +18,18 @@ namespace SnakeAid.Api.Controllers
     public class SnakebiteIncidentController : BaseController<SnakebiteIncidentController>
     {
         private readonly ISnakebiteIncidentService _incidentService;
+        private readonly IRescueRequestSessionService _sessionService;
 
         public SnakebiteIncidentController(
             ILogger<SnakebiteIncidentController> logger,
             IHttpContextAccessor httpContextAccessor,
             IMapper mapper,
-            ISnakebiteIncidentService incidentService)
+            ISnakebiteIncidentService incidentService,
+            IRescueRequestSessionService sessionService)
             : base(logger, httpContextAccessor, mapper)
         {
             _incidentService = incidentService;
+            _sessionService = sessionService;
         }
 
         /// <summary>
@@ -41,9 +44,21 @@ namespace SnakeAid.Api.Controllers
         {
             var userId = GetCurrentUserId();
 
-            // Create incident and first rescue request session
+            // Step 1: Create incident first
             var result = await _incidentService.CreateIncidentAsync(request, userId);
-            return Ok(ApiResponseBuilder.BuildSuccessResponse(result, "Snakebite Incident created successfully!"));
+
+            // Step 2: Start rescue session and broadcast to rescuers
+            var rescueResult = await _incidentService.StartRescueAsync(result.Id);
+
+            // Combine response data
+            result.SessionId = rescueResult.SessionId;
+            result.SessionNumber = rescueResult.SessionNumber;
+            result.RadiusKm = rescueResult.RadiusKm;
+            result.RescuersPinged = rescueResult.RescuersPinged;
+
+            var response = ApiResponseBuilder.BuildSuccessResponse(result,
+                "Snakebite Incident created and rescue session started! Broadcasting to nearby rescuers.");
+            return StatusCode(response.StatusCode, response);
         }
 
         /// <summary>
@@ -66,7 +81,7 @@ namespace SnakeAid.Api.Controllers
         /// </summary>
         [HttpGet("{incidentId}")]
         [SwaggerOperation(Summary = "Get Incident Detail", Description = "Retrieve detailed information about a snakebite incident including user, rescuer, sessions, and media")]
-        [SwaggerResponse(200, "Incident details retrieved successfully", typeof(ApiResponse<DetailSnakebiteIncidentReposne>))]
+        [SwaggerResponse(200, "Incident details retrieved successfully", typeof(ApiResponse<DetailSnakebiteIncidentResponse>))]
         [SwaggerResponse(404, "Incident not found")]
         public async Task<IActionResult> GetIncidentDetail(Guid incidentId)
         {
@@ -86,6 +101,17 @@ namespace SnakeAid.Api.Controllers
         {
             var result = await _incidentService.UpdateSymptomReportAsync(incidentId, request);
             return Ok(ApiResponseBuilder.BuildSuccessResponse(result, "Symptom report updated successfully!"));
+        }
+
+        [HttpPut("{incidentId}/cancel")]
+        [SwaggerOperation(Summary = "Cancel Incident", Description = "Cancel a snakebite incident if it is in Pending or Assigned status")]
+        [SwaggerResponse(200, "Incident cancelled successfully", typeof(ApiResponse<CreateIncidentResponse>))]
+        [SwaggerResponse(404, "Incident not found")]
+        [SwaggerResponse(422, "Validation error")]
+        public async Task<IActionResult> CancelIncident(Guid incidentId)
+        {
+            var result = await _incidentService.CancelIncidentAsync(incidentId);
+            return Ok(ApiResponseBuilder.BuildSuccessResponse(result, "Incident cancelled successfully!"));
         }
     }
 }
