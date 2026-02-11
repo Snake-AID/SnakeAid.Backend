@@ -10,7 +10,7 @@ using Swashbuckle.AspNetCore.Annotations;
 
 namespace SnakeAid.Api.Controllers
 {
-    [Route("api/snake-catching")]
+    [Route("api/snakecatching/requests")]
     [ApiController]
     [Authorize]
     public class SnakeCatchingRequestController : BaseController<SnakeCatchingRequestController>
