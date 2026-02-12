@@ -14,6 +14,7 @@
     <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" />
     <PackageReference Include="MimeKit" />
     <PackageReference Include="NETCore.MailKit" />
+    <PackageReference Include="payOS" />
     <PackageReference Include="PreMailer.Net" />
     <PackageReference Include="RazorLight" />
     <PackageReference Include="Refit" />

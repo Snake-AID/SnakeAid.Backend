@@ -89,6 +89,10 @@ namespace SnakeAid.Api
 
                 // Add IUnitOfWork and UnitOfWork
                 builder.Services.AddScoped<SnakeAid.Repository.Interfaces.IUnitOfWork<SnakeAidDbContext>, SnakeAid.Repository.Implements.UnitOfWork<SnakeAidDbContext>>();
+                
+                // Also register base IUnitOfWork interface for services that don't need generic version
+                builder.Services.AddScoped<SnakeAid.Repository.Interfaces.IUnitOfWork>(provider =>
+                    provider.GetRequiredService<SnakeAid.Repository.Interfaces.IUnitOfWork<SnakeAidDbContext>>());
 
                 // Register Mapster
                 var config = TypeAdapterConfig.GlobalSettings;
@@ -98,6 +102,13 @@ namespace SnakeAid.Api
 
                 // Register OtpUtil
                 builder.Services.AddScoped<SnakeAid.Core.Utils.OtpUtil>();
+
+                // Configure PayOS options
+                builder.Services.Configure<SnakeAid.Core.Settings.PayOsOptions>(
+                    builder.Configuration.GetSection("PayOS"));
+
+                // Register PayOS Client
+                builder.Services.AddScoped<SnakeAid.Service.Interfaces.IPayOsClient, SnakeAid.Service.Services.PayOs.PayOsClient>();
 
                 // Register Email services
                 builder.Services.AddHttpClient(); // For ResendEmailSender
@@ -206,15 +217,15 @@ namespace SnakeAid.Api
                 // Bind Kestrel to all network interfaces
                 builder.WebHost.ConfigureKestrel((context, options) =>
                 {
-                    // Always listen on port 8080 (HTTP)
+                    // Always listen on port 5000 (HTTP)
                     // This creates consistency across Local, Docker, and Production environments
-                    options.ListenAnyIP(8080);
+                    options.ListenAnyIP(5000);
 
-                    // For Local Development, also listen on port 8081 (HTTPS)
+                    // For Local Development, also listen on port 5001 (HTTPS)
                     // This allows debugging secure features (Cookies, OAuth, etc.) locally
                     if (context.HostingEnvironment.IsDevelopment())
                     {
-                        options.ListenLocalhost(8081, listenOptions => listenOptions.UseHttps());
+                        options.ListenLocalhost(5001, listenOptions => listenOptions.UseHttps());
                     }
                 });
 
