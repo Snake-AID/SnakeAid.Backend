@@ -217,15 +217,15 @@ namespace SnakeAid.Api
                 // Bind Kestrel to all network interfaces
                 builder.WebHost.ConfigureKestrel((context, options) =>
                 {
-                    // Always listen on port 5000 (HTTP)
+                    // Always listen on port 8080 (HTTP)
                     // This creates consistency across Local, Docker, and Production environments
-                    options.ListenAnyIP(5000);
+                    options.ListenAnyIP(8080);
 
-                    // For Local Development, also listen on port 5001 (HTTPS)
+                    // For Local Development, also listen on port 8081 (HTTPS)
                     // This allows debugging secure features (Cookies, OAuth, etc.) locally
                     if (context.HostingEnvironment.IsDevelopment())
                     {
-                        options.ListenLocalhost(5001, listenOptions => listenOptions.UseHttps());
+                        options.ListenLocalhost(8081, listenOptions => listenOptions.UseHttps());
                     }
                 });
 
