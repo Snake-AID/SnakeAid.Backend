@@ -14,8 +14,7 @@ ENV DOTNET_ROOT=/usr/share/dotnet
 ENV PATH="$PATH:/home/vscode/.dotnet/tools"
 
 # Install commonly useful dotnet global tools for development
-RUN dotnet tool install --global dotnet-ef || true \
-    && dotnet tool install --global dotnet-watch || true
+RUN dotnet tool install --global dotnet-ef
 
 # Default workdir (VS Code will override with workspaceFolder)
 WORKDIR /workspace
