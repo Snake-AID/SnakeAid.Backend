@@ -1,0 +1,99 @@
+{
+  "name": "SnakeAid (.NET 8)",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "context": ".."
+  },
+
+  "features": {},
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "aaron-bond.better-comments",
+        "adrianwilczynski.add-reference",
+        "adrianwilczynski.asp-net-core-switcher",
+        "adrianwilczynski.blazor-snippet-pack",
+        "adrianwilczynski.csharp-to-typescript",
+        "adrianwilczynski.libman",
+        "adrianwilczynski.namespace",
+        "adrianwilczynski.terminal-commands",
+        "adrianwilczynski.toggle-hidden",
+        "adrianwilczynski.user-secrets",
+        "alexcvzz.vscode-sqlite",
+        "bpruitt-goddard.mermaid-markdown-syntax-highlighting",
+        "christian-kohler.path-intellisense",
+        "codezombiech.gitignore",
+        "dbcode.dbcode",
+        "dbdiagram.dbdiagram-vscode",
+        "docker.docker",
+        "doggy8088.netcore-editorconfiggenerator",
+        "doggy8088.netcore-extension-pack",
+        "doggy8088.netcore-snippets",
+        "doggy8088.quicktype-refresh",
+        "drblury.protobuf-vsc",
+        "dunstontc.dark-plus-syntax",
+        "eamodio.gitlens",
+        "ecmel.vscode-html-css",
+        "editorconfig.editorconfig",
+        "enkia.tokyo-night",
+        "esbenp.prettier-vscode",
+        "fernandoescolar.vscode-solution-explorer",
+        "formulahendry.docker-explorer",
+        "formulahendry.docker-extension-pack",
+        "formulahendry.dotnet",
+        "github.copilot-chat",
+        "github.remotehub",
+        "github.vscode-github-actions",
+        "github.vscode-pull-request-github",
+        "haknkayaa.json-visualizer",
+        "hediet.vscode-drawio",
+        "humao.rest-client",
+        "jebbs.plantuml",
+        "jmrog.vscode-nuget-package-manager",
+        "k--kato.docomment",
+        "kreativ-software.csharpextensions",
+        "matt-meyers.vscode-dbml",
+        "mechatroner.rainbow-csv",
+        "mnismt.overwrite",
+        "ms-azuretools.vscode-containers",
+        "ms-azuretools.vscode-docker",
+        "ms-dotnettools.csdevkit",
+        "ms-dotnettools.csharp",
+        "ms-dotnettools.vscode-dotnet-modernize",
+        "ms-dotnettools.vscode-dotnet-runtime",
+
+        "ms-vscode.azure-repos",
+        "ms-vscode.powershell",
+
+        "ms-vsliveshare.vsliveshare",
+        "openai.chatgpt",
+        "patcx.vscode-nuget-gallery",
+        "pflannery.vscode-versionlens",
+        "pkief.material-icon-theme",
+        "qwtel.sqlite-viewer",
+        "rangav.vscode-thunder-client",
+        "redhat.vscode-xml",
+        "shd101wyy.markdown-preview-enhanced",
+        "ssmi.after-dark",
+        "upstash.context7-mcp",
+        "usernamehw.errorlens",
+        "wayou.vscode-todo-highlight",
+        "xabikos.javascriptsnippets"
+      ],
+      "settings": {
+        "terminal.integrated.defaultProfile.linux": "bash",
+        "dotnet.defaultSolution": "SnakeAid.Backend.sln"
+      }
+    }
+  },
+
+  "postCreateCommand": "git config --global --add safe.directory /workspaces/SnakeAid.Backend && dotnet restore SnakeAid.Backend.sln && dotnet build SnakeAid.Backend.sln --no-restore",
+  "postStartCommand": "echo 'Dev container ready'",
+  "forwardPorts": [
+    8080,
+    8081
+  ],
+  "remoteUser": "vscode",
+  "workspaceFolder": "/workspaces/SnakeAid.Backend",
+  "shutdownAction": "stopContainer"
+}
