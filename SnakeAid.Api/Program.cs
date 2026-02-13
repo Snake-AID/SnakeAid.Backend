@@ -89,6 +89,10 @@ namespace SnakeAid.Api
 
                 // Add IUnitOfWork and UnitOfWork
                 builder.Services.AddScoped<SnakeAid.Repository.Interfaces.IUnitOfWork<SnakeAidDbContext>, SnakeAid.Repository.Implements.UnitOfWork<SnakeAidDbContext>>();
+                
+                // Also register base IUnitOfWork interface for services that don't need generic version
+                builder.Services.AddScoped<SnakeAid.Repository.Interfaces.IUnitOfWork>(provider =>
+                    provider.GetRequiredService<SnakeAid.Repository.Interfaces.IUnitOfWork<SnakeAidDbContext>>());
 
                 // Register Mapster
                 var config = TypeAdapterConfig.GlobalSettings;
@@ -98,6 +102,13 @@ namespace SnakeAid.Api
 
                 // Register OtpUtil
                 builder.Services.AddScoped<SnakeAid.Core.Utils.OtpUtil>();
+
+                // Configure PayOS options
+                builder.Services.Configure<SnakeAid.Core.Settings.PayOsOptions>(
+                    builder.Configuration.GetSection("PayOS"));
+
+                // Register PayOS Client
+                builder.Services.AddScoped<SnakeAid.Service.Interfaces.IPayOsClient, SnakeAid.Service.Services.PayOs.PayOsClient>();
 
                 // Register Email services
                 builder.Services.AddHttpClient(); // For ResendEmailSender
