@@ -18,6 +18,7 @@ namespace SnakeAid.Api.Hubs
         private readonly IRescueRequestSessionService _sessionService;
         private readonly IUnitOfWork<SnakeAidDbContext> _unitOfWork;
         private readonly ILogger<RescuerHub> _logger;
+        private readonly IRescuerLocationService _rescuerLocationService;
 
         // Static dictionary để track connected rescuers: userId -> connectionId
         public static ConcurrentDictionary<string, string> ConnectedRescuers => SignalRRescueNotificationService.ConnectedRescuers;
@@ -25,11 +26,13 @@ namespace SnakeAid.Api.Hubs
         public RescuerHub(
             IRescueRequestSessionService sessionService,
             IUnitOfWork<SnakeAidDbContext> unitOfWork,
-            ILogger<RescuerHub> logger)
+            ILogger<RescuerHub> logger,
+            IRescuerLocationService rescuerLocationService)
         {
             _sessionService = sessionService;
             _unitOfWork = unitOfWork;
             _logger = logger;
+            _rescuerLocationService = rescuerLocationService;
         }
 
         /// <summary>
@@ -112,7 +115,20 @@ namespace SnakeAid.Api.Hubs
 
         public async Task UpdateLocation(string userId, double latitude, double longitude)
         {
+            // Update location in DB via service (LT-1)
+            if (Guid.TryParse(userId, out var rescuerGuid))
+            {
+                await _rescuerLocationService.UpdateLocationAsync(rescuerGuid, latitude, longitude, null, null, null);
+            }
+            else
+            {
+                _logger.LogWarning("Invalid GUID format for userId: {UserId}", userId);
+            }
+
             _logger.LogInformation("Rescuer {UserId} updated location: {Lat}, {Lng}", userId, latitude, longitude);
+            
+            // Echo back to client (legacy behavior)
+            // TODO: In LT-2, this might be replaced by session group broadcast
             await Clients.Caller.SendAsync("LocationUpdated", new
             {
                 UserId = userId,
