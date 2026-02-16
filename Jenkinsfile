@@ -113,7 +113,7 @@ pipeline {
             steps { checkout scm }
         }
 
-        stage('Build Check (PR -> dev)') {
+        stage('Build Check (PR to dev)') {
             when {
                 expression { env.CHANGE_ID != null && env.CHANGE_TARGET == 'dev' }
             }
@@ -134,6 +134,22 @@ pipeline {
             steps {
                 script {
                     dockerBuildAndPush('dev')
+                }
+            }
+        }
+
+        stage('Deploy Dev') {
+            when {
+                allOf {
+                    branch 'dev'
+                    not { changeRequest() }
+                }
+            }
+            steps {
+                withCredentials([
+                    string(credentialsId: 'portainer-snakeaid-dev-webhook', variable: 'PORTAINER_WEBHOOK')
+                ]) {
+                    sh 'curl -fsS -X POST "$PORTAINER_WEBHOOK"'
                 }
             }
         }
@@ -163,7 +179,7 @@ pipeline {
             }
         }
 
-        stage('Deploy (Portainer Webhook)') {
+        stage('Deploy Latest') {
             when {
                 allOf {
                     branch 'main'
