@@ -22,10 +22,10 @@ namespace SnakeAid.Core.Responses.SnakebiteIncident
 
         public Guid UserId { get; set; }  // FK to MemberProfile
 
-        [Column(TypeName = "geometry(Point, 4326)")]
-        public Point LocationCoordinates { get; set; }
 
-        [Column(TypeName = "jsonb")]
+        public GeoPointResponse LocationCoordinates { get; set; }
+
+
         public string? SymptomsReport { get; set; }
 
         public SnakebiteIncidentStatus Status { get; set; } = SnakebiteIncidentStatus.Pending;
@@ -33,7 +33,6 @@ namespace SnakeAid.Core.Responses.SnakebiteIncident
         // Session ping info
         public int CurrentSessionNumber { get; set; } = 0;   // Track session hiện tại
 
-        [Range(1, 50)]
         public int CurrentRadiusKm { get; set; } = 5;        // Radius hiện tại
 
         public DateTime? LastSessionAt { get; set; }         // Tránh spam sessions
