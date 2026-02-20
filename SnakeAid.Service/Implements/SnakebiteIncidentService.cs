@@ -239,6 +239,7 @@ namespace SnakeAid.Service.Implements
                                     .ThenInclude(r => r.Rescuer)
                                 .Include(i => i.Missions)
                                 .Include(i => i.Media)
+                                    .ThenInclude(m => m.AIRecognitionResults)
                         );
 
                     if (existingIncident == null)

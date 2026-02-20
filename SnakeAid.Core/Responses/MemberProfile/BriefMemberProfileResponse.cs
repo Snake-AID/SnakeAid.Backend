@@ -10,9 +10,9 @@ using System.Threading.Tasks;
 
 namespace SnakeAid.Core.Responses.MemberProfile
 {
-    public class BriefMemberProfileRespone
+    public class BriefMemberProfileResponse
     {
-        
+
         public Guid AccountId { get; set; }
 
         [Range(0.0, 5.0)]
