@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using SnakeAid.Core.Domains;
 using SnakeAid.Repository.Data;
 using SnakeAid.Repository.Interfaces;
+using SnakeAid.Service.Extensions;
 
 namespace SnakeAid.Api.Pages.Admin.SnakebiteIncidents
 {
@@ -23,10 +24,10 @@ namespace SnakeAid.Api.Pages.Admin.SnakebiteIncidents
             Func<IQueryable<SnakebiteIncident>, IQueryable<SnakebiteIncident>> include = query => query
                 .Include(i => i.User).ThenInclude(u => u.Account)
                 .Include(i => i.AssignedRescuer).ThenInclude(r => r.Account)
-                .Include(i => i.Sessions).ThenInclude(s => s.Requests).ThenInclude(r => r.Rescuer).ThenInclude(rp => rp.Account)
-                .Include(i => i.Media);
+                .Include(i => i.Sessions).ThenInclude(s => s.Requests).ThenInclude(r => r.Rescuer).ThenInclude(rp => rp.Account);
 
             Incidents = (await _unitOfWork.GetRepository<SnakebiteIncident>().GetListAsync(include: include, asNoTracking: true)).ToList();
+            await Incidents.AttachReportMediaAsync(_unitOfWork, MediaReferenceType.SnakebiteIncident);
         }
     }
 }

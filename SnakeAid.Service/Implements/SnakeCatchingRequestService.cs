@@ -9,6 +9,7 @@ using SnakeAid.Core.Responses.SnakeCatchingRequest;
 using SnakeAid.Repository.Data;
 using SnakeAid.Repository.Interfaces;
 using SnakeAid.Service.Interfaces;
+using SnakeAid.Service.Extensions;
 
 namespace SnakeAid.Service.Implements
 {
@@ -168,7 +169,6 @@ namespace SnakeAid.Service.Implements
                         predicate: r => r.Id == newRequest.Id,
                         include: query => query
                             .Include(r => r.User)
-                            .Include(r => r.Media)
                             .Include(r => r.Details)
                                 .ThenInclude(d => d.SnakeSpecies)
                     );
@@ -178,8 +178,10 @@ namespace SnakeAid.Service.Implements
                         throw new Exception("Failed to retrieve created request.");
                     }
 
+                    await createdRequest.AttachReportMediaAsync(_unitOfWork, MediaReferenceType.SnakeCatchingRequest);
+
                     var response = createdRequest.Adapt<CreateSnakeCatchingRequestResponse>();
-                    
+
                     _logger.LogInformation(
                         "Snake catching request created successfully. RequestId: {RequestId}, UserId: {UserId}, Location: ({Lat}, {Lng})",
                         response.Id, userId, request.Lat, request.Lng);
@@ -258,7 +260,6 @@ namespace SnakeAid.Service.Implements
                         predicate: r => r.Id == requestId,
                         include: query => query
                             .Include(r => r.User)
-                            .Include(r => r.Media)
                     );
 
                     if (request == null)
@@ -306,7 +307,6 @@ namespace SnakeAid.Service.Implements
                             .Include(r => r.User)
                             .Include(r => r.AssignedRescuer)
                                 .ThenInclude(ar => ar.Account)
-                            .Include(r => r.Media)
                             .Include(r => r.Mission)
                             .Include(r => r.Details)
                                 .ThenInclude(d => d.SnakeSpecies)
@@ -316,6 +316,8 @@ namespace SnakeAid.Service.Implements
                     {
                         throw new Exception("Failed to retrieve updated request.");
                     }
+
+                    await updatedRequest.AttachReportMediaAsync(_unitOfWork, MediaReferenceType.SnakeCatchingRequest);
 
                     var response = updatedRequest.Adapt<CreateSnakeCatchingRequestResponse>();
 
@@ -345,7 +347,6 @@ namespace SnakeAid.Service.Implements
                             .ThenInclude(u => u.Account)
                         .Include(r => r.AssignedRescuer)
                             .ThenInclude(ar => ar.Account)
-                        .Include(r => r.Media)
                         .Include(r => r.Mission)
                         .Include(r => r.Details)
                             .ThenInclude(d => d.SnakeSpecies)
@@ -355,6 +356,8 @@ namespace SnakeAid.Service.Implements
                 {
                     throw new NotFoundException($"Snake catching request with ID {requestId} not found.");
                 }
+
+                await request.AttachReportMediaAsync(_unitOfWork, MediaReferenceType.SnakeCatchingRequest);
 
                 var response = request.Adapt<CreateSnakeCatchingRequestResponse>();
 
@@ -380,11 +383,12 @@ namespace SnakeAid.Service.Implements
                     include: query => query
                         .Include(r => r.User)
                             .ThenInclude(u => u.Account)
-                        .Include(r => r.Media)
                         .Include(r => r.Details)
                             .ThenInclude(d => d.SnakeSpecies),
                     orderBy: q => q.OrderByDescending(r => r.RequestDate)
                 );
+
+                await requests.AttachReportMediaAsync(_unitOfWork, MediaReferenceType.SnakeCatchingRequest);
 
                 var response = requests.Adapt<List<ListSnakeCatchingRequestResponse>>();
 
