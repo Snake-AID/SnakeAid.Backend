@@ -19,7 +19,8 @@ namespace SnakeAid.Service.Implements
         private readonly IUnitOfWork<SnakeAidDbContext> _unitOfWork;
         private readonly ILogger<SnakeCatchingMissionService> _logger;
 
-        private decimal basePrice = 500000;
+        private readonly decimal basePrice = 500000;
+        private readonly decimal additionalSnakePrice = 100000;
 
         public SnakeCatchingMissionService(
             IUnitOfWork<SnakeAidDbContext> unitOfWork,
@@ -166,7 +167,8 @@ namespace SnakeAid.Service.Implements
                     //}
 
                     //Update actual cost if provided
-                    decimal additionalCosts = mission.MissionDetails?.Sum(d => d.Quantity * 100000) ?? 0;
+                    var snakeQuantity = mission.MissionDetails?.Sum(d => d.Quantity);
+                    decimal additionalCosts = snakeQuantity > 0 ? snakeQuantity.Value * additionalSnakePrice : 0; 
                     mission.ActualCost = basePrice + additionalCosts;
                     mission.Price = mission.ActualCost.Value + mission.EstimatedCost.Value;
 
@@ -210,6 +212,7 @@ namespace SnakeAid.Service.Implements
                             SnakeSpeciesId = d.SnakeSpeciesId,
                             SnakeSpeciesName = d.SnakeSpecies?.CommonName,
                             Quantity = d.Quantity,
+                            Price = d.Quantity * additionalSnakePrice,
                             CreatedAt = d.CreatedAt,
                             UpdatedAt = d.UpdatedAt
                         }).ToList();

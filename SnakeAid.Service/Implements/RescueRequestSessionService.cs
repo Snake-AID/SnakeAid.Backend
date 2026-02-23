@@ -32,6 +32,7 @@ namespace SnakeAid.Service.Implements
         // Configuration constants (sau này lấy từ SystemSetting)
         private const int MAX_SESSIONS = 3;
         private const int REQUEST_TIMEOUT_SECONDS = 60;
+        private const int BACKGROUND_TIMEOUT_BUFFER_SECONDS = 5; // Grace period for late acceptance
         private const decimal DEFAULT_RESCUE_PRICE = 500000m;
         private static readonly int[] RADIUS_PROGRESSION = { 10, 20, 30 }; // km
 
@@ -89,12 +90,11 @@ namespace SnakeAid.Service.Implements
             await _unitOfWork.GetRepository<RescueRequestSession>().InsertAsync(session);
             _unitOfWork.GetRepository<SnakebiteIncident>().Update(incident);
 
-            // Schedule timeout monitoring for this session
-            var timeoutAt = DateTime.UtcNow.AddSeconds(REQUEST_TIMEOUT_SECONDS);
-            _timeoutService.ScheduleSessionTimeout(session.Id, timeoutAt);
+            // Note: Timeout scheduling will be done in BroadcastRequestsInternalAsync() to ensure timing sync
+            // between background service expiration and client-side countdown
 
-            _logger.LogInformation("Created session {SessionId} for incident {IncidentId}, radius {RadiusKm}km, trigger {Trigger}, timeout at {TimeoutAt}",
-                session.Id, incidentId, radiusKm, trigger, timeoutAt);
+            _logger.LogInformation("Created session {SessionId} for incident {IncidentId}, radius {RadiusKm}km, trigger {Trigger}",
+                session.Id, incidentId, radiusKm, trigger);
 
             return session;
         }
@@ -204,8 +204,17 @@ namespace SnakeAid.Service.Implements
             var rescuersWithPendingSet = new HashSet<Guid>(rescuersWithPending);
             var rescuersWhoAbortedSet = new HashSet<Guid>(rescuersWhoAborted);
 
-            var expiredAt = DateTime.UtcNow.AddSeconds(REQUEST_TIMEOUT_SECONDS);
+            var requestSentAt = DateTime.UtcNow;
+            var clientExpiredAt = requestSentAt.AddSeconds(REQUEST_TIMEOUT_SECONDS);
+            var backgroundTimeoutAt = clientExpiredAt.AddSeconds(BACKGROUND_TIMEOUT_BUFFER_SECONDS);
             var requests = new List<RescuerRequest>();
+
+            // Schedule background timeout with +5s buffer to allow late acceptances
+            _timeoutService.ScheduleSessionTimeout(session.Id, backgroundTimeoutAt);
+            _logger.LogInformation("[Timing Sync] Client expires at {ClientExpiredAt} ({ClientSeconds}s), " +
+                "background timeout at {BackgroundTimeoutAt} ({TotalSeconds}s with {BufferSeconds}s grace period)",
+                clientExpiredAt, REQUEST_TIMEOUT_SECONDS,
+                backgroundTimeoutAt, REQUEST_TIMEOUT_SECONDS + BACKGROUND_TIMEOUT_BUFFER_SECONDS, BACKGROUND_TIMEOUT_BUFFER_SECONDS);
 
             // Only send to rescuers without any pending request AND who haven't aborted this incident
             foreach (var rescuer in rescuersInRadius)
@@ -236,8 +245,8 @@ namespace SnakeAid.Service.Implements
                     IncidentId = incident.Id,
                     RescuerId = rescuerId,
                     Status = RescueRequestStatus.Pending,
-                    RequestSentAt = DateTime.UtcNow,
-                    ExpiredAt = expiredAt,
+                    RequestSentAt = requestSentAt,
+                    ExpiredAt = clientExpiredAt,
                     CreatedAt = DateTime.UtcNow
                 });
             }

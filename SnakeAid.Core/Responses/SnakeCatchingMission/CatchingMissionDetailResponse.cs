@@ -28,6 +28,11 @@ namespace SnakeAid.Core.Responses.SnakeCatchingMission
         public int Quantity { get; set; }
 
         /// <summary>
+        /// Tiền tương ứng với số lượng rắn bắt được
+        /// </summary>
+        public decimal Price { get; set; }
+
+        /// <summary>
         /// Ngày tạo
         /// </summary>
         public DateTime CreatedAt { get; set; }
