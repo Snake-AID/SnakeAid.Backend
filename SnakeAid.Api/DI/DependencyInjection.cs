@@ -15,6 +15,11 @@ using System.Text;
 
 using Serilog;
 using Doppler.Extensions.Configuration; // Ensure this is available
+using OpenTelemetry.Trace;
+using OpenTelemetry.Metrics;
+using OpenTelemetry.Resources;
+using OpenTelemetry.Exporter;
+using Npgsql;
 
 namespace SnakeAid.Api.DI;
 
@@ -280,6 +285,39 @@ public static class DependencyInjection
             //     Description = "Production Phake"
             // });
         });
+        return services;
+    }
+
+    #endregion
+
+    #region OpenTelemetry
+
+    public static IServiceCollection AddOpenTelemetryServices(this IServiceCollection services, IConfiguration configuration)
+    {
+        var otlpEndpoint = configuration["OpenTelemetry:Endpoint"] ?? "http://localhost:4317"; // fallback for local without docker
+
+        services.AddOpenTelemetry()
+            .WithTracing(tracerProviderBuilder =>
+            {
+                tracerProviderBuilder
+                    .AddSource("SnakeAid.Api")
+                    .SetResourceBuilder(
+                        ResourceBuilder.CreateDefault()
+                            .AddService("SnakeAid.Api"))
+                    .AddAspNetCoreInstrumentation()
+                    .AddHttpClientInstrumentation()
+                    .AddNpgsql() 
+                    .AddOtlpExporter(opts => opts.Endpoint = new Uri(otlpEndpoint));
+            })
+            .WithMetrics(metricsProviderBuilder =>
+            {
+                metricsProviderBuilder
+                    .AddMeter("SnakeAid.Api")
+                    .AddAspNetCoreInstrumentation()
+                    .AddRuntimeInstrumentation()
+                    .AddOtlpExporter(opts => opts.Endpoint = new Uri(otlpEndpoint));
+            });
+
         return services;
     }
 

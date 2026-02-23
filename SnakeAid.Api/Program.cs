@@ -118,6 +118,7 @@ namespace SnakeAid.Api
                 builder.Services.AddScoped<SnakeAid.Service.Implements.Email.EmailTemplateService>();
 
                 builder.Services.AddServices(builder.Configuration);
+                builder.Services.AddOpenTelemetryServices(builder.Configuration);
 
                 // Register services using Scrutor (excluding background services)
                 builder.Services.Scan(scan => scan
