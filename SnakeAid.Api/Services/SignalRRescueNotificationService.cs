@@ -41,6 +41,13 @@ namespace SnakeAid.Api.Services
                 {
                     await _hubContext.Clients.Client(connectionId).SendAsync("NewRescueRequest", requestData);
                     _logger.LogInformation("Sent rescue request to rescuer {RescuerId}", rescuerId);
+
+                    // Optional: Broadcast to Monitors for dashboard tracking
+                    await _hubContext.Clients.Group("Monitors").SendAsync("NewRescueRequest", new
+                    {
+                        RescuerId = rescuerId,
+                        Data = requestData
+                    });
                 }
                 catch (Exception ex)
                 {
@@ -64,6 +71,13 @@ namespace SnakeAid.Api.Services
                         RequestId = requestId,
                         Message = "This request has been taken by another rescuer."
                     });
+
+                    // Notify monitors
+                    await _hubContext.Clients.Group("Monitors").SendAsync("RequestTaken", new
+                    {
+                        RequestId = requestId,
+                        TargetRescuerId = rescuerId
+                    });
                 }
                 catch (Exception ex)
                 {
@@ -82,6 +96,12 @@ namespace SnakeAid.Api.Services
                     {
                         RequestId = requestId,
                         Message = "This request has been cancelled by the user."
+                    });
+
+                    await _hubContext.Clients.Group("Monitors").SendAsync("RequestCancelled", new
+                    {
+                        RequestId = requestId,
+                        TargetRescuerId = rescuerId
                     });
                 }
                 catch (Exception ex)
@@ -104,6 +124,12 @@ namespace SnakeAid.Api.Services
                     {
                         RequestId = requestId,
                         Message = "This request has expired."
+                    });
+
+                    await _hubContext.Clients.Group("Monitors").SendAsync("RequestExpired", new
+                    {
+                        RequestId = requestId,
+                        TargetRescuerId = rescuerId
                     });
 
                     _logger.LogInformation("Successfully sent RequestExpired notification to rescuer {RescuerId}", rescuerId);
