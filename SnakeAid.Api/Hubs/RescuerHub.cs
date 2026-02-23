@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.SignalR;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using SnakeAid.Core.Domains;
 using SnakeAid.Api.Services;
@@ -18,6 +19,7 @@ namespace SnakeAid.Api.Hubs
         private readonly IRescueRequestSessionService _sessionService;
         private readonly IUnitOfWork<SnakeAidDbContext> _unitOfWork;
         private readonly ILogger<RescuerHub> _logger;
+        private readonly IRescuerLocationService _rescuerLocationService;
         private readonly IRescuerOnlineStatusService _onlineStatusService;
 
         // Static dictionary để track connected rescuers: userId -> connectionId
@@ -27,11 +29,13 @@ namespace SnakeAid.Api.Hubs
             IRescueRequestSessionService sessionService,
             IUnitOfWork<SnakeAidDbContext> unitOfWork,
             ILogger<RescuerHub> logger,
+            IRescuerLocationService rescuerLocationService,
             IRescuerOnlineStatusService onlineStatusService)
         {
             _sessionService = sessionService;
             _unitOfWork = unitOfWork;
             _logger = logger;
+            _rescuerLocationService = rescuerLocationService;
             _onlineStatusService = onlineStatusService;
         }
 
@@ -42,6 +46,18 @@ namespace SnakeAid.Api.Hubs
         {
             _logger.LogInformation("JoinAsRescuer called for userId: {UserId}, ConnectionId: {ConnectionId}, Current dictionary size: {DictSize}",
                 userId, Context.ConnectionId, SignalRRescueNotificationService.ConnectedRescuers.Count);
+
+            var rescuerInfo = await GetRescuerBriefInfoAsync(userId);
+
+            // Notify monitors about rescuer joining
+            await Clients.Group("Monitors").SendAsync("AdminLog", new
+            {
+                Type = "RescuerJoined",
+                UserId = userId,
+                Rescuer = rescuerInfo,
+                Message = $"Rescuer {userId} joined.",
+                Timestamp = DateTime.UtcNow
+            });
 
             // Add connection to notification service
             SignalRRescueNotificationService.AddConnection(userId, Context.ConnectionId);
@@ -76,6 +92,13 @@ namespace SnakeAid.Api.Hubs
                     Message = "Request accepted successfully! You have been assigned to this rescue mission."
                 });
 
+                await Clients.Group("Monitors").SendAsync("RequestAccepted", new
+                {
+                    RequestId = requestId,
+                    RescuerId = rescuerId,
+                    Message = $"Rescuer {rescuerId} won the request {requestId}"
+                });
+
                 _logger.LogInformation("Rescuer {RescuerId} accepted request {RequestId}", rescuerId, requestId);
             }
             catch (Exception ex)
@@ -92,14 +115,36 @@ namespace SnakeAid.Api.Hubs
 
         public async Task UpdateLocation(string userId, double latitude, double longitude)
         {
-            _logger.LogInformation("Rescuer {UserId} updated location: {Lat}, {Lng}", userId, latitude, longitude);
-            await Clients.Caller.SendAsync("LocationUpdated", new
+            // Update location in DB via service (LT-1)
+            if (Guid.TryParse(userId, out var rescuerGuid))
             {
-                UserId = userId,
-                Latitude = latitude,
-                Longitude = longitude,
-                UpdatedAt = DateTime.UtcNow
-            });
+                await _rescuerLocationService.UpdateLocationAsync(rescuerGuid, latitude, longitude, null, null, null);
+
+                _logger.LogInformation("Rescuer {UserId} updated location: {Lat}, {Lng}", userId, latitude, longitude);
+
+                // Echo back to client (legacy behavior)
+                // TODO: In LT-2, this might be replaced by session group broadcast
+                await Clients.Caller.SendAsync("LocationUpdated", new
+                {
+                    UserId = userId,
+                    Latitude = latitude,
+                    Longitude = longitude,
+                    UpdatedAt = DateTime.UtcNow
+                });
+
+                // Send to Monitor group to observe location update rates
+                await Clients.Group("Monitors").SendAsync("LocationUpdated", new
+                {
+                    UserId = userId,
+                    Latitude = latitude,
+                    Longitude = longitude,
+                    UpdatedAt = DateTime.UtcNow
+                });
+            }
+            else
+            {
+                _logger.LogWarning("Invalid GUID format for userId: {UserId}", userId);
+            }
         }
 
         public override async Task OnDisconnectedAsync(Exception? exception)
@@ -122,6 +167,15 @@ namespace SnakeAid.Api.Hubs
 
                 _logger.LogWarning("After removal, Dictionary size: {DictSize}", SignalRRescueNotificationService.ConnectedRescuers.Count);
 
+                // Notify Monitors
+                await Clients.Group("Monitors").SendAsync("AdminLog", new
+                {
+                    Type = "RescuerDisconnected",
+                    UserId = userId,
+                    Message = $"Rescuer {userId} disconnected.",
+                    Timestamp = DateTime.UtcNow
+                });
+
                 // Update RescuerProfile IsOnline status in database
                 await _onlineStatusService.SetOfflineAsync(userId);
             }
@@ -137,12 +191,82 @@ namespace SnakeAid.Api.Hubs
 
         public async Task GetConnectedRescuers()
         {
-            var rescuers = ConnectedRescuers.Keys.ToList();
+            var rescuerIds = ConnectedRescuers.Keys.ToList();
+            var rescuers = new List<object>();
+
+            foreach (var id in rescuerIds)
+            {
+                rescuers.Add(await GetRescuerBriefInfoAsync(id));
+            }
+
             await Clients.Caller.SendAsync("ConnectedRescuers", new
             {
                 Count = rescuers.Count,
-                RescuerIds = rescuers
+                Rescuers = rescuers
             });
+        }
+
+        /// <summary>
+        /// Admin Dashboard caller joins Monitors group
+        /// </summary>
+        public async Task JoinAsMonitor()
+        {
+            // Optional: User.IsInRole("Admin") can be checked here if authorization policy hasn't caught it
+            await Groups.AddToGroupAsync(Context.ConnectionId, "Monitors");
+
+            _logger.LogInformation("Admin joined as Monitor with ConnectionId: {ConnectionId}", Context.ConnectionId);
+
+            await Clients.Caller.SendAsync("AdminLog", new
+            {
+                Type = "MonitorJoined",
+                Message = "Connected to Monitor group successfully.",
+                Timestamp = DateTime.UtcNow
+            });
+
+            await GetConnectedRescuers();
+        }
+
+        private async Task<object> GetRescuerBriefInfoAsync(string userId)
+        {
+            if (Guid.TryParse(userId, out var rescuerGuid))
+            {
+                var user = await _unitOfWork.GetRepository<Account>().FirstOrDefaultAsync(
+                    predicate: a => a.Id == rescuerGuid,
+                    asNoTracking: true
+                );
+
+                if (user != null)
+                {
+                    var profile = await _unitOfWork.GetRepository<RescuerProfile>().FirstOrDefaultAsync(
+                        predicate: rp => rp.AccountId == rescuerGuid,
+                        asNoTracking: true
+                    );
+
+                    _logger.LogInformation("GetRescuerBriefInfoAsync: Found user {UserId}, FullName='{FullName}', HasProfile={HasProfile}",
+                        userId, user.FullName, profile != null);
+
+                    return new
+                    {
+                        Id = userId,
+                        FullName = string.IsNullOrWhiteSpace(user.FullName) ? "Unknown Rescuer" : user.FullName,
+                        AvatarUrl = user.AvatarUrl,
+                        Type = profile?.Type.ToString() ?? "Unknown",
+                        Rating = profile?.Rating ?? 0,
+                        TotalMissions = profile?.TotalMissions ?? 0,
+                        IsOnline = profile?.IsOnline ?? false
+                    };
+                }
+                else
+                {
+                    _logger.LogWarning("GetRescuerBriefInfoAsync: Account strictly NOT FOUND in DbContext for userId {UserId}. This means the Guid does NOT exist in AspNetUsers table.", userId);
+                }
+            }
+            else
+            {
+                _logger.LogWarning("GetRescuerBriefInfoAsync: Invalid Guid format for userId {UserId}", userId);
+            }
+
+            return new { Id = userId, FullName = "Unknown Rescuer", Type = "Unknown", Rating = 0, TotalMissions = 0, IsOnline = false };
         }
     }
 }

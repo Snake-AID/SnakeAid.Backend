@@ -97,7 +97,8 @@ public static class DependencyInjection
             .AddPolicyHandler(GetRetryPolicy())
             .AddPolicyHandler(GetCircuitBreakerPolicy());
 
-        services.AddScoped<ISnakeAIService, SnakeAIService>();
+
+
 
         // Register Demo Data Seeder for testing
         services.AddScoped<Services.DemoDataSeeder>();
