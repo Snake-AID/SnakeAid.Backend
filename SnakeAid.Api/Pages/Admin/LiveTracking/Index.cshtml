@@ -623,8 +623,14 @@
                 timerEl.style.setProperty('--ping-progress', '0%');
             }
 
-            connectedRescuers[id].timerInterval = setInterval(() => {
-                if (!connectedRescuers[id]) return clearInterval(connectedRescuers[id].timerInterval);
+            // Capture the interval ID in a local closure so clearInterval still works
+            // even if connectedRescuers[id] is deleted by removeRescuerCard.
+            const intervalId = setInterval(() => {
+                if (!connectedRescuers[id]) {
+                    // Rescuer was removed; clean up this orphaned interval.
+                    clearInterval(intervalId);
+                    return;
+                }
                 
                 connectedRescuers[id].secondsSincePing++;
                 const sec = connectedRescuers[id].secondsSincePing;
@@ -637,10 +643,11 @@
                     } else {
                         // Time exceeded 10s. Likely Flutter stationary optimization (<10m).
                         el.classList.add('stale');
-                        clearInterval(connectedRescuers[id].timerInterval);
+                        clearInterval(intervalId);
                     }
                 }
             }, 1000);
+            connectedRescuers[id].timerInterval = intervalId;
         }
 
         function logEvent(message, type = 'info') {
@@ -652,11 +659,57 @@
             eventConsole.scrollTop = eventConsole.scrollHeight;
         }
 
+        // Upgrade an existing placeholder card with richer rescuer data (fullName, avatar, stats).
+        function updateRescuerCard(id, rescuer) {
+            if (typeof rescuer === 'string') return; // Only a plain ID — no richer data to apply
+            const card = document.getElementById(`card-${id}`);
+            if (!card) return;
+
+            const shortId = id.substring(0, 8);
+            const name = rescuer.fullName || `Rescuer ${shortId}...`;
+            const avatar = rescuer.avatarUrl
+                ? `<img src="${rescuer.avatarUrl}" style="width:100%; height:100%; border-radius:12px; object-fit:cover;" />`
+                : name.substring(0, 2).toUpperCase();
+            const type = rescuer.type || "Unknown";
+            const rating = rescuer.rating ? rescuer.rating.toFixed(1) : "0.0";
+            const missions = rescuer.totalMissions !== undefined ? rescuer.totalMissions : 0;
+
+            // Update name/avatar row
+            const avatarEl = card.querySelector('.rescuer-avatar');
+            if (avatarEl) avatarEl.innerHTML = avatar;
+            const h5 = card.querySelector('h5');
+            if (h5) h5.innerText = name;
+            const subtitle = card.querySelector('h5 + div');
+            if (subtitle) subtitle.innerHTML = `${type} &bull; ⭐ ${rating} &bull; 🚑 ${missions}`;
+
+            // Update IsOnline pill
+            const isOnlinePill = card.querySelector(`[id^="status-"] ~ div:last-of-type`);
+            if (rescuer.isOnline !== undefined) {
+                const color = rescuer.isOnline ? 'var(--accent-green)' : 'var(--accent-red)';
+                const bg = rescuer.isOnline ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)';
+                if (isOnlinePill) {
+                    isOnlinePill.style.borderColor = color;
+                    isOnlinePill.style.backgroundColor = bg;
+                    const icon = isOnlinePill.querySelector('i');
+                    const span = isOnlinePill.querySelector('span');
+                    if (icon) icon.style.color = color;
+                    if (span) span.style.color = color;
+                }
+            }
+        }
+
         function createRescuerCard(rescuer) {
             // Support fallback if only ID is provided (e.g., from early location update)
             const id = typeof rescuer === 'string' ? rescuer : rescuer.id;
             if (!id) return;
-            if(document.getElementById(`card-${id}`)) return; // Already exists
+
+            // If a card already exists, upgrade it with any richer data instead of returning early.
+            // This lets placeholder cards (created from LocationUpdated with just an id string)
+            // get populated when AdminLog/RescuerJoined later delivers the full object.
+            if (document.getElementById(`card-${id}`)) {
+                updateRescuerCard(id, rescuer);
+                return;
+            }
 
             const shortId = id.substring(0, 8);
             const name = rescuer.fullName || `Rescuer ${shortId}...`;
@@ -695,7 +748,7 @@
                         <i class="bi bi-broadcast" style="color: var(--accent-green);"></i> <span style="color: var(--accent-green);">SignalR</span>
                     </div>
                     <div class="loc-pill" style="border-color: ${rescuer.isOnline ? 'var(--accent-green)' : 'var(--accent-red)'}; background-color: ${rescuer.isOnline ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)'}; padding: 4px 10px;">
-                        <i class="bi bi-database" style="color: ${rescuer.isOnline ? 'var(--accent-green)' : 'var(--accent-red)'};"></i> <span style="color: ${rescuer.isOnline ? 'var(--accent-green)' : 'var(--accent-red)'};">IsOnline</span>
+                        <i class="bi bi-database" style="color: ${rescuer.isOnline ? 'var(--accent-green)' : 'var(--accent-red)'};"></i> <span style="color: ${rescuer.isOnline ? 'var(--accent-green)' : 'var(--accent-red)'}">IsOnline</span>
                     </div>
                 </div>
 
@@ -740,6 +793,17 @@
             .withUrl("/rescuer-hub", { accessTokenFactory: () => adminToken })
             .withAutomaticReconnect()
             .build();
+
+        // Re-join Monitor group after automatic reconnect so the dashboard keeps receiving events.
+        connection.onreconnected(async () => {
+            logEvent("SignalR reconnected. Re-joining Monitor group...", "warn");
+            try {
+                await connection.invoke("JoinAsMonitor");
+                logEvent("Successfully re-joined Monitor group after reconnect.", "success");
+            } catch (err) {
+                logEvent(`Failed to re-join Monitor group: ${err.toString()}`, "error");
+            }
+        });
 
         connection.on("ConnectedRescuers", (data) => {
             logEvent(`Synchronized ${data.count} active rescuers from Hub.`, 'success');

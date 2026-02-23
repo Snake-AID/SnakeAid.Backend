@@ -71,19 +71,19 @@ namespace SnakeAid.Api.Services
                         RequestId = requestId,
                         Message = "This request has been taken by another rescuer."
                     });
-
-                    // Notify monitors
-                    await _hubContext.Clients.Group("Monitors").SendAsync("RequestTaken", new
-                    {
-                        RequestId = requestId,
-                        TargetRescuerId = rescuerId
-                    });
                 }
                 catch (Exception ex)
                 {
                     _logger.LogError(ex, "Error notifying rescuer {RescuerId} about taken request: {Message}", rescuerId, ex.Message);
                 }
             }
+
+            // Always notify Monitors regardless of rescuer connection state
+            await _hubContext.Clients.Group("Monitors").SendAsync("RequestTaken", new
+            {
+                RequestId = requestId,
+                TargetRescuerId = rescuerId
+            });
         }
 
         public async Task NotifyRequestCancelledAsync(string rescuerId, Guid requestId)
@@ -97,18 +97,19 @@ namespace SnakeAid.Api.Services
                         RequestId = requestId,
                         Message = "This request has been cancelled by the user."
                     });
-
-                    await _hubContext.Clients.Group("Monitors").SendAsync("RequestCancelled", new
-                    {
-                        RequestId = requestId,
-                        TargetRescuerId = rescuerId
-                    });
                 }
                 catch (Exception ex)
                 {
                     _logger.LogError(ex, "Error notifying rescuer {RescuerId} about cancelled request: {Message}", rescuerId, ex.Message);
                 }
             }
+
+            // Always notify Monitors regardless of rescuer connection state
+            await _hubContext.Clients.Group("Monitors").SendAsync("RequestCancelled", new
+            {
+                RequestId = requestId,
+                TargetRescuerId = rescuerId
+            });
         }
 
         public async Task NotifyRequestExpiredAsync(string rescuerId, Guid requestId)
@@ -126,12 +127,6 @@ namespace SnakeAid.Api.Services
                         Message = "This request has expired."
                     });
 
-                    await _hubContext.Clients.Group("Monitors").SendAsync("RequestExpired", new
-                    {
-                        RequestId = requestId,
-                        TargetRescuerId = rescuerId
-                    });
-
                     _logger.LogInformation("Successfully sent RequestExpired notification to rescuer {RescuerId}", rescuerId);
                 }
                 catch (Exception ex)
@@ -144,6 +139,13 @@ namespace SnakeAid.Api.Services
                 _logger.LogWarning("Cannot send RequestExpired to rescuer {RescuerId} - not in ConnectedRescuers dictionary. Current connections: {Count}",
                     rescuerId, ConnectedRescuers.Count);
             }
+
+            // Always notify Monitors regardless of rescuer connection state
+            await _hubContext.Clients.Group("Monitors").SendAsync("RequestExpired", new
+            {
+                RequestId = requestId,
+                TargetRescuerId = rescuerId
+            });
         }
 
         #region Static methods for Hub to manage connections

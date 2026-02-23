@@ -60,8 +60,8 @@ namespace SnakeAid.Service.Implements
                 }
             }
 
-            // Update cache immediately
-            _memoryCache.Set(cacheKey, DateTime.UtcNow, TimeSpan.FromSeconds(5));
+            // Update cache immediately — use _throttleInterval so cache lifetime matches the throttle window
+            _memoryCache.Set(cacheKey, DateTime.UtcNow, _throttleInterval);
 
             // 3. Persistence
             try

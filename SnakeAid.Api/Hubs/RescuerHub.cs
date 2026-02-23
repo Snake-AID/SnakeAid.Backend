@@ -119,32 +119,32 @@ namespace SnakeAid.Api.Hubs
             if (Guid.TryParse(userId, out var rescuerGuid))
             {
                 await _rescuerLocationService.UpdateLocationAsync(rescuerGuid, latitude, longitude, null, null, null);
+
+                _logger.LogInformation("Rescuer {UserId} updated location: {Lat}, {Lng}", userId, latitude, longitude);
+
+                // Echo back to client (legacy behavior)
+                // TODO: In LT-2, this might be replaced by session group broadcast
+                await Clients.Caller.SendAsync("LocationUpdated", new
+                {
+                    UserId = userId,
+                    Latitude = latitude,
+                    Longitude = longitude,
+                    UpdatedAt = DateTime.UtcNow
+                });
+
+                // Send to Monitor group to observe location update rates
+                await Clients.Group("Monitors").SendAsync("LocationUpdated", new
+                {
+                    UserId = userId,
+                    Latitude = latitude,
+                    Longitude = longitude,
+                    UpdatedAt = DateTime.UtcNow
+                });
             }
             else
             {
                 _logger.LogWarning("Invalid GUID format for userId: {UserId}", userId);
             }
-
-            _logger.LogInformation("Rescuer {UserId} updated location: {Lat}, {Lng}", userId, latitude, longitude);
-
-            // Echo back to client (legacy behavior)
-            // TODO: In LT-2, this might be replaced by session group broadcast
-            await Clients.Caller.SendAsync("LocationUpdated", new
-            {
-                UserId = userId,
-                Latitude = latitude,
-                Longitude = longitude,
-                UpdatedAt = DateTime.UtcNow
-            });
-
-            // Send to Monitor group to observe location update rates
-            await Clients.Group("Monitors").SendAsync("LocationUpdated", new
-            {
-                UserId = userId,
-                Latitude = latitude,
-                Longitude = longitude,
-                UpdatedAt = DateTime.UtcNow
-            });
         }
 
         public override async Task OnDisconnectedAsync(Exception? exception)
