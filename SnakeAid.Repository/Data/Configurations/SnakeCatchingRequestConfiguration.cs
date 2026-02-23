@@ -45,6 +45,9 @@ namespace SnakeAid.Repository.Data.Configurations
 
             builder.HasIndex(r => r.RequestDate)
                 .HasDatabaseName("IX_SnakeCatchingRequests_RequestDate");
+
+            // Ignore polymorphic collection so EF core doesn't create Shadow Foreign Keys
+            builder.Ignore(r => r.Media);
         }
     }
 }
