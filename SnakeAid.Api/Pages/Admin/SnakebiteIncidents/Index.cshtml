@@ -2,80 +2,10 @@
 @model SnakeAid.Api.Pages.Admin.SnakebiteIncidents.IndexModel
 @{
     ViewData["Title"] = "Incidents | Admin Portal";
-    Layout = null;
 }
 
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>@ViewData["Title"]</title>
-    <!-- Premium Design Assets -->
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
-    <link href="~/SnakeAid.Api.styles.css" rel="stylesheet" />
+@section Styles {
     <style>
-        :root {
-            --bg-dark: #0f172a;
-            --bg-panel: rgba(15, 23, 42, 0.7);
-            --bg-card: rgba(30, 41, 59, 0.5);
-            --border-glass: rgba(255, 255, 255, 0.06);
-            --text-main: #f8fafc;
-            --text-muted: #94a3b8;
-            --accent-blue: #3b82f6;
-            --accent-green: #10b981;
-            --accent-red: #f43f5e;
-            --accent-yellow: #f59e0b;
-            --glass-blur: 20px;
-        }
-
-        body {
-            background-color: var(--bg-dark);
-            background-image: 
-                radial-gradient(circle at 10% 20%, rgba(244, 63, 94, 0.05) 0%, transparent 40%),
-                radial-gradient(circle at 90% 80%, rgba(59, 130, 246, 0.05) 0%, transparent 40%);
-            min-height: 100vh;
-            color: var(--text-main);
-            font-family: 'Inter', sans-serif;
-            margin: 0;
-            padding: 40px 20px;
-        }
-
-        h1, h2, h3, h4 { font-family: 'Outfit', sans-serif; }
-
-        .container-xl { max-width: 1400px; margin: 0 auto; }
-
-        /* HEADER */
-        .page-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 48px;
-            padding: 32px;
-            background: var(--bg-panel);
-            backdrop-filter: blur(var(--glass-blur));
-            border-radius: 24px;
-            border: 1px solid var(--border-glass);
-        }
-
-        .header-brand h1 {
-            font-size: 2.2rem;
-            margin: 0;
-            font-weight: 800;
-            letter-spacing: -1px;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-
-        .header-brand h1 i { color: var(--accent-red); filter: drop-shadow(0 0 8px rgba(244, 63, 94, 0.4)); }
-
-        .header-metrics { display: flex; gap: 40px; }
-        .metric { text-align: right; }
-        .metric-val { display: block; font-size: 1.8rem; font-weight: 800; font-family: 'Outfit'; }
-        .metric-lbl { font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; }
-
         /* INCIDENT LIST */
         .incident-grid { display: flex; flex-direction: column; gap: 24px; }
 
@@ -99,7 +29,7 @@
         }
 
         .id-badge {
-            font-family: 'JetBrains Mono', monospace;
+            font-family: var(--font-mono);
             font-size: 0.75rem;
             color: var(--text-muted);
             background: rgba(255,255,255,0.05);
@@ -153,7 +83,7 @@
             background: var(--bg-card);
             padding: 4px 12px;
             border-radius: 8px;
-            font-family: 'Outfit';
+            font-family: var(--font-header);
             font-weight: 700;
             font-size: 0.9rem;
             border: 1px solid var(--border-glass);
@@ -260,154 +190,152 @@
         }
 
         .empty-visual i { font-size: 3rem; margin-bottom: 16px; display: block; }
+
+        .metric-lbl { font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; }
     </style>
-</head>
-<body>
+}
 
-<div class="container-xl">
-    <header class="page-header">
-        <div class="header-brand">
-            <h1><i class="bi bi-activity"></i> Incident Control</h1>
+<div class="page-header">
+    <div class="header-title-group">
+        <h1>Incident Control</h1>
+        <p>Real-time lifecycle monitoring of all snakebite reports</p>
+    </div>
+    <div class="header-actions">
+        <div class="stat-badge">
+            <span class="stat-value">@Model.Incidents.Count</span>
+            <span class="stat-label">Reports</span>
         </div>
-        <div class="header-metrics">
-            <div class="metric">
-                <span class="metric-lbl">Total Reports</span>
-                <span class="metric-val">@Model.Incidents.Count</span>
-            </div>
-            <div class="metric">
-                <span class="metric-lbl" style="color: var(--accent-green)">Managed</span>
-                <span class="metric-val" style="color: var(--accent-green)">@Model.Incidents.Count(i => i.Status.ToString().Contains("Resolved"))</span>
-            </div>
-            <div class="metric">
-                <span class="metric-lbl" style="color: var(--accent-red)">Urgent</span>
-                <span class="metric-val" style="color: var(--accent-red)">@Model.Incidents.Count(i => i.Status.ToString().Contains("Active"))</span>
-            </div>
+        <div class="stat-badge">
+            <span class="stat-value" style="color: var(--accent-green)">@Model.Incidents.Count(i => i.Status.ToString().Contains("Resolved"))</span>
+            <span class="stat-label">Managed</span>
         </div>
-    </header>
-
-    <div class="incident-grid">
-        @if (!Model.Incidents.Any()) {
-            <div class="empty-visual">
-                <i class="bi bi-shield-slash"></i>
-                <p>No incidents recorded in the system</p>
-            </div>
-        }
-
-        @foreach (var incident in Model.Incidents)
-        {
-            <div class="incident-card" id="card-@incident.Id">
-                <div class="card-main-row" onclick="toggleCard('@incident.Id')">
-                    <div class="id-badge">ID: @incident.Id.ToString().Substring(0, 8)</div>
-                    
-                    <div class="user-cell">
-                        <span class="user-name">@(incident.User?.Account?.FullName ?? "Unknown User")</span>
-                        <span class="user-email">@(incident.User?.Account?.Email ?? "N/A")</span>
-                    </div>
-
-                    <div class="rescuer-cell">
-                        @if (incident.AssignedRescuer != null) {
-                            <div class="rescuer-tag">
-                                <div class="rescuer-init">@(incident.AssignedRescuer.Account?.FullName?.FirstOrDefault().ToString() ?? "A")</div>
-                                <span style="font-size: 0.9rem; font-weight: 500;">@(incident.AssignedRescuer.Account?.FullName)</span>
-                            </div>
-                        } else {
-                            <span style="color: var(--text-muted); font-style: italic; font-size: 0.9rem;">Unassigned</span>
-                        }
-                    </div>
-
-                    <div>
-                        @{
-                            var st = incident.Status.ToString().ToLower();
-                            var cls = "st-pending";
-                            if (st.Contains("active") || st.Contains("progress")) cls = "st-active";
-                            else if (st.Contains("resolved") || st.Contains("finished")) cls = "st-resolved";
-                        }
-                        <span class="status-pill @cls">@incident.Status</span>
-                    </div>
-
-                    <div style="display: flex; align-items: center; gap: 8px;">
-                        <span class="metric-lbl">Sessions</span>
-                        <div class="count-bubble">@(incident.Sessions?.Count ?? 0)</div>
-                    </div>
-
-                    <div style="display: flex; align-items: center; gap: 8px;">
-                        <span class="metric-lbl">Media</span>
-                        <div class="count-bubble">@(incident.Media?.Count ?? 0)</div>
-                    </div>
-
-                    <div class="text-right">
-                        <i class="bi bi-chevron-down expand-icon"></i>
-                    </div>
-                </div>
-
-                <div class="card-details">
-                    <div class="timeline-wrapper">
-                        <h3 style="font-size: 1.2rem; margin: 0 0 16px 0;"><i class="bi bi-terminal-split"></i> Deployment Lifecycle</h3>
-                        
-                        @if (incident.Sessions?.Any() == true) {
-                            @foreach (var s in incident.Sessions.OrderBy(x => x.SessionNumber))
-                            {
-                                <div class="timeline-item">
-                                    <div class="timeline-marker"></div>
-                                    <div class="session-card">
-                                        <div class="session-header">
-                                            <span class="session-title">Session Phase #@s.SessionNumber</span>
-                                            <span class="metric-lbl">@s.CreatedAt.ToString("HH:mm:ss")</span>
-                                        </div>
-                                        
-                                        <div class="request-nodes">
-                                            @if (s.Requests?.Any() == true) {
-                                                @foreach (var r in s.Requests) {
-                                                    <div class="request-node">
-                                                        <div class="req-rescuer">
-                                                            <i class="bi bi-person-badge"></i>
-                                                            <span>@(r.Rescuer?.Account?.FullName ?? "Unknown")</span>
-                                                        </div>
-                                                        @{
-                                                            var rs = r.Status.ToString().ToLower();
-                                                            var rsCls = "rs-timeout";
-                                                            if (rs == "accepted") rsCls = "rs-accepted";
-                                                            else if (rs == "rejected") rsCls = "rs-rejected";
-                                                        }
-                                                        <span class="req-status @rsCls">@r.Status</span>
-                                                    </div>
-                                                }
-                                            } else {
-                                                <div style="color: var(--text-muted); font-size: 0.85rem; font-style: italic;">Broadcast initiated but no responses recorded</div>
-                                            }
-                                        </div>
-                                    </div>
-                                </div>
-                            }
-                        } else {
-                            <div class="empty-visual" style="padding: 30px;">
-                                <p style="margin: 0;">Lifecycle data unavailable for this incident</p>
-                            </div>
-                        }
-                    </div>
-                </div>
-            </div>
-        }
+        <div class="stat-badge">
+            <span class="stat-value" style="color: var(--accent-red)">@Model.Incidents.Count(i => i.Status.ToString().Contains("Active"))</span>
+            <span class="stat-label">Urgent</span>
+        </div>
     </div>
 </div>
 
-<script>
-    function toggleCard(id) {
-        const card = document.getElementById(`card-${id}`);
-        const allCards = document.querySelectorAll('.incident-card');
-        
-        const isCurrentlyExpanded = card.classList.contains('expanded');
-        
-        // Collapse others
-        allCards.forEach(c => c.classList.remove('expanded'));
-        
-        // Toggle self
-        if (!isCurrentlyExpanded) {
-            card.classList.add('expanded');
-        }
+<div class="incident-grid">
+    @if (!Model.Incidents.Any()) {
+        <div class="empty-visual">
+            <i class="bi bi-shield-slash"></i>
+            <p>No incidents recorded in the system</p>
+        </div>
     }
-</script>
 
-</body>
-</html>
+    @foreach (var incident in Model.Incidents)
+    {
+        <div class="incident-card" id="card-@incident.Id">
+            <div class="card-main-row" onclick="toggleCard('@incident.Id')">
+                <div class="id-badge">ID: @incident.Id.ToString().Substring(0, 8)</div>
+                
+                <div class="user-cell">
+                    <span class="user-name">@(incident.User?.Account?.FullName ?? "Unknown User")</span>
+                    <span class="user-email">@(incident.User?.Account?.Email ?? "N/A")</span>
+                </div>
 
+                <div class="rescuer-cell">
+                    @if (incident.AssignedRescuer != null) {
+                        <div class="rescuer-tag">
+                            <div class="rescuer-init">@(incident.AssignedRescuer.Account?.FullName?.FirstOrDefault().ToString() ?? "A")</div>
+                            <span style="font-size: 0.9rem; font-weight: 500;">@(incident.AssignedRescuer.Account?.FullName)</span>
+                        </div>
+                    } else {
+                        <span style="color: var(--text-muted); font-style: italic; font-size: 0.9rem;">Unassigned</span>
+                    }
+                </div>
+
+                <div>
+                    @{
+                        var st = incident.Status.ToString().ToLower();
+                        var cls = "st-pending";
+                        if (st.Contains("active") || st.Contains("progress")) cls = "st-active";
+                        else if (st.Contains("resolved") || st.Contains("finished")) cls = "st-resolved";
+                    }
+                    <span class="status-pill @cls">@incident.Status</span>
+                </div>
+
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span class="metric-lbl">Sessions</span>
+                    <div class="count-bubble">@(incident.Sessions?.Count ?? 0)</div>
+                </div>
+
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span class="metric-lbl">Media</span>
+                    <div class="count-bubble">@(incident.Media?.Count ?? 0)</div>
+                </div>
+
+                <div class="text-right">
+                    <i class="bi bi-chevron-down expand-icon"></i>
+                </div>
+            </div>
+
+            <div class="card-details">
+                <div class="timeline-wrapper">
+                    <h3 style="font-size: 1.2rem; margin: 0 0 16px 0;"><i class="bi bi-terminal-split"></i> Deployment Lifecycle</h3>
+                    
+                    @if (incident.Sessions?.Any() == true) {
+                        @foreach (var s in incident.Sessions.OrderBy(x => x.SessionNumber))
+                        {
+                            <div class="timeline-item">
+                                <div class="timeline-marker"></div>
+                                <div class="session-card">
+                                    <div class="session-header">
+                                        <span class="session-title">Session Phase #@s.SessionNumber</span>
+                                        <span class="metric-lbl">@s.CreatedAt.ToString("HH:mm:ss")</span>
+                                    </div>
+                                    
+                                    <div class="request-nodes">
+                                        @if (s.Requests?.Any() == true) {
+                                            @foreach (var r in s.Requests) {
+                                                <div class="request-node">
+                                                    <div class="req-rescuer">
+                                                        <i class="bi bi-person-badge"></i>
+                                                        <span>@(r.Rescuer?.Account?.FullName ?? "Unknown")</span>
+                                                    </div>
+                                                    @{
+                                                        var rs = r.Status.ToString().ToLower();
+                                                        var rsCls = "rs-timeout";
+                                                        if (rs == "accepted") rsCls = "rs-accepted";
+                                                        else if (rs == "rejected") rsCls = "rs-rejected";
+                                                    }
+                                                    <span class="req-status @rsCls">@r.Status</span>
+                                                </div>
+                                            }
+                                        } else {
+                                            <div style="color: var(--text-muted); font-size: 0.85rem; font-style: italic;">Broadcast initiated but no responses recorded</div>
+                                        }
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    } else {
+                        <div class="empty-visual" style="padding: 30px;">
+                            <p style="margin: 0;">Lifecycle data unavailable for this incident</p>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@section Scripts {
+    <script>
+        function toggleCard(id) {
+            const card = document.getElementById(`card-${id}`);
+            const allCards = document.querySelectorAll('.incident-card');
+            
+            const isCurrentlyExpanded = card.classList.contains('expanded');
+            
+            // Collapse others
+            allCards.forEach(c => c.classList.remove('expanded'));
+            
+            // Toggle self
+            if (!isCurrentlyExpanded) {
+                card.classList.add('expanded');
+            }
+        }
+    </script>
+}
