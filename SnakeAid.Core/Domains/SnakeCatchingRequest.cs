@@ -8,7 +8,7 @@ using NetTopologySuite.Geometries;
 
 namespace SnakeAid.Core.Domains
 {
-    public class SnakeCatchingRequest : BaseEntity
+    public class SnakeCatchingRequest : BaseEntity, IHasReportMedia
     {
         [Key]
         public Guid Id { get; set; }
