@@ -205,6 +205,10 @@ namespace SnakeAid.Repository.Implements
 
         #region Update
 
+        /// Updates an entity in the database.
+        /// IMPORTANT: If entity was loaded via Include() navigation property and modified in-place,
+        /// consider querying it separately before calling Update() to ensure changes are detected.
+        /// nên clear ChangeTracker trước khi gọi Update với các entity phức tạp.
         public virtual bool Update(T entity)
         {
             if (entity == null) return false;
@@ -222,7 +226,25 @@ namespace SnakeAid.Repository.Implements
 
                 if (tracked != null)
                 {
-                    // Update the tracked entity's values instead of attaching new instance
+                    // CRITICAL: Check if same reference (entity modified in-place)
+                    if (ReferenceEquals(tracked, entity))
+                    {
+                        // Same instance: entity was loaded and modified in-place
+                        // Force Modified state to ensure SaveChanges() detects it
+                        var trackedEntry = _dbContext.Entry(tracked);
+
+                        // If state is Unchanged, force it to Modified
+                        if (trackedEntry.State == EntityState.Unchanged)
+                        {
+                            trackedEntry.State = EntityState.Modified;
+                        }
+                        // If already Modified or other state, leave it as-is
+
+                        return true;
+                    }
+
+                    // Different instances: copy values from source to tracked entity
+                    // SetValues() will detect which properties changed
                     _dbContext.Entry(tracked).CurrentValues.SetValues(entity);
                     return true;
                 }
@@ -282,6 +304,9 @@ namespace SnakeAid.Repository.Implements
             }
         }
 
+        /// Updates multiple entities at once.
+        /// WARNING: This may conflict with already-tracked entities.
+        /// Consider using individual Update() calls for better tracking control.
         public virtual bool UpdateRange(IEnumerable<T> entities)
         {
             if (entities == null || !entities.Any())
@@ -289,7 +314,46 @@ namespace SnakeAid.Repository.Implements
 
             try
             {
-                _dbSet.UpdateRange(entities);
+                var entityList = entities.ToList();
+
+                foreach (var entity in entityList)
+                {
+                    var keyValues = GetKeyValues(entity);
+                    if (keyValues == null || keyValues.Length == 0)
+                        continue;
+
+                    // Check if already tracked
+                    var tracked = _dbSet.Local.FirstOrDefault(e =>
+                        GetKeyValues(e)?.SequenceEqual(keyValues) == true);
+
+                    if (tracked != null)
+                    {
+                        // Already tracked: update values
+                        if (ReferenceEquals(tracked, entity))
+                        {
+                            // Same reference: force modified state
+                            var entry = _dbContext.Entry(tracked);
+                            if (entry.State == EntityState.Unchanged)
+                            {
+                                entry.State = EntityState.Modified;
+                            }
+                        }
+                        else
+                        {
+                            // Different instance: copy values
+                            _dbContext.Entry(tracked).CurrentValues.SetValues(entity);
+                        }
+                    }
+                    else
+                    {
+                        // Not tracked: attach and mark as modified
+                        var entry = _dbContext.Entry(entity);
+                        if (entry.State == EntityState.Detached)
+                            _dbSet.Attach(entity);
+                        entry.State = EntityState.Modified;
+                    }
+                }
+
                 return true;
             }
             catch

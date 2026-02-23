@@ -33,7 +33,7 @@
             "cwd": "${workspaceFolder}/SnakeAid.Api",
             "stopAtEntry": false,
             "serverReadyAction": {
-                "pattern": "Now listening on:\\s+(https://[^\\s]+:7026)",
+                "pattern": "Now listening on:\\s+(https://[^\\s]+:8081)",
                 "uriFormat": "%s",
                 "action": "openExternally"
             },
@@ -58,7 +58,7 @@
             "cwd": "${workspaceFolder}/SnakeAid.Api",
             "stopAtEntry": false,
             "serverReadyAction": {
-                "pattern": "Now listening on:\\s+(http://[^\\s]+:5009)",
+                "pattern": "Now listening on:\\s+(http://[^\\s]+:8080)",
                 "uriFormat": "%s",
                 "action": "openExternally"
             },
@@ -83,7 +83,7 @@
             "cwd": "${workspaceFolder}/SnakeAid.Api",
             "stopAtEntry": false,
             "serverReadyAction": {
-                "pattern": "Now listening on:\\s+(https://[^\\s]+:7026)",
+                "pattern": "Now listening on:\\s+(https://[^\\s]+:8081)",
                 "uriFormat": "%s",
                 "action": "openExternally"
             },

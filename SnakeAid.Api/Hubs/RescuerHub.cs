@@ -18,6 +18,7 @@ namespace SnakeAid.Api.Hubs
         private readonly IRescueRequestSessionService _sessionService;
         private readonly IUnitOfWork<SnakeAidDbContext> _unitOfWork;
         private readonly ILogger<RescuerHub> _logger;
+        private readonly IRescuerOnlineStatusService _onlineStatusService;
 
         // Static dictionary để track connected rescuers: userId -> connectionId
         public static ConcurrentDictionary<string, string> ConnectedRescuers => SignalRRescueNotificationService.ConnectedRescuers;
@@ -25,11 +26,13 @@ namespace SnakeAid.Api.Hubs
         public RescuerHub(
             IRescueRequestSessionService sessionService,
             IUnitOfWork<SnakeAidDbContext> unitOfWork,
-            ILogger<RescuerHub> logger)
+            ILogger<RescuerHub> logger,
+            IRescuerOnlineStatusService onlineStatusService)
         {
             _sessionService = sessionService;
             _unitOfWork = unitOfWork;
             _logger = logger;
+            _onlineStatusService = onlineStatusService;
         }
 
         /// <summary>
@@ -49,30 +52,7 @@ namespace SnakeAid.Api.Hubs
                 SignalRRescueNotificationService.ConnectedRescuers.ContainsKey(userId));
 
             // Update RescuerProfile IsOnline status in database
-            if (Guid.TryParse(userId, out var rescuerGuid))
-            {
-                var rescuerProfile = await _unitOfWork.GetRepository<RescuerProfile>().FirstOrDefaultAsync(
-                    predicate: r => r.AccountId == rescuerGuid,
-                    asNoTracking: false
-                );
-
-                if (rescuerProfile != null)
-                {
-                    rescuerProfile.IsOnline = true;
-                    rescuerProfile.UpdatedAt = DateTime.UtcNow;
-                    _unitOfWork.GetRepository<RescuerProfile>().Update(rescuerProfile);
-                    await _unitOfWork.CommitAsync();
-                    _logger.LogInformation("Rescuer {UserId} set to ONLINE in database", userId);
-                }
-                else
-                {
-                    _logger.LogWarning("RescuerProfile not found for userId: {UserId}", userId);
-                }
-            }
-            else
-            {
-                _logger.LogWarning("Invalid GUID format for userId: {UserId}", userId);
-            }
+            await _onlineStatusService.SetOnlineAsync(userId);
 
             _logger.LogInformation("Rescuer {UserId} joined with connectionId {ConnectionId}", userId, Context.ConnectionId);
             await Clients.Caller.SendAsync("Joined", new
@@ -143,23 +123,7 @@ namespace SnakeAid.Api.Hubs
                 _logger.LogWarning("After removal, Dictionary size: {DictSize}", SignalRRescueNotificationService.ConnectedRescuers.Count);
 
                 // Update RescuerProfile IsOnline status in database
-                if (Guid.TryParse(userId, out var rescuerGuid))
-                {
-                    var rescuerProfile = await _unitOfWork.GetRepository<RescuerProfile>().FirstOrDefaultAsync(
-                        predicate: r => r.AccountId == rescuerGuid,
-                        asNoTracking: false
-                    );
-
-                    if (rescuerProfile != null)
-                    {
-                        rescuerProfile.IsOnline = false;
-                        rescuerProfile.UpdatedAt = DateTime.UtcNow;
-                        rescuerProfile.LastLocationUpdate = DateTime.UtcNow;
-                        _unitOfWork.GetRepository<RescuerProfile>().Update(rescuerProfile);
-                        await _unitOfWork.CommitAsync();
-                        _logger.LogWarning("✅ Rescuer {UserId} set to OFFLINE in database due to disconnection", userId);
-                    }
-                }
+                await _onlineStatusService.SetOfflineAsync(userId);
             }
             else
             {

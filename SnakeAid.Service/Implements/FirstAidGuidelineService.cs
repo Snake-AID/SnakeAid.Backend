@@ -196,7 +196,55 @@ namespace SnakeAid.Service.Implements
                 .Distinct()
                 .ToList();
 
-            return guidelines.Adapt<List<FirstAidGuidelineResponse>>();
+            // Map to response
+            var guidelineResponses = guidelines.Adapt<List<FirstAidGuidelineResponse>>();
+
+            // Apply override if exists
+            if (snakeSpecies.FirstAidGuidelineOverride != null)
+            {
+                var overrideData = snakeSpecies.FirstAidGuidelineOverride;
+
+                foreach (var response in guidelineResponses)
+                {
+                    if (overrideData.Mode == OverrideMode.Append)
+                    {
+                        // Append mode: Add override content to existing fields
+                        if (overrideData.Content?.Steps != null && overrideData.Content.Steps.Count > 0)
+                        {
+                            response.Content.Steps = response.Content.Steps ?? new List<FirstAidStep>();
+                            response.Content.Steps.AddRange(overrideData.Content.Steps);
+                        }
+
+                        if (overrideData.Content?.Dos != null && overrideData.Content.Dos.Count > 0)
+                        {
+                            response.Content.Dos = response.Content.Dos ?? new List<FirstAidStep>();
+                            response.Content.Dos.AddRange(overrideData.Content.Dos);
+                        }
+
+                        if (overrideData.Content?.Donts != null && overrideData.Content.Donts.Count > 0)
+                        {
+                            response.Content.Donts = response.Content.Donts ?? new List<FirstAidStep>();
+                            response.Content.Donts.AddRange(overrideData.Content.Donts);
+                        }
+
+                        if (overrideData.Content?.Notes != null && overrideData.Content.Notes.Count > 0)
+                        {
+                            response.Content.Notes = response.Content.Notes ?? new List<string>();
+                            response.Content.Notes.AddRange(overrideData.Content.Notes);
+                        }
+                    }
+                    else if (overrideData.Mode == OverrideMode.Replace)
+                    {
+                        // Replace mode: Replace entire content with override
+                        if (overrideData.Content != null)
+                        {
+                            response.Content = overrideData.Content;
+                        }
+                    }
+                }
+            }
+
+            return guidelineResponses;
         }
     }
 }
