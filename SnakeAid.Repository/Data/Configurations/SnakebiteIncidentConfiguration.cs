@@ -51,6 +51,9 @@ namespace SnakeAid.Repository.Data.Configurations
 
             builder.HasIndex(i => i.AssignedRescuerId)
                 .HasDatabaseName("IX_SnakebiteIncidents_AssignedRescuerId");
+
+            // Ignore polymorphic collection so EF core doesn't create Shadow Foreign Keys
+            builder.Ignore(i => i.Media);
         }
     }
 }

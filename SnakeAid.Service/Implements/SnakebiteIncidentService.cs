@@ -12,6 +12,7 @@ using SnakeAid.Core.Responses.SnakebiteIncident;
 using SnakeAid.Repository.Data;
 using SnakeAid.Repository.Interfaces;
 using SnakeAid.Service.Interfaces;
+using SnakeAid.Service.Extensions;
 
 namespace SnakeAid.Service.Implements
 {
@@ -248,6 +249,8 @@ namespace SnakeAid.Service.Implements
                     {
                         throw new NotFoundException("Snakebite incident not found.");
                     }
+
+                    await existingIncident.AttachReportMediaAsync(_unitOfWork, MediaReferenceType.SnakebiteIncident);
 
                     var responseData = existingIncident.Adapt<DetailSnakebiteIncidentResponse>();
 
