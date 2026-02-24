@@ -56,12 +56,14 @@ internal class ApiKeyManager
 
         while (attempts < maxAttempts)
         {
+            int index;
             lock (_lock)
             {
                 _currentIndex = (_currentIndex + 1) % keys.Count;
+                index = _currentIndex;
             }
 
-            var keyState = keys[_currentIndex];
+            var keyState = keys[index];
 
             // Check if key is available (not in cooldown)
             if (!keyState.IsInCooldown)

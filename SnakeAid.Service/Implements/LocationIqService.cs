@@ -30,15 +30,34 @@ public class LocationIqService : ILocationIqService
         _logger = logger;
         _keyManager = new ApiKeyManager(_options, logger);
 
-        // Allow service to be created even without API keys
-        // Will throw ExternalServiceException when called if no keys available
-        
+        // Validate and set BaseAddress
+        if (string.IsNullOrWhiteSpace(_options.BaseUrl))
+        {
+            _logger.LogWarning("LocationIQ BaseUrl is not configured. Service will use fallback prices.");
+        }
+        else
+        {
+            try
+            {
+                _httpClient.BaseAddress = new Uri(_options.BaseUrl);
+                _httpClient.Timeout = TimeSpan.FromSeconds(_options.HttpTimeoutSeconds);
+                _logger.LogDebug("LocationIQ BaseAddress set to: {BaseUrl}", _options.BaseUrl);
+            }
+            catch (UriFormatException ex)
+            {
+                _logger.LogError(ex, "Invalid LocationIQ BaseUrl: {BaseUrl}", _options.BaseUrl);
+            }
+        }
 
         if (_keyManager.HasKeys)
         {
             _logger.LogInformation(
                 "LocationIQ service initialized with {KeyCount} API key(s) and rotation enabled",
                 _options.ApiKeys.Length);
+        }
+        else
+        {
+            _logger.LogWarning("LocationIQ service initialized without API keys. Distance calculations will fail.");
         }
     }
 
@@ -48,6 +67,13 @@ public class LocationIqService : ILocationIqService
         double destLng,
         double destLat)
     {
+        // Check if BaseAddress is configured
+        if (_httpClient.BaseAddress == null)
+        {
+            _logger.LogWarning("LocationIQ BaseAddress is not set. Cannot calculate distance.");
+            throw new ExternalServiceException("LocationIQ service is not properly configured (missing BaseUrl).");
+        }
+
         // Check if any API keys are configured
         if (!_keyManager.HasKeys)
         {
@@ -130,44 +156,89 @@ public class LocationIqService : ILocationIqService
     {
         try
         {
-            // LocationIQ Matrix API expects coordinates in format: lng,lat;lng,lat
+            // Validate coordinates before making the API call
+            ValidateCoordinates(sourceLng, sourceLat, "source");
+            ValidateCoordinates(destLng, destLat, "destination");
+
+            // LocationIQ Directions API expects coordinates in format: lng,lat;lng,lat
+            // Using Directions API instead of Matrix API due to better reliability
             var coordinates = $"{sourceLng},{sourceLat};{destLng},{destLat}";
 
-            // Build the request URL
-            var requestUrl = $"/v1/matrix/driving/{coordinates}?key={apiKey}";
+            // Build the request URL - using Directions API
+            var requestUrl = $"/v1/directions/driving/{coordinates}?key={apiKey}&overview=full";
 
-            _logger.LogDebug(
-                "Calling LocationIQ Matrix API: Source({SourceLng},{SourceLat}) -> Dest({DestLng},{DestLat})",
-                sourceLng, sourceLat, destLng, destLat);
+            _logger.LogInformation(
+                "Calling LocationIQ Directions API: Source({SourceLng},{SourceLat}) -> Dest({DestLng},{DestLat}), URL: {Url}",
+                sourceLng, sourceLat, destLng, destLat, 
+                requestUrl.Replace(apiKey, "***"));
 
             var response = await _httpClient.GetAsync(requestUrl);
+            var jsonContent = await response.Content.ReadAsStringAsync();
+
+            // Always log the response at Information level for debugging
+            _logger.LogInformation(
+                "LocationIQ Directions API Response: StatusCode={StatusCode}, BodyLength={Length}",
+                response.StatusCode, jsonContent.Length);
 
             if (!response.IsSuccessStatusCode)
             {
-                var errorContent = await response.Content.ReadAsStringAsync();
                 _logger.LogError(
-                    "LocationIQ API error: StatusCode={StatusCode}, Content={Content}",
-                    response.StatusCode, errorContent);
+                    "LocationIQ API error: StatusCode={StatusCode}, URL={Url}, Content={Content}",
+                    response.StatusCode, requestUrl.Replace(apiKey, "***"), jsonContent);
 
                 var exception = new ExternalServiceException(
                     $"LocationIQ API returned error: {response.StatusCode}");
                 exception.Data["StatusCode"] = response.StatusCode;
                 throw exception;
             }
-
-            var jsonContent = await response.Content.ReadAsStringAsync();
-            var matrixResponse = JsonSerializer.Deserialize<MatrixResponse>(jsonContent);
-
-            if (matrixResponse?.Distances == null ||
-                matrixResponse.Distances.Length == 0 ||
-                matrixResponse.Distances[0].Length == 0)
+            
+            var directionsResponse = JsonSerializer.Deserialize<DirectionsResponse>(jsonContent, new JsonSerializerOptions
             {
-                _logger.LogError("Invalid response from LocationIQ: {Response}", jsonContent);
-                throw new ExternalServiceException("Invalid response from LocationIQ Matrix API");
+                PropertyNameCaseInsensitive = true
+            });
+
+            if (directionsResponse == null)
+            {
+                _logger.LogError(
+                    "Failed to deserialize LocationIQ Directions response. RawResponse: {Response}",
+                    jsonContent);
+                throw new ExternalServiceException("Failed to parse LocationIQ Directions API response");
             }
 
-            // Distance is returned in meters, convert to kilometers
-            var distanceInMeters = matrixResponse.Distances[0][1];
+            // Check for routes array
+            if (directionsResponse.Routes == null || directionsResponse.Routes.Count == 0)
+            {
+                _logger.LogError(
+                    "LocationIQ returned no routes. " +
+                    "Source: ({SourceLng},{SourceLat}), Dest: ({DestLng},{DestLat}), " +
+                    "Code: {Code}, RawResponse: {Response}",
+                    sourceLng, sourceLat, destLng, destLat,
+                    directionsResponse.Code ?? "null",
+                    jsonContent);
+                    
+                throw new ExternalServiceException(
+                    "No route available between coordinates - possibly no road connection exists");
+            }
+
+            // Get distance from first route
+            var route = directionsResponse.Routes[0];
+            var distanceInMeters = route.Distance;
+            
+            // Check for valid distance value
+            if (double.IsNaN(distanceInMeters) || double.IsInfinity(distanceInMeters) || distanceInMeters <= 0)
+            {
+                _logger.LogError(
+                    "LocationIQ returned invalid or zero distance. " +
+                    "Source: ({SourceLng},{SourceLat}), Dest: ({DestLng},{DestLat}), " +
+                    "Distance: {Distance}, Code: {Code}",
+                    sourceLng, sourceLat, destLng, destLat,
+                    distanceInMeters,
+                    directionsResponse.Code ?? "null");
+                    
+                throw new ExternalServiceException(
+                    "No valid route found between the coordinates (distance is zero or invalid)");
+            }
+            
             var distanceInKm = distanceInMeters / 1000.0;
 
             _logger.LogInformation(
@@ -178,7 +249,7 @@ public class LocationIqService : ILocationIqService
         }
         catch (HttpRequestException ex)
         {
-            _logger.LogError(ex, "HTTP error calling LocationIQ Matrix API");
+            _logger.LogError(ex, "HTTP error calling LocationIQ Directions API");
             throw new ExternalServiceException("Failed to connect to LocationIQ service", ex);
         }
         catch (TaskCanceledException ex)
@@ -186,10 +257,32 @@ public class LocationIqService : ILocationIqService
             _logger.LogError(ex, "LocationIQ API request timeout");
             throw new ExternalServiceException("LocationIQ service timeout", ex);
         }
+        catch (JsonException ex)
+        {
+            _logger.LogError(ex, "Failed to parse LocationIQ API response");
+            throw new ExternalServiceException("Invalid JSON response from LocationIQ service", ex);
+        }
         catch (Exception ex) when (ex is not ExternalServiceException)
         {
             _logger.LogError(ex, "Unexpected error calculating distance");
             throw new ExternalServiceException("Failed to calculate distance", ex);
+        }
+    }
+
+    private void ValidateCoordinates(double lng, double lat, string locationName)
+    {
+        if (lng < -180 || lng > 180)
+        {
+            throw new ArgumentException(
+                $"Invalid {locationName} longitude: {lng}. Must be between -180 and 180.",
+                nameof(lng));
+        }
+
+        if (lat < -90 || lat > 90)
+        {
+            throw new ArgumentException(
+                $"Invalid {locationName} latitude: {lat}. Must be between -90 and 90.",
+                nameof(lat));
         }
     }
 

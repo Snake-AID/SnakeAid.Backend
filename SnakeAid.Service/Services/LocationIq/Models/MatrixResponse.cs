@@ -8,7 +8,19 @@ namespace SnakeAid.Service.Services.LocationIq.Models;
 public class MatrixResponse
 {
     /// <summary>
-    /// Array of distances in meters
+    /// Response code (e.g., "Ok", "InvalidInput")
+    /// </summary>
+    [JsonPropertyName("code")]
+    public string? Code { get; set; }
+
+    /// <summary>
+    /// Response message
+    /// </summary>
+    [JsonPropertyName("message")]
+    public string? Message { get; set; }
+
+    /// <summary>
+    /// Array of distances in meters (null if no route found)
     /// </summary>
     [JsonPropertyName("distances")]
     public double[][]? Distances { get; set; }
