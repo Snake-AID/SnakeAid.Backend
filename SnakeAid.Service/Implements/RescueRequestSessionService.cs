@@ -466,11 +466,11 @@ namespace SnakeAid.Service.Implements
         }
 
         /// Accept request: Update RescuerRequest, tạo RescueMission, mark others Taken
-        public async Task AcceptRequestAsync(Guid requestId, Guid rescuerId)
+        public async Task<AcceptRescueResponse> AcceptRequestAsync(Guid requestId, Guid rescuerId)
         {
             try
             {
-                await _unitOfWork.ExecuteInTransactionAsync(async () =>
+                return await _unitOfWork.ExecuteInTransactionAsync(async () =>
                 {
                     // Load request with session only (no circular reference)
                     var request = await _unitOfWork.GetRepository<RescuerRequest>().FirstOrDefaultAsync(
@@ -598,7 +598,16 @@ namespace SnakeAid.Service.Implements
                     _logger.LogInformation("Rescuer {RescuerId} accepted request {RequestId} for incident {IncidentId}, mission {MissionId} created",
                         rescuerId, requestId, request.IncidentId, mission.Id);
 
-                    return request;
+                    // Return response with mission info for client navigation
+                    return new AcceptRescueResponse
+                    {
+                        RequestId = requestId,
+                        IncidentId = request.IncidentId,
+                        RescuerId = rescuerId,
+                        MissionId = mission.Id,
+                        AcceptedAt = DateTime.UtcNow,
+                        Message = "Request accepted successfully! Mission created."
+                    };
                 });
             }
             catch (Exception ex)

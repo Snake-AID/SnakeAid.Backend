@@ -16,7 +16,7 @@ namespace SnakeAid.Api.Controllers
 {
     [Route("api/rescue-missions")]
     [ApiController]
-    [Authorize]
+    // [Authorize]
     public class RescueMissionController : BaseController<RescueMissionController>
     {
         private readonly IRescueMissionService _missionService;
@@ -31,20 +31,33 @@ namespace SnakeAid.Api.Controllers
             _missionService = missionService;
         }
 
-        // Note: GetMissionDetailsAsync is not defined in IRescueMissionService interface
-        // Commenting out until it's added to the interface
-        // /// <summary>
-        // /// Get rescue mission details
-        // /// </summary>
-        // [HttpGet("{missionId}")]
-        // [SwaggerOperation(Summary = "Get Mission Details", Description = "Retrieve detailed information about a rescue mission")]
-        // [SwaggerResponse(200, "Mission details retrieved successfully", typeof(ApiResponse<RescueMissionStatusResponse>))]
-        // [SwaggerResponse(404, "Mission not found")]
-        // public async Task<IActionResult> GetMissionDetails(Guid missionId)
-        // {
-        //     var result = await _missionService.GetMissionDetailsAsync(missionId);
-        //     return Ok(ApiResponseBuilder.BuildSuccessResponse(result, "Mission details retrieved successfully!"));
-        // }
+        /// <summary>
+        /// Get rescue mission details
+        /// Rescuer uses this before starting movement to see full incident info with images
+        /// </summary>
+        /// <param name="missionId">Mission ID</param>
+        /// <param name="rescuerLat">Rescuer's current latitude (for distance calculation)</param>
+        /// <param name="rescuerLng">Rescuer's current longitude (for distance calculation)</param>
+        [HttpGet("{missionId}")]
+        [SwaggerOperation(
+            Summary = "Get Mission Details",
+            Description = @"Retrieve detailed mission information for rescuer including:
+            - Patient info (name, avatar, emergency contacts)
+            - Incident location and symptoms
+            - Snake images with AI recognition results
+            - Severity level
+            - Distance from rescuer (if location provided)
+            Used before rescuer starts moving to location.")]
+        [SwaggerResponse(200, "Mission details retrieved successfully", typeof(ApiResponse<DetailRescueMissionResponse>))]
+        [SwaggerResponse(404, "Mission not found")]
+        public async Task<IActionResult> GetMissionDetails(
+            Guid missionId,
+            [FromQuery] double? rescuerLat = null,
+            [FromQuery] double? rescuerLng = null)
+        {
+            var result = await _missionService.GetMissionDetailAsync(missionId, rescuerLat, rescuerLng);
+            return Ok(ApiResponseBuilder.BuildSuccessResponse(result, "Mission details retrieved successfully!"));
+        }
 
         /// <summary>
         /// Update rescue mission status
@@ -54,14 +67,12 @@ namespace SnakeAid.Api.Controllers
         [SwaggerOperation(
             Summary = "Update Mission Status",
             Description = @"Update the status of a rescue mission. 
-
- Valid status transitions:
- - Preparing → EnRoute, Cancelled
- - EnRoute → RescuerArrived, MissionAborted
- - RescuerArrived → MissionCompleted, MissionUncompleted, MissionAborted
-
- When transitioning to MissionCompleted:
- - The corresponding SnakebiteIncident status is automatically updated to Finished")]
+            Valid status transitions:
+            - Preparing → EnRoute, Cancelled
+            - EnRoute → RescuerArrived, MissionAborted
+            - RescuerArrived → MissionCompleted, MissionUncompleted, MissionAborted
+            When transitioning to MissionCompleted:
+            - The corresponding SnakebiteIncident status is automatically updated to Finished")]
         [SwaggerResponse(200, "Mission status updated successfully")]
         [SwaggerResponse(400, "Invalid status transition")]
         [SwaggerResponse(404, "Mission not found")]

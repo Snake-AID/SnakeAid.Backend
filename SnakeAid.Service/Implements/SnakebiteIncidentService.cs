@@ -233,10 +233,12 @@ namespace SnakeAid.Service.Implements
                             predicate: s => s.Id == incidentId,
                             include: query => query
                                 .Include(i => i.User)
+                                    .ThenInclude(u => u.Account)
                                 .Include(i => i.AssignedRescuer)
-                                .Include(i => i.Sessions)
-                                .Include(i => i.AllRequests)
-                                    .ThenInclude(r => r.Rescuer)
+                                    .ThenInclude(r => r.Account)
+                                // .Include(i => i.Sessions)
+                                // .Include(i => i.AllRequests)
+                                //     .ThenInclude(r => r.Rescuer)
                                 .Include(i => i.Missions)
                                 .Include(i => i.Media)
                                     .ThenInclude(m => m.AIRecognitionResults)

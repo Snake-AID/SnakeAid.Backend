@@ -900,7 +900,7 @@
                 const response = await fetch('/api/rescuedemo/incident/create', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ lat: 10.762622, lng: 106.660172 })
+                body: JSON.stringify({})
                 });
 
                 if (!response.ok) {
@@ -1064,10 +1064,10 @@
                 }
 
                 const data = await response.json();
-                
+
                 // CRITICAL: Clear currentMissionId BEFORE refreshState to prevent race condition
                 currentMissionId = null;
-                
+
                 log(`🔄 Mission aborted! New session #${data.newSession.sessionNumber} created with ${data.newSession.radiusKm}km radius`, 'warning');
                 log(`📡 ${data.newSession.rescuersPinged} rescuers notified (excluding Rescuer ${rescuerId.slice(-1)})`, 'info');
                 log(`🚫 Rescuer ${rescuerId.slice(-1)} is now EXCLUDED from this incident`, 'error');

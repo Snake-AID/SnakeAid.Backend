@@ -68,15 +68,23 @@ namespace SnakeAid.Api.Hubs
         {
             try
             {
-                await _sessionService.AcceptRequestAsync(requestId, rescuerId);
+                var result = await _sessionService.AcceptRequestAsync(requestId, rescuerId);
 
-                await Clients.Caller.SendAsync("RequestAccepted", new
+                var response = new
                 {
-                    RequestId = requestId,
-                    Message = "Request accepted successfully! You have been assigned to this rescue mission."
-                });
+                    RequestId = result.RequestId,
+                    IncidentId = result.IncidentId,
+                    MissionId = result.MissionId,
+                    AcceptedAt = result.AcceptedAt,
+                    Message = result.Message
+                };
 
-                _logger.LogInformation("Rescuer {RescuerId} accepted request {RequestId}", rescuerId, requestId);
+                // Send mission info back to client for navigation to mission detail screen
+                await Clients.Caller.SendAsync("RequestAccepted", response);
+
+                _logger.LogInformation("Rescuer {RescuerId} accepted request {RequestId}, mission {MissionId} created",
+                    rescuerId, requestId, result.MissionId);
+                _logger.LogInformation("Response sent to client: {Response}", response);
             }
             catch (Exception ex)
             {
