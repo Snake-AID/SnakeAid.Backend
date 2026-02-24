@@ -367,9 +367,9 @@ namespace SnakeAid.Service.Implements
                             .ThenInclude(i => i.User)
                                 .ThenInclude(u => u.Account)
                         .Include(m => m.Incident)
-                            .ThenInclude(i => i.Media)
-                                .ThenInclude(media => media.AIRecognitionResults)
-                                    .ThenInclude(ar => ar.DetectedSpecies)
+                        // .ThenInclude(i => i.Media)
+                        //     .ThenInclude(media => media.AIRecognitionResults)
+                        //         .ThenInclude(ar => ar.DetectedSpecies)
                         .Include(m => m.Rescuer)
                             .ThenInclude(r => r.Account)
                 );

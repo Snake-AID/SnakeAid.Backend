@@ -90,8 +90,8 @@ namespace SnakeAid.Service.Implements
             await _unitOfWork.GetRepository<RescueRequestSession>().InsertAsync(session);
             _unitOfWork.GetRepository<SnakebiteIncident>().Update(incident);
 
-            // Note: Timeout scheduling will be done in BroadcastRequestsInternalAsync() to ensure timing sync
-            // between background service expiration and client-side countdown
+            // Note: Timeout scheduling will be done AFTER transaction commits (in BroadcastRequestsAsync or HandleSessionTimeoutAsync)
+            // This ensures session is persisted to DB before background service can process timeout
 
             _logger.LogInformation("Created session {SessionId} for incident {IncidentId}, radius {RadiusKm}km, trigger {Trigger}",
                 session.Id, incidentId, radiusKm, trigger);
@@ -117,7 +117,8 @@ namespace SnakeAid.Service.Implements
         }
 
         /// Broadcast requests to rescuers - Internal version without transaction (accepts session object)
-        private async Task<RescueRequestSession> BroadcastRequestsInternalAsync(RescueRequestSession session)
+        /// Returns tuple: (session, backgroundTimeoutAt) for scheduling timeout after commit
+        private async Task<(RescueRequestSession session, DateTime backgroundTimeoutAt)> BroadcastRequestsInternalAsync(RescueRequestSession session)
         {
             if (session == null)
             {
@@ -163,7 +164,9 @@ namespace SnakeAid.Service.Implements
             {
                 _logger.LogWarning("No rescuers found in {RadiusKm}km radius for session {SessionId}",
                     session.RadiusKm, session.Id);
-                return session;
+                // Return session with a default timeout (even though no rescuers were pinged)
+                var defaultTimeoutAt = DateTime.UtcNow.AddSeconds(REQUEST_TIMEOUT_SECONDS + BACKGROUND_TIMEOUT_BUFFER_SECONDS);
+                return (session, defaultTimeoutAt);
             }
 
             // Get rescuer IDs for filtering
@@ -209,8 +212,12 @@ namespace SnakeAid.Service.Implements
             var backgroundTimeoutAt = clientExpiredAt.AddSeconds(BACKGROUND_TIMEOUT_BUFFER_SECONDS);
             var requests = new List<RescuerRequest>();
 
-            // Schedule background timeout with +5s buffer to allow late acceptances
-            _timeoutService.ScheduleSessionTimeout(session.Id, backgroundTimeoutAt);
+            // NOTE: Timeout scheduling will be done AFTER transaction commits
+            // This ensures session is persisted to DB before background service can process it
+            _logger.LogWarning("[Timeout Schedule] ⏰ Calculated backgroundTimeoutAt: {BackgroundTimeoutAt} (in {Seconds}s) - " +
+                "will schedule AFTER transaction commit",
+                backgroundTimeoutAt, (backgroundTimeoutAt - requestSentAt).TotalSeconds);
+
             _logger.LogInformation("[Timing Sync] Client expires at {ClientExpiredAt} ({ClientSeconds}s), " +
                 "background timeout at {BackgroundTimeoutAt} ({TotalSeconds}s with {BufferSeconds}s grace period)",
                 clientExpiredAt, REQUEST_TIMEOUT_SECONDS,
@@ -277,19 +284,29 @@ namespace SnakeAid.Service.Implements
             session.RescuersPinged = requests.Count;
             _unitOfWork.GetRepository<RescueRequestSession>().Update(session);
 
-            _logger.LogInformation("Successfully broadcasted {Count} requests for session {SessionId}, radius {RadiusKm}km. " +
-                "All data committed to database.",
+            _logger.LogWarning("[Timeout Schedule] 📊 Session {SessionId} summary: " +
+                "RescuersPinged={Count}, Status={Status}, TimeoutAt={TimeoutAt}, CurrentTime={Now}, " +
+                "SecondsUntilTimeout={SecondsUntilTimeout}",
+                session.Id, requests.Count, session.Status, backgroundTimeoutAt, DateTime.UtcNow,
+                (backgroundTimeoutAt - DateTime.UtcNow).TotalSeconds);
+
+            _logger.LogInformation("Successfully prepared {Count} requests for session {SessionId}, radius {RadiusKm}km. " +
+                "Ready to commit transaction.",
                 requests.Count, session.Id, session.RadiusKm);
 
-            return session;
+            // Return session and timeout for scheduling AFTER commit
+            return (session, backgroundTimeoutAt);
         }
 
         /// Broadcast requests to rescuers - Public version with transaction
         public async Task BroadcastRequestsAsync(Guid sessionId)
         {
+            DateTime backgroundTimeoutAt = DateTime.MinValue;
+
             try
             {
-                await _unitOfWork.ExecuteInTransactionAsync(async () =>
+                // Execute broadcast in transaction - get timeout time back
+                var result = await _unitOfWork.ExecuteInTransactionAsync(async () =>
                 {
                     // Query session from database
                     var session = await _unitOfWork.GetRepository<RescueRequestSession>().FirstOrDefaultAsync(
@@ -304,6 +321,21 @@ namespace SnakeAid.Service.Implements
 
                     return await BroadcastRequestsInternalAsync(session);
                 });
+
+                // Extract session and timeout from result
+                var (session, timeoutAt) = result;
+                backgroundTimeoutAt = timeoutAt;
+
+                _logger.LogWarning("[Timeout Schedule] 🔓 Transaction COMMITTED successfully for session {SessionId}. " +
+                    "Now scheduling timeout at {TimeoutAt} (in {Seconds}s)...",
+                    sessionId, backgroundTimeoutAt, (backgroundTimeoutAt - DateTime.UtcNow).TotalSeconds);
+
+                // Schedule timeout AFTER transaction commits to prevent race conditions
+                // This ensures session is persisted to DB before background service can query it
+                _timeoutService.ScheduleSessionTimeout(sessionId, backgroundTimeoutAt);
+
+                _logger.LogWarning("[Timeout Schedule] ✅ Timeout scheduled for session {SessionId} at {TimeoutAt}",
+                    sessionId, backgroundTimeoutAt);
             }
             catch (Exception ex)
             {
@@ -314,54 +346,65 @@ namespace SnakeAid.Service.Implements
 
 
         /// Query rescuers online trong radius bằng PostGIS
+        /// OPTIMIZED: Uses PostGIS spatial index for distance calculation in SQL
         private async Task<List<RescuerProfile>> GetRescuersInRadiusAsync(Point incidentLocation, int radiusKm)
         {
             // Convert km to meters for PostGIS distance calculation
             var radiusMeters = radiusKm * 1000;
 
-            _logger.LogDebug("Querying rescuers: radius {RadiusKm}km ({RadiusMeters}m), location ({Lng}, {Lat})",
+            _logger.LogWarning("🔍 [QUERY START] Querying rescuers: radius {RadiusKm}km ({RadiusMeters}m), location ({Lng}, {Lat})",
                 radiusKm, radiusMeters, incidentLocation.X, incidentLocation.Y);
 
-            // First, get ALL rescuer profiles to see their IsOnline status
-            var allRescuers = await _unitOfWork.GetRepository<RescuerProfile>()
+            // ============================================================
+            // STEP 1: Query với PostGIS spatial index (OPTIMIZED - runs in DB)
+            // ============================================================
+            var rescuersInRadius = await _unitOfWork.GetRepository<RescuerProfile>()
                 .CreateBaseQuery(asNoTracking: true)
-                .Where(r => r.LastLocation != null)
-                .Where(r => r.Type == RescuerType.Emergency || r.Type == RescuerType.Both)
-                .Select(r => new { r.AccountId, r.IsOnline })
+                .Where(r => r.IsOnline)  // Filter 1: Online status
+                .Where(r => r.Type == RescuerType.Emergency || r.Type == RescuerType.Both)  // Filter 2: Type
+                .Where(r => r.LastLocation != null)  // Filter 3: Has location
+                .Where(r => r.LastLocation.Distance(incidentLocation) <= radiusMeters)  // Filter 4: Distance (uses GIST index)
+                .OrderBy(r => r.LastLocation.Distance(incidentLocation))  // Sort by distance
                 .ToListAsync();
 
-            _logger.LogWarning("DEBUG: All rescuer profiles in DB - Total: {Count}, Online: {OnlineCount}, IDs: {RescuerStatuses}",
-                allRescuers.Count,
-                allRescuers.Count(r => r.IsOnline),
-                string.Join(", ", allRescuers.Select(r => $"{r.AccountId}:{(r.IsOnline ? "ONLINE" : "OFFLINE")}")));
+            _logger.LogWarning("✅ [QUERY RESULT] PostGIS query found {Count} rescuers (IsOnline=true, HasLocation=true, within {RadiusKm}km)",
+                rescuersInRadius.Count, radiusKm);
 
-            // Sử dụng CreateBaseQuery() theo pattern của GenericRepository
-            var rescuers = await _unitOfWork.GetRepository<RescuerProfile>()
-                .CreateBaseQuery(asNoTracking: true)
-                .Where(r => r.IsOnline)
-                .Where(r => r.LastLocation != null)
-                .Where(r => r.Type == RescuerType.Emergency || r.Type == RescuerType.Both)
-                .Where(r => r.LastLocation!.Distance(incidentLocation) <= radiusMeters)
-                .OrderBy(r => r.LastLocation!.Distance(incidentLocation))
-                .ToListAsync();
+            // ============================================================
+            // STEP 4: Filter by SignalR connection status (in-memory - not stored in DB)
+            // ============================================================
+            var connectedRescuers = new List<RescuerProfile>();
+            var disconnectedRescuerIds = new List<Guid>();
 
-            _logger.LogInformation("Database query found {Count} rescuers (IsOnline=true, within {RadiusKm}km)",
-                rescuers.Count, radiusKm);
+            foreach (var rescuer in rescuersInRadius)
+            {
+                var isConnected = _notificationService.IsRescuerConnected(rescuer.AccountId.ToString());
+                if (isConnected)
+                {
+                    connectedRescuers.Add(rescuer);
+                }
+                else
+                {
+                    disconnectedRescuerIds.Add(rescuer.AccountId);
+                }
+            }
 
-            // Check SignalR connection status
-            var connectedCount = rescuers.Count(r => _notificationService.IsRescuerConnected(r.AccountId.ToString()));
-            _logger.LogWarning("DEBUG: SignalR connections - {ConnectedCount} of {TotalCount} rescuers are connected: {ConnectedIds}",
-                connectedCount,
-                rescuers.Count,
-                string.Join(", ", rescuers.Select(r => $"{r.AccountId}:{(_notificationService.IsRescuerConnected(r.AccountId.ToString()) ? "CONNECTED" : "NOT-CONNECTED")}")));
+            _logger.LogWarning("🔌 [SIGNALR FILTER] {ConnectedCount} of {TotalCount} rescuers are connected to SignalR hub",
+                connectedRescuers.Count, rescuersInRadius.Count);
 
-            // Filter chỉ những rescuer đang connected tới hub (via notification service)
-            var connectedRescuers = rescuers
-                .Where(r => _notificationService.IsRescuerConnected(r.AccountId.ToString()))
-                .ToList();
+            if (disconnectedRescuerIds.Any())
+            {
+                _logger.LogWarning("⚠️ [SIGNALR MISMATCH] {Count} rescuers are IsOnline=true in DB but NOT connected to SignalR: {RescuerIds}",
+                    disconnectedRescuerIds.Count,
+                    string.Join(", ", disconnectedRescuerIds));
+                _logger.LogWarning("💡 [HINT] IsOnline status may be stale. Did rescuers disconnect without proper cleanup?");
+            }
 
-            _logger.LogInformation("After SignalR connection filter: {ConnectedCount} of {TotalCount} rescuers are connected to hub",
-                connectedRescuers.Count, rescuers.Count);
+            // ============================================================
+            // FINAL RESULT
+            // ============================================================
+            _logger.LogWarning("✅ [FINAL RESULT] Returning {Count} rescuers (DB query: {DbCount} → SignalR filter: {SignalRCount})",
+                connectedRescuers.Count, rescuersInRadius.Count, connectedRescuers.Count);
 
             return connectedRescuers;
         }
@@ -387,6 +430,9 @@ namespace SnakeAid.Service.Implements
         /// Handle timeout: Mark requests expired sau 60s, check nếu cần expand/create new session
         public async Task HandleSessionTimeoutAsync(Guid sessionId)
         {
+            _logger.LogWarning("[Timeout Handler] 🔔 HandleSessionTimeoutAsync CALLED for session {SessionId} at {Now}",
+                sessionId, DateTime.UtcNow);
+
             try
             {
                 var session = await _unitOfWork.GetRepository<RescueRequestSession>().FirstOrDefaultAsync(
@@ -398,10 +444,15 @@ namespace SnakeAid.Service.Implements
                 {
                     // Session may have been deleted (incident cancelled, already processed, etc.)
                     // This is normal for background cleanup - just log and skip
-                    _logger.LogWarning("Session {SessionId} not found during timeout handling - may have been cancelled or already processed",
+                    _logger.LogWarning("[Timeout Handler] ⚠️ Session {SessionId} not found during timeout handling - may have been cancelled or already processed",
                         sessionId);
                     return;
                 }
+
+                _logger.LogWarning("[Timeout Handler] 📋 Session {SessionId} found in DB - Status: {Status}, IncidentId: {IncidentId}, " +
+                    "CreatedAt: {CreatedAt}, PendingRequests: {PendingCount}",
+                    sessionId, session.Status, session.IncidentId, session.CreatedAt,
+                    session.Requests.Count(r => r.Status == RescueRequestStatus.Pending));
 
                 // Skip nếu session đã complete hoặc cancelled
                 if (session.Status != SessionStatus.Active)
@@ -411,7 +462,7 @@ namespace SnakeAid.Service.Implements
                     return;
                 }
 
-                await _unitOfWork.ExecuteInTransactionAsync(async () =>
+                var result = await _unitOfWork.ExecuteInTransactionAsync(async () =>
                 {
                     // Mark all pending requests as expired (bulk update for better performance)
                     var pendingRequests = session.Requests.Where(r => r.Status == RescueRequestStatus.Pending).ToList();
@@ -448,10 +499,40 @@ namespace SnakeAid.Service.Implements
                     _logger.LogInformation("Attempting to expand session for incident {IncidentId} (from session {SessionId})",
                         session.IncidentId, sessionId);
 
-                    await TryExpandAndCreateNewSessionAsync(session.IncidentId);
+                    var (success, timeoutAt) = await TryExpandAndCreateNewSessionAsync(session.IncidentId);
 
-                    return session;
+                    return (success, timeoutAt, session);
                 });
+
+                // Extract results from transaction
+                var (expandSuccess, expandTimeoutAt, processedSession) = result;
+
+                // Schedule timeout for new session AFTER transaction commits (if expansion succeeded)
+                if (expandSuccess && expandTimeoutAt.HasValue)
+                {
+                    // Get the newly created session to get its ID
+                    var newSession = await _unitOfWork.GetRepository<RescueRequestSession>()
+                        .FirstOrDefaultAsync(
+                            predicate: s => s.IncidentId == processedSession.IncidentId && s.Status == SessionStatus.Active,
+                            orderBy: q => q.OrderByDescending(s => s.SessionNumber)
+                        );
+
+                    if (newSession != null)
+                    {
+                        _logger.LogWarning("[Timeout Handler] 🔓 Transaction COMMITTED. Scheduling timeout for NEW session {NewSessionId} at {TimeoutAt} (in {Seconds}s)",
+                            newSession.Id, expandTimeoutAt.Value, (expandTimeoutAt.Value - DateTime.UtcNow).TotalSeconds);
+
+                        _timeoutService.ScheduleSessionTimeout(newSession.Id, expandTimeoutAt.Value);
+
+                        _logger.LogWarning("[Timeout Handler] ✅ Timeout scheduled for new session {NewSessionId}",
+                            newSession.Id);
+                    }
+                    else
+                    {
+                        _logger.LogError("[Timeout Handler] ⚠️ Could not find newly created session for incident {IncidentId} to schedule timeout",
+                            processedSession.IncidentId);
+                    }
+                }
             }
             catch (NotFoundException ex)
             {
@@ -690,7 +771,8 @@ namespace SnakeAid.Service.Implements
 
 
         /// Expand radius và tạo session mới nếu cần
-        public async Task<bool> TryExpandAndCreateNewSessionAsync(Guid incidentId)
+        /// Returns: (success, timeoutAt) - timeoutAt is set if new session was created
+        public async Task<(bool success, DateTime? timeoutAt)> TryExpandAndCreateNewSessionAsync(Guid incidentId)
         {
             try
             {
@@ -703,7 +785,7 @@ namespace SnakeAid.Service.Implements
                     // Incident may have been deleted (user cancelled, etc.)
                     _logger.LogWarning("Incident {IncidentId} not found during session expansion - may have been cancelled",
                         incidentId);
-                    return false;
+                    return (false, null);
                 }
 
                 // Check if incident is still pending
@@ -711,7 +793,7 @@ namespace SnakeAid.Service.Implements
                 {
                     _logger.LogInformation("Incident {IncidentId} is no longer pending ({Status}), skipping expand",
                         incidentId, incident.Status);
-                    return false;
+                    return (false, null);
                 }
 
                 // Check if max sessions reached
@@ -722,7 +804,7 @@ namespace SnakeAid.Service.Implements
 
                     incident.Status = SnakebiteIncidentStatus.NoRescuerFound;
                     _unitOfWork.GetRepository<SnakebiteIncident>().Update(incident);
-                    return false;
+                    return (false, null);
                 }
 
                 // Get next radius from progression
@@ -741,12 +823,13 @@ namespace SnakeAid.Service.Implements
                 );
 
                 // Broadcast requests for new session (pass session object - already in transaction)
-                await BroadcastRequestsInternalAsync(newSession);
+                var (broadcastedSession, timeoutAt) = await BroadcastRequestsInternalAsync(newSession);
 
-                _logger.LogInformation("Expanded to session {SessionNumber} with radius {RadiusKm}km for incident {IncidentId}",
-                    nextSessionNumber, nextRadius, incidentId);
+                _logger.LogInformation("Expanded to session {SessionNumber} with radius {RadiusKm}km for incident {IncidentId}, timeout at {TimeoutAt}",
+                    nextSessionNumber, nextRadius, incidentId, timeoutAt);
 
-                return true;
+                // Return success and timeout for caller to schedule AFTER transaction commits
+                return (true, timeoutAt);
             }
             catch (Exception ex)
             {

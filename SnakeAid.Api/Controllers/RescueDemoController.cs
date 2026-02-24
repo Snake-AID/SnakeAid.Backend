@@ -130,7 +130,7 @@ namespace SnakeAid.Api.Controllers
             {
                 // Log received coordinates for debugging
                 _logger.LogWarning("🔍 CREATE INCIDENT RECEIVED: Lat={Lat}, Lng={Lng}", dto.Lat, dto.Lng);
-                
+
                 // Check if demo data is seeded
                 var status = await _demoDataSeeder.GetStatusAsync();
                 if (!status.IsSeeded)
@@ -493,7 +493,7 @@ namespace SnakeAid.Api.Controllers
                 // Query all sessions for this incident
                 var sessions = await _unitOfWork.GetRepository<RescueRequestSession>()
                     .CreateBaseQuery()
-                    .Where(s => s.IncidentId == _currentDemoIncidentId.Value)
+                    .Where(s => s.IncidentId == incident.Id)
                     .OrderBy(s => s.SessionNumber)
                     .Select(s => new
                     {
@@ -510,7 +510,7 @@ namespace SnakeAid.Api.Controllers
                 // Query all requests for this incident
                 var requests = await _unitOfWork.GetRepository<RescuerRequest>()
                     .CreateBaseQuery()
-                    .Where(r => r.IncidentId == _currentDemoIncidentId.Value)
+                    .Where(r => r.IncidentId == incident.Id)
                     .OrderByDescending(r => r.CreatedAt)
                     .Select(r => new
                     {
@@ -533,7 +533,7 @@ namespace SnakeAid.Api.Controllers
                 };
                 var mission = await _unitOfWork.GetRepository<RescueMission>()
                     .CreateBaseQuery()
-                    .Where(m => m.IncidentId == _currentDemoIncidentId.Value && activeMissionStatuses.Contains(m.Status))
+                    .Where(m => m.IncidentId == incident.Id && activeMissionStatuses.Contains(m.Status))
                     .OrderByDescending(m => m.CreatedAt)
                     .Select(m => new
                     {
@@ -589,7 +589,7 @@ namespace SnakeAid.Api.Controllers
         /// Get all demo rescuers with connection status
         /// </summary>
         [HttpGet("rescuers")]
-        public IActionResult GetRescuers()
+        public async Task<IActionResult> GetRescuers()
         {
             var rescuers = new[]
             {
@@ -603,12 +603,24 @@ namespace SnakeAid.Api.Controllers
                 new { id = DemoDataSeeder.DEMO_RESCUER_D_ID, name = "Rescuer D - Tam Kỳ Ward 4", distanceKm = 15.0 }
             };
 
+            // Get real-time connection status from SignalR hub
+            var connectedRescuerIds = SignalRRescueNotificationService.ConnectedRescuers.Keys.ToHashSet();
+
+            // Get online status from database
+            var rescuerProfiles = await _unitOfWork.GetRepository<RescuerProfile>()
+                .CreateBaseQuery(asNoTracking: true)
+                .Where(r => rescuers.Select(x => x.id).Contains(r.AccountId))
+                .Select(r => new { r.AccountId, r.IsOnline, r.LastLocationUpdate })
+                .ToListAsync();
+
             var result = rescuers.Select(r => new
             {
                 r.id,
                 r.name,
                 r.distanceKm,
-                isConnected = SignalRRescueNotificationService.ConnectedRescuers.ContainsKey(r.id.ToString())
+                isConnected = connectedRescuerIds.Contains(r.id.ToString()),
+                isOnlineInDb = rescuerProfiles.FirstOrDefault(p => p.AccountId == r.id)?.IsOnline ?? false,
+                lastLocationUpdate = rescuerProfiles.FirstOrDefault(p => p.AccountId == r.id)?.LastLocationUpdate
             });
 
             return Ok(result);

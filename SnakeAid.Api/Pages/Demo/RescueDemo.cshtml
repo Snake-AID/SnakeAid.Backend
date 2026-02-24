@@ -594,6 +594,9 @@
                 <div class="card-header">
                     <span>🚑</span>
                     <h2>Rescuers (4 Mock)</h2>
+                    <div style="margin-left: auto; font-size: 0.7rem; color: var(--gray-600);">
+                        💻 = Demo page | 📱 = Flutter client | 📱💻 = Both
+                    </div>
                 </div>
                 <div class="card-body">
                     <div class="rescuer-grid" id="rescuerGrid">
@@ -607,6 +610,12 @@
                 <div class="card-header">
                     <span>📊</span>
                     <h2>Incident Status</h2>
+                    <div style="margin-left: auto; display: flex; align-items: center; gap: 8px;">
+                        <span id="monitoringIndicator"
+                              style="font-size: 0.75rem; padding: 4px 8px; background: #10b981; color: white; border-radius: 4px;">
+                            🔄 Polling (5s)
+                        </span>
+                    </div>
                 </div>
                 <div class="card-body">
                     <!-- Timer -->
@@ -686,6 +695,7 @@
                 ];
 
                 const rescuerRequests = {}; // rescuerId -> requestData
+                let serverRescuerStatus = {}; // Track rescuer connection status from server
 
                 // ====== INIT ======
                 document.addEventListener('DOMContentLoaded', async () => {
@@ -1205,14 +1215,28 @@
                 function renderRescuers() {
                 const grid = document.getElementById('rescuerGrid');
                 grid.innerHTML = mockRescuers.map(r => {
-                const isConnected = !!rescuerConnections[r.id];
+                // Check connection status from BOTH local (demo page) AND server (Flutter client)
+                const isLocallyConnected = !!rescuerConnections[r.id];
+                const isServerConnected = serverRescuerStatus[r.id]?.isConnected || false;
+                const isConnected = isLocallyConnected || isServerConnected;
+
                 const request = rescuerRequests[r.id];
                 const hasRequest = request && request.status === 'Pending';
                 const isExcluded = excludedRescuers.has(r.id);
 
+                // Show connection source for debugging
+                let connectionSource = '';
+                if (isLocallyConnected && isServerConnected) {
+                connectionSource = '📱💻'; // Both demo page and Flutter
+                } else if (isLocallyConnected) {
+                connectionSource = '💻'; // Demo page only
+                } else if (isServerConnected) {
+                connectionSource = '📱'; // Flutter client only
+                }
+
                 return `
                 <div class="rescuer-card ${isConnected ? 'connected' : ''} ${hasRequest ? 'has-request' : ''}">
-                <div class="name">${r.name} ${isExcluded ? '🚫' : ''}</div>
+                <div class="name">${r.name} ${isExcluded ? '🚫' : ''} ${connectionSource}</div>
                 <div class="distance">📍 ${r.distance} km from user</div>
                 <div class="actions">
                 ${!isConnected ? `
@@ -1312,9 +1336,41 @@
                 // Render sessions with requests
                 renderSessionsWithRequests(data.sessions, data.requests);
 
+                // IMPORTANT: Also refresh rescuer connection status
+                await refreshRescuerStatus();
+
                 renderRescuers();
                 } catch (err) {
                 console.error('Failed to refresh state:', err);
+                }
+                }
+
+                // NEW: Fetch rescuer connection status from server
+                async function refreshRescuerStatus() {
+                try {
+                const response = await fetch('/api/rescuedemo/rescuers');
+                const rescuers = await response.json();
+
+                // Log connection changes for debugging (before updating cache)
+                rescuers.forEach(r => {
+                const oldStatus = serverRescuerStatus[r.id];
+                const wasConnected = oldStatus?.isConnected || false;
+                if (r.isConnected !== wasConnected && oldStatus !== undefined) {
+                log(`📱 Rescuer ${r.name.split(' - ')[0]} ${r.isConnected ? 'connected' : 'disconnected'} (from Flutter/Server)`, 'info');
+                }
+                });
+
+                // Update server status cache
+                serverRescuerStatus = {};
+                rescuers.forEach(r => {
+                serverRescuerStatus[r.id] = {
+                isConnected: r.isConnected,
+                isOnlineInDb: r.isOnlineInDb,
+                lastLocationUpdate: r.lastLocationUpdate
+                };
+                });
+                } catch (err) {
+                console.error('Failed to refresh rescuer status:', err);
                 }
                 }
 
@@ -1363,7 +1419,7 @@
                 }).join('');
                 }
 
-                // Auto-refresh monitoring data every 10 seconds
+                // Auto-refresh monitoring data every 5 seconds (increased frequency for better responsiveness)
                 let monitoringInterval = null;
 
                 function startMonitoring() {
@@ -1372,18 +1428,33 @@
                 // Initial fetch
                 refreshState();
 
-                // Poll every 10 seconds
+                // Poll every 5 seconds (increased from 10s for better real-time feel)
                 monitoringInterval = setInterval(() => {
                 refreshState();
-                }, 10000);
+                }, 5000);
 
-                log('📊 Real-time monitoring started (polling every 10s)', 'info');
+                // Update indicator
+                const indicator = document.getElementById('monitoringIndicator');
+                if (indicator) {
+                indicator.style.background = '#10b981';
+                indicator.textContent = '🔄 Polling (5s)';
+                }
+
+                log('📊 Real-time monitoring started (polling every 5s)', 'info');
                 }
 
                 function stopMonitoring() {
                 if (monitoringInterval) {
                 clearInterval(monitoringInterval);
                 monitoringInterval = null;
+
+                // Update indicator
+                const indicator = document.getElementById('monitoringIndicator');
+                if (indicator) {
+                indicator.style.background = '#6b7280';
+                indicator.textContent = '⏸️ Paused';
+                }
+
                 log('📊 Monitoring stopped', 'info');
                 }
                 }
