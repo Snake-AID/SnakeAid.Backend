@@ -14,7 +14,7 @@ namespace SnakeAid.Api.Controllers
 {
     [Route("api/incidents")]
     [ApiController]
-    [Authorize]
+    // [Authorize]
     public class SnakebiteIncidentController : BaseController<SnakebiteIncidentController>
     {
         private readonly ISnakebiteIncidentService _incidentService;

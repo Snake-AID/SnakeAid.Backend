@@ -1,4 +1,5 @@
 using SnakeAid.Core.Domains;
+using SnakeAid.Core.Responses.RescueMission;
 using System.Threading.Tasks;
 
 namespace SnakeAid.Service.Interfaces
@@ -17,5 +18,13 @@ namespace SnakeAid.Service.Interfaces
         // Rescuer abort mission: Set status to MissionAborted, create new session with increased radius
         Task RescuerAbortMissionAsync(Guid missionId, string reason);
 
+        // Get mission by ID (domain entity)
+        Task<RescueMission> GetMissionByIdAsync(Guid missionId);
+
+        // Get detailed mission info with all related entities (for API response)
+        Task<DetailRescueMissionResponse> GetMissionDetailAsync(Guid missionId);
+
+        /// Get mission detail with calculated distance from rescuer location
+        Task<DetailRescueMissionResponse> GetMissionDetailAsync(Guid missionId, double? rescuerLat, double? rescuerLng);
     }
 }
