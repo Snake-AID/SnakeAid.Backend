@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using SnakeAid.Core.Domains;
+using SnakeAid.Core.Responses.Media;
 
 namespace SnakeAid.Core.Responses.SnakeCatchingMission
 {
@@ -21,5 +22,6 @@ namespace SnakeAid.Core.Responses.SnakeCatchingMission
         public DateTime CreatedAt { get; set; }
         public DateTime? UpdatedAt { get; set; }
         public List<CatchingMissionDetailResponse>? MissionDetails { get; set; }
+        public List<ReportMediaResponse>? Media { get; set; }
     }
 }
