@@ -63,6 +63,8 @@ public class MediaService : IMediaService
 
             var repository = _unitOfWork.GetRepository<ReportMedia>();
             await repository.InsertAsync(reportMedia);
+
+
             await _unitOfWork.CommitAsync();
 
             var response = new ReportMediaResponse

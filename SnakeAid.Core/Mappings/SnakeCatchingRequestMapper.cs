@@ -1,5 +1,6 @@
 using Mapster;
 using SnakeAid.Core.Domains;
+using SnakeAid.Core.Responses.MemberProfile;
 using SnakeAid.Core.Responses.SnakeCatchingRequest;
 
 namespace SnakeAid.Core.Mappings
@@ -33,6 +34,13 @@ namespace SnakeAid.Core.Mappings
                 .NewConfig()
                 .PreserveReference(true)
                 .MaxDepth(2);
+
+            // Configure MemberProfile to BriefMemberProfileRespone mapping
+            TypeAdapterConfig<MemberProfile, BriefMemberProfileRespone>
+                .NewConfig()
+                .Map(dest => dest.UserName, src => src.Account.UserName)
+                .Map(dest => dest.Email, src => src.Account.Email)
+                .Map(dest => dest.PhoneNumber, src => src.Account.PhoneNumber);
         }
     }
 }
