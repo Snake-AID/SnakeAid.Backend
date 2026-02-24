@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace SnakeAid.Core.Domains
 {
-    public class SnakeCatchingMission : BaseEntity
+    public class SnakeCatchingMission : BaseEntity, IHasReportMedia
     {
         [Key]
         public Guid Id { get; set; }
