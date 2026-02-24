@@ -1,0 +1,205 @@
+@page "/admin"
+@{
+    ViewData["Title"] = "Admin Hub";
+}
+
+@section Styles {
+    <style>
+        .hub-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: calc(100vh - 200px);
+            text-align: center;
+        }
+
+        .hub-title {
+            margin-bottom: 60px;
+        }
+
+        .hub-title h1 {
+            font-size: 3.5rem;
+            font-weight: 800;
+            letter-spacing: -2px;
+            background: linear-gradient(to right, #fff, var(--text-muted));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 10px;
+        }
+
+        .hub-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 30px;
+            max-width: 1200px;
+            width: 100%;
+        }
+
+        .hub-card {
+            background: var(--bg-panel);
+            backdrop-filter: blur(var(--glass-blur));
+            border: 1px solid var(--border-glass);
+            border-radius: 28px;
+            padding: 40px;
+            text-decoration: none;
+            color: inherit;
+            transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .hub-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: radial-gradient(circle at var(--mouse-x, 50%) var(--mouse-y, 50%), rgba(59, 130, 246, 0.1) 0%, transparent 80%);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            pointer-events: none;
+        }
+
+        .hub-card:hover {
+            transform: translateY(-10px) scale(1.02);
+            border-color: var(--accent-blue);
+            box-shadow: 0 30px 60px -12px rgba(0, 0, 0, 0.6);
+        }
+
+        .hub-card:hover::before {
+            opacity: 1;
+        }
+
+        .hub-icon {
+            width: 80px;
+            height: 80px;
+            border-radius: 20px;
+            background: var(--bg-card);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.5rem;
+            color: var(--accent-blue);
+            transition: all 0.3s ease;
+            border: 1px solid var(--border-glass);
+        }
+
+        .hub-card:hover .hub-icon {
+            transform: rotate(-5deg) scale(1.1);
+            background: var(--accent-blue);
+            color: #fff;
+            box-shadow: 0 0 20px rgba(59, 130, 246, 0.4);
+        }
+
+        .hub-card.species:hover .hub-icon { background: var(--accent-purple); color: #fff; box-shadow: 0 0 20px rgba(139, 92, 246, 0.4); }
+        .hub-card.incidents:hover .hub-icon { background: var(--accent-red); color: #fff; box-shadow: 0 0 20px rgba(244, 63, 94, 0.4); }
+
+        .hub-info h3 {
+            font-size: 1.6rem;
+            font-weight: 700;
+            margin: 0 0 10px 0;
+            color: #fff;
+        }
+
+        .hub-info p {
+            color: var(--text-muted);
+            font-size: 1rem;
+            line-height: 1.5;
+            margin: 0;
+        }
+
+        .go-btn {
+            margin-top: 10px;
+            padding: 8px 20px;
+            border-radius: 12px;
+            font-size: 0.85rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid var(--border-glass);
+            transition: all 0.3s ease;
+        }
+
+        .hub-card:hover .go-btn {
+            background: #fff;
+            color: #000;
+            border-color: #fff;
+        }
+
+        @@media (max-width: 992px) {
+            .hub-grid { grid-template-columns: 1fr; max-width: 400px; }
+            .hub-title h1 { font-size: 2.5rem; }
+        }
+    </style>
+}
+
+<div class="hub-container">
+    <div class="hub-title">
+        <h1>Control Tower</h1>
+        <p class="text-muted">Select a module to manage the SnakeAid ecosystem</p>
+    </div>
+
+    <div class="hub-grid">
+        <a href="/admin/snakelibs" class="hub-card species">
+            <div class="hub-icon">
+                <i class="bi bi-journal-medical"></i>
+            </div>
+            <div class="hub-info">
+                <h3>Species Catalog</h3>
+                <p>Manage scientific data, venom profiles, and identification keys for all indexed snakes.</p>
+            </div>
+            <div class="go-btn">Enter Module</div>
+        </a>
+
+        <a href="/admin/incidents" class="hub-card incidents">
+            <div class="hub-icon">
+                <i class="bi bi-activity"></i>
+            </div>
+            <div class="hub-info">
+                <h3>Incident Control</h3>
+                <p>Monitor real-time bite reports, rescuer deployments, and session lifecycle forensics.</p>
+            </div>
+            <div class="go-btn">Enter Module</div>
+        </a>
+
+        <a href="/admin/livetracking" class="hub-card">
+            <div class="hub-icon">
+                <i class="bi bi-radar"></i>
+            </div>
+            <div class="hub-info">
+                <h3>Live Monitor</h3>
+                <p>Execute "God Mode" surveillance of active rescuers and ongoing emergency responses.</p>
+            </div>
+            <div class="go-btn">Enter Module</div>
+        </a>
+
+        <a href="/admin/simulator" class="hub-card">
+            <div class="hub-icon" style="background: var(--accent-gold); color: #fff;">
+                <i class="bi bi-terminal"></i>
+            </div>
+            <div class="hub-info">
+                <h3>Rescue Simulator</h3>
+                <p>Simulate emergencies and test rescuer dispatch logic in a safe sandbox.</p>
+            </div>
+            <div class="go-btn">Enter Module</div>
+        </a>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        document.querySelectorAll('.hub-card').forEach(card => {
+            card.addEventListener('mousemove', e => {
+                const rect = card.getBoundingClientRect();
+                const x = ((e.clientX - rect.left) / card.clientWidth) * 100;
+                const y = ((e.clientY - rect.top) / card.clientHeight) * 100;
+                card.style.setProperty('--mouse-x', `${x}%`);
+                card.style.setProperty('--mouse-y', `${y}%`);
+            });
+        });
+    </script>
+}
