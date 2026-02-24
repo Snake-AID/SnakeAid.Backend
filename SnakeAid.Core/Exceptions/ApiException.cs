@@ -47,6 +47,18 @@ public class BusinessException : ApiException
     }
 }
 
+public class ExternalServiceException : ApiException
+{
+    public ExternalServiceException(string reason, Exception? innerException = null)
+        : base(reason, HttpStatusCode.BadGateway)
+    {
+        if (innerException != null)
+        {
+            Data["InnerException"] = innerException.Message;
+        }
+    }
+}
+
 public class ValidationException : ApiException
 {
     public List<string> Errors { get; }
