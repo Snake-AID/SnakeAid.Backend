@@ -100,6 +100,24 @@ public static class DependencyInjection
 
 
 
+        // Configure LiveKit Settings
+        var liveKitOptions = configuration.GetSection("LiveKit").Get<LiveKitOptions>();
+        if (liveKitOptions is null)
+            throw new InvalidOperationException("LiveKit settings are not configured properly.");
+
+        services.Configure<LiveKitOptions>(configuration.GetSection("LiveKit"));
+
+        services
+            .AddRefitClient<ILiveKitApi>()
+            .ConfigureHttpClient(c =>
+            {
+                c.BaseAddress = new Uri(liveKitOptions.WsUrl.Replace("wss://", "https://"));
+            })
+            .AddPolicyHandler(GetRetryPolicy())
+            .AddPolicyHandler(GetCircuitBreakerPolicy());
+
+        services.AddScoped<ILiveKitService, LiveKitService>();
+
         // Register Demo Data Seeder for testing
         services.AddScoped<Services.DemoDataSeeder>();
 
