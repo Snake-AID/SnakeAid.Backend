@@ -260,7 +260,7 @@ public static class DependencyInjection
             {
                 Title = "SnakeAid.API",
                 Version = "v1",
-                Description = "A SnakeAid Project"
+                Description = "A SnakeAid Project. <br/> 🚀 **[Go to Admin Portal](/admin)**"
             });
             c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
             {
