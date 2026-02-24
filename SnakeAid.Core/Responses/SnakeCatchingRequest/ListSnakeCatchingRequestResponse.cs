@@ -36,11 +36,11 @@ namespace SnakeAid.Core.Responses.SnakeCatchingRequest
 
         public string AdditionalDetails { get; set; }
 
-        public RequestStatus Status { get; set; } 
+        public RequestStatus Status { get; set; }
 
-        public RequestPriority Priority { get; set; } 
+        public RequestPriority Priority { get; set; }
 
-        public DateTime RequestDate { get; set; } 
+        public DateTime RequestDate { get; set; }
 
         public DateTime? PreferredTime { get; set; }
 
@@ -48,7 +48,7 @@ namespace SnakeAid.Core.Responses.SnakeCatchingRequest
 
 
         // Navigation properties
-        public BriefMemberProfileRespone User { get; set; }
+        public BriefMemberProfileResponse User { get; set; }
         public List<ReportMediaResponse> Media { get; set; } = new List<ReportMediaResponse>();
         public List<CatchingRequestDetailResponse> Details { get; set; } = new List<CatchingRequestDetailResponse>();
     }

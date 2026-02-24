@@ -93,10 +93,16 @@ namespace SnakeAid.Api.Services
                 // Create demo rescuers with locations
                 var rescuers = new[]
                 {
-                    new { Id = DEMO_RESCUER_A_ID, Name = "Rescuer A - Quận 1", Phone = "0902222221", Lng = 106.699800, Lat = 10.775400 }, // Bến Thành
-                    new { Id = DEMO_RESCUER_B_ID, Name = "Rescuer B - Quận 3", Phone = "0902222222", Lng = 106.682166, Lat = 10.776889 }, // Lý Thái Tổ
-                    new { Id = DEMO_RESCUER_C_ID, Name = "Rescuer C - Quận 7", Phone = "0902222223", Lng = 106.722550, Lat = 10.733200 }, // Phú Mỹ Hưng
-                    new { Id = DEMO_RESCUER_D_ID, Name = "Rescuer D - Tân Bình", Phone = "0902222224", Lng = 106.652344, Lat = 10.799862 } // Sân bay TSN
+                    // new { Id = DEMO_RESCUER_A_ID, Name = "Rescuer A - Quận 1", Phone = "0902222221", Lng = 106.699800, Lat = 10.775400 }, // Bến Thành
+                    // new { Id = DEMO_RESCUER_B_ID, Name = "Rescuer B - Quận 3", Phone = "0902222222", Lng = 106.682166, Lat = 10.776889 }, // Lý Thái Tổ
+                    // new { Id = DEMO_RESCUER_C_ID, Name = "Rescuer C - Quận 7", Phone = "0902222223", Lng = 106.722550, Lat = 10.733200 }, // Phú Mỹ Hưng
+                    // new { Id = DEMO_RESCUER_D_ID, Name = "Rescuer D - Tân Bình", Phone = "0902222224", Lng = 106.652344, Lat = 10.799862 } // Sân bay TSN
+
+                    // approximate positions around Tam Kỳ (15.5741,108.4796)
+                    new { Id = DEMO_RESCUER_A_ID, Name = "Rescuer A - Tam Kỳ Ward 1", Phone = "0902222221", Lng = 108.4796, Lat = 15.6191 }, // ~5km north
+                    new { Id = DEMO_RESCUER_B_ID, Name = "Rescuer B - Tam Kỳ Ward 2", Phone = "0902222222", Lng = 108.4796, Lat = 15.6371 }, // ~7km north
+                    new { Id = DEMO_RESCUER_C_ID, Name = "Rescuer C - Tam Kỳ Ward 3", Phone = "0902222223", Lng = 108.5876, Lat = 15.5741 }, // ~12km east
+                    new { Id = DEMO_RESCUER_D_ID, Name = "Rescuer D - Tam Kỳ Ward 4", Phone = "0902222224", Lng = 108.4796, Lat = 15.4391 } // ~15km south
                 };
 
                 foreach (var r in rescuers)

@@ -4,6 +4,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using SnakeAid.Core.Domains;
 using SnakeAid.Core.Exceptions;
+using SnakeAid.Core.Responses.RescueMission;
 using SnakeAid.Repository.Data;
 using SnakeAid.Repository.Interfaces;
 using SnakeAid.Service.Interfaces;
@@ -331,6 +332,114 @@ namespace SnakeAid.Service.Implements
                 (RescueMissionStatus.RescuerArrived, RescueMissionStatus.MissionAborted) => true,
                 _ => false
             };
+        }
+
+        public async Task<RescueMission> GetMissionByIdAsync(Guid missionId)
+        {
+            try
+            {
+                var repo = _unitOfWork.GetRepository<RescueMission>();
+                var mission = await repo.FirstOrDefaultAsync(
+                    predicate: m => m.Id == missionId,
+                    include: q => q.Include(mission => mission.Incident)
+                ) ?? throw new NotFoundException($"Mission {missionId} not found.");
+                return mission;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving mission {MissionId}: {Message}", missionId, ex.Message);
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Get detailed mission information with all related entities
+        /// Includes incident media with AI recognition results for rescuer to see snake photos
+        /// </summary>
+        public async Task<DetailRescueMissionResponse> GetMissionDetailAsync(Guid missionId)
+        {
+            try
+            {
+                var mission = await _unitOfWork.GetRepository<RescueMission>().FirstOrDefaultAsync(
+                    predicate: m => m.Id == missionId,
+                    include: q => q
+                        .Include(m => m.Incident)
+                            .ThenInclude(i => i.User)
+                                .ThenInclude(u => u.Account)
+                        .Include(m => m.Incident)
+                        // .ThenInclude(i => i.Media)
+                        //     .ThenInclude(media => media.AIRecognitionResults)
+                        //         .ThenInclude(ar => ar.DetectedSpecies)
+                        .Include(m => m.Rescuer)
+                            .ThenInclude(r => r.Account)
+                );
+
+                if (mission == null)
+                {
+                    throw new NotFoundException($"Mission {missionId} not found.");
+                }
+
+                var response = mission.Adapt<DetailRescueMissionResponse>();
+
+                _logger.LogInformation("Retrieved detailed mission info for {MissionId}", missionId);
+                return response;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving mission detail {MissionId}: {Message}", missionId, ex.Message);
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Get mission detail with distance calculation
+        /// </summary>
+        public async Task<DetailRescueMissionResponse> GetMissionDetailAsync(Guid missionId, double? rescuerLat, double? rescuerLng)
+        {
+            try
+            {
+                var response = await GetMissionDetailAsync(missionId);
+
+                // Calculate distance if rescuer location is provided
+                if (rescuerLat.HasValue && rescuerLng.HasValue)
+                {
+                    var incidentLat = response.Incident.LocationCoordinates.Latitude;
+                    var incidentLng = response.Incident.LocationCoordinates.Longitude;
+                    response.DistanceKm = CalculateDistance(rescuerLat.Value, rescuerLng.Value, incidentLat, incidentLng);
+                }
+
+                return response;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving mission detail with distance {MissionId}: {Message}", missionId, ex.Message);
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Calculate distance between two GPS coordinates using Haversine formula
+        /// </summary>
+        private double CalculateDistance(double lat1, double lng1, double lat2, double lng2)
+        {
+            const double earthRadiusKm = 6371.0;
+
+            var dLat = ToRadians(lat2 - lat1);
+            var dLng = ToRadians(lng2 - lng1);
+
+            var a = Math.Sin(dLat / 2) * Math.Sin(dLat / 2) +
+                    Math.Cos(ToRadians(lat1)) * Math.Cos(ToRadians(lat2)) *
+                    Math.Sin(dLng / 2) * Math.Sin(dLng / 2);
+
+            var c = 2 * Math.Atan2(Math.Sqrt(a), Math.Sqrt(1 - a));
+            var distance = earthRadiusKm * c;
+
+            return Math.Round(distance, 2);
+        }
+
+        private double ToRadians(double degrees)
+        {
+            return degrees * Math.PI / 180.0;
         }
     }
 }
