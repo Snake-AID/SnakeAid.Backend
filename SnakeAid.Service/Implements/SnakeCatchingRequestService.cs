@@ -18,15 +18,18 @@ namespace SnakeAid.Service.Implements
         private readonly IUnitOfWork<SnakeAidDbContext> _unitOfWork;
         private readonly ILogger<SnakeCatchingRequestService> _logger;
         private readonly IConfiguration _configuration;
+        private readonly ILocationIqService _locationIqService;
 
         public SnakeCatchingRequestService(
             IUnitOfWork<SnakeAidDbContext> unitOfWork,
             ILogger<SnakeCatchingRequestService> logger,
-            IConfiguration configuration)
+            IConfiguration configuration,
+            ILocationIqService locationIqService)
         {
             _unitOfWork = unitOfWork;
             _logger = logger;
             _configuration = configuration;
+            _locationIqService = locationIqService;
         }
 
         public async Task<CreateSnakeCatchingRequestResponse> CreateSnakeCatchingRequestAsync(
@@ -70,12 +73,6 @@ namespace SnakeAid.Service.Implements
                         throw new BadRequestException("PreferredTime cannot be in the past.");
                     }
 
-                    // Validate EstimatedPrice
-                    if (request.EstimatedPrice.HasValue && request.EstimatedPrice.Value <= 0)
-                    {
-                        throw new BadRequestException("EstimatedPrice must be greater than 0.");
-                    }
-
                     // Create Point from lng/lat (PostGIS uses SRID 4326 - WGS84)
                     var geometryFactory = NetTopologySuite.NtsGeometryServices.Instance.CreateGeometryFactory(srid: 4326);
                     var locationPoint = geometryFactory.CreatePoint(
@@ -93,7 +90,6 @@ namespace SnakeAid.Service.Implements
                         Priority = RequestPriority.Normal,
                         RequestDate = request.RequestDate.ToUniversalTime(),
                         PreferredTime = request.PreferredTime?.ToUniversalTime(),
-                        EstimatedPrice = request.EstimatedPrice,
                         Notes = request.Notes
                     };
 
@@ -196,38 +192,12 @@ namespace SnakeAid.Service.Implements
             }
         }
 
-        private string? ExtractFilenameFromUrl(string url)
-        {
-            try
-            {
-                var uri = new Uri(url);
-                var segments = uri.Segments;
-                return segments.Length > 0 ? segments[^1] : null;
-            }
-            catch
-            {
-                return null;
-            }
-        }
-
-        private string DetermineContentType(string url)
-        {
-            var extension = System.IO.Path.GetExtension(url).ToLowerInvariant();
-            return extension switch
-            {
-                ".jpg" or ".jpeg" => "image/jpeg",
-                ".png" => "image/png",
-                ".gif" => "image/gif",
-                ".webp" => "image/webp",
-                ".mp4" => "video/mp4",
-                ".mov" => "video/quicktime",
-                _ => "application/octet-stream"
-            };
-        }
+        
 
         public async Task<CreateSnakeCatchingRequestResponse> AcceptSnakeCatchingRequestAsync(
             Guid rescuerId,
-            Guid requestId)
+            Guid requestId,
+            AcceptSnakeCatchingRequestRequest request)
         {
             try
             {
@@ -256,35 +226,59 @@ namespace SnakeAid.Service.Implements
                     }
 
                     // Get the snake catching request
-                    var request = await _unitOfWork.GetRepository<SnakeCatchingRequest>().FirstOrDefaultAsync(
+                    var snakeRequest = await _unitOfWork.GetRepository<SnakeCatchingRequest>().FirstOrDefaultAsync(
                         predicate: r => r.Id == requestId,
                         include: query => query
                             .Include(r => r.User)
                     );
 
-                    if (request == null)
+                    if (snakeRequest == null)
                     {
                         throw new NotFoundException("Snake catching request not found.");
                     }
 
                     // Validate request status
-                    if (request.Status != RequestStatus.Pending)
+                    if (snakeRequest.Status != RequestStatus.Pending)
                     {
-                        throw new BadRequestException($"Request cannot be accepted. Current status: {request.Status}");
+                        throw new BadRequestException($"Request cannot be accepted. Current status: {snakeRequest.Status}");
                     }
 
                     // Check if request is already assigned
-                    if (request.AssignedRescuerId.HasValue)
+                    if (snakeRequest.AssignedRescuerId.HasValue)
                     {
                         throw new BadRequestException("This request has already been assigned to another rescuer.");
                     }
 
-                    // Update the request
-                    request.AssignedRescuerId = rescuerId;
-                    request.AssignedAt = DateTime.UtcNow;
-                    request.Status = RequestStatus.Assigned;
+                    // Calculate distance and price using LocationIQ
+                    decimal estimatedPrice;
+                    try
+                    {
+                        var (distanceInKm, priceInVnd) = await _locationIqService.CalculateDistanceAndPriceAsync(
+                            request.Lng,
+                            request.Lat,
+                            snakeRequest.LocationCoordinates.X, // Longitude
+                            snakeRequest.LocationCoordinates.Y  // Latitude
+                        );
 
-                    _unitOfWork.GetRepository<SnakeCatchingRequest>().Update(request);
+                        estimatedPrice = priceInVnd;
+
+                        _logger.LogInformation(
+                            "Distance calculated for RequestId {RequestId}: {Distance} km, Price: {Price} VND",
+                            requestId, distanceInKm.ToString("F2"), estimatedPrice);
+                    }
+                    catch (ExternalServiceException ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to calculate distance, using default price of 50000 VND");
+                        estimatedPrice = 50000; // Fallback price
+                    }
+
+                    // Update the request
+                    snakeRequest.AssignedRescuerId = rescuerId;
+                    snakeRequest.AssignedAt = DateTime.UtcNow;
+                    snakeRequest.Status = RequestStatus.Assigned;
+                    snakeRequest.EstimatedPrice = estimatedPrice;
+
+                    _unitOfWork.GetRepository<SnakeCatchingRequest>().Update(snakeRequest);
 
                     // Create a new mission for this request
                     var newMission = new SnakeCatchingMission
@@ -293,8 +287,8 @@ namespace SnakeAid.Service.Implements
                         RescuerId = rescuerId,
                         SnakeCatchingRequestId = requestId,
                         Status = CatchingMissionStatus.Preparing,
-                        Price = request.EstimatedPrice ?? 0, // Use estimated price or 0
-                        EstimatedCost = request.EstimatedPrice
+                        Price = estimatedPrice,
+                        EstimatedCost = estimatedPrice
                     };
 
                     await _unitOfWork.GetRepository<SnakeCatchingMission>().InsertAsync(newMission);
@@ -403,6 +397,35 @@ namespace SnakeAid.Service.Implements
                 _logger.LogError(ex, "Error getting all snake catching requests: {Message}", ex.Message);
                 throw;
             }
+        }
+
+        private string? ExtractFilenameFromUrl(string url)
+        {
+            try
+            {
+                var uri = new Uri(url);
+                var segments = uri.Segments;
+                return segments.Length > 0 ? segments[^1] : null;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        private string DetermineContentType(string url)
+        {
+            var extension = System.IO.Path.GetExtension(url).ToLowerInvariant();
+            return extension switch
+            {
+                ".jpg" or ".jpeg" => "image/jpeg",
+                ".png" => "image/png",
+                ".gif" => "image/gif",
+                ".webp" => "image/webp",
+                ".mp4" => "video/mp4",
+                ".mov" => "video/quicktime",
+                _ => "application/octet-stream"
+            };
         }
     }
 }
