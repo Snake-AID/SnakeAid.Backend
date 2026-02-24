@@ -61,18 +61,6 @@ namespace SnakeAid.Service.Implements
                         throw new BadRequestException("Member information could not be found for the current account.");
                     }
 
-                    // Validate RequestDate
-                    if (request.RequestDate < DateTime.UtcNow.AddMinutes(-5))
-                    {
-                        throw new BadRequestException("RequestDate cannot be in the past (more than 5 minutes ago).");
-                    }
-
-                    // Validate PreferredTime if provided
-                    if (request.PreferredTime.HasValue && request.PreferredTime.Value < DateTime.UtcNow)
-                    {
-                        throw new BadRequestException("PreferredTime cannot be in the past.");
-                    }
-
                     // Create Point from lng/lat (PostGIS uses SRID 4326 - WGS84)
                     // Coordinate(x, y) where x=longitude, y=latitude
                     var geometryFactory = NetTopologySuite.NtsGeometryServices.Instance.CreateGeometryFactory(srid: 4326);
@@ -93,8 +81,8 @@ namespace SnakeAid.Service.Implements
                         AdditionalDetails = request.AdditionalDetails,
                         Status = RequestStatus.Pending,
                         Priority = RequestPriority.Normal,
-                        RequestDate = request.RequestDate.ToUniversalTime(),
-                        PreferredTime = request.PreferredTime?.ToUniversalTime(),
+                        RequestDate = DateTime.UtcNow,
+                        PreferredTime = DateTime.UtcNow,
                         Notes = request.Notes
                     };
 
