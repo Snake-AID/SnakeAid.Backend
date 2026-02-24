@@ -115,7 +115,6 @@ public class LocationIqService : ILocationIqService
             }
             catch (Exception ex)
             {
-                lastException = ex;
                 throw;
             }
         }
