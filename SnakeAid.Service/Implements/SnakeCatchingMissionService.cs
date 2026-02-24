@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging;
 using SnakeAid.Core.Domains;
 using SnakeAid.Core.Exceptions;
 using SnakeAid.Core.Requests.SnakeCatchingMission;
+using SnakeAid.Core.Responses.Media;
 using SnakeAid.Core.Responses.SnakeCatchingMission;
 using SnakeAid.Repository.Data;
 using SnakeAid.Repository.Interfaces;
@@ -69,7 +70,9 @@ namespace SnakeAid.Service.Implements
                         "Mission started successfully. MissionId: {MissionId}, RescuerId: {RescuerId}",
                         missionId, rescuerId);
 
-                    return mission.Adapt<SnakeCatchingMissionDetailResponse>();
+                    var response = mission.Adapt<SnakeCatchingMissionDetailResponse>();
+                    await PopulateMissionMediaAsync(response, missionId);
+                    return response;
                 });
             }
             catch (Exception ex)
@@ -118,7 +121,9 @@ namespace SnakeAid.Service.Implements
                         "Mission marked as arrived. MissionId: {MissionId}, RescuerId: {RescuerId}",
                         missionId, rescuerId);
 
-                    return mission.Adapt<SnakeCatchingMissionDetailResponse>();
+                    var response = mission.Adapt<SnakeCatchingMissionDetailResponse>();
+                    await PopulateMissionMediaAsync(response, missionId);
+                    return response;
                 });
             }
             catch (Exception ex)
@@ -142,7 +147,6 @@ namespace SnakeAid.Service.Implements
                         predicate: m => m.Id == missionId && m.RescuerId == rescuerId,
                         include: q => q
                             .Include(m => m.SnakeCatchingRequest)
-                            .ThenInclude(r => r.Media)
                             .Include(m => m.MissionDetails)
                             .ThenInclude(d => d.SnakeSpecies));
 
@@ -157,14 +161,15 @@ namespace SnakeAid.Service.Implements
                         throw new BadRequestException($"Cannot complete mission. Current status: {mission.Status}. Mission must be in Arrived status.");
                     }
 
-                    // Validate: Check if SnakeCatchingRequest has evidence media
-                    //var hasEvidence = mission.SnakeCatchingRequest.Media
-                    //    .Any(m => m.Purpose == MediaPurpose.Evidence && m.ReferenceType == MediaReferenceType.SnakeCatchingRequest);
+                    var hasEvidence = await _unitOfWork.GetRepository<ReportMedia>()
+                        .ExistsAsync(m => m.ReferenceId == missionId 
+                            && m.ReferenceType == MediaReferenceType.SnakeCatchingMission
+                            && m.Purpose == MediaPurpose.Evidence);
 
-                    //if (!hasEvidence)
-                    //{
-                    //    throw new BadRequestException("Cannot complete mission. SnakeCatchingRequest must have at least one evidence media.");
-                    //}
+                    if (!hasEvidence)
+                    {
+                       throw new BadRequestException("Cannot complete mission. SnakeCatchingMission must have at least one evidence media.");
+                    }
 
                     //Update actual cost if provided
                     var snakeQuantity = mission.MissionDetails?.Sum(d => d.Quantity);
@@ -218,6 +223,7 @@ namespace SnakeAid.Service.Implements
                         }).ToList();
                     }
 
+                    await PopulateMissionMediaAsync(response, missionId);
                     return response;
                 });
             }
@@ -225,6 +231,23 @@ namespace SnakeAid.Service.Implements
             {
                 _logger.LogError(ex, "Error completing mission: {Message}", ex.Message);
                 throw;
+            }
+        }
+
+        /// <summary>
+        /// Helper method to populate media for mission response
+        /// </summary>
+        private async Task PopulateMissionMediaAsync(SnakeCatchingMissionDetailResponse response, Guid missionId)
+        {
+            var mediaList = await _unitOfWork.GetRepository<ReportMedia>()
+                .GetListAsync(
+                    predicate: m => m.ReferenceId == missionId 
+                        && m.ReferenceType == MediaReferenceType.SnakeCatchingMission,
+                    orderBy: q => q.OrderBy(m => m.CreatedAt));
+
+            if (mediaList != null && mediaList.Any())
+            {
+                response.Media = mediaList.Adapt<List<ReportMediaResponse>>();
             }
         }
     }
