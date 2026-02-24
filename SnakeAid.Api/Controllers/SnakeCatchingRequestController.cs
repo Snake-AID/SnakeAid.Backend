@@ -87,7 +87,7 @@ namespace SnakeAid.Api.Controllers
         [ProducesResponseType(typeof(ApiResponse<CreateSnakeCatchingRequestResponse>), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
         [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
-        public async Task<IActionResult> AcceptSnakeCatchingRequest([FromRoute] Guid requestId, [FromForm] AcceptSnakeCatchingRequestRequest request)
+        public async Task<IActionResult> AcceptSnakeCatchingRequest([FromRoute] Guid requestId, [FromBody] AcceptSnakeCatchingRequestRequest request)
         {
             var rescuerId = GetCurrentUserId();
 

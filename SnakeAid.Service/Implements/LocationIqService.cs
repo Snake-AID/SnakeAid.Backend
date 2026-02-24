@@ -32,11 +32,7 @@ public class LocationIqService : ILocationIqService
 
         // Allow service to be created even without API keys
         // Will throw ExternalServiceException when called if no keys available
-        if (!string.IsNullOrEmpty(_options.BaseUrl))
-        {
-            _httpClient.BaseAddress = new Uri(_options.BaseUrl);
-            _httpClient.Timeout = TimeSpan.FromSeconds(_options.HttpTimeoutSeconds);
-        }
+        
 
         if (_keyManager.HasKeys)
         {
@@ -113,11 +109,6 @@ public class LocationIqService : ILocationIqService
                 // Other errors (4xx except 429), don't retry
                 throw;
             }
-            catch (Exception ex)
-            {
-                lastException = ex;
-                throw;
-            }
         }
 
         // All retries exhausted
@@ -176,7 +167,7 @@ public class LocationIqService : ILocationIqService
             }
 
             // Distance is returned in meters, convert to kilometers
-            var distanceInMeters = matrixResponse.Distances[0][0];
+            var distanceInMeters = matrixResponse.Distances[0][1];
             var distanceInKm = distanceInMeters / 1000.0;
 
             _logger.LogInformation(
