@@ -175,6 +175,19 @@ public class AuthService : IAuthService
 
         }
 
+        // Create wallet for the user
+        var walletRepository = _unitOfWork.GetRepository<Wallet>();
+        var wallet = new Wallet
+        {
+            Id = Guid.NewGuid(),
+            UserId = user.Id,
+            Balance = 0,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        };
+        await walletRepository.InsertAsync(wallet);
+        await _unitOfWork.CommitAsync();
+
         _logger.LogInformation("User registered successfully: {Email}", request.Email);
 
         // Generate tokens
