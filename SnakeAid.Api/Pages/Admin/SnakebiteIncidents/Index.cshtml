@@ -76,7 +76,7 @@
         }
 
         .st-active { background: rgba(16, 185, 129, 0.15); color: var(--accent-green); border: 1px solid rgba(16, 185, 129, 0.3); }
-        .st-pending { background: rgba(245, 158, 11, 0.15); color: var(--accent-yellow); border: 1px solid rgba(245, 158, 11, 0.3); }
+        .st-pending { background: rgba(245, 158, 11, 0.15); color: var(--accent-gold); border: 1px solid rgba(245, 158, 11, 0.3); }
         .st-resolved { background: rgba(59, 130, 246, 0.15); color: var(--accent-blue); border: 1px solid rgba(59, 130, 246, 0.3); }
 
         .count-bubble {
@@ -174,7 +174,7 @@
 
         .rs-accepted { color: var(--accent-green); background: rgba(16, 185, 129, 0.1); }
         .rs-rejected { color: var(--accent-red); background: rgba(244, 63, 94, 0.1); }
-        .rs-timeout { color: var(--accent-yellow); background: rgba(245, 158, 11, 0.1); }
+        .rs-timeout { color: var(--accent-gold); background: rgba(245, 158, 11, 0.1); }
 
         .expand-icon { transition: transform 0.4s ease; color: var(--text-muted); }
         .incident-card.expanded .expand-icon { transform: rotate(180deg); color: var(--accent-blue); }
@@ -237,9 +237,11 @@
 
                 <div class="rescuer-cell">
                     @if (incident.AssignedRescuer != null) {
+                        var rescuerName = incident.AssignedRescuer.Account?.FullName ?? "Unknown";
+                        var rescuerInitial = !string.IsNullOrEmpty(rescuerName) ? rescuerName[0].ToString() : "A";
                         <div class="rescuer-tag">
-                            <div class="rescuer-init">@(incident.AssignedRescuer.Account?.FullName?.FirstOrDefault().ToString() ?? "A")</div>
-                            <span style="font-size: 0.9rem; font-weight: 500;">@(incident.AssignedRescuer.Account?.FullName)</span>
+                            <div class="rescuer-init">@rescuerInitial</div>
+                            <span style="font-size: 0.9rem; font-weight: 500;">@rescuerName</span>
                         </div>
                     } else {
                         <span style="color: var(--text-muted); font-style: italic; font-size: 0.9rem;">Unassigned</span>

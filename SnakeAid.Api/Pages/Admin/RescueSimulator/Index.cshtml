@@ -1,5 +1,5 @@
 @page "/admin/simulator"
-@model SnakeAid.Api.Pages.Admin.RescueSimulatorModel
+@model SnakeAid.Api.Pages.Admin.RescueSimulator.RescueSimulatorModel
 @{
     ViewData["Title"] = "Rescue Simulator | Admin Portal";
 }
@@ -275,7 +275,7 @@
             margin-bottom: 12px;
         }
 
-        .control-btn:disabled { opacity: 0.05; cursor: not-allowed; filter: grayscale(1); }
+        .control-btn:disabled { opacity: 0.4; cursor: not-allowed; filter: grayscale(1); }
         .control-btn:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
         
         .btn-primary-sim { background: var(--accent-blue); }
@@ -607,6 +607,11 @@
             if (!currentIncidentId) return;
             try {
                 const response = await fetch(`/api/rescuedemo/incident/${currentIncidentId}/raise-range`, { method: 'POST' });
+                if (!response.ok) {
+                    const errorBody = await response.text();
+                    log(`GRID_FAULT: Expansion failed (Status ${response.status}): ${errorBody}`, 'error');
+                    return;
+                }
                 const data = await response.json();
                 if (data.incident?.status === 'NoRescuerFound') {
                     log('GRID_FAULT: Search vectors exhausted', 'error');
@@ -792,7 +797,9 @@
                 
                 renderSessionsWithRequests(data.sessions, data.requests);
                 renderRescuers();
-            } catch (err) {}
+            } catch (err) {
+                log('refreshState failed: ' + err.message, 'error');
+            }
         }
 
         function renderSessionsWithRequests(sessions, requests) {
