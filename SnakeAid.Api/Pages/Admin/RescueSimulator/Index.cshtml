@@ -1,0 +1,873 @@
+@page "/admin/simulator"
+@model SnakeAid.Api.Pages.Admin.RescueSimulatorModel
+@{
+    ViewData["Title"] = "Rescue Simulator | Admin Portal";
+}
+
+@section Styles {
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;700&family=Fira+Sans:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --fira-sans: 'Fira Sans', sans-serif;
+            --fira-code: 'Fira Code', monospace;
+            --transition-speed: 200ms;
+            --column-height: 700px;
+        }
+
+        body { font-family: var(--fira-sans); }
+
+        /* Unified 3-Column Command Center Layout - 1:2:1 Ratio */
+        .simulator-grid {
+            display: grid;
+            grid-template-columns: 1fr 2fr 1fr;
+            gap: 24px;
+            height: var(--column-height);
+            align-items: stretch;
+            margin-bottom: 30px;
+        }
+
+        /* 1. INPUTS: SIDERBAR */
+        .sim-sidebar {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            height: 100%;
+        }
+
+        .module-panel {
+            background: var(--bg-panel);
+            backdrop-filter: blur(var(--glass-blur));
+            border: 1px solid var(--border-glass);
+            border-radius: 24px;
+            padding: 24px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+
+        .panel-heading {
+            font-family: var(--fira-code);
+            font-size: 0.7rem;
+            font-weight: 700;
+            color: var(--accent-blue);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        /* 2. VISUALS: CENTER FIELD */
+        .center-field {
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+            height: 100%;
+        }
+
+        .operational-hud {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .hud-card {
+            flex: 1;
+            background: var(--bg-panel);
+            border: 1px solid var(--border-glass);
+            border-radius: 20px;
+            padding: 16px 24px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            transition: all var(--transition-speed);
+        }
+
+        .hud-card.active-op { border-color: var(--accent-blue); background: rgba(59, 130, 246, 0.05); }
+        .hud-card.mission-op { border-color: var(--accent-green); background: rgba(16, 185, 129, 0.05); }
+
+        .hud-data { flex: 1; }
+        .hud-val { font-family: var(--fira-code); font-size: 1.2rem; font-weight: 700; color: #fff; }
+        .hud-lbl { font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase; }
+
+        .ttl-visual {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            border: 3px solid rgba(255,255,255,0.1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: var(--fira-code);
+            font-weight: 800;
+            font-size: 1.1rem;
+            color: var(--accent-blue);
+        }
+        .ttl-visual.warning { border-color: var(--accent-red); color: var(--accent-red); animation: pulse-error 1s infinite; }
+
+        @@keyframes pulse-error {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .responder-workspace {
+            background: rgba(255,255,255,0.01);
+            border: 1px solid var(--border-glass);
+            border-radius: 32px;
+            padding: 32px;
+            flex: 1;
+            overflow-y: auto;
+            scrollbar-width: thin;
+        }
+
+        .rescuer-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 16px;
+        }
+
+        .glass-node {
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border-glass);
+            border-radius: 20px;
+            padding: 20px;
+            transition: all var(--transition-speed);
+        }
+
+        .glass-node:hover { border-color: rgba(255,255,255,0.15); background: rgba(255,255,255,0.04); }
+        .glass-node.is-active { border-color: var(--accent-green); background: rgba(16, 185, 129, 0.04); }
+        .glass-node.has-ping { 
+            border-color: var(--accent-gold); 
+            background: rgba(245, 158, 11, 0.06);
+            animation: node-ping 2s infinite;
+        }
+
+        @@keyframes node-ping {
+            0% { transform: scale(1); }
+            5% { transform: scale(1.02); }
+            10% { transform: scale(1); }
+        }
+
+        /* 3. OUTPUTS: RIGHT CONSOLE */
+        .output-console {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            height: 100%;
+        }
+
+        .terminal-shell {
+            flex: 1;
+            background: #020617;
+            border: 1px solid var(--border-glass);
+            border-radius: 24px;
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            box-shadow: inset 0 2px 10px rgba(0,0,0,0.5);
+            overflow: hidden;
+        }
+
+        #eventLog {
+            flex: 1;
+            overflow-y: auto;
+            min-height: 0;
+            font-family: var(--fira-code);
+            font-size: 0.7rem;
+            scrollbar-width: thin;
+            padding-right: 8px;
+        }
+
+        .log-line { display: flex; gap: 10px; padding: 4px 0; border-bottom: 1px solid rgba(255,255,255,0.02); }
+        .log-ts { color: #475569; min-width: 75px; }
+        .log-msg { color: #94a3b8; line-height: 1.4; }
+        .log-line.success .log-msg { color: var(--accent-green); }
+        .log-line.warning .log-msg { color: var(--accent-gold); }
+        .log-line.error .log-msg { color: var(--accent-red); }
+        .log-line.info .log-msg { color: var(--accent-blue); }
+
+        .session-trace-shell {
+            flex: 1;
+            background: rgba(15,23,42,0.4);
+            border: 1px solid var(--border-glass);
+            border-radius: 24px;
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .sessions-container {
+            flex: 1;
+            overflow-y: auto;
+            scrollbar-width: thin;
+        }
+
+        .session-item {
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border-glass);
+            border-radius: 14px;
+            padding: 12px 16px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-family: var(--fira-code);
+        }
+
+        .session-num { font-weight: 700; color: #fff; font-size: 0.9rem; }
+        .session-meta { font-size: 0.75rem; color: var(--text-muted); margin-top: 4px; }
+
+        .request-badge {
+            padding: 4px 10px;
+            border-radius: 8px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            display: inline-block;
+            margin: 6px 6px 0 0;
+            border: 1px solid transparent;
+        }
+        .request-badge.pending { background: rgba(245, 158, 11, 0.1); color: var(--accent-gold); border-color: rgba(245, 158, 11, 0.2); }
+        .request-badge.accepted { background: rgba(34, 197, 94, 0.1); color: var(--accent-green); border-color: rgba(34, 197, 94, 0.2); }
+        .request-badge.rejected { background: rgba(239, 68, 68, 0.1); color: var(--accent-red); border-color: rgba(239, 68, 68, 0.2); }
+        .request-badge.taken { background: rgba(148, 163, 184, 0.1); color: #94a3b8; border-color: rgba(148, 163, 184, 0.2); }
+        .request-badge.expired { background: rgba(71, 85, 105, 0.1); color: #64748b; border-color: rgba(71, 85, 105, 0.2); }
+        .request-badge.cancelled { background: rgba(239, 68, 68, 0.1); color: var(--accent-red); border-color: rgba(239, 68, 68, 0.2); }
+
+        /* HEADER INTEGRATION */
+        .header-link-status {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            padding: 8px 16px;
+            background: rgba(255,255,255,0.03);
+            border: 1px solid var(--border-glass);
+            border-radius: 16px;
+        }
+
+        .dot-indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #64748b;
+        }
+        .dot-indicator.online { background: var(--accent-green); box-shadow: 0 0 10px var(--accent-green); }
+
+        /* Shared Components */
+        .control-btn {
+            width: 100%;
+            padding: 12px;
+            border-radius: 12px;
+            border: 1px solid transparent;
+            font-family: var(--fira-code);
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            transition: all var(--transition-speed);
+            color: #fff;
+            margin-bottom: 12px;
+        }
+
+        .control-btn:disabled { opacity: 0.05; cursor: not-allowed; filter: grayscale(1); }
+        .control-btn:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
+        
+        .btn-primary-sim { background: var(--accent-blue); }
+        .btn-success-sim { background: var(--accent-green); }
+        .btn-warning-sim { background: var(--accent-gold); }
+        .btn-danger-sim { background: var(--accent-red); }
+        .btn-ghost-sim { background: rgba(255,255,255,0.03); border-color: var(--border-glass); color: var(--text-muted); }
+        .btn-ghost-sim:hover { background: rgba(255,255,255,0.08); color: #fff; }
+    </style>
+}
+
+<div class="page-header">
+    <div class="header-title-group">
+        <h1>Rescue Dispatch Simulator</h1>
+        <p>Test với services thật, background timeout thật (60s), database thật - chỉ data là demo</p>
+    </div>
+    <div class="header-actions">
+        <div class="header-link-status">
+            <div class="dot-indicator" id="userStatus"></div>
+            <span id="userStatusText" style="font-family: var(--fira-code); font-size: 0.75rem; font-weight: 700;">Disconnected</span>
+            <button class="control-btn btn-primary-sim" id="btnConnect" onclick="connectUser()" style="width: auto; padding: 6px 16px; margin: 0; font-size: 0.65rem;">
+                <i class="bi bi-plug"></i> Connect as User
+            </button>
+        </div>
+
+        <button class="control-btn btn-ghost-sim" onclick="toggleMonitoring()" style="width: auto; padding: 8px 16px; margin: 0; font-size: 0.65rem;">
+            <span id="monitoringToggleText">⏸️ Pause Monitoring</span>
+        </button>
+
+        <button class="control-btn btn-ghost-sim" onclick="cleanupDemoData()" style="width: auto; padding: 8px 20px; margin: 0;">
+            <i class="bi bi-terminal-x"></i> Cleanup All
+        </button>
+    </div>
+</div>
+
+<div class="simulator-grid">
+    <!-- COLUMN 1: INPUTS -->
+    <aside class="sim-sidebar">
+        <div class="module-panel">
+            <div class="panel-heading"><i class="bi bi-people"></i> Citizen Emulation</div>
+            <button class="control-btn btn-ghost-sim" id="btnSeedData" onclick="seedDemoData()">
+                <i class="bi bi-database-fill-add"></i> Seed Demo Data
+            </button>
+            <div id="demoAlert" style="display: none; padding: 10px; background: rgba(245, 158, 11, 0.1); border: 1px solid var(--accent-gold); border-radius: 12px; margin-bottom: 20px; font-size: 0.6rem; color: var(--accent-gold); font-family: var(--fira-code); text-align: center;">
+                <i class="bi bi-exclamation-triangle"></i> <strong>Demo data chưa được seed!</strong> Click "Seed Demo Data" để tạo assets.
+            </div>
+            
+            <hr style="border: 0; border-top: 1px solid var(--border-glass); margin: 0 0 20px;">
+            
+            <button class="control-btn btn-success-sim" id="btnCreateIncident" onclick="createIncident()" disabled>
+                <i class="bi bi-exclamation-octagon"></i> Create Incident
+            </button>
+            <button class="control-btn btn-warning-sim" id="btnTriggerRescue" onclick="triggerRescue()" disabled>
+                <i class="bi bi-broadcast"></i> Trigger Rescue
+            </button>
+            <button class="control-btn btn-primary-sim" id="btnRaiseRange" onclick="raiseRange()" disabled>
+                <i class="bi bi-arrows-expand"></i> Raise Range
+            </button>
+            <button class="control-btn btn-danger-sim" id="btnCancelIncident" onclick="cancelIncident()" disabled>
+                <i class="bi bi-slash-circle"></i> Cancel Incident
+            </button>
+        </div>
+
+        <div class="terminal-shell" style="flex: 1; display: flex; flex-direction: column; overflow: hidden; background: #020617; border: 1px solid var(--border-glass); border-radius: 24px; padding: 24px; box-shadow: inset 0 2px 10px rgba(0,0,0,0.5); margin-top: 20px;">
+            <div class="panel-heading" style="margin-bottom: 20px; height: 14px; flex-shrink: 0; color: #475569;"><i class="bi bi-terminal"></i> System Events</div>
+            <div style="flex: 1; position: relative; min-height: 0;">
+                <div id="eventLog" style="position: absolute; inset: 0; overflow-y: auto; padding-right: 8px; font-family: var(--fira-code); font-size: 0.7rem; scrollbar-width: thin;"></div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- COLUMN 2: VISUALS -->
+    <main class="center-field">
+        <section class="operational-hud">
+            <div class="hud-card" id="incidentInfo" style="display: none;">
+                <div class="hud-data">
+                    <div class="hud-lbl">Operational Status</div>
+                    <div class="hud-val" id="incidentStatus">Idle</div>
+                </div>
+                <div style="text-align: right;">
+                    <div class="hud-lbl">Phase</div>
+                    <div class="hud-val" style="color: var(--accent-blue);">P<span id="currentSession">-</span></div>
+                </div>
+                <div style="text-align: right; margin-left: 10px;">
+                    <div class="hud-lbl">Radius</div>
+                    <div class="hud-val" style="color: var(--accent-blue);"><span id="currentRadius">-</span><span style="font-size: 0.7rem">KM</span></div>
+                </div>
+            </div>
+
+            <div class="hud-card mission-op" id="missionInfo" style="display: none;">
+                <div class="hud-data">
+                    <div class="hud-lbl">Engaged Unit</div>
+                    <div class="hud-val" id="missionRescuer">None</div>
+                </div>
+                <div style="display: flex; gap: 8px; align-items: center; margin: 0 15px;">
+                    <select id="missionStatusSelect" class="btn-ghost-sim" style="width: 140px; height: 32px; border-radius: 8px; border: 1px solid var(--border-glass); padding: 0 10px; font-family: var(--fira-code); font-size: 0.6rem; margin: 0;">
+                        <option value="">Select new status...</option>
+                        <option value="EnRoute">🚗 En Route</option>
+                        <option value="RescuerArrived">📍 Arrived</option>
+                        <option value="MissionCompleted">✅ Completed</option>
+                    </select>
+                    <button class="control-btn btn-success-sim" style="width: auto; padding: 0 12px; font-size: 0.55rem; height: 32px; margin: 0;" onclick="updateMissionStatus()">Update Status</button>
+                </div>
+                <div style="text-align: right;">
+                    <div class="hud-lbl" id="missionStatus">Preparing</div>
+                    <div class="hud-val" style="color: var(--accent-green);">₫<span id="missionPrice">-</span></div>
+                </div>
+            </div>
+
+            <div id="sessionTimer" class="ttl-visual" style="display: none; margin-left: auto;">
+                <span id="timerValue">60</span>
+            </div>
+        </section>
+
+        <div class="responder-workspace">
+            <div class="panel-heading" style="margin-bottom: 30px;"><i class="bi bi-radar"></i> Rescuer Deployment</div>
+            <div class="rescuer-grid" id="rescuerGrid">
+                <!-- Dynamic Nodes -->
+            </div>
+        </div>
+    </main>
+
+    <aside class="output-console">
+        <div class="session-trace-shell" style="height: 100%; display: flex; flex-direction: column; background: rgba(15,23,42,0.4); border: 1px solid var(--border-glass); border-radius: 24px; padding: 24px; overflow: hidden;">
+            <div class="panel-heading" style="margin-bottom: 20px; height: 14px; flex-shrink: 0; color: #475569;"><i class="bi bi-clock-history"></i> Session Trace</div>
+            <div style="flex: 1; position: relative; min-height: 0;">
+                <div class="sessions-container" id="sessionsContainer" style="position: absolute; inset: 0; overflow-y: auto; scrollbar-width: thin;">
+                     <div style="text-align: center; color: var(--text-muted); margin-top: 40px; font-style: italic; font-size: 0.7rem; font-family: var(--fira-code);">
+                         Awaiting incident signal...
+                     </div>
+                </div>
+            </div>
+        </div>
+    </aside>
+</div>
+
+@section Scripts {
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.0/signalr.min.js"></script>
+    <script>
+        // ======= HIGH-FIDELITY LOGIC FROM RESCUEDEMO =======
+        let userConnection = null;
+        const rescuerConnections = {};
+        let currentIncidentId = null;
+        let currentMissionId = null;
+        let timerInterval = null;
+        let timerSeconds = 60;
+        const excludedRescuers = new Set();
+
+        const mockRescuers = [
+            { id: '22222222-2222-2222-2222-222222222221', name: 'Rescuer A - Quận 1', distance: 4.5 },
+            { id: '22222222-2222-2222-2222-222222222222', name: 'Rescuer B - Quận 3', distance: 3.2 },
+            { id: '22222222-2222-2222-2222-222222222223', name: 'Rescuer C - Quận 7', distance: 8.0 },
+            { id: '22222222-2222-2222-2222-222222222224', name: 'Rescuer D - Tân Bình', distance: 6.5 }
+        ];
+
+        const rescuerRequests = {};
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            renderRescuers();
+            await checkDemoStatus();
+            startMonitoring();
+        });
+
+        async function checkDemoStatus() {
+            try {
+                const response = await fetch('/api/rescuedemo/status');
+                const data = await response.json();
+                const isSeeded = data.status.isSeeded;
+                currentIncidentId = data.currentIncidentId;
+                if (!isSeeded) {
+                    document.getElementById('demoAlert').style.display = 'block';
+                    document.getElementById('btnSeedData').disabled = false;
+                    document.getElementById('btnCreateIncident').disabled = true;
+                } else {
+                    document.getElementById('demoAlert').style.display = 'none';
+                    document.getElementById('btnSeedData').disabled = true;
+                    document.getElementById('btnCreateIncident').disabled = false;
+                }
+                log('Demo status checked: ' + (isSeeded ? 'Database Seeded' : 'Data Missing'), 'info');
+            } catch (err) { log('Status check error: ' + err.message, 'error'); }
+        }
+
+        async function seedDemoData() {
+            try {
+                log('Pushing mockup assets to database...', 'info');
+                const response = await fetch('/api/rescuedemo/seed', { method: 'POST' });
+                if (!response.ok) throw new Error(await response.text());
+                log('Assets initialized in persistent storage', 'success');
+                document.getElementById('demoAlert').style.display = 'none';
+                document.getElementById('btnSeedData').disabled = true;
+                document.getElementById('btnCreateIncident').disabled = false;
+            } catch (err) { log('Seed sequence failed: ' + err.message, 'error'); }
+        }
+
+        async function cleanupDemoData() {
+            if (!confirm('Execute factory data reset?')) return;
+            try {
+                log('Wiping operational data tables...', 'info');
+                const response = await fetch('/api/rescuedemo/cleanup', { method: 'POST' });
+                if (!response.ok) throw new Error(await response.text());
+                log('Database zeroed out', 'success');
+                currentIncidentId = null;
+                currentMissionId = null;
+                excludedRescuers.clear();
+                Object.keys(rescuerRequests).forEach(k => delete rescuerRequests[k]);
+                document.getElementById('demoAlert').style.display = 'block';
+                document.getElementById('btnSeedData').disabled = false;
+                document.getElementById('btnCreateIncident').disabled = true;
+                document.getElementById('btnTriggerRescue').disabled = true;
+                document.getElementById('btnRaiseRange').disabled = true;
+                document.getElementById('btnCancelIncident').disabled = true;
+                stopTimer();
+                renderRescuers();
+                refreshState();
+            } catch (err) { log('Wipe failed: ' + err.message, 'error'); }
+        }
+
+        async function connectUser() {
+            try {
+                userConnection = new signalR.HubConnectionBuilder()
+                    .withUrl('/rescuer-hub', { timeout: 60000 })
+                    .withAutomaticReconnect()
+                    .build();
+                userConnection.on('IncidentCreated', handleIncidentCreated);
+                userConnection.on('IncidentAssigned', handleIncidentAssigned);
+                userConnection.on('IncidentCancelled', handleIncidentCancelled);
+                userConnection.on('IncidentNoRescuerFound', handleNoRescuerFound);
+                userConnection.on('SessionCreated', handleSessionCreated);
+                userConnection.on('SessionTimeout', handleSessionTimeout);
+                userConnection.on('SessionAutoExpanded', handleSessionAutoExpanded);
+                userConnection.on('MissionStatusUpdated', handleMissionStatusUpdated);
+                userConnection.on('MissionCancelledByRescuer', handleMissionCancelledByRescuer);
+                userConnection.on('DataReset', handleDataReset);
+                await userConnection.start();
+                document.getElementById('userStatus').classList.add('online');
+                document.getElementById('userStatusText').textContent = 'Connected';
+                document.getElementById('btnConnect').disabled = true;
+                if (document.getElementById('demoAlert').style.display === 'none') {
+                    document.getElementById('btnCreateIncident').disabled = false;
+                }
+                log('✅ Connected to RescueHub', 'success');
+            } catch (err) { log('Tunnel link error: ' + err.message, 'error'); }
+        }
+
+        async function connectRescuer(rescuerId) {
+            if (rescuerConnections[rescuerId]) return;
+            try {
+                const connection = new signalR.HubConnectionBuilder()
+                    .withUrl('/rescuer-hub', { timeout: 60000 })
+                    .withAutomaticReconnect()
+                    .build();
+                connection.on('Joined', (data) => log(`Rescuer ${rescuerId.slice(-1)} joined as rescuer`, 'success'));
+                connection.on('NewRescueRequest', (data) => { if (!excludedRescuers.has(rescuerId)) handleNewRequest(rescuerId, data); });
+                connection.on('RequestAccepted', (data) => {
+                    log(`✅ Handshake complete. Mission ${data.missionId?.slice(0, 8)} active`, 'success');
+                    rescuerRequests[rescuerId] = { ...rescuerRequests[rescuerId], status: 'Accepted' };
+                    renderRescuers();
+                });
+                connection.on('RequestTaken', (data) => {
+                    log(`Rescuer ${rescuerId.slice(-1)} request taken by peer`, 'info');
+                    rescuerRequests[rescuerId] = { ...rescuerRequests[rescuerId], status: 'Taken' };
+                    renderRescuers();
+                });
+                connection.on('RequestExpired', (data) => {
+                    log(`Rescuer ${rescuerId.slice(-1)} request TTL expired`, 'warning');
+                    rescuerRequests[rescuerId] = { ...rescuerRequests[rescuerId], status: 'Expired' };
+                    renderRescuers();
+                });
+                connection.on('RequestCancelled', (data) => {
+                    log(`Rescuer ${rescuerId.slice(-1)} request revoked`, 'warning');
+                    rescuerRequests[rescuerId] = { ...rescuerRequests[rescuerId], status: 'Cancelled' };
+                    renderRescuers();
+                });
+                await connection.start();
+                await connection.invoke('JoinAsRescuer', rescuerId);
+                rescuerConnections[rescuerId] = connection;
+                renderRescuers();
+            } catch (err) { log(`Rescuer ${rescuerId.slice(-1)} link error: ${err.message}`, 'error'); }
+        }
+
+        async function disconnectRescuer(rescuerId) {
+            if (rescuerConnections[rescuerId]) {
+                await rescuerConnections[rescuerId].stop();
+                delete rescuerConnections[rescuerId];
+                delete rescuerRequests[rescuerId];
+                renderRescuers();
+            }
+        }
+
+        async function createIncident() {
+            try {
+                currentMissionId = null;
+                excludedRescuers.clear();
+                Object.keys(rescuerRequests).forEach(k => delete rescuerRequests[k]);
+                log('Generating new SOS event pattern...', 'info');
+                const response = await fetch('/api/rescuedemo/incident/create', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ lat: 10.762622, lng: 106.660172 })
+                });
+                if (!response.ok) throw new Error(await response.text());
+                const data = await response.json();
+                currentIncidentId = data.incidentId;
+                document.getElementById('btnCreateIncident').disabled = true;
+                document.getElementById('btnTriggerRescue').disabled = false;
+                log(`Incident created at epicenter: ${currentIncidentId.slice(0, 8)}`, 'success');
+                renderRescuers();
+                refreshState();
+            } catch (err) { log('SOS generation error: ' + err.message, 'error'); }
+        }
+
+        async function triggerRescue() {
+            if (!currentIncidentId) return;
+            try {
+                log('Executing global broadcast sequence...', 'info');
+                const response = await fetch(`/api/rescuedemo/incident/${currentIncidentId}/trigger`, { method: 'POST' });
+                if (!response.ok) throw new Error(await response.text());
+                const data = await response.json();
+                document.getElementById('btnTriggerRescue').disabled = true;
+                document.getElementById('btnRaiseRange').disabled = false;
+                document.getElementById('btnCancelIncident').disabled = false;
+                log(`Sequence active: ${data.message}`, 'success');
+                startTimer(60);
+                refreshState();
+            } catch (err) { log('Broadcast execution error: ' + err.message, 'error'); }
+        }
+
+        async function raiseRange() {
+            if (!currentIncidentId) return;
+            try {
+                const response = await fetch(`/api/rescuedemo/incident/${currentIncidentId}/raise-range`, { method: 'POST' });
+                const data = await response.json();
+                if (data.incident?.status === 'NoRescuerFound') {
+                    log('GRID_FAULT: Search vectors exhausted', 'error');
+                    stopTimer();
+                } else {
+                    log(`Expanding search radius to ${data.session.radiusKm}km`, 'info');
+                    startTimer(60);
+                }
+                refreshState();
+            } catch (err) { log('Expansion error: ' + err.message, 'error'); }
+        }
+
+        async function cancelIncident() {
+            if (!currentIncidentId) return;
+            try {
+                const response = await fetch(`/api/rescuedemo/incident/${currentIncidentId}/cancel`, { method: 'POST' });
+                stopTimer();
+                log('Operational abort signal sent', 'warning');
+                refreshState();
+            } catch (err) { log('Abort signal error: ' + err.message, 'error'); }
+        }
+
+        async function acceptRequest(rescuerId) {
+            const request = rescuerRequests[rescuerId];
+            if (!request) return;
+            try {
+                const response = await fetch(`/api/rescuedemo/request/${request.requestId}/accept?rescuerId=${rescuerId}`, { method: 'POST' });
+                if (!response.ok) throw new Error((await response.json()).message || 'Accept failed');
+                const data = await response.json();
+                currentMissionId = data.missionId;
+                rescuerRequests[rescuerId] = { ...request, status: 'Accepted' };
+                log(`✅ Handshake complete. Mission ${data.missionId?.slice(0, 8)} active`, 'success');
+                stopTimer();
+                renderRescuers();
+                refreshState();
+            } catch (err) { log('Handshake failure: ' + err.message, 'error'); }
+        }
+
+        async function rejectRequest(rescuerId) {
+            const request = rescuerRequests[rescuerId];
+            if (!request) return;
+            try {
+                await fetch(`/api/rescuedemo/request/${request.requestId}/reject`, { method: 'POST' });
+                rescuerRequests[rescuerId] = { ...request, status: 'Rejected' };
+                log(`Rescuer ${rescuerId.slice(-1)} rejected request`, 'info');
+                renderRescuers();
+            } catch (err) { log('Rejection sync error: ' + err.message, 'error'); }
+        }
+
+        async function cancelMission(rescuerId) {
+            if (!currentMissionId) return;
+            if (!confirm('Abort mission and restart dispatch?')) return;
+            try {
+                log('Executing mission abort sequence...', 'info');
+                const response = await fetch(`/api/rescuedemo/mission/${currentMissionId}/abort?reason=Rescuer%20cancelled`, { method: 'POST' });
+                if (!response.ok) throw new Error((await response.json()).error || 'Abort failed');
+                const data = await response.json();
+                currentMissionId = null;
+                log(`Mission breached. Fallback to phase #${data.newSession.sessionNumber}`, 'warning');
+                excludedRescuers.add(rescuerId);
+                rescuerRequests[rescuerId] = { status: 'Aborted' };
+                startTimer(60);
+                refreshState();
+                renderRescuers();
+            } catch (err) { log('Abort sequence failure: ' + err.message, 'error'); }
+        }
+
+        async function updateMissionStatus() {
+            const select = document.getElementById('missionStatusSelect');
+            const status = select.value;
+            if (!status || !currentMissionId) return;
+            try {
+                const response = await fetch(`/api/rescuedemo/mission/${currentMissionId}/status?status=${status}`, { method: 'POST' });
+                if (!response.ok) throw new Error((await response.json()).error || 'Update failed');
+                log(`Mission vector updated to: ${status.toUpperCase()}`, 'success');
+                select.value = '';
+                if (status === 'MissionCompleted') { stopTimer(); log('🎉 Mission completed! Incident resolved.', 'success'); }
+                refreshState();
+            } catch (err) { log('Vector sync failure: ' + err.message, 'error'); }
+        }
+
+        function handleNewRequest(rescuerId, data) {
+            rescuerRequests[rescuerId] = { requestId: data.requestId, sessionId: data.sessionId, status: 'Pending' };
+            log(`📨 New request for Rescuer ${rescuerId.slice(-1)} (${data.radiusKm}km)`, 'info');
+            renderRescuers();
+        }
+
+        function handleIncidentCreated() { log('Incident created', 'info'); }
+        function handleIncidentAssigned(data) { log(`✅ Incident assigned to ${data.rescuerName}`, 'success'); refreshState(); }
+        function handleIncidentCancelled() { log('Circuit signal: Incident Aborted', 'warning'); stopTimer(); refreshState(); }
+        function handleNoRescuerFound() { log('❌ No rescuer found in current range', 'error'); stopTimer(); refreshState(); }
+        function handleSessionCreated(data) { log(`Probe phase #${data.session.sessionNumber} live`, 'info'); startTimer(60); refreshState(); }
+        function handleSessionTimeout() { log(`Probe TTL expired`, 'warning'); refreshState(); }
+        function handleSessionAutoExpanded(data) { log(`Probe range expanded to ${data.newSession.radiusKm}km`, 'info'); startTimer(60); refreshState(); }
+        function handleMissionStatusUpdated() { refreshState(); }
+        function handleMissionCancelledByRescuer() { 
+            currentMissionId = null; 
+            log('Mission aborted by rescuer', 'warning');
+            refreshState(); 
+        }
+        function handleDataReset() { cleanupDemoData(); }
+
+        function renderRescuers() {
+            const grid = document.getElementById('rescuerGrid');
+            grid.innerHTML = mockRescuers.map(r => {
+                const isConnected = !!rescuerConnections[r.id];
+                const request = rescuerRequests[r.id];
+                const hasRequest = request && request.status === 'Pending';
+                const isExcluded = excludedRescuers.has(r.id);
+                return `
+                    <div class="glass-node ${isConnected ? 'is-active' : ''} ${hasRequest ? 'has-ping' : ''}">
+                        <div class="node-name" style="font-family: var(--fira-sans)">${r.name} ${isExcluded ? '<span style="color:var(--accent-red)"><i class="bi bi-slash-circle"></i></span>' : ''}</div>
+                        <div class="node-meta"><i class="bi bi-geo"></i> ${r.distance} km from user</div>
+                        <div style="margin-top: 15px;">
+                            <button class="control-btn ${isConnected ? 'btn-ghost-sim' : 'btn-success-sim'}" style="padding: 6px; font-size: 0.65rem; margin: 0;" onclick="${isConnected ? 'disconnectRescuer' : 'connectRescuer'}('${r.id}')">
+                                <i class="bi bi-power"></i> ${isConnected ? 'Disconnect' : 'Connect'}
+                            </button>
+                        </div>
+                        ${request ? `
+                            <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border-glass)">
+                                <div class="node-meta" style="margin-bottom: 8px; color: var(--accent-gold)">Request: ${request.status.toUpperCase()}</div>
+                                ${request.status === 'Pending' ? `
+                                    <div style="display: flex; gap: 8px;">
+                                        <button class="control-btn btn-success-sim" style="padding: 5px; flex: 1; font-size: 0.6rem; margin: 0;" onclick="acceptRequest('${r.id}')">Accept</button>
+                                        <button class="control-btn btn-danger-sim" style="padding: 5px; flex: 1; font-size: 0.6rem; margin: 0;" onclick="rejectRequest('${r.id}')">Reject</button>
+                                    </div>
+                                ` : ''}
+                                ${request.status === 'Accepted' ? `
+                                    <button class="control-btn btn-warning-sim" style="padding: 5px; font-size: 0.6rem; margin: 0;" onclick="cancelMission('${r.id}')">🚫 Abort Mission</button>
+                                ` : ''}
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+            }).join('');
+        }
+
+        async function refreshState() {
+            try {
+                const response = await fetch('/api/rescuedemo/incident/monitor');
+                const data = await response.json();
+                
+                const incHUD = document.getElementById('incidentInfo');
+                const misHUD = document.getElementById('missionInfo');
+                
+                if (!data.hasIncident) {
+                    incHUD.style.display = 'none';
+                    misHUD.style.display = 'none';
+                    document.getElementById('btnCreateIncident').disabled = (document.getElementById('userStatusText').textContent !== 'Connected' || document.getElementById('demoAlert').style.display !== 'none');
+                    document.getElementById('btnTriggerRescue').disabled = true;
+                    document.getElementById('btnRaiseRange').disabled = true;
+                    document.getElementById('btnCancelIncident').disabled = true;
+                    document.getElementById('sessionsContainer').innerHTML = '<div style="text-align: center; color: var(--text-muted); margin-top: 40px; font-style: italic; font-size: 0.7rem; font-family: var(--fira-code);">Awaiting active incident signal...</div>';
+                    return;
+                }
+
+                incHUD.style.display = 'flex';
+                incHUD.classList.add('active-op');
+                document.getElementById('incidentStatus').textContent = data.incident.status;
+                document.getElementById('currentSession').textContent = data.incident.currentSessionNumber || '0';
+                document.getElementById('currentRadius').textContent = data.incident.currentRadiusKm || '0';
+                
+                if (data.mission && ['Preparing', 'EnRoute', 'RescuerArrived'].includes(data.mission.status)) {
+                    currentMissionId = data.mission.id;
+                    misHUD.style.display = 'flex';
+                    document.getElementById('missionRescuer').textContent = data.mission.rescuerName || 'Unknown Unit';
+                    document.getElementById('missionStatus').textContent = data.mission.status;
+                    document.getElementById('missionPrice').textContent = (data.mission.price || 0).toLocaleString('vi-VN');
+                    stopTimer(); // Ensure timer is off when mission is active
+                } else {
+                    misHUD.style.display = 'none';
+                }
+
+                if (['Completed', 'Cancelled', 'NoRescuerFound'].includes(data.incident.status)) {
+                    stopTimer();
+                }
+
+                const hasSession = data.incident.currentSessionNumber > 0;
+                document.getElementById('btnCreateIncident').disabled = true;
+                document.getElementById('btnTriggerRescue').disabled = hasSession;
+                document.getElementById('btnRaiseRange').disabled = data.incident.status !== 'Pending' || !hasSession;
+                document.getElementById('btnCancelIncident').disabled = (data.incident.status !== 'Pending' && data.incident.status !== 'Assigned');
+                
+                renderSessionsWithRequests(data.sessions, data.requests);
+                renderRescuers();
+            } catch (err) {}
+        }
+
+        function renderSessionsWithRequests(sessions, requests) {
+            const container = document.getElementById('sessionsContainer');
+            if (!sessions || sessions.length === 0) {
+                container.innerHTML = '<div style="text-align: center; color: var(--text-muted); margin-top: 40px; font-style: italic; font-size: 0.7rem; font-family: var(--fira-code);">Awaiting session data...</div>';
+                return;
+            }
+            container.innerHTML = sessions.sort((a, b) => b.sessionNumber - a.sessionNumber).map(session => {
+                const sessionRequests = requests.filter(r => r.sessionId === session.id);
+                return `
+                    <div class="session-item" style="flex-direction: column; align-items: stretch; padding: 18px;">
+                        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                            <div>
+                                <div class="session-num">Session #${session.sessionNumber}</div>
+                                <div class="session-meta">Type: ${session.triggerType} • Radius: ${session.radiusKm}km</div>
+                            </div>
+                            <div style="text-align: right">
+                                <div class="session-num" style="color: var(--accent-blue); font-size: 0.8rem">${session.status.toUpperCase()}</div>
+                                <div class="session-meta">Pings: ${session.rescuersPinged}</div>
+                            </div>
+                        </div>
+                        ${sessionRequests.length > 0 ? `
+                            <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.05);">
+                                <div style="display: flex; flex-wrap: wrap;">
+                                    ${sessionRequests.map(r => `
+                                        <span class="request-badge ${r.status.toLowerCase()}" title="${r.rescuerName} - ${r.status}">
+                                            ${r.rescuerName?.split(' - ')[0] || 'Rescuer'}: ${r.status}
+                                        </span>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+            }).join('');
+        }
+
+        let monitoringInterval = null;
+        function startMonitoring() {
+            refreshState();
+            monitoringInterval = setInterval(refreshState, 10000);
+            log('Monitoring telemetry active', 'info');
+        }
+
+        function stopMonitoring() { clearInterval(monitoringInterval); monitoringInterval = null; log('Telemetry feed suspended', 'warning'); }
+        function toggleMonitoring() {
+            const el = document.getElementById('monitoringToggleText');
+            if (monitoringInterval) { stopMonitoring(); el.textContent = '▶️ Resume Monitoring'; }
+            else { startMonitoring(); el.textContent = '⏸️ Pause Monitoring'; }
+        }
+
+        function startTimer(seconds) {
+            stopTimer();
+            timerSeconds = seconds;
+            const el = document.getElementById('sessionTimer');
+            el.style.display = 'flex';
+            el.classList.remove('warning');
+            timerInterval = setInterval(() => {
+                timerSeconds--;
+                document.getElementById('timerValue').textContent = timerSeconds;
+                if (timerSeconds <= 10) el.classList.add('warning');
+                if (timerSeconds <= 0) stopTimer();
+            }, 1000);
+        }
+
+        function stopTimer() { clearInterval(timerInterval); timerInterval = null; document.getElementById('sessionTimer').style.display = 'none'; }
+
+        function log(message, type = 'info') {
+            const box = document.getElementById('eventLog');
+            const entry = document.createElement('div');
+            entry.className = `log-line ${type}`;
+            entry.innerHTML = `<span class="log-ts">[${new Date().toLocaleTimeString('en-GB')}]</span> <span class="log-msg">${message}</span>`;
+            box.insertBefore(entry, box.firstChild);
+            while (box.children.length > 100) box.removeChild(box.lastChild);
+        }
+    </script>
+}
