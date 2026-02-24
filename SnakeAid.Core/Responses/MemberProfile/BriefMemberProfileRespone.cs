@@ -15,6 +15,12 @@ namespace SnakeAid.Core.Responses.MemberProfile
         
         public Guid AccountId { get; set; }
 
+        public string UserName { get; set; } = string.Empty;
+
+        public string Email { get; set; } = string.Empty;
+
+        public string? PhoneNumber { get; set; }
+
         [Range(0.0, 5.0)]
         public float Rating { get; set; }
 
