@@ -41,7 +41,7 @@ public class DetectionResult
     public AiDetection Ai { get; set; }
 
     [JsonPropertyName("snake")]
-    public SnakeSpecies? Snake { get; set; }
+    public Domains.SnakeSpecies? Snake { get; set; }
 }
 
 public class AiDetection

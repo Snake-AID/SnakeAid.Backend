@@ -35,8 +35,8 @@ namespace SnakeAid.Core.Mappings
                 .PreserveReference(true)
                 .MaxDepth(2);
 
-            // Configure MemberProfile to BriefMemberProfileRespone mapping
-            TypeAdapterConfig<MemberProfile, BriefMemberProfileRespone>
+            // Configure MemberProfile to BriefMemberProfileResponse mapping
+            TypeAdapterConfig<MemberProfile, BriefMemberProfileResponse>
                 .NewConfig()
                 .Map(dest => dest.UserName, src => src.Account.UserName)
                 .Map(dest => dest.Email, src => src.Account.Email)

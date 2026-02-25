@@ -2,6 +2,9 @@
 using NetTopologySuite.Geometries;
 using SnakeAid.Core.Domains;
 using SnakeAid.Core.Responses;
+using SnakeAid.Core.Responses.Auth;
+using SnakeAid.Core.Responses.MemberProfile;
+using SnakeAid.Core.Responses.RescuerProfile;
 using SnakeAid.Core.Responses.SnakebiteIncident;
 using System;
 using System.Collections.Generic;

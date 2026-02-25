@@ -128,6 +128,9 @@ namespace SnakeAid.Api.Controllers
         {
             try
             {
+                // Log received coordinates for debugging
+                _logger.LogWarning("🔍 CREATE INCIDENT RECEIVED: Lat={Lat}, Lng={Lng}", dto.Lat, dto.Lng);
+
                 // Check if demo data is seeded
                 var status = await _demoDataSeeder.GetStatusAsync();
                 if (!status.IsSeeded)
@@ -180,6 +183,7 @@ namespace SnakeAid.Api.Controllers
                     sessionNumber = response.SessionNumber,
                     radiusKm = response.RadiusKm,
                     rescuersPinged = response.RescuersPinged,
+                    location = new { lat = dto.Lat, lng = dto.Lng },  // Return location for verification
                     message = $"Incident created and rescue session started! {response.RescuersPinged} rescuers pinged within {response.RadiusKm}km radius."
                 });
             }
@@ -315,38 +319,26 @@ namespace SnakeAid.Api.Controllers
         /// 6. Update incident status to Assigned
         /// 7. Notify all rescuers (accepted, taken)
         /// 8. Cancel timeout in background service
+        /// 9. Return mission info for client navigation
         /// </summary>
         [HttpPost("request/{requestId}/accept")]
         public async Task<IActionResult> AcceptRequest(Guid requestId, [FromQuery] Guid rescuerId)
         {
             try
             {
-                // Call the REAL session service to accept request (not just validation)
-                await _sessionService.AcceptRequestAsync(requestId, rescuerId);
-
-                // Query created mission
-                var request = await _unitOfWork.GetRepository<RescuerRequest>().FirstOrDefaultAsync(
-                    predicate: r => r.Id == requestId
-                );
-
-                if (request == null)
-                {
-                    throw new NotFoundException("Request not found");
-                }
-
-                var mission = await _unitOfWork.GetRepository<RescueMission>().FirstOrDefaultAsync(
-                    predicate: m => m.IncidentId == request.IncidentId
-                );
+                // Call REAL session service - now returns AcceptRescueResponse with missionId
+                var result = await _sessionService.AcceptRequestAsync(requestId, rescuerId);
 
                 _logger.LogInformation("Rescuer {RescuerId} accepted request {RequestId}, mission {MissionId}",
-                    rescuerId, requestId, mission?.Id);
+                    rescuerId, requestId, result.MissionId);
 
                 return Ok(new
                 {
-                    requestId,
-                    missionId = mission?.Id,
-                    incidentId = request.IncidentId,
-                    message = "Request accepted! Mission created. You have been assigned to this rescue."
+                    requestId = result.RequestId,
+                    missionId = result.MissionId,  // ✅ From service response, no need to query
+                    incidentId = result.IncidentId,
+                    acceptedAt = result.AcceptedAt,
+                    message = result.Message
                 });
             }
             catch (Exception ex)
@@ -501,7 +493,7 @@ namespace SnakeAid.Api.Controllers
                 // Query all sessions for this incident
                 var sessions = await _unitOfWork.GetRepository<RescueRequestSession>()
                     .CreateBaseQuery()
-                    .Where(s => s.IncidentId == _currentDemoIncidentId.Value)
+                    .Where(s => s.IncidentId == incident.Id)
                     .OrderBy(s => s.SessionNumber)
                     .Select(s => new
                     {
@@ -518,7 +510,7 @@ namespace SnakeAid.Api.Controllers
                 // Query all requests for this incident
                 var requests = await _unitOfWork.GetRepository<RescuerRequest>()
                     .CreateBaseQuery()
-                    .Where(r => r.IncidentId == _currentDemoIncidentId.Value)
+                    .Where(r => r.IncidentId == incident.Id)
                     .OrderByDescending(r => r.CreatedAt)
                     .Select(r => new
                     {
@@ -541,7 +533,7 @@ namespace SnakeAid.Api.Controllers
                 };
                 var mission = await _unitOfWork.GetRepository<RescueMission>()
                     .CreateBaseQuery()
-                    .Where(m => m.IncidentId == _currentDemoIncidentId.Value && activeMissionStatuses.Contains(m.Status))
+                    .Where(m => m.IncidentId == incident.Id && activeMissionStatuses.Contains(m.Status))
                     .OrderByDescending(m => m.CreatedAt)
                     .Select(m => new
                     {
@@ -597,22 +589,38 @@ namespace SnakeAid.Api.Controllers
         /// Get all demo rescuers with connection status
         /// </summary>
         [HttpGet("rescuers")]
-        public IActionResult GetRescuers()
+        public async Task<IActionResult> GetRescuers()
         {
             var rescuers = new[]
             {
-                new { id = DemoDataSeeder.DEMO_RESCUER_A_ID, name = "Rescuer A - Quận 1", distanceKm = 4.5 },
-                new { id = DemoDataSeeder.DEMO_RESCUER_B_ID, name = "Rescuer B - Quận 3", distanceKm = 3.2 },
-                new { id = DemoDataSeeder.DEMO_RESCUER_C_ID, name = "Rescuer C - Quận 7", distanceKm = 8.0 },
-                new { id = DemoDataSeeder.DEMO_RESCUER_D_ID, name = "Rescuer D - Tân Bình", distanceKm = 6.5 }
+                // new { id = DemoDataSeeder.DEMO_RESCUER_A_ID, name = "Rescuer A - Quận 1", distanceKm = 4.5 },
+                // new { id = DemoDataSeeder.DEMO_RESCUER_B_ID, name = "Rescuer B - Quận 3", distanceKm = 3.2 },
+                // new { id = DemoDataSeeder.DEMO_RESCUER_C_ID, name = "Rescuer C - Quận 7", distanceKm = 8.0 },
+                // new { id = DemoDataSeeder.DEMO_RESCUER_D_ID, name = "Rescuer D - Tân Bình", distanceKm = 6.5 }
+                new { id = DemoDataSeeder.DEMO_RESCUER_A_ID, name = "Rescuer A - Tam Kỳ Ward 1", distanceKm = 5.0 },
+                new { id = DemoDataSeeder.DEMO_RESCUER_B_ID, name = "Rescuer B - Tam Kỳ Ward 2", distanceKm = 7.0 },
+                new { id = DemoDataSeeder.DEMO_RESCUER_C_ID, name = "Rescuer C - Tam Kỳ Ward 3", distanceKm = 12.0 },
+                new { id = DemoDataSeeder.DEMO_RESCUER_D_ID, name = "Rescuer D - Tam Kỳ Ward 4", distanceKm = 15.0 }
             };
+
+            // Get real-time connection status from SignalR hub
+            var connectedRescuerIds = SignalRRescueNotificationService.ConnectedRescuers.Keys.ToHashSet();
+
+            // Get online status from database
+            var rescuerProfiles = await _unitOfWork.GetRepository<RescuerProfile>()
+                .CreateBaseQuery(asNoTracking: true)
+                .Where(r => rescuers.Select(x => x.id).Contains(r.AccountId))
+                .Select(r => new { r.AccountId, r.IsOnline, r.LastLocationUpdate })
+                .ToListAsync();
 
             var result = rescuers.Select(r => new
             {
                 r.id,
                 r.name,
                 r.distanceKm,
-                isConnected = SignalRRescueNotificationService.ConnectedRescuers.ContainsKey(r.id.ToString())
+                isConnected = connectedRescuerIds.Contains(r.id.ToString()),
+                isOnlineInDb = rescuerProfiles.FirstOrDefault(p => p.AccountId == r.id)?.IsOnline ?? false,
+                lastLocationUpdate = rescuerProfiles.FirstOrDefault(p => p.AccountId == r.id)?.LastLocationUpdate
             });
 
             return Ok(result);
@@ -656,8 +664,13 @@ namespace SnakeAid.Api.Controllers
 
     public class CreateIncidentDto
     {
-        public double Lat { get; set; } = 10.762622;
-        public double Lng { get; set; } = 106.660172;
+        //// demo location tại tp HCM
+        // public double Lat { get; set; } = 10.762622;
+        // public double Lng { get; set; } = 106.660172;
+
+        // demo location tạm Tam Kỳ
+        public double Lat { get; set; } = 15.5741;
+        public double Lng { get; set; } = 108.4796;
         public string? SymptomsReport { get; set; }
     }
 
