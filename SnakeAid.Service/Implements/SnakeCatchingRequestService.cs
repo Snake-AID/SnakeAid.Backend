@@ -369,7 +369,7 @@ namespace SnakeAid.Service.Implements
             }
         }
 
-        public async Task<CreateSnakeCatchingRequestResponse> GetDetailAsync(Guid requestId)
+        public async Task<DetailSnakeCatchingRequestResponse> GetDetailAsync(Guid requestId)
         {
             try
             {
@@ -382,6 +382,8 @@ namespace SnakeAid.Service.Implements
                         .Include(r => r.AssignedRescuer)
                             .ThenInclude(ar => ar.Account)
                         .Include(r => r.Mission)
+                            .ThenInclude(m => m.MissionDetails)
+                                .ThenInclude(md => md.SnakeSpecies)
                         .Include(r => r.Details)
                             .ThenInclude(d => d.SnakeSpecies)
                 );
@@ -391,9 +393,16 @@ namespace SnakeAid.Service.Implements
                     throw new NotFoundException($"Snake catching request with ID {requestId} not found.");
                 }
 
+                // Attach media for request
                 await request.AttachReportMediaAsync(_unitOfWork, MediaReferenceType.SnakeCatchingRequest);
+                
+                // Attach media for mission if exists
+                if (request.Mission != null)
+                {
+                    await request.Mission.AttachReportMediaAsync(_unitOfWork, MediaReferenceType.SnakeCatchingMission);
+                }
 
-                var response = request.Adapt<CreateSnakeCatchingRequestResponse>();
+                var response = request.Adapt<DetailSnakeCatchingRequestResponse>();
                 if (response.EstimatedPrice.HasValue)
                 {
                     var perKmRate = _configuration.GetValue<decimal>("LocationIq:PricePerKilometer");

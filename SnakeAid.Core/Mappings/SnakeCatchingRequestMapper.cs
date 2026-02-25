@@ -17,6 +17,14 @@ namespace SnakeAid.Core.Mappings
                 .Map(dest => dest.Lng, src => src.LocationCoordinates.X)
                 .Map(dest => dest.Lat, src => src.LocationCoordinates.Y);
 
+            TypeAdapterConfig<SnakeCatchingRequest, DetailSnakeCatchingRequestResponse>
+                .NewConfig()
+                .PreserveReference(true) // Enable circular reference handling
+                .MaxDepth(3) // Limit mapping depth to prevent infinite loops
+                .Map(dest => dest.LocationCoordinates, src => src.LocationCoordinates)
+                .Map(dest => dest.Lng, src => src.LocationCoordinates.X)
+                .Map(dest => dest.Lat, src => src.LocationCoordinates.Y);
+
             // Configure MemberProfile mapping to ignore circular collections
             TypeAdapterConfig<MemberProfile, MemberProfile>
                 .NewConfig()
