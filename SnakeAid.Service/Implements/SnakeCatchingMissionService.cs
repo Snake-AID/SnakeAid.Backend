@@ -174,10 +174,10 @@ namespace SnakeAid.Service.Implements
                     }
 
                     //Update actual cost if provided
-                    var snakeQuantity = mission.MissionDetails?.Sum(d => d.Quantity);
+                    var snakeQuantity = mission.MissionDetails?.Sum(d => d.Quantity) - 1;
                     decimal additionalCosts = snakeQuantity > 0 ? snakeQuantity.Value * additionalSnakePrice : 0;
                     mission.ActualCost = basePrice + additionalCosts;
-                    mission.Price = mission.ActualCost.Value + mission.EstimatedCost.Value;
+                    mission.Price = mission.ActualCost.Value;
 
                     // Update mission to MissionCompleted
                     mission.Status = CatchingMissionStatus.MissionCompleted;

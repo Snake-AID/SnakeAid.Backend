@@ -28,14 +28,14 @@ public class PayOsController : BaseController<PayOsController>
     /// <summary>
     /// Create PayOS payment link for snake catching service
     /// </summary>
-    /// <param name="request">Payment request with sender, receiver, and amount</param>
+    /// <param name="request">Payment request with catching request ID and amount</param>
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>Payment link response with checkout URL</returns>
     [HttpPost("create-payment-link")]
     [Authorize]
     [SwaggerOperation(
         Summary = "Create PayOS payment link",
-        Description = "Generates a PayOS payment link for a snake catching request that needs payment.",
+        Description = "Generates a PayOS payment link for a snake catching request that needs payment. Sender is current user, receiver is system account.",
         Tags = new[] { "Payments" })]
     [ProducesResponseType(typeof(SnakeCatchingPaymentResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -46,7 +46,8 @@ public class PayOsController : BaseController<PayOsController>
     {
         try
         {
-            var result = await _payOsPaymentService.CreatePaymentLinkAsync(request, cancellationToken);
+            var currentUserId = GetCurrentUserId();
+            var result = await _payOsPaymentService.CreatePaymentLinkAsync(request, currentUserId, cancellationToken);
             return Ok(new
             {
                 success = true,
@@ -197,14 +198,15 @@ public class PayOsController : BaseController<PayOsController>
     [HttpGet("return")]
     [SwaggerOperation(
         Summary = "PayOS return URL handler",
-        Description = "Handles the return URL after user completes payment on PayOS portal.",
+        Description = "Handles the return URL after user completes payment on PayOS portal. Automatically confirms payment if successful.",
         Tags = new[] { "Payments" })]
     public async Task<IActionResult> Return(
         [FromQuery] string code,
         [FromQuery] string id,
         [FromQuery] bool cancel,
         [FromQuery] string status,
-        [FromQuery] long orderCode)
+        [FromQuery] long orderCode,
+        CancellationToken cancellationToken = default)
     {
         try
         {
@@ -212,6 +214,26 @@ public class PayOsController : BaseController<PayOsController>
                 code, id, cancel, status, orderCode);
 
             var isSuccess = code == "00" && status == "PAID" && !cancel;
+
+            // Auto-confirm payment if successful
+            if (isSuccess)
+            {
+                try
+                {
+                    _logger.LogInformation("[PayOS Return] Payment successful, auto-confirming for orderCode={OrderCode}", orderCode);
+                    
+                    // Call service to confirm payment by orderCode
+                    var confirmResult = await _payOsPaymentService.ConfirmPaymentByOrderCodeAsync(orderCode, cancellationToken);
+                    
+                    _logger.LogInformation("[PayOS Return] Payment confirmed successfully. OrderCode={OrderCode}, Success={Success}", 
+                        orderCode, confirmResult.Success);
+                }
+                catch (Exception confirmEx)
+                {
+                    _logger.LogError(confirmEx, "[PayOS Return] Failed to auto-confirm payment for orderCode={OrderCode}", orderCode);
+                    // Don't throw - still show success page to user
+                }
+            }
             
             // Return a simple HTML page with payment result
             var resultHtml = $@"
@@ -369,6 +391,55 @@ public class PayOsController : BaseController<PayOsController>
             {
                 success = false,
                 message = "An error occurred while processing webhook"
+            });
+        }
+    }
+
+    /// <summary>
+    /// Transfer funds from system wallet to rescuer wallet
+    /// </summary>
+    /// <param name="request">Transfer request with SnakeCatchingRequestId</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>Transfer response with wallet balance details</returns>
+    [HttpPost("transfer-to-rescuer")]
+    [Authorize]
+    [SwaggerOperation(
+        Summary = "Transfer funds to rescuer",
+        Description = "Transfers all paid funds for a catching request from system wallet to the assigned rescuer's wallet.",
+        Tags = new[] { "Payments" })]
+    [ProducesResponseType(typeof(TransferToRescuerResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> TransferToRescuer(
+        [FromBody] TransferToRescuerRequest request,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var result = await _payOsPaymentService.TransferToRescuerAsync(request, cancellationToken);
+            return Ok(new
+            {
+                success = true,
+                message = "Funds transferred successfully to rescuer",
+                data = result
+            });
+        }
+        catch (InvalidOperationException ex)
+        {
+            _logger.LogWarning(ex, "Invalid operation when transferring to rescuer");
+            return BadRequest(new
+            {
+                success = false,
+                message = ex.Message
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error transferring funds to rescuer");
+            return StatusCode(500, new
+            {
+                success = false,
+                message = "An error occurred while transferring funds"
             });
         }
     }
