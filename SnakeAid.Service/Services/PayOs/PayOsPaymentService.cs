@@ -391,6 +391,40 @@ public class PayOsPaymentService : IPayOsPaymentService
 
                         _logger.LogInformation("{Prefix}{SourceTag} Payout transaction created. PayoutTransactionId={PayoutTransactionId}, ReceiverId={ReceiverId}",
                             LogPrefix, sourceTag, payoutTransactionId, catchingRequest.AssignedRescuerId.Value);
+
+                        // Update receiver's wallet balance
+                        var receiverWallet = await _unitOfWork.GetRepository<Wallet>()
+                            .FirstOrDefaultAsync(
+                                predicate: w => w.UserId == catchingRequest.AssignedRescuerId.Value,
+                                asNoTracking: false,
+                                cancellationToken: cancellationToken);
+
+                        if (receiverWallet != null)
+                        {
+                            receiverWallet.Balance += transaction.Amount;
+                            _unitOfWork.GetRepository<Wallet>().Update(receiverWallet);
+
+                            _logger.LogInformation("{Prefix}{SourceTag} Wallet balance updated. WalletId={WalletId}, Amount={Amount}, NewBalance={NewBalance}",
+                                LogPrefix, sourceTag, receiverWallet.Id, transaction.Amount, receiverWallet.Balance);
+                        }
+                        else
+                        {
+                            _logger.LogWarning("{Prefix}{SourceTag} Wallet not found for receiver {ReceiverId}. Creating new wallet.",
+                                LogPrefix, sourceTag, catchingRequest.AssignedRescuerId.Value);
+
+                            // Create wallet if not exists
+                            var newWallet = new Wallet
+                            {
+                                Id = Guid.NewGuid(),
+                                UserId = catchingRequest.AssignedRescuerId.Value,
+                                Balance = transaction.Amount
+                            };
+
+                            await _unitOfWork.GetRepository<Wallet>().InsertAsync(newWallet);
+
+                            _logger.LogInformation("{Prefix}{SourceTag} New wallet created. WalletId={WalletId}, InitialBalance={Balance}",
+                                LogPrefix, sourceTag, newWallet.Id, newWallet.Balance);
+                        }
                     }
                     else
                     {
