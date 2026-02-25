@@ -9,8 +9,11 @@ namespace SnakeAid.Service.Interfaces
         // Tạo mission khi rescuer accept request
         Task<RescueMission> CreateMissionAsync(Guid incidentId, Guid rescuerId, decimal price);
 
-        // Update mission status (e.g., EnRoute, Completed)
+        // Update mission status (e.g., EnRoute, Arrived)
         Task UpdateMissionStatusAsync(Guid missionId, RescueMissionStatus status);
+
+        // Complete mission with evidence photos
+        Task CompleteMissionAsync(Guid missionId, List<Guid> evidenceMediaIds, string? completionNotes);
 
         // User cancel mission: Set status to Cancelled, no new session
         Task UserCancelMissionAsync(Guid missionId, string reason);
