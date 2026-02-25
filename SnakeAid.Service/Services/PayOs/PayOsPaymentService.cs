@@ -360,6 +360,52 @@ public class PayOsPaymentService : IPayOsPaymentService
                 transaction.CreatedAt = webhook.TransactionDateTime ?? DateTime.UtcNow;
                 _unitOfWork.GetRepository<Transaction>().Update(transaction);
 
+                // Add amount to system wallet
+                var systemAccountId = Guid.Parse(systemId);
+                var systemWallet = await _unitOfWork.GetRepository<Wallet>()
+                    .FirstOrDefaultAsync(
+                        predicate: w => w.UserId == systemAccountId,
+                        asNoTracking: false,
+                        cancellationToken: cancellationToken);
+
+                if (systemWallet == null)
+                {
+                    // Create system wallet if not exists
+                    systemWallet = new Wallet
+                    {
+                        Id = Guid.NewGuid(),
+                        UserId = systemAccountId,
+                        Balance = 0
+                    };
+                    await _unitOfWork.GetRepository<Wallet>().InsertAsync(systemWallet);
+                    _logger.LogInformation("{Prefix}{SourceTag} Created system wallet for account {AccountId}",
+                        LogPrefix, sourceTag, systemAccountId);
+                }
+
+                var previousBalance = systemWallet.Balance;
+                systemWallet.Balance += transaction.Amount;
+                _unitOfWork.GetRepository<Wallet>().Update(systemWallet);
+
+                // Create transaction record for system wallet receiving payment
+                var systemWalletTransaction = new Transaction
+                {
+                    Id = Guid.NewGuid(),
+                    UserId = systemAccountId,
+                    ReferenceId = transaction.ReferenceId, // Same SnakeCatchingRequestId
+                    Amount = transaction.Amount,
+                    Currency = transaction.Currency,
+                    TransactionType = TransactionType.WalletTopup,
+                    Description = $"Received payment for catching request {transaction.ReferenceId}",
+                    PaymentMethod = "PayOS",
+                    ExternalTransactionId = webhook.TransactionReference,
+                    CreatedAt = DateTime.UtcNow
+                };
+
+                await _unitOfWork.GetRepository<Transaction>().InsertAsync(systemWalletTransaction);
+
+                _logger.LogInformation("{Prefix}{SourceTag} System wallet updated. Amount={Amount}, Balance: {PrevBalance} -> {NewBalance}, TransactionId={TransactionId}",
+                    LogPrefix, sourceTag, transaction.Amount, previousBalance, systemWallet.Balance, systemWalletTransaction.Id);
+
                 // Update SnakeCatchingRequest status to Paid
                 var catchingRequest = await _unitOfWork.GetRepository<SnakeCatchingRequest>()
                     .GetByIdAsync(transaction.ReferenceId);
@@ -371,35 +417,6 @@ public class PayOsPaymentService : IPayOsPaymentService
 
                     _logger.LogInformation("{Prefix}{SourceTag} SnakeCatchingRequest {RequestId} status updated to Paid",
                         LogPrefix, sourceTag, transaction.ReferenceId);
-
-                    // Create Payout Transaction for the receiver (catcher/rescuer)
-                    if (catchingRequest.AssignedRescuerId.HasValue)
-                    {
-                        var payoutTransaction = new Transaction
-                        {
-                            Id = Guid.NewGuid(),
-                            UserId = catchingRequest.AssignedRescuerId.Value,
-                            ReferenceId = transaction.ReferenceId,  // Same SnakeCatchingRequestId
-                            Amount = transaction.Amount,  // Same amount (or calculate commission here)
-                            Currency = transaction.Currency,
-                            TransactionType = TransactionType.CatcherPayout,
-                            Description = $"Payout for snake catching request {transaction.ReferenceId}",
-                            PaymentMethod = "PayOS",
-                            ExternalTransactionId = webhook.TransactionReference,
-                            CreatedAt = DateTime.UtcNow
-                        };
-
-                        await _unitOfWork.GetRepository<Transaction>().InsertAsync(payoutTransaction);
-                        payoutTransactionId = payoutTransaction.Id;
-
-                        _logger.LogInformation("{Prefix}{SourceTag} Payout transaction created. PayoutTransactionId={PayoutTransactionId}, ReceiverId={ReceiverId}",
-                            LogPrefix, sourceTag, payoutTransactionId, catchingRequest.AssignedRescuerId.Value);
-                    }
-                    else
-                    {
-                        _logger.LogWarning("{Prefix}{SourceTag} SnakeCatchingRequest {RequestId} has no AssignedRescuerId. Payout transaction not created.",
-                            LogPrefix, sourceTag, transaction.ReferenceId);
-                    }
                 }
 
                 await _unitOfWork.CommitAsync();
@@ -542,11 +559,14 @@ public class PayOsPaymentService : IPayOsPaymentService
                     $"No paid transactions found for SnakeCatchingRequest {request.SnakeCatchingRequestId}");
             }
 
-            // Calculate total amount
-            var totalAmount = paidTransactions.Sum(t => t.Amount) - commissionFee;
+            // Calculate total amount and commission
+            var totalAmount = paidTransactions.Sum(t => t.Amount);
+            const decimal commissionRate = 0.10m; // 10% commission fee
+            var commissionFee = Math.Round(totalAmount * commissionRate, 2);
+            var netAmountToRescuer = totalAmount - commissionFee;
 
-            _logger.LogInformation("{Prefix} [TransferToRescuer] Found {Count} paid transactions with total amount {Amount}",
-                LogPrefix, paidTransactions.Count(), totalAmount);
+            _logger.LogInformation("{Prefix} [TransferToRescuer] Found {Count} paid transactions. Total={Total}, Commission={Commission} ({Rate}%), NetAmount={Net}",
+                LogPrefix, paidTransactions.Count(), totalAmount, commissionFee, commissionRate * 100, netAmountToRescuer);
 
             // Get or create system wallet
             var systemWallet = await _unitOfWork.GetRepository<Wallet>()
@@ -560,11 +580,11 @@ public class PayOsPaymentService : IPayOsPaymentService
                 throw new InvalidOperationException($"System wallet for account {systemAccountId} not found");
             }
 
-            // Check if system wallet has enough balance
-            if (systemWallet.Balance < totalAmount)
+            // Check if system wallet has enough balance (only need net amount, commission stays in system)
+            if (systemWallet.Balance < netAmountToRescuer)
             {
                 throw new InvalidOperationException(
-                    $"Insufficient balance in system wallet. Required: {totalAmount}, Available: {systemWallet.Balance}");
+                    $"Insufficient balance in system wallet. Required: {netAmountToRescuer}, Available: {systemWallet.Balance}");
             }
 
             var systemBalanceBefore = systemWallet.Balance;
@@ -592,23 +612,57 @@ public class PayOsPaymentService : IPayOsPaymentService
 
             var rescuerBalanceBefore = rescuerWallet.Balance;
 
-            // Update wallet balances
-            systemWallet.Balance -= totalAmount;
-            rescuerWallet.Balance += totalAmount;
+            // Update wallet balances (only transfer net amount, commission stays in system wallet)
+            systemWallet.Balance -= netAmountToRescuer;
+            rescuerWallet.Balance += netAmountToRescuer;
 
             _unitOfWork.GetRepository<Wallet>().Update(systemWallet);
             _unitOfWork.GetRepository<Wallet>().Update(rescuerWallet);
 
-            // Create transfer transaction record
+            // Create transaction for system wallet withdrawal
+            var systemWithdrawTransaction = new Transaction
+            {
+                Id = Guid.NewGuid(),
+                UserId = systemAccountId,
+                ReferenceId = request.SnakeCatchingRequestId,
+                Amount = netAmountToRescuer,
+                Currency = "VND",
+                TransactionType = TransactionType.WalletWithdraw,
+                Description = $"Transfer to rescuer {rescuerId} for request {request.SnakeCatchingRequestId}",
+                PaymentMethod = "Internal",
+                ExternalTransactionId = $"WITHDRAW-{Guid.NewGuid()}",
+                CreatedAt = DateTime.UtcNow
+            };
+
+            await _unitOfWork.GetRepository<Transaction>().InsertAsync(systemWithdrawTransaction);
+
+            // Create transaction for platform commission fee
+            var commissionTransaction = new Transaction
+            {
+                Id = Guid.NewGuid(),
+                UserId = systemAccountId,
+                ReferenceId = request.SnakeCatchingRequestId,
+                Amount = commissionFee,
+                Currency = "VND",
+                TransactionType = TransactionType.PlatformFee,
+                Description = $"Platform commission ({commissionRate * 100}%) for request {request.SnakeCatchingRequestId}",
+                PaymentMethod = "Internal",
+                ExternalTransactionId = $"COMMISSION-{Guid.NewGuid()}",
+                CreatedAt = DateTime.UtcNow
+            };
+
+            await _unitOfWork.GetRepository<Transaction>().InsertAsync(commissionTransaction);
+
+            // Create transfer transaction record for rescuer wallet
             var transferTransaction = new Transaction
             {
                 Id = Guid.NewGuid(),
                 UserId = rescuerId,
                 ReferenceId = request.SnakeCatchingRequestId,
-                Amount = totalAmount,
+                Amount = netAmountToRescuer,
                 Currency = "VND",
                 TransactionType = TransactionType.CatcherPayout,
-                Description = $"Transfer from system to rescuer for request {request.SnakeCatchingRequestId}",
+                Description = $"Payout for request {request.SnakeCatchingRequestId} (after {commissionRate * 100}% commission)",
                 PaymentMethod = "Internal",
                 ExternalTransactionId = $"TRANSFER-{Guid.NewGuid()}",
                 CreatedAt = DateTime.UtcNow
@@ -619,10 +673,12 @@ public class PayOsPaymentService : IPayOsPaymentService
             await _unitOfWork.CommitAsync();
 
             _logger.LogInformation(
-                "{Prefix} [TransferToRescuer] Successfully transferred {Amount} from system ({SystemBalance} -> {SystemBalanceAfter}) " +
-                "to rescuer {RescuerId} ({RescuerBalance} -> {RescuerBalanceAfter})",
-                LogPrefix, totalAmount, systemBalanceBefore, systemWallet.Balance,
-                rescuerId, rescuerBalanceBefore, rescuerWallet.Balance);
+                "{Prefix} [TransferToRescuer] Successfully transferred {NetAmount} (Total: {Total}, Commission: {Commission}) " +
+                "from system ({SystemBalance} -> {SystemBalanceAfter}) to rescuer {RescuerId} ({RescuerBalance} -> {RescuerBalanceAfter}). " +
+                "Transactions created: Withdraw={WithdrawTxId}, Commission={CommissionTxId}, Payout={PayoutTxId}",
+                LogPrefix, netAmountToRescuer, totalAmount, commissionFee,
+                systemBalanceBefore, systemWallet.Balance, rescuerId, rescuerBalanceBefore, rescuerWallet.Balance,
+                systemWithdrawTransaction.Id, commissionTransaction.Id, transferTransaction.Id);
 
             return new TransferToRescuerResponse
             {
@@ -631,6 +687,9 @@ public class PayOsPaymentService : IPayOsPaymentService
                 SnakeCatchingRequestId = request.SnakeCatchingRequestId,
                 RescuerId = rescuerId,
                 TotalAmount = totalAmount,
+                CommissionFee = commissionFee,
+                CommissionRate = commissionRate,
+                NetAmountToRescuer = netAmountToRescuer,
                 TransferTransactionId = transferTransaction.Id,
                 SystemWalletBalanceBefore = systemBalanceBefore,
                 SystemWalletBalanceAfter = systemWallet.Balance,
