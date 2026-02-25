@@ -444,17 +444,20 @@ public class PayOsPaymentService : IPayOsPaymentService
                 _logger.LogInformation("{Prefix}{SourceTag} System wallet updated. Amount={Amount}, Balance: {PrevBalance} -> {NewBalance}, TransactionId={TransactionId}",
                     LogPrefix, sourceTag, transaction.Amount, previousBalance, systemWallet.Balance, systemWalletTransaction.Id);
 
-                // Update SnakeCatchingRequest status to Paid
-                var catchingRequest = await _unitOfWork.GetRepository<SnakeCatchingRequest>()
-                    .GetByIdAsync(transaction.ReferenceId);
-
-                if (catchingRequest != null)
+                // Update SnakeCatchingRequest status to Paid only for CatchingPayment transactions
+                if (transaction.TransactionType == TransactionType.CatchingPayment)
                 {
-                    catchingRequest.Status = RequestStatus.Paid;
-                    _unitOfWork.GetRepository<SnakeCatchingRequest>().Update(catchingRequest);
+                    var catchingRequest = await _unitOfWork.GetRepository<SnakeCatchingRequest>()
+                        .GetByIdAsync(transaction.ReferenceId);
 
-                    _logger.LogInformation("{Prefix}{SourceTag} SnakeCatchingRequest {RequestId} status updated to Paid",
-                        LogPrefix, sourceTag, transaction.ReferenceId);
+                    if (catchingRequest != null)
+                    {
+                        catchingRequest.Status = RequestStatus.Paid;
+                        _unitOfWork.GetRepository<SnakeCatchingRequest>().Update(catchingRequest);
+
+                        _logger.LogInformation("{Prefix}{SourceTag} SnakeCatchingRequest {RequestId} status updated to Paid",
+                            LogPrefix, sourceTag, transaction.ReferenceId);
+                    }
                 }
 
                 await _unitOfWork.CommitAsync();
