@@ -425,6 +425,8 @@ namespace SnakeAid.Service.Implements
                     include: query => query
                         .Include(r => r.User)
                             .ThenInclude(u => u.Account)
+                        .Include(r => r.AssignedRescuer)
+                            .ThenInclude(r => r.Account)
                         .Include(r => r.Details)
                             .ThenInclude(d => d.SnakeSpecies),
                     orderBy: q => q.OrderByDescending(r => r.RequestDate)

@@ -49,6 +49,7 @@ namespace SnakeAid.Core.Responses.SnakeCatchingRequest
 
         // Navigation properties
         public BriefMemberProfileResponse User { get; set; }
+        public BriefRescuerProfileResponse? AssignedRescuer { get; set; }
         public List<ReportMediaResponse> Media { get; set; } = new List<ReportMediaResponse>();
         public List<CatchingRequestDetailResponse> Details { get; set; } = new List<CatchingRequestDetailResponse>();
     }
