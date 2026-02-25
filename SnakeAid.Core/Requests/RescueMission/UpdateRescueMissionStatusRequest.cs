@@ -15,7 +15,7 @@ namespace SnakeAid.Core.Requests.RescueMission
         [MaxLength(500, ErrorMessage = "Cancellation reason cannot exceed 500 characters")]
         public string? CancellationReason { get; set; }
 
-        public decimal? ActualCost { get; set; }
+        // public decimal? ActualCost { get; set; }
 
         // Required when completing mission
         public List<Guid>? VerificationImageIds { get; set; }

@@ -59,35 +59,6 @@ namespace SnakeAid.Api.Controllers
             return Ok(ApiResponseBuilder.BuildSuccessResponse(result, "Mission details retrieved successfully!"));
         }
 
-        /// <summary>
-        /// Update rescue mission status
-        /// When status is set to MissionCompleted, the corresponding incident is automatically updated to Finished
-        /// </summary>
-        [HttpPatch("{missionId}/status")]
-        [SwaggerOperation(
-            Summary = "Update Mission Status",
-            Description = @"Update the status of a rescue mission. 
-            Valid status transitions:
-            - Preparing → EnRoute, Cancelled
-            - EnRoute → RescuerArrived, MissionAborted
-            - RescuerArrived → MissionCompleted, MissionUncompleted, MissionAborted
-            When transitioning to MissionCompleted:
-            - The corresponding SnakebiteIncident status is automatically updated to Finished")]
-        [SwaggerResponse(200, "Mission status updated successfully")]
-        [SwaggerResponse(400, "Invalid status transition")]
-        [SwaggerResponse(404, "Mission not found")]
-        public async Task<IActionResult> UpdateMissionStatus(
-            Guid missionId,
-            [FromBody] UpdateRescueMissionStatusRequest request)
-        {
-            await _missionService.UpdateMissionStatusAsync(missionId, request.Status);
-
-            var message = request.Status == RescueMissionStatus.MissionCompleted
-                ? "Mission completed successfully! Incident marked as finished."
-                : $"Mission status updated to {request.Status} successfully!";
-
-            return Ok(ApiResponseBuilder.BuildSuccessResponse<object>(null, message));
-        }
 
         /// <summary>
         /// Start mission - transition to EnRoute
@@ -122,20 +93,37 @@ namespace SnakeAid.Api.Controllers
         }
 
         /// <summary>
-        /// Complete mission - transition to MissionCompleted
-        /// Updates incident to Finished
+        /// Complete mission with evidence photos
+        /// Requires at least one evidence photo to be uploaded beforehand via /api/media/report
         /// </summary>
+        /// <param name="missionId">Mission ID</param>
+        /// <param name="request">Evidence media IDs and optional notes</param>
         [HttpPatch("{missionId}/complete")]
         [SwaggerOperation(
-            Summary = "Complete Mission",
-            Description = "Complete the rescue mission (RescuerArrived → MissionCompleted). Automatically updates incident status to Finished.")]
-        [SwaggerResponse(200, "Mission completed successfully")]
-        [SwaggerResponse(400, "Invalid status transition")]
+            Summary = "Complete Mission with Evidence",
+            Description = @"Complete the rescue mission (RescuerArrived → MissionCompleted) with evidence photos.
+            
+            **Workflow:**
+            1. Upload evidence photos via POST /api/media/report?type=RescueMission&purpose=Evidence with referenceId=missionId
+            2. Collect the returned ReportMedia IDs
+            3. Call this endpoint with the list of media IDs
+            
+            **Validations:**
+            - At least one evidence photo required
+            - All media must belong to this mission (ReferenceId=missionId, ReferenceType=RescueMission)
+            - All media must have Purpose=Evidence
+            - Media with Purpose=Evidence will NOT trigger AI processing
+            
+            Automatically updates incident status to Finished.")]
+        [SwaggerResponse(200, "Mission completed successfully", typeof(ApiResponse<object>))]
+        [SwaggerResponse(400, "Invalid request or evidence validation failed", typeof(ApiResponse<object>))]
         [SwaggerResponse(404, "Mission not found")]
-        public async Task<IActionResult> CompleteMission(Guid missionId)
+        public async Task<IActionResult> CompleteMission(
+            Guid missionId,
+            [FromBody] CompleteMissionRequest request)
         {
-            await _missionService.UpdateMissionStatusAsync(missionId, RescueMissionStatus.MissionCompleted);
-            return Ok(ApiResponseBuilder.BuildSuccessResponse<object>(null, "Mission completed successfully! Incident marked as finished."));
+            await _missionService.CompleteMissionAsync(missionId, request.EvidenceMediaIds, request.CompletionNotes);
+            return Ok(ApiResponseBuilder.BuildSuccessResponse<object>(null, "Mission completed successfully with evidence photos! Incident marked as finished."));
         }
 
         /// <summary>
@@ -146,14 +134,14 @@ namespace SnakeAid.Api.Controllers
         [SwaggerOperation(
             Summary = "Abort Mission (Rescuer)",
             Description = "Rescuer aborts the mission with a reason (Preparing/EnRoute → MissionAborted). Incident is reset to Pending and a new rescue session is created with increased radius.")]
-        [SwaggerResponse(200, "Mission aborted, new session created")]
-        [SwaggerResponse(400, "Invalid status transition")]
+        [SwaggerResponse(200, "Mission aborted, new session created", typeof(ApiResponse<object>))]
+        [SwaggerResponse(400, "Invalid status transition or missing reason", typeof(ApiResponse<object>))]
         [SwaggerResponse(404, "Mission not found")]
         public async Task<IActionResult> AbortMission(
             Guid missionId,
-            [FromBody] UpdateRescueMissionStatusRequest request)
+            [FromBody] AbortMissionRequest request)
         {
-            await _missionService.RescuerAbortMissionAsync(missionId, request.CancellationReason ?? "No reason provided");
+            await _missionService.RescuerAbortMissionAsync(missionId, request.CancellationReason);
             return Ok(ApiResponseBuilder.BuildSuccessResponse<object>(null, "Mission aborted. New rescue session created with increased radius."));
         }
 
@@ -165,12 +153,12 @@ namespace SnakeAid.Api.Controllers
         [SwaggerOperation(
             Summary = "Cancel Mission (User)",
             Description = "User cancels the mission before rescuer goes en route (Preparing → Cancelled). Incident is set to Cancelled. No new session is created.")]
-        [SwaggerResponse(200, "Mission cancelled")]
-        [SwaggerResponse(400, "Invalid status transition - can only cancel during Preparing phase")]
+        [SwaggerResponse(200, "Mission cancelled", typeof(ApiResponse<object>))]
+        [SwaggerResponse(400, "Invalid status transition - can only cancel during Preparing phase", typeof(ApiResponse<object>))]
         [SwaggerResponse(404, "Mission not found")]
         public async Task<IActionResult> CancelMission(
             Guid missionId,
-            [FromBody] UpdateRescueMissionStatusRequest request)
+            [FromBody] CancelMissionRequest request)
         {
             await _missionService.UserCancelMissionAsync(missionId, request.CancellationReason ?? "No reason provided");
             return Ok(ApiResponseBuilder.BuildSuccessResponse<object>(null, "Mission cancelled by user."));
