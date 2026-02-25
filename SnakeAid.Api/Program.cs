@@ -63,12 +63,14 @@ namespace SnakeAid.Api
                     if (hasSerilogConfig)
                     {
                         loggerConfiguration.ReadFrom.Configuration(context.Configuration);
+                        loggerConfiguration.MinimumLevel.Override("Microsoft.Hosting.Lifetime", Serilog.Events.LogEventLevel.Information);
                     }
                     else
                     {
                         loggerConfiguration
                             .Enrich.FromLogContext()
-                            .WriteTo.Console();
+                            .WriteTo.Console()
+                            .MinimumLevel.Override("Microsoft.Hosting.Lifetime", Serilog.Events.LogEventLevel.Information);
                     }
 
                     loggerConfiguration.ReadFrom.Services(services);
@@ -89,7 +91,7 @@ namespace SnakeAid.Api
 
                 // Add IUnitOfWork and UnitOfWork
                 builder.Services.AddScoped<SnakeAid.Repository.Interfaces.IUnitOfWork<SnakeAidDbContext>, SnakeAid.Repository.Implements.UnitOfWork<SnakeAidDbContext>>();
-                
+
                 // Also register base IUnitOfWork interface for services that don't need generic version
                 builder.Services.AddScoped<SnakeAid.Repository.Interfaces.IUnitOfWork>(provider =>
                     provider.GetRequiredService<SnakeAid.Repository.Interfaces.IUnitOfWork<SnakeAidDbContext>>());
