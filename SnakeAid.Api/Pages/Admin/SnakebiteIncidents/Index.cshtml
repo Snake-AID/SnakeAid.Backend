@@ -1,50 +1,343 @@
 @page "/admin/incidents"
 @model SnakeAid.Api.Pages.Admin.SnakebiteIncidents.IndexModel
 @{
-    ViewData["Title"] = "Snakebite incidents";
+    ViewData["Title"] = "Incidents | Admin Portal";
 }
 
-<h1>Snakebite Incidents (UI) ✅</h1>
+@section Styles {
+    <style>
+        /* INCIDENT LIST */
+        .incident-grid { display: flex; flex-direction: column; gap: 24px; }
 
-<table class="table table-striped">
-    <thead>
-        <tr>
-            <th>Id</th>
-            <th>User</th>
-            <th>Assigned Rescuer</th>
-            <th>Status</th>
-            <th>Sessions</th>
-            <th>Media</th>
-        </tr>
-    </thead>
-    <tbody>
-        @foreach (var incident in Model.Incidents)
-        {
-            <tr>
-                <td>@incident.Id</td>
-                <td>@(incident.User?.Account?.FullName ?? "-")<br/><small>@(incident.User?.Account?.Email ?? "")</small></td>
-                <td>@(incident.AssignedRescuer?.Account?.FullName ?? "-")</td>
-                <td>@incident.Status</td>
-                <td>@(incident.Sessions?.Count ?? 0)</td>
-                <td>@(incident.Media?.Count ?? 0)</td>
-            </tr>
-            <tr>
-                <td colspan="6">
-                    <strong>Sessions details:</strong>
-                    <ul>
-                        @foreach (var s in incident.Sessions ?? Enumerable.Empty<SnakeAid.Core.Domains.RescueRequestSession>())
-                        {
-                            <li>Session #@s.SessionNumber - Requests: @s.Requests?.Count</li>
-                            <ul>
-                                @foreach (var r in s.Requests ?? Enumerable.Empty<SnakeAid.Core.Domains.RescuerRequest>())
-                                {
-                                    <li>@(r.Rescuer?.Account?.FullName ?? "Unknown") - @r.Status</li>
-                                }
-                            </ul>
-                        }
-                    </ul>
-                </td>
-            </tr>
+        .incident-card {
+            background: var(--bg-panel);
+            backdrop-filter: blur(var(--glass-blur));
+            border: 1px solid var(--border-glass);
+            border-radius: 20px;
+            overflow: hidden;
+            transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
         }
-    </tbody>
-</table>
+
+        .incident-card:hover { border-color: var(--accent-blue); }
+
+        .card-main-row {
+            padding: 24px 32px;
+            display: grid;
+            grid-template-columns: 0.8fr 1.5fr 1.5fr 1fr 0.5fr 0.5fr 40px;
+            align-items: center;
+            cursor: pointer;
+        }
+
+        .id-badge {
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            background: rgba(255,255,255,0.05);
+            padding: 4px 8px;
+            border-radius: 6px;
+            width: fit-content;
+        }
+
+        .user-cell { display: flex; flex-direction: column; }
+        .user-name { font-weight: 600; font-size: 1.05rem; }
+        .user-email { font-size: 0.8rem; color: var(--text-muted); }
+
+        .rescuer-tag {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background: rgba(59, 130, 246, 0.1);
+            padding: 8px 16px;
+            border-radius: 12px;
+            border: 1px solid rgba(59, 130, 246, 0.2);
+            width: fit-content;
+        }
+
+        .rescuer-init {
+            width: 24px; height: 24px;
+            background: var(--accent-blue);
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.7rem;
+            font-weight: 700;
+        }
+
+        .status-pill {
+            padding: 6px 16px;
+            border-radius: 99px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            width: fit-content;
+        }
+
+        .st-active { background: rgba(16, 185, 129, 0.15); color: var(--accent-green); border: 1px solid rgba(16, 185, 129, 0.3); }
+        .st-pending { background: rgba(245, 158, 11, 0.15); color: var(--accent-gold); border: 1px solid rgba(245, 158, 11, 0.3); }
+        .st-resolved { background: rgba(59, 130, 246, 0.15); color: var(--accent-blue); border: 1px solid rgba(59, 130, 246, 0.3); }
+
+        .count-bubble {
+            background: var(--bg-card);
+            padding: 4px 12px;
+            border-radius: 8px;
+            font-family: var(--font-header);
+            font-weight: 700;
+            font-size: 0.9rem;
+            border: 1px solid var(--border-glass);
+        }
+
+        /* DETAILS / TIMELINE */
+        .card-details {
+            max-height: 0;
+            overflow: hidden;
+            transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+            background: rgba(0,0,0,0.2);
+        }
+
+        .incident-card.expanded .card-details { max-height: 1000px; padding-bottom: 32px; }
+
+        .timeline-wrapper {
+            padding: 32px 64px;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        .timeline-item {
+            position: relative;
+            padding-left: 40px;
+        }
+
+        .timeline-item::before {
+            content: '';
+            position: absolute;
+            left: 0; top: 0; bottom: -24px;
+            width: 2px;
+            background: var(--border-glass);
+        }
+
+        .timeline-item:last-child::before { display: none; }
+
+        .timeline-marker {
+            position: absolute;
+            left: -5px; top: 5px;
+            width: 12px; height: 12px;
+            border-radius: 50%;
+            background: var(--bg-dark);
+            border: 2px solid var(--accent-blue);
+            z-index: 1;
+        }
+
+        .session-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-glass);
+            border-radius: 16px;
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .session-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .session-title { font-weight: 700; font-size: 1.1rem; color: #fff; }
+
+        .request-nodes { display: flex; flex-direction: column; gap: 10px; }
+
+        .request-node {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: rgba(255,255,255,0.03);
+            padding: 12px 20px;
+            border-radius: 12px;
+            border: 1px solid var(--border-glass);
+        }
+
+        .req-rescuer { font-size: 0.9rem; font-weight: 500; display: flex; align-items: center; gap: 10px; }
+        .req-rescuer i { color: var(--text-muted); }
+
+        .req-status {
+            font-size: 0.75rem;
+            font-weight: 800;
+            padding: 4px 12px;
+            border-radius: 6px;
+            text-transform: uppercase;
+        }
+
+        .rs-accepted { color: var(--accent-green); background: rgba(16, 185, 129, 0.1); }
+        .rs-rejected { color: var(--accent-red); background: rgba(244, 63, 94, 0.1); }
+        .rs-timeout { color: var(--accent-gold); background: rgba(245, 158, 11, 0.1); }
+
+        .expand-icon { transition: transform 0.4s ease; color: var(--text-muted); }
+        .incident-card.expanded .expand-icon { transform: rotate(180deg); color: var(--accent-blue); }
+
+        /* EMPTY STATE */
+        .empty-visual {
+            text-align: center;
+            padding: 60px;
+            color: var(--text-muted);
+            background: var(--bg-panel);
+            border-radius: 20px;
+            border: 1px dashed var(--border-glass);
+        }
+
+        .empty-visual i { font-size: 3rem; margin-bottom: 16px; display: block; }
+
+        .metric-lbl { font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; }
+    </style>
+}
+
+<div class="page-header">
+    <div class="header-title-group">
+        <h1>Incident Control</h1>
+        <p>Real-time lifecycle monitoring of all snakebite reports</p>
+    </div>
+    <div class="header-actions">
+        <div class="stat-badge">
+            <span class="stat-value">@Model.Incidents.Count</span>
+            <span class="stat-label">Reports</span>
+        </div>
+        <div class="stat-badge">
+            <span class="stat-value" style="color: var(--accent-green)">@Model.Incidents.Count(i => i.Status.ToString().Contains("Resolved"))</span>
+            <span class="stat-label">Managed</span>
+        </div>
+        <div class="stat-badge">
+            <span class="stat-value" style="color: var(--accent-red)">@Model.Incidents.Count(i => i.Status.ToString().Contains("Active"))</span>
+            <span class="stat-label">Urgent</span>
+        </div>
+    </div>
+</div>
+
+<div class="incident-grid">
+    @if (!Model.Incidents.Any()) {
+        <div class="empty-visual">
+            <i class="bi bi-shield-slash"></i>
+            <p>No incidents recorded in the system</p>
+        </div>
+    }
+
+    @foreach (var incident in Model.Incidents)
+    {
+        <div class="incident-card" id="card-@incident.Id">
+            <div class="card-main-row" onclick="toggleCard('@incident.Id')">
+                <div class="id-badge">ID: @incident.Id.ToString().Substring(0, 8)</div>
+                
+                <div class="user-cell">
+                    <span class="user-name">@(incident.User?.Account?.FullName ?? "Unknown User")</span>
+                    <span class="user-email">@(incident.User?.Account?.Email ?? "N/A")</span>
+                </div>
+
+                <div class="rescuer-cell">
+                    @if (incident.AssignedRescuer != null) {
+                        var rescuerName = incident.AssignedRescuer.Account?.FullName ?? "Unknown";
+                        var rescuerInitial = !string.IsNullOrEmpty(rescuerName) ? rescuerName[0].ToString() : "A";
+                        <div class="rescuer-tag">
+                            <div class="rescuer-init">@rescuerInitial</div>
+                            <span style="font-size: 0.9rem; font-weight: 500;">@rescuerName</span>
+                        </div>
+                    } else {
+                        <span style="color: var(--text-muted); font-style: italic; font-size: 0.9rem;">Unassigned</span>
+                    }
+                </div>
+
+                <div>
+                    @{
+                        var st = incident.Status.ToString().ToLower();
+                        var cls = "st-pending";
+                        if (st.Contains("active") || st.Contains("progress")) cls = "st-active";
+                        else if (st.Contains("resolved") || st.Contains("finished")) cls = "st-resolved";
+                    }
+                    <span class="status-pill @cls">@incident.Status</span>
+                </div>
+
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span class="metric-lbl">Sessions</span>
+                    <div class="count-bubble">@(incident.Sessions?.Count ?? 0)</div>
+                </div>
+
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span class="metric-lbl">Media</span>
+                    <div class="count-bubble">@(incident.Media?.Count ?? 0)</div>
+                </div>
+
+                <div class="text-right">
+                    <i class="bi bi-chevron-down expand-icon"></i>
+                </div>
+            </div>
+
+            <div class="card-details">
+                <div class="timeline-wrapper">
+                    <h3 style="font-size: 1.2rem; margin: 0 0 16px 0;"><i class="bi bi-terminal-split"></i> Deployment Lifecycle</h3>
+                    
+                    @if (incident.Sessions?.Any() == true) {
+                        @foreach (var s in incident.Sessions.OrderBy(x => x.SessionNumber))
+                        {
+                            <div class="timeline-item">
+                                <div class="timeline-marker"></div>
+                                <div class="session-card">
+                                    <div class="session-header">
+                                        <span class="session-title">Session Phase #@s.SessionNumber</span>
+                                        <span class="metric-lbl">@s.CreatedAt.ToString("HH:mm:ss")</span>
+                                    </div>
+                                    
+                                    <div class="request-nodes">
+                                        @if (s.Requests?.Any() == true) {
+                                            @foreach (var r in s.Requests) {
+                                                <div class="request-node">
+                                                    <div class="req-rescuer">
+                                                        <i class="bi bi-person-badge"></i>
+                                                        <span>@(r.Rescuer?.Account?.FullName ?? "Unknown")</span>
+                                                    </div>
+                                                    @{
+                                                        var rs = r.Status.ToString().ToLower();
+                                                        var rsCls = "rs-timeout";
+                                                        if (rs == "accepted") rsCls = "rs-accepted";
+                                                        else if (rs == "rejected") rsCls = "rs-rejected";
+                                                    }
+                                                    <span class="req-status @rsCls">@r.Status</span>
+                                                </div>
+                                            }
+                                        } else {
+                                            <div style="color: var(--text-muted); font-size: 0.85rem; font-style: italic;">Broadcast initiated but no responses recorded</div>
+                                        }
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    } else {
+                        <div class="empty-visual" style="padding: 30px;">
+                            <p style="margin: 0;">Lifecycle data unavailable for this incident</p>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@section Scripts {
+    <script>
+        function toggleCard(id) {
+            const card = document.getElementById(`card-${id}`);
+            const allCards = document.querySelectorAll('.incident-card');
+            
+            const isCurrentlyExpanded = card.classList.contains('expanded');
+            
+            // Collapse others
+            allCards.forEach(c => c.classList.remove('expanded'));
+            
+            // Toggle self
+            if (!isCurrentlyExpanded) {
+                card.classList.add('expanded');
+            }
+        }
+    </script>
+}

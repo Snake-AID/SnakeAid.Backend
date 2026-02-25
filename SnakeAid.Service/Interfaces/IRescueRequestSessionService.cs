@@ -2,6 +2,7 @@
 using SnakeAid.Core.Requests;
 using SnakeAid.Core.Responses.Auth;
 using SnakeAid.Core.Responses.RescueRequestSession;
+using SnakeAid.Core.Responses.SnakebiteIncident;
 using SnakeAid.Core.Domains;
 using System;
 using System.Collections.Generic;
@@ -23,7 +24,8 @@ namespace SnakeAid.Service.Interfaces
         Task HandleSessionTimeoutAsync(Guid sessionId);
 
         // Accept request: Update RescuerRequest, tạo RescueMission, mark others Taken
-        Task AcceptRequestAsync(Guid requestId, Guid rescuerId);
+        // Returns mission info for client to navigate to mission detail screen
+        Task<AcceptRescueResponse> AcceptRequestAsync(Guid requestId, Guid rescuerId);
 
         // Reject removed: Rescuers cannot reject due to emergency nature - requests timeout automatically
         // Task RejectRequestAsync(Guid requestId);
@@ -32,7 +34,8 @@ namespace SnakeAid.Service.Interfaces
         Task CancelSessionAsync(Guid sessionId);
 
         // Expand radius và tạo session mới nếu cần (internal call từ HandleSessionTimeout)
-        Task<bool> TryExpandAndCreateNewSessionAsync(Guid incidentId);
+        // Returns: (success, timeoutAt) - timeoutAt is set if new session was created
+        Task<(bool success, DateTime? timeoutAt)> TryExpandAndCreateNewSessionAsync(Guid incidentId);
 
         // Start initial rescue session for incident
         Task StartRescueSessionAsync(Guid incidentId);

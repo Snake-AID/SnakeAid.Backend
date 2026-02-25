@@ -41,6 +41,13 @@ namespace SnakeAid.Api.Services
                 {
                     await _hubContext.Clients.Client(connectionId).SendAsync("NewRescueRequest", requestData);
                     _logger.LogInformation("Sent rescue request to rescuer {RescuerId}", rescuerId);
+
+                    // Optional: Broadcast to Monitors for dashboard tracking
+                    await _hubContext.Clients.Group("Monitors").SendAsync("NewRescueRequest", new
+                    {
+                        RescuerId = rescuerId,
+                        Data = requestData
+                    });
                 }
                 catch (Exception ex)
                 {
@@ -70,6 +77,13 @@ namespace SnakeAid.Api.Services
                     _logger.LogError(ex, "Error notifying rescuer {RescuerId} about taken request: {Message}", rescuerId, ex.Message);
                 }
             }
+
+            // Always notify Monitors regardless of rescuer connection state
+            await _hubContext.Clients.Group("Monitors").SendAsync("RequestTaken", new
+            {
+                RequestId = requestId,
+                TargetRescuerId = rescuerId
+            });
         }
 
         public async Task NotifyRequestCancelledAsync(string rescuerId, Guid requestId)
@@ -89,6 +103,13 @@ namespace SnakeAid.Api.Services
                     _logger.LogError(ex, "Error notifying rescuer {RescuerId} about cancelled request: {Message}", rescuerId, ex.Message);
                 }
             }
+
+            // Always notify Monitors regardless of rescuer connection state
+            await _hubContext.Clients.Group("Monitors").SendAsync("RequestCancelled", new
+            {
+                RequestId = requestId,
+                TargetRescuerId = rescuerId
+            });
         }
 
         public async Task NotifyRequestExpiredAsync(string rescuerId, Guid requestId)
@@ -118,6 +139,13 @@ namespace SnakeAid.Api.Services
                 _logger.LogWarning("Cannot send RequestExpired to rescuer {RescuerId} - not in ConnectedRescuers dictionary. Current connections: {Count}",
                     rescuerId, ConnectedRescuers.Count);
             }
+
+            // Always notify Monitors regardless of rescuer connection state
+            await _hubContext.Clients.Group("Monitors").SendAsync("RequestExpired", new
+            {
+                RequestId = requestId,
+                TargetRescuerId = rescuerId
+            });
         }
 
         #region Static methods for Hub to manage connections

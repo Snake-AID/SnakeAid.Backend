@@ -17,6 +17,9 @@ namespace SnakeAid.Repository.Data.Configurations
 
             // Relationship với RescuerProfile đã config tại RescuerProfileConfiguration
 
+            // Ignore Media navigation - ReportMedia uses polymorphic pattern (ReferenceId/ReferenceType)
+            builder.Ignore(m => m.Media);
+
             // Indexes
             builder.HasIndex(m => m.Status)
                 .HasDatabaseName("IX_SnakeCatchingMissions_Status");

@@ -19,44 +19,36 @@ namespace SnakeAid.Core.Responses.SnakebiteIncident
     {
         public Guid Id { get; set; }
 
+        public GeoPointResponse LocationCoordinates { get; set; }
 
-        public Guid UserId { get; set; }  // FK to MemberProfile
-
-        [Column(TypeName = "geometry(Point, 4326)")]
-        public Point LocationCoordinates { get; set; }
-
-        [Column(TypeName = "jsonb")]
         public string? SymptomsReport { get; set; }
 
         public SnakebiteIncidentStatus Status { get; set; } = SnakebiteIncidentStatus.Pending;
 
         // Session ping info
-        public int CurrentSessionNumber { get; set; } = 0;   // Track session hiện tại
+        public int CurrentSessionNumber { get; set; }
 
-        [Range(1, 50)]
-        public int CurrentRadiusKm { get; set; } = 5;        // Radius hiện tại
+        public int CurrentRadiusKm { get; set; }
 
-        public DateTime? LastSessionAt { get; set; }         // Tránh spam sessions
+        public DateTime? LastSessionAt { get; set; }
 
         // Assigned rescuer info
         public DateTime? AssignedAt { get; set; }
 
-        [ForeignKey(nameof(AssignedRescuer))]
-        public Guid? AssignedRescuerId { get; set; }  // FK to assigned rescuer
+        public Guid? AssignedRescuerId { get; set; }
 
         [MaxLength(500)]
         public string? CancellationReason { get; set; }
 
-        public int? SeverityLevel { get; set; } = 1;  // 1-5 emergency level
+        public int? SeverityLevel { get; set; } = 1;
 
-        public DateTime? IncidentOccurredAt { get; set; }  // Khi nào bị cắn
+        public DateTime? IncidentOccurredAt { get; set; }
 
         // Navigation properties
-        public BriefMemberProfileRespone User { get; set; }
+        public BriefMemberProfileResponse User { get; set; }
         public BriefRescuerProfileResponse? AssignedRescuer { get; set; }
-        public List<CreateRescueRequestSessionResponse> Sessions { get; set; } = new List<CreateRescueRequestSessionResponse>();
-        public List<ListRescueRequestResponse> AllRequests { get; set; } = new List<ListRescueRequestResponse>(); // Denormalized for easy query
+
         public CreateRescueMissionResponse? RescueMission { get; set; }
-        public List<ReportMediaResponse> Media { get; set; } = new List<ReportMediaResponse>();
+        public List<SnakeAIDetectMediaResponse> Media { get; set; } = new List<SnakeAIDetectMediaResponse>();
     }
 }

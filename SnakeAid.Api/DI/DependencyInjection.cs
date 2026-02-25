@@ -78,6 +78,37 @@ public static class DependencyInjection
             }
         }
 
+        // Configure LocationIQ Settings
+        var locationIqSection = configuration.GetSection("LocationIq");
+        services.Configure<SnakeAid.Service.Options.LocationIqOptions>(locationIqSection);
+
+        // Always register LocationIQ Service (with or without API keys)
+        // Service will throw ExternalServiceException if called without API keys
+        var locationIqSettings = locationIqSection.Get<SnakeAid.Service.Options.LocationIqOptions>();
+        
+        services.AddHttpClient<SnakeAid.Service.Interfaces.ILocationIqService, SnakeAid.Service.Implements.LocationIqService>()
+            .ConfigureHttpClient(c =>
+            {
+                if (locationIqSettings != null && !string.IsNullOrWhiteSpace(locationIqSettings.BaseUrl))
+                {
+                    c.BaseAddress = new Uri(locationIqSettings.BaseUrl);
+                    c.Timeout = TimeSpan.FromSeconds(locationIqSettings.HttpTimeoutSeconds);
+                }
+            })
+            .AddPolicyHandler(GetRetryPolicy())
+            .AddPolicyHandler(GetCircuitBreakerPolicy());
+
+        if (locationIqSettings is null || locationIqSettings.ApiKeys == null || locationIqSettings.ApiKeys.Length == 0 || 
+            locationIqSettings.ApiKeys.All(k => string.IsNullOrWhiteSpace(k)))
+        {
+            Serilog.Log.Warning("⚠️ LocationIQ API keys are not configured. Distance calculation will use fallback prices.");
+        }
+        else
+        {
+            var validKeysCount = locationIqSettings.ApiKeys.Count(k => !string.IsNullOrWhiteSpace(k));
+            Serilog.Log.Information("✓ LocationIQ Service registered with {KeyCount} API key(s) and rotation enabled", validKeysCount);
+        }
+
         // Configure SnakeAI Settings (Type-safe)
         var snakeAISettings = configuration.GetSection("SnakeAI").Get<SnakeAISettings>();
         if (snakeAISettings is null)
@@ -97,7 +128,8 @@ public static class DependencyInjection
             .AddPolicyHandler(GetRetryPolicy())
             .AddPolicyHandler(GetCircuitBreakerPolicy());
 
-        services.AddScoped<ISnakeAIService, SnakeAIService>();
+
+
 
         // Register Demo Data Seeder for testing
         services.AddScoped<Services.DemoDataSeeder>();
@@ -228,7 +260,7 @@ public static class DependencyInjection
             {
                 Title = "SnakeAid.API",
                 Version = "v1",
-                Description = "A SnakeAid Project"
+                Description = "A SnakeAid Project. <br/> 🚀 **[Go to Admin Portal](/admin)**"
             });
             c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
             {

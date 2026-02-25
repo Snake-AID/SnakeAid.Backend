@@ -13,23 +13,16 @@ namespace SnakeAid.Core.Responses.RescuerProfile
 {
     public class BriefRescuerProfileResponse
     {
-        
+
         public Guid AccountId { get; set; }
 
-        [Required]
         public bool IsOnline { get; set; } = false;
 
-        [Range(0.0, 5.0)]
-        [Column(TypeName = "numeric(3,2)")]
         public decimal Rating { get; set; } = 0;
-
-        [Range(0, int.MaxValue)]
         public int RatingCount { get; set; } = 0;
 
         public RescuerType Type { get; set; } = RescuerType.Emergency;
 
-        // PostGIS Location tracking
-        [Column(TypeName = "geometry(Point, 4326)")]
         public Point? LastLocation { get; set; }
 
         public DateTime? LastLocationUpdate { get; set; }

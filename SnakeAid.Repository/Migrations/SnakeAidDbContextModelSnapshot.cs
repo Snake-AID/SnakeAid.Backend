@@ -19,7 +19,7 @@ namespace SnakeAid.Repository.Migrations
 #pragma warning disable 612, 618
             modelBuilder
                 .HasDefaultSchema("SnakeAid")
-                .HasAnnotation("ProductVersion", "8.0.11")
+                .HasAnnotation("ProductVersion", "8.0.23")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.HasPostgresExtension(modelBuilder, "postgis");
@@ -1316,12 +1316,6 @@ namespace SnakeAid.Repository.Migrations
                     b.Property<int?>("SequenceOrder")
                         .HasColumnType("integer");
 
-                    b.Property<Guid?>("SnakeCatchingRequestId")
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid?>("SnakebiteIncidentId")
-                        .HasColumnType("uuid");
-
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -1338,10 +1332,6 @@ namespace SnakeAid.Repository.Migrations
 
                     b.HasIndex("RequiresAIProcessing")
                         .HasDatabaseName("IX_ReportMedias_RequiresAIProcessing");
-
-                    b.HasIndex("SnakeCatchingRequestId");
-
-                    b.HasIndex("SnakebiteIncidentId");
 
                     b.HasIndex("ReferenceId", "ReferenceType")
                         .HasDatabaseName("IX_ReportMedias_ReferenceId_ReferenceType");
@@ -2750,7 +2740,7 @@ namespace SnakeAid.Repository.Migrations
             modelBuilder.Entity("SnakeAid.Core.Domains.CatchingMissionDetail", b =>
                 {
                     b.HasOne("SnakeAid.Core.Domains.SnakeCatchingMission", "SnakeCatchingMission")
-                        .WithMany()
+                        .WithMany("MissionDetails")
                         .HasForeignKey("SnakeCatchingMissionId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
@@ -2769,7 +2759,7 @@ namespace SnakeAid.Repository.Migrations
             modelBuilder.Entity("SnakeAid.Core.Domains.CatchingRequestDetail", b =>
                 {
                     b.HasOne("SnakeAid.Core.Domains.SnakeCatchingRequest", "SnakeCatchingRequest")
-                        .WithMany()
+                        .WithMany("Details")
                         .HasForeignKey("SnakeCatchingRequestId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
@@ -3011,17 +3001,6 @@ namespace SnakeAid.Repository.Migrations
                         .HasForeignKey("UserId");
 
                     b.Navigation("User");
-                });
-
-            modelBuilder.Entity("SnakeAid.Core.Domains.ReportMedia", b =>
-                {
-                    b.HasOne("SnakeAid.Core.Domains.SnakeCatchingRequest", null)
-                        .WithMany("Media")
-                        .HasForeignKey("SnakeCatchingRequestId");
-
-                    b.HasOne("SnakeAid.Core.Domains.SnakebiteIncident", null)
-                        .WithMany("Media")
-                        .HasForeignKey("SnakebiteIncidentId");
                 });
 
             modelBuilder.Entity("SnakeAid.Core.Domains.ReputationRawEvent", b =>
@@ -3443,9 +3422,14 @@ namespace SnakeAid.Repository.Migrations
                     b.Navigation("RescuerRequests");
                 });
 
+            modelBuilder.Entity("SnakeAid.Core.Domains.SnakeCatchingMission", b =>
+                {
+                    b.Navigation("MissionDetails");
+                });
+
             modelBuilder.Entity("SnakeAid.Core.Domains.SnakeCatchingRequest", b =>
                 {
-                    b.Navigation("Media");
+                    b.Navigation("Details");
 
                     b.Navigation("Mission");
                 });
@@ -3468,8 +3452,6 @@ namespace SnakeAid.Repository.Migrations
             modelBuilder.Entity("SnakeAid.Core.Domains.SnakebiteIncident", b =>
                 {
                     b.Navigation("AllRequests");
-
-                    b.Navigation("Media");
 
                     b.Navigation("Missions");
 

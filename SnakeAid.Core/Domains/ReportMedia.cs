@@ -46,9 +46,10 @@ namespace SnakeAid.Core.Domains
     public enum MediaReferenceType
     {
         CommunityReport = 0,
-        SnakeCatchingRequest = 1,
+        SnakebiteIncident = 1,
         RescueMission = 2,
-        SnakebiteIncident = 3
+        SnakeCatchingRequest = 3,
+        SnakeCatchingMission = 4
     }
 
     public enum MediaPurpose
@@ -57,6 +58,7 @@ namespace SnakeAid.Core.Domains
         SnakeIdentification = 1, // Ảnh để AI nhận diện
         LocationProof = 2,       // Ảnh vị trí
         InjuryPhoto = 3,         // Ảnh vết thương
-        BeforeAfter = 4          // Ảnh trước/sau
+        BeforeAfter = 4,         // Ảnh trước/sau
+        SnakeOthers = 5          // Mục đích khác liên quan đến rắn
     }
 }

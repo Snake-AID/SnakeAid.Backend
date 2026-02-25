@@ -212,7 +212,8 @@ namespace SnakeAid.Service.Implements
             {
                 try
                 {
-                    _logger.LogDebug("[SessionTimeout] Processing expired session {SessionId}...", sessionId);
+                    _logger.LogWarning("[SessionTimeout] 🔔 Processing expired session {SessionId} at {Now}...",
+                        sessionId, DateTime.UtcNow);
 
                     // Check if session was rescheduled after we selected it
                     if (_sessionTimeouts.TryGetValue(sessionId, out var newTimeout) && newTimeout > currentTime)
@@ -222,6 +223,9 @@ namespace SnakeAid.Service.Implements
                         skippedCount++;
                         continue;
                     }
+
+                    _logger.LogWarning("[SessionTimeout] 📞 Calling sessionService.HandleSessionTimeoutAsync for session {SessionId}...",
+                        sessionId);
 
                     // Handle the session timeout (includes expanding to new session if possible)
                     await sessionService.HandleSessionTimeoutAsync(sessionId);

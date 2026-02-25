@@ -1,64 +1,426 @@
 @page "/admin/snakelibs"
 @model SnakeAid.Api.Pages.Admin.SnakeLibs.IndexModel
 @{
-    ViewData["Title"] = "Snake species library";
+    ViewData["Title"] = "Snake Library | Admin Portal";
 }
 
-<h1>Snake Library - Loài rắn (UI) ✅</h1>
-
-<table class="table table-striped">
-    <thead>
-        <tr>
-            <th>Id</th>
-            <th>Scientific name</th>
-            <th>Common name</th>
-            <th>Venomous</th>
-            <th>Primary venom</th>
-            <th>Alt names</th>
-            <th>Media</th>
-            <th>Tariffs</th>
-        </tr>
-    </thead>
-    <tbody>
-        @foreach (var s in Model.Species)
-        {
-            <tr>
-                <td>@s.Id</td>
-                <td>@s.ScientificName</td>
-                <td>@(string.IsNullOrWhiteSpace(s.CommonName) ? "-" : s.CommonName)</td>
-                <td>@(s.IsVenomous ? "Yes" : "No")</td>
-                <td>@(s.PrimaryVenomType?.ToString() ?? "-")</td>
-                <td>@(s.AlternativeNames?.Count ?? 0)</td>
-                <td>@(s.LibraryMedias?.Count ?? 0)</td>
-                <td>@(s.SnakeCatchingTariffs?.Count ?? 0)</td>
-            </tr>
-            <tr>
-                <td colspan="8">
-                    <strong>Details:</strong>
-                    <div>
-                        <em>Alternative names:</em>
-                        @if (s.AlternativeNames?.Any() == true) {
-                            <ul>
-                                @foreach (var n in s.AlternativeNames)
-                                {
-                                    <li>@n.Name</li>
-                                }
-                            </ul>
-                        } else { <span>—</span> }
-                    </div>
-                    <div>
-                        <em>Venom types:</em>
-                        @if (s.SpeciesVenoms?.Any() == true) {
-                            <ul>
-                                @foreach (var v in s.SpeciesVenoms)
-                                {
-                                    <li>@(v.VenomType?.Name ?? "-")</li>
-                                }
-                            </ul>
-                        } else { <span>—</span> }
-                    </div>
-                </td>
-            </tr>
+@section Styles {
+    <style>
+        /* DATA TABLE / GRID */
+        .catalog-container {
+            background: var(--bg-panel);
+            backdrop-filter: blur(var(--glass-blur));
+            border: 1px solid var(--border-glass);
+            border-radius: 24px;
+            overflow: hidden;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
         }
-    </tbody>
-</table>
+
+        .modern-table {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: fixed;
+        }
+
+        .modern-table th {
+            padding: 24px;
+            text-align: left;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: var(--text-muted);
+            border-bottom: 1px solid var(--border-glass);
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .modern-table tr {
+            transition: all 0.2s ease;
+        }
+
+        .modern-table tr:not(.detail-row):hover {
+            background: rgba(255, 255, 255, 0.03);
+            cursor: pointer;
+        }
+
+        .modern-table td {
+            padding: 20px 24px;
+            border-bottom: 1px solid var(--border-glass);
+            vertical-align: middle;
+        }
+
+        .scientific-name {
+            font-family: var(--font-header);
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #fff;
+            font-style: italic;
+        }
+
+        .common-name {
+            font-size: 0.95rem;
+            color: var(--text-muted);
+            display: block;
+            margin-top: 2px;
+        }
+
+        /* BADGES */
+        .premium-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 14px;
+            border-radius: 99px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border: 1px solid transparent;
+        }
+
+        .badge-venom {
+            background: rgba(244, 63, 94, 0.1);
+            color: var(--accent-red);
+            border-color: rgba(244, 63, 94, 0.2);
+        }
+
+        .badge-non-venom {
+            background: rgba(16, 185, 129, 0.1);
+            color: var(--accent-green);
+            border-color: rgba(16, 185, 129, 0.2);
+        }
+
+        .venom-type-pill {
+            background: var(--bg-card);
+            padding: 4px 10px;
+            border-radius: 8px;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            font-family: var(--font-mono);
+            border: 1px solid var(--border-glass);
+        }
+
+        /* METRICS INDICATORS */
+        .metric-indicator {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 36px;
+            height: 36px;
+            border-radius: 12px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-glass);
+            font-weight: 700;
+            font-size: 0.85rem;
+            transition: all 0.3s ease;
+        }
+
+        tr:hover .metric-indicator {
+            border-color: var(--accent-blue);
+            color: var(--accent-blue);
+            transform: scale(1.1);
+        }
+
+        /* DETAIL VIEW */
+        .detail-row {
+            display: none;
+            background: rgba(0, 0, 0, 0.2);
+        }
+
+        .detail-row.is-active {
+            display: table-row;
+        }
+
+        .detail-card-wrapper {
+            padding: 40px;
+            animation: slideDown 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .detail-grid {
+            display: grid;
+            grid-template-columns: 1fr 3fr;
+            gap: 40px;
+        }
+
+        .detail-image-box {
+            aspect-ratio: 1;
+            background: var(--bg-card);
+            border-radius: 20px;
+            border: 1px solid var(--border-glass);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .detail-image-box i {
+            font-size: 3rem;
+            color: rgba(255,255,255,0.1);
+        }
+
+        .main-species-img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .detail-image-box:hover .main-species-img {
+            transform: scale(1.05);
+        }
+
+        .no-image-placeholder {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .no-image-placeholder span {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .media-count-tag {
+            position: absolute;
+            bottom: 12px;
+            right: 12px;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(8px);
+            padding: 6px 12px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 700;
+            color: #fff;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .detail-info-box {
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        .info-section h4 {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin: 0 0 16px 0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .info-section h4::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: var(--border-glass);
+        }
+
+        .tag-cloud {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        .meta-pill {
+            background: var(--bg-card);
+            border: 1px solid var(--border-glass);
+            padding: 10px 18px;
+            border-radius: 14px;
+            font-weight: 500;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .meta-pill i { color: var(--accent-blue); }
+
+        .expand-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            padding: 8px;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+        }
+
+        tr.expanded .expand-btn {
+            transform: rotate(90deg);
+            color: var(--accent-blue);
+        }
+
+        @@keyframes slideDown {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+}
+
+<div class="page-header">
+    <div class="header-title-group">
+        <h1>Species Catalog</h1>
+        <p>Master library of all indexed snake species and venom profiles</p>
+    </div>
+    <div class="header-actions">
+        <div class="stat-badge">
+            <span class="stat-value">@Model.Species.Count</span>
+            <span class="stat-label">Total Species</span>
+        </div>
+        <div class="stat-badge">
+            <span class="stat-value" style="color: var(--accent-red)">@Model.Species.Count(s => s.IsVenomous)</span>
+            <span class="stat-label">Venomous</span>
+        </div>
+    </div>
+</div>
+
+<div class="catalog-container">
+    <table class="modern-table">
+        <thead>
+            <tr>
+                <th style="width: 60px"></th>
+                <th style="width: 35%">Full Identification</th>
+                <th style="width: 18%">Venom Status</th>
+                <th style="width: 15%">Primary Agent</th>
+                <th class="text-center" style="width: 12%">Alt Names</th>
+                <th class="text-center" style="width: 10%">Media</th>
+                <th class="text-center" style="width: 10%">Tariffs</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var s in Model.Species)
+            {
+                <tr id="row-@s.Id" onclick="toggleSpecies('@s.Id')">
+                    <td class="text-center">
+                        <button class="expand-btn">
+                            <i class="bi bi-chevron-right"></i>
+                        </button>
+                    </td>
+                    <td>
+                        <span class="scientific-name">@s.ScientificName</span>
+                        <span class="common-name">@(string.IsNullOrWhiteSpace(s.CommonName) ? s.ScientificName : s.CommonName)</span>
+                    </td>
+                    <td>
+                        @if (s.IsVenomous) {
+                            <span class="premium-badge badge-venom">
+                                <i class="bi bi-radioactive"></i> Venomous
+                            </span>
+                        } else {
+                            <span class="premium-badge badge-non-venom">
+                                <i class="bi bi-shield-check"></i> Non-Venomous
+                            </span>
+                        }
+                    </td>
+                    <td>
+                        @if (s.PrimaryVenomType != null) {
+                            <span class="venom-type-pill">@s.PrimaryVenomType</span>
+                        } else {
+                            <span style="color: var(--text-muted)">-</span>
+                        }
+                    </td>
+                    <td class="text-center">
+                        <div class="metric-indicator">@(s.AlternativeNames?.Count ?? 0)</div>
+                    </td>
+                    <td class="text-center">
+                        <div class="metric-indicator">@(s.LibraryMedias?.Count ?? 0)</div>
+                    </td>
+                    <td class="text-center">
+                        <div class="metric-indicator">@(s.SnakeCatchingTariffs?.Count ?? 0)</div>
+                    </td>
+                </tr>
+                <tr id="detail-@s.Id" class="detail-row">
+                    <td colspan="7">
+                        <div class="detail-card-wrapper">
+                            <div class="detail-grid">
+                                <div class="detail-image-box">
+                                    @if (!string.IsNullOrEmpty(s.ImageUrl)) {
+                                        <img src="@s.ImageUrl" alt="@s.ScientificName" class="main-species-img" />
+                                    } else if (s.LibraryMedias?.Any() == true) {
+                                        <img src="@s.LibraryMedias.First().MediaUrl" alt="@s.ScientificName" class="main-species-img" />
+                                    } else {
+                                        <div class="no-image-placeholder">
+                                            <i class="bi bi-image"></i>
+                                            <span>No imagery available</span>
+                                        </div>
+                                    }
+                                    
+                                    @if (s.LibraryMedias?.Count > 1) {
+                                        <div class="media-count-tag">
+                                            <i class="bi bi-images"></i> @s.LibraryMedias.Count Photos
+                                        </div>
+                                    }
+                                </div>
+                                <div class="detail-info-box">
+                                    <div class="info-section">
+                                        <h4><i class="bi bi-tags"></i> Alternative Designations</h4>
+                                        <div class="tag-cloud">
+                                            @if (s.AlternativeNames?.Any() == true) {
+                                                @foreach (var n in s.AlternativeNames) {
+                                                    <div class="meta-pill">@n.Name</div>
+                                                }
+                                            } else {
+                                                <span style="color: var(--text-muted); font-style: italic;">No regional names indexed</span>
+                                            }
+                                        </div>
+                                    </div>
+
+                                    <div class="info-section">
+                                        <h4><i class="bi bi-droplet-half"></i> Venom Analysis</h4>
+                                        <div class="tag-cloud">
+                                            @if (s.SpeciesVenoms?.Any() == true) {
+                                                @foreach (var v in s.SpeciesVenoms) {
+                                                    <div class="meta-pill">
+                                                        <i class="bi bi-check2-circle"></i>
+                                                        @(v.VenomType?.Name ?? "Unknown Protein")
+                                                    </div>
+                                                }
+                                            } else {
+                                                <span style="color: var(--text-muted); font-style: italic;">No specific venom profile data</span>
+                                            }
+                                        </div>
+                                    </div>
+
+                                    <div class="info-section">
+                                        <h4><i class="bi bi-database-gear"></i> System Metadata</h4>
+                                        <div class="tag-cloud">
+                                            <div class="meta-pill"><i class="bi bi-hash"></i> ID: @s.Id</div>
+                                            <div class="meta-pill"><i class="bi bi-clock"></i> Updated: @s.UpdatedAt.ToString("dd/MM/yyyy HH:mm")</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>
+
+@section Scripts {
+    <script>
+        function toggleSpecies(id) {
+            const detailRow = document.getElementById(`detail-${id}`);
+            const mainRow = document.getElementById(`row-${id}`);
+            const isActive = detailRow.classList.contains('is-active');
+            
+            // Close all others
+            document.querySelectorAll('.detail-row').forEach(r => r.classList.remove('is-active'));
+            document.querySelectorAll('.modern-table tr').forEach(r => r.classList.remove('expanded'));
+            
+            if (!isActive) {
+                detailRow.classList.add('is-active');
+                mainRow.classList.add('expanded');
+            }
+        }
+    </script>
+}

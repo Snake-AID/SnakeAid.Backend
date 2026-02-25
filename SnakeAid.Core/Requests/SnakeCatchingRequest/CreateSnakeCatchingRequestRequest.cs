@@ -32,15 +32,6 @@ namespace SnakeAid.Core.Requests.SnakeCatchingRequest
         [MaxLength(2000)]
         public string AdditionalDetails { get; set; }
 
-        [Required]
-        public DateTime RequestDate { get; set; } = DateTime.UtcNow;
-
-        public DateTime? PreferredTime { get; set; }
-
-        [Required]
-        [Column(TypeName = "numeric(18,2)")]
-        public decimal? EstimatedPrice { get; set; }
-
         [MaxLength(1000)]
         public string? Notes { get; set; }
 
