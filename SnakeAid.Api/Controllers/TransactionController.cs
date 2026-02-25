@@ -30,7 +30,7 @@ namespace SnakeAid.Api.Controllers
         /// Get transaction details by snake catching request ID
         /// </summary>
         /// <param name="snakeCatchingRequestId">The ID of the snake catching request</param>
-        [HttpGet("by-snake-catching-request/{snakeCatchingRequestId:guid}")]
+        [HttpGet("snakecatchingrequest/{snakeCatchingRequestId:guid}")]
         [SwaggerOperation(
             Summary = "Get Transaction by Snake Catching Request ID",
             Description = "Retrieve transaction details associated with a specific snake catching request (CatchingPayment, CatchingDeposit, CatchingRefund, or CatcherPayout)")]
