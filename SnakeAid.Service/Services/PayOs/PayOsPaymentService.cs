@@ -46,8 +46,8 @@ public class PayOsPaymentService : IPayOsPaymentService
     {
         try
         {
-            _logger.LogInformation("{Prefix} Creating payment link for SnakeCatchingRequest {RequestId}", 
-                LogPrefix, request.SnakeCatchingRequestId);
+            _logger.LogInformation("{Prefix} Creating payment link for ReferenceId {RequestId}, TransactionType {TransactionType}", 
+                LogPrefix, request.SnakeCatchingRequestId, request.TransactionType);
 
             // SenderId is the current user
             var senderId = currentUserId;
@@ -55,22 +55,31 @@ public class PayOsPaymentService : IPayOsPaymentService
             // ReceiverId is always the system account
             var receiverId = Guid.Parse(systemId);
 
-            // Validate SnakeCatchingRequest exists
-            var catchingRequest = await _unitOfWork.GetRepository<SnakeCatchingRequest>()
-                .GetByIdAsync(request.SnakeCatchingRequestId);
+            // Validate SnakeCatchingRequest only for snake catching related transaction types
+            var isSnakeCatchingTransaction = request.TransactionType == TransactionType.CatchingPayment ||
+                                            request.TransactionType == TransactionType.CatchingDeposit ||
+                                            request.TransactionType == TransactionType.CatchingRefund ||
+                                            request.TransactionType == TransactionType.CatcherPayout;
 
-            if (catchingRequest == null)
+            if (isSnakeCatchingTransaction)
             {
-                throw new InvalidOperationException($"SnakeCatchingRequest {request.SnakeCatchingRequestId} not found");
-            }
+                // Validate SnakeCatchingRequest exists
+                var catchingRequest = await _unitOfWork.GetRepository<SnakeCatchingRequest>()
+                    .GetByIdAsync(request.SnakeCatchingRequestId);
 
-            // Validate status - must be Assigned or Finished
-            if (catchingRequest.Status != RequestStatus.Assigned && 
-                catchingRequest.Status != RequestStatus.Finished)
-            {
-                throw new InvalidOperationException(
-                    $"Cannot create payment for request with status {catchingRequest.Status}. " +
-                    "Request must be Assigned or Finished.");
+                if (catchingRequest == null)
+                {
+                    throw new InvalidOperationException($"SnakeCatchingRequest {request.SnakeCatchingRequestId} not found");
+                }
+
+                // Validate status - must be Assigned or Finished
+                if (catchingRequest.Status != RequestStatus.Assigned && 
+                    catchingRequest.Status != RequestStatus.Finished)
+                {
+                    throw new InvalidOperationException(
+                        $"Cannot create payment for request with status {catchingRequest.Status}. " +
+                        "Request must be Assigned or Finished.");
+                }
             }
 
             // Validate amount
@@ -92,7 +101,7 @@ public class PayOsPaymentService : IPayOsPaymentService
             var existingTransaction = await _unitOfWork.GetRepository<Transaction>()
                 .FirstOrDefaultAsync(
                     predicate: t => t.ReferenceId == request.SnakeCatchingRequestId && 
-                                   t.TransactionType == TransactionType.CatchingPayment,
+                                   t.TransactionType == request.TransactionType,
                     asNoTracking: false,
                     cancellationToken: cancellationToken);
 
@@ -114,7 +123,7 @@ public class PayOsPaymentService : IPayOsPaymentService
                 ReferenceId = request.SnakeCatchingRequestId,
                 Amount = request.Amount,
                 Currency = "VND",
-                TransactionType = TransactionType.CatchingPayment,
+                TransactionType = request.TransactionType,
                 Description = description,  // Contains orderCode
                 PaymentMethod = "PayOS",
                 ExternalTransactionId = null,  // Will be updated on webhook
@@ -152,8 +161,8 @@ public class PayOsPaymentService : IPayOsPaymentService
 
             await _unitOfWork.CommitAsync();
 
-            _logger.LogInformation("{Prefix} Payment link created. TransactionId={TransactionId}, OrderCode={OrderCode}, CheckoutUrl={CheckoutUrl}",
-                LogPrefix, transaction.Id, orderCode, payOsResult.CheckoutUrl);
+            _logger.LogInformation("{Prefix} Payment link created. TransactionId={TransactionId}, TransactionType={TransactionType}, OrderCode={OrderCode}, CheckoutUrl={CheckoutUrl}",
+                LogPrefix, transaction.Id, request.TransactionType, orderCode, payOsResult.CheckoutUrl);
 
             return new SnakeCatchingPaymentResponse
             {
@@ -199,8 +208,7 @@ public class PayOsPaymentService : IPayOsPaymentService
             var transaction = await _unitOfWork.GetRepository<Transaction>()
                 .FirstOrDefaultAsync(
                     predicate: t => t.Description != null && 
-                                   t.Description.StartsWith(descriptionPattern) &&
-                                   t.TransactionType == TransactionType.CatchingPayment,
+                                   t.Description.StartsWith(descriptionPattern),
                     asNoTracking: false,
                     cancellationToken: cancellationToken);
 
@@ -274,12 +282,6 @@ public class PayOsPaymentService : IPayOsPaymentService
             throw new InvalidOperationException($"Transaction {transactionId} not found");
         }
 
-        if (transaction.TransactionType != TransactionType.CatchingPayment)
-        {
-            throw new InvalidOperationException(
-                $"Transaction {transactionId} is not a CatchingPayment transaction");
-        }
-
         // Extract orderCode from description
         var orderCode = ExtractOrderCodeFromDescription(transaction.Description);
         if (orderCode == 0)
@@ -331,8 +333,7 @@ public class PayOsPaymentService : IPayOsPaymentService
             var transaction = await _unitOfWork.GetRepository<Transaction>()
                 .FirstOrDefaultAsync(
                     predicate: t => t.Description != null &&
-                                   t.Description.StartsWith(descriptionPattern) &&
-                                   t.TransactionType == TransactionType.CatchingPayment,
+                                   t.Description.StartsWith(descriptionPattern),
                     asNoTracking: true,
                     cancellationToken: cancellationToken);
 
@@ -375,8 +376,7 @@ public class PayOsPaymentService : IPayOsPaymentService
             var transaction = await _unitOfWork.GetRepository<Transaction>()
                 .FirstOrDefaultAsync(
                     predicate: t => t.Description != null &&
-                                   t.Description.StartsWith(descriptionPattern) &&
-                                   t.TransactionType == TransactionType.CatchingPayment,
+                                   t.Description.StartsWith(descriptionPattern),
                     include: query => query.Include(t => t.User),
                     asNoTracking: false,
                     cancellationToken: cancellationToken);
