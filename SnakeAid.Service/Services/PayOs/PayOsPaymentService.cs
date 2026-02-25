@@ -25,7 +25,7 @@ public class PayOsPaymentService : IPayOsPaymentService
     private const string LogPrefix = "[PayOS]";
     private readonly string systemId = "57288b98-5f91-4de8-b827-866e3df69587";
     private static readonly Regex OrderCodeRegex = new(@"^SNAKEAID-(\d+)", RegexOptions.Compiled);
-    private readonly int commissionFee = 200000;
+    private readonly int commissionFee = 20000;
 
     public PayOsPaymentService(
         IPayOsClient payOsClient,
@@ -317,6 +317,44 @@ public class PayOsPaymentService : IPayOsPaymentService
         return await ProcessWebhookCoreAsync(webhookData, triggeredManually: true, cancellationToken);
     }
 
+    public async Task<PayOsWebhookResponse> ConfirmPaymentByOrderCodeAsync(
+        long orderCode,
+        CancellationToken cancellationToken)
+    {
+        _logger.LogInformation("{Prefix} [ConfirmByOrderCode] Confirming payment for OrderCode {OrderCode}",
+            LogPrefix, orderCode);
+
+        try
+        {
+            // Find transaction by orderCode in description
+            var descriptionPattern = $"SNAKEAID-{orderCode}";
+            var transaction = await _unitOfWork.GetRepository<Transaction>()
+                .FirstOrDefaultAsync(
+                    predicate: t => t.Description != null &&
+                                   t.Description.StartsWith(descriptionPattern) &&
+                                   t.TransactionType == TransactionType.CatchingPayment,
+                    asNoTracking: true,
+                    cancellationToken: cancellationToken);
+
+            if (transaction == null)
+            {
+                throw new InvalidOperationException($"Transaction with orderCode {orderCode} not found");
+            }
+
+            _logger.LogInformation("{Prefix} [ConfirmByOrderCode] Found transaction {TransactionId}, confirming...",
+                LogPrefix, transaction.Id);
+
+            // Delegate to existing ConfirmPaymentAsync
+            return await ConfirmPaymentAsync(transaction.Id, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "{Prefix} [ConfirmByOrderCode] Failed to confirm payment for OrderCode {OrderCode}",
+                LogPrefix, orderCode);
+            throw;
+        }
+    }
+
     private async Task<PayOsWebhookResponse> ProcessWebhookCoreAsync(
         PayOsWebhookData webhook,
         bool triggeredManually,
@@ -561,12 +599,10 @@ public class PayOsPaymentService : IPayOsPaymentService
 
             // Calculate total amount and commission
             var totalAmount = paidTransactions.Sum(t => t.Amount);
-            const decimal commissionRate = 0.10m; // 10% commission fee
-            var commissionFee = Math.Round(totalAmount * commissionRate, 2);
             var netAmountToRescuer = totalAmount - commissionFee;
 
             _logger.LogInformation("{Prefix} [TransferToRescuer] Found {Count} paid transactions. Total={Total}, Commission={Commission} ({Rate}%), NetAmount={Net}",
-                LogPrefix, paidTransactions.Count(), totalAmount, commissionFee, commissionRate * 100, netAmountToRescuer);
+                LogPrefix, paidTransactions.Count(), totalAmount, commissionFee, netAmountToRescuer);
 
             // Get or create system wallet
             var systemWallet = await _unitOfWork.GetRepository<Wallet>()
@@ -645,7 +681,7 @@ public class PayOsPaymentService : IPayOsPaymentService
                 Amount = commissionFee,
                 Currency = "VND",
                 TransactionType = TransactionType.PlatformFee,
-                Description = $"Platform commission ({commissionRate * 100}%) for request {request.SnakeCatchingRequestId}",
+                Description = $"Platform commission for request {request.SnakeCatchingRequestId}",
                 PaymentMethod = "Internal",
                 ExternalTransactionId = $"COMMISSION-{Guid.NewGuid()}",
                 CreatedAt = DateTime.UtcNow
@@ -662,7 +698,7 @@ public class PayOsPaymentService : IPayOsPaymentService
                 Amount = netAmountToRescuer,
                 Currency = "VND",
                 TransactionType = TransactionType.CatcherPayout,
-                Description = $"Payout for request {request.SnakeCatchingRequestId} (after {commissionRate * 100}% commission)",
+                Description = $"Payout for request {request.SnakeCatchingRequestId}",
                 PaymentMethod = "Internal",
                 ExternalTransactionId = $"TRANSFER-{Guid.NewGuid()}",
                 CreatedAt = DateTime.UtcNow
@@ -688,7 +724,6 @@ public class PayOsPaymentService : IPayOsPaymentService
                 RescuerId = rescuerId,
                 TotalAmount = totalAmount,
                 CommissionFee = commissionFee,
-                CommissionRate = commissionRate,
                 NetAmountToRescuer = netAmountToRescuer,
                 TransferTransactionId = transferTransaction.Id,
                 SystemWalletBalanceBefore = systemBalanceBefore,

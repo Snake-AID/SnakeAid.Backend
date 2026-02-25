@@ -198,14 +198,15 @@ public class PayOsController : BaseController<PayOsController>
     [HttpGet("return")]
     [SwaggerOperation(
         Summary = "PayOS return URL handler",
-        Description = "Handles the return URL after user completes payment on PayOS portal.",
+        Description = "Handles the return URL after user completes payment on PayOS portal. Automatically confirms payment if successful.",
         Tags = new[] { "Payments" })]
     public async Task<IActionResult> Return(
         [FromQuery] string code,
         [FromQuery] string id,
         [FromQuery] bool cancel,
         [FromQuery] string status,
-        [FromQuery] long orderCode)
+        [FromQuery] long orderCode,
+        CancellationToken cancellationToken = default)
     {
         try
         {
@@ -213,6 +214,26 @@ public class PayOsController : BaseController<PayOsController>
                 code, id, cancel, status, orderCode);
 
             var isSuccess = code == "00" && status == "PAID" && !cancel;
+
+            // Auto-confirm payment if successful
+            if (isSuccess)
+            {
+                try
+                {
+                    _logger.LogInformation("[PayOS Return] Payment successful, auto-confirming for orderCode={OrderCode}", orderCode);
+                    
+                    // Call service to confirm payment by orderCode
+                    var confirmResult = await _payOsPaymentService.ConfirmPaymentByOrderCodeAsync(orderCode, cancellationToken);
+                    
+                    _logger.LogInformation("[PayOS Return] Payment confirmed successfully. OrderCode={OrderCode}, Success={Success}", 
+                        orderCode, confirmResult.Success);
+                }
+                catch (Exception confirmEx)
+                {
+                    _logger.LogError(confirmEx, "[PayOS Return] Failed to auto-confirm payment for orderCode={OrderCode}", orderCode);
+                    // Don't throw - still show success page to user
+                }
+            }
             
             // Return a simple HTML page with payment result
             var resultHtml = $@"

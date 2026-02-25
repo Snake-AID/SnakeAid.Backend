@@ -8,7 +8,6 @@ public class TransferToRescuerResponse
     public Guid RescuerId { get; set; }
     public decimal TotalAmount { get; set; }
     public decimal CommissionFee { get; set; }
-    public decimal CommissionRate { get; set; }
     public decimal NetAmountToRescuer { get; set; }
     public Guid TransferTransactionId { get; set; }
     public decimal SystemWalletBalanceBefore { get; set; }
