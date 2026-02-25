@@ -76,9 +76,24 @@ namespace SnakeAid.Api
                     loggerConfiguration.ReadFrom.Services(services);
                 });
 
+                var connectionString = builder.Configuration.GetConnectionString("SupabaseConnection");
+
+                // Fix for Supabase MaxClientsInSessionMode error
+                // Redirect to Transaction pooling mode port (6543) and disable prepared statements
+                if (!string.IsNullOrEmpty(connectionString) && connectionString.Contains("pooler.supabase.com"))
+                {
+                    var npgsqlBuilder = new Npgsql.NpgsqlConnectionStringBuilder(connectionString);
+                    if (npgsqlBuilder.Port == 5432)
+                    {
+                        npgsqlBuilder.Port = 6543;
+                    }
+                    npgsqlBuilder.MaxAutoPrepare = 0;
+                    connectionString = npgsqlBuilder.ConnectionString;
+                }
+
                 builder.Services.AddDbContext<SnakeAidDbContext>(options =>
                 {
-                    options.UseNpgsql(builder.Configuration.GetConnectionString("SupabaseConnection"),
+                    options.UseNpgsql(connectionString,
                         sqlOptions =>
                         {
                             sqlOptions.UseNetTopologySuite();
