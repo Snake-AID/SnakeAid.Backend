@@ -170,6 +170,14 @@ namespace SnakeAid.Service.Implements
                     await createdRequest.AttachReportMediaAsync(_unitOfWork, MediaReferenceType.SnakeCatchingRequest);
 
                     var response = createdRequest.Adapt<CreateSnakeCatchingRequestResponse>();
+                    if (response.EstimatedPrice.HasValue)
+                    {
+                        var perKmRate = _configuration.GetValue<decimal>("LocationIq:PricePerKilometer");
+                        if (perKmRate > 0)
+                        {
+                            response.DistanceKm = (double)(response.EstimatedPrice.Value / perKmRate);
+                        }
+                    }
 
                     _logger.LogInformation(
                         "Snake catching request created successfully. RequestId: {RequestId}, UserId: {UserId}, Location: ({Lat}, {Lng})",
@@ -338,6 +346,14 @@ namespace SnakeAid.Service.Implements
                     await updatedRequest.AttachReportMediaAsync(_unitOfWork, MediaReferenceType.SnakeCatchingRequest);
 
                     var response = updatedRequest.Adapt<CreateSnakeCatchingRequestResponse>();
+                    if (response.EstimatedPrice.HasValue)
+                    {
+                        var perKmRate = _configuration.GetValue<decimal>("LocationIq:PricePerKilometer");
+                        if (perKmRate > 0)
+                        {
+                            response.DistanceKm = (double)(response.EstimatedPrice.Value / perKmRate);
+                        }
+                    }
 
                     _logger.LogInformation(
                         "Snake catching request accepted successfully. RequestId: {RequestId}, RescuerId: {RescuerId}, EstimatedPrice: {Price} VND",
@@ -378,6 +394,14 @@ namespace SnakeAid.Service.Implements
                 await request.AttachReportMediaAsync(_unitOfWork, MediaReferenceType.SnakeCatchingRequest);
 
                 var response = request.Adapt<CreateSnakeCatchingRequestResponse>();
+                if (response.EstimatedPrice.HasValue)
+                {
+                    var perKmRate = _configuration.GetValue<decimal>("LocationIq:PricePerKilometer");
+                    if (perKmRate > 0)
+                    {
+                        response.DistanceKm = (double)(response.EstimatedPrice.Value / perKmRate);
+                    }
+                }
 
                 _logger.LogInformation(
                     "Snake catching request details retrieved successfully. RequestId: {RequestId}",
