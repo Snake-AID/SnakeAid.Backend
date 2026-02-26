@@ -27,6 +27,7 @@ namespace SnakeAid.Service.Implements
         private readonly ILogger<RescueRequestSessionService> _logger;
         private readonly IConfiguration _configuration;
         private readonly IRescueNotificationService _notificationService;
+        private readonly IMissionNotificationService _missionNotificationService;
         private readonly ISessionTimeoutService _timeoutService;
 
         // Configuration constants (sau này lấy từ SystemSetting)
@@ -41,12 +42,14 @@ namespace SnakeAid.Service.Implements
             ILogger<RescueRequestSessionService> logger,
             IConfiguration configuration,
             IRescueNotificationService notificationService,
+            IMissionNotificationService missionNotificationService,
             ISessionTimeoutService timeoutService)
         {
             _unitOfWork = unitOfWork;
             _logger = logger;
             _configuration = configuration;
             _notificationService = notificationService;
+            _missionNotificationService = missionNotificationService;
             _timeoutService = timeoutService;
         }
 
@@ -486,6 +489,9 @@ namespace SnakeAid.Service.Implements
                     _logger.LogInformation("Session {SessionId} timed out, {Count} requests expired",
                         sessionId, pendingRequests.Count);
 
+                    // PUSH NOTIFICATION: Notify Member that mission session expired
+                    await _missionNotificationService.NotifyMemberSessionExpiredAsync(session.IncidentId);
+
                     // Notify all rescuers that their requests have expired (parallel notifications)
                     if (pendingRequests.Any())
                     {
@@ -505,7 +511,7 @@ namespace SnakeAid.Service.Implements
                 });
 
                 // Extract results from transaction
-                var (expandSuccess, expandTimeoutAt, processedSession) = result;
+                (bool expandSuccess, DateTime? expandTimeoutAt, RescueRequestSession processedSession) = result;
 
                 // Schedule timeout for new session AFTER transaction commits (if expansion succeeded)
                 if (expandSuccess && expandTimeoutAt.HasValue)

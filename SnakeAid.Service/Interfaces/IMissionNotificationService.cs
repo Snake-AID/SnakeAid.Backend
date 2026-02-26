@@ -1,0 +1,15 @@
+using System;
+using System.Threading.Tasks;
+
+namespace SnakeAid.Service.Interfaces
+{
+    public interface IMissionNotificationService
+    {
+        Task NotifyMissionStartedAsync(Guid incidentId, object missionInfo);
+        Task NotifyRescuerArrivedAsync(Guid incidentId);
+        Task NotifyMissionCompletedAsync(Guid incidentId, object result);
+        Task NotifyMissionCancelledAsync(Guid incidentId, string reason);
+        Task NotifyRescuerLocationUpdateAsync(Guid incidentId, double latitude, double longitude);
+        Task NotifyMemberSessionExpiredAsync(Guid incidentId);
+    }
+}

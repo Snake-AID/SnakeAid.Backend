@@ -22,16 +22,20 @@ namespace SnakeAid.Service.Implements
         private const decimal DEFAULT_RESCUE_PRICE = 500000m;
 
 
+        private readonly IMissionNotificationService _notificationService;
+
         public RescueMissionService(
             IUnitOfWork<SnakeAidDbContext> unitOfWork,
             ILogger<RescueMissionService> logger,
             IConfiguration configuration,
-            IRescueRequestSessionService sessionService)
+            IRescueRequestSessionService sessionService,
+            IMissionNotificationService notificationService)
         {
             _unitOfWork = unitOfWork;
             _logger = logger;
             _configuration = configuration;
             _sessionService = sessionService;
+            _notificationService = notificationService;
         }
 
         /// <summary>
@@ -163,6 +167,17 @@ namespace SnakeAid.Service.Implements
                     await _unitOfWork.CommitAsync();
 
                     _logger.LogInformation("Updated mission {MissionId} status to {Status}", missionId, status);
+
+                    // PUSH NOTIFICATION: Notify participants about status change
+                    if (status == RescueMissionStatus.RescuerArrived)
+                    {
+                        await _notificationService.NotifyRescuerArrivedAsync(mission.IncidentId);
+                    }
+                    else if (status == RescueMissionStatus.EnRoute)
+                    {
+                        await _notificationService.NotifyMissionStartedAsync(mission.IncidentId, new { status = status.ToString() });
+                    }
+
                     return mission;
                 });
             }
@@ -252,6 +267,9 @@ namespace SnakeAid.Service.Implements
                         "Completed mission {MissionId} with {EvidenceCount} evidence photos. Notes: {Notes}",
                         missionId, evidenceMediaIds.Count, completionNotes ?? "None");
 
+                    // PUSH NOTIFICATION: Notify Member that mission is completed
+                    await _notificationService.NotifyMissionCompletedAsync(mission.IncidentId, new { missionId = missionId });
+
                     return mission;
                 });
             }
@@ -304,7 +322,8 @@ namespace SnakeAid.Service.Implements
 
                     _logger.LogInformation("User cancelled mission {MissionId} with reason: {Reason}", missionId, reason);
 
-                    // No new session created - user wants to end the incident
+                    // PUSH NOTIFICATION: Notify Rescuer about user cancellation
+                    await _notificationService.NotifyMissionCancelledAsync(mission.IncidentId, reason);
 
                     return mission;
                 });
@@ -373,6 +392,9 @@ namespace SnakeAid.Service.Implements
                     _unitOfWork.GetRepository<SnakebiteIncident>().Update(incident);
 
                     _logger.LogInformation("Updated incident {IncidentId} to Pending status in transaction", incident.Id);
+
+                    // PUSH NOTIFICATION: Notify Member about rescuer abort (before new session starts)
+                    await _notificationService.NotifyMissionCancelledAsync(incident.Id, reason);
 
                     incidentId = incident.Id;
                     return mission;
