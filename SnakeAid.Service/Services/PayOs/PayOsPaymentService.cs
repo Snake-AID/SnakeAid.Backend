@@ -589,8 +589,7 @@ public class PayOsPaymentService : IPayOsPaymentService
             var paidTransactions = await _unitOfWork.GetRepository<Transaction>()
                 .GetListAsync(
                     predicate: t => t.ReferenceId == request.SnakeCatchingRequestId &&
-                                   t.TransactionType == TransactionType.CatchingPayment &&
-                                   t.ExternalTransactionId != null,  // Only paid transactions
+                                   t.ExternalTransactionId != null,  
                     asNoTracking: false,
                     cancellationToken: cancellationToken);
 
