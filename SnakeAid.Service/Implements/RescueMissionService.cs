@@ -121,7 +121,16 @@ namespace SnakeAid.Service.Implements
         /// <summary>
         /// Update mission status (e.g., EnRoute, Arrived)
         /// For completion, use CompleteMissionAsync instead
+        /// <summary>
+        /// Updates the status of an existing rescue mission and, after committing the change, triggers related notifications.
         /// </summary>
+        /// <param name="missionId">The identifier of the mission to update.</param>
+        /// <param name="status">The new status to set for the mission.</param>
+        /// <remarks>
+        /// Notifications are sent outside the transaction for specific statuses (e.g., sends a "mission started" notification for EnRoute and a "rescuer arrived" notification for RescuerArrived).
+        /// </remarks>
+        /// <exception cref="NotFoundException">Thrown when no mission exists with the provided <paramref name="missionId"/>.</exception>
+        /// <exception cref="BadRequestException">Thrown when the requested status transition is not allowed.</exception>
         public async Task UpdateMissionStatusAsync(Guid missionId, RescueMissionStatus status)
         {
             // Don't allow direct completion via this method - use CompleteMissionAsync
@@ -132,6 +141,9 @@ namespace SnakeAid.Service.Implements
 
             try
             {
+                Guid? incidentIdToNotify = null;
+                RescueMissionStatus? statusToNotify = null;
+
                 await _unitOfWork.ExecuteInTransactionAsync(async () =>
                 {
                     var mission = await _unitOfWork.GetRepository<RescueMission>().FirstOrDefaultAsync(
@@ -168,18 +180,25 @@ namespace SnakeAid.Service.Implements
 
                     _logger.LogInformation("Updated mission {MissionId} status to {Status}", missionId, status);
 
-                    // PUSH NOTIFICATION: Notify participants about status change
-                    if (status == RescueMissionStatus.RescuerArrived)
-                    {
-                        await _notificationService.NotifyRescuerArrivedAsync(mission.IncidentId);
-                    }
-                    else if (status == RescueMissionStatus.EnRoute)
-                    {
-                        await _notificationService.NotifyMissionStartedAsync(mission.IncidentId, new { status = status.ToString() });
-                    }
+                    // Capture intent for notification outside transaction
+                    incidentIdToNotify = mission.IncidentId;
+                    statusToNotify = status;
 
                     return mission;
                 });
+
+                // PUSH NOTIFICATION: Notify participants about status change (OUTSIDE TRANSACTION)
+                if (incidentIdToNotify.HasValue && statusToNotify.HasValue)
+                {
+                    if (statusToNotify.Value == RescueMissionStatus.RescuerArrived)
+                    {
+                        await _notificationService.NotifyRescuerArrivedAsync(incidentIdToNotify.Value);
+                    }
+                    else if (statusToNotify.Value == RescueMissionStatus.EnRoute)
+                    {
+                        await _notificationService.NotifyMissionStartedAsync(incidentIdToNotify.Value, new { status = statusToNotify.Value.ToString() });
+                    }
+                }
             }
             catch (Exception ex)
             {
@@ -190,11 +209,19 @@ namespace SnakeAid.Service.Implements
 
         /// <summary>
         /// Complete mission with evidence photos validation
+        /// <summary>
+        /// Completes a rescue mission, records evidence and completion notes, and marks the related incident as finished.
         /// </summary>
+        /// <param name="evidenceMediaIds">IDs of media to attach as evidence; each must belong to this mission, have ReferenceType=RescueMission, and Purpose=Evidence.</param>
+        /// <param name="completionNotes">Optional notes describing the mission completion.</param>
+        /// <exception cref="NotFoundException">Thrown when the mission (or its incident) cannot be found.</exception>
+        /// <exception cref="BadRequestException">Thrown when the mission is in an invalid state for completion or when evidence validation fails.</exception>
         public async Task CompleteMissionAsync(Guid missionId, List<Guid> evidenceMediaIds, string? completionNotes)
         {
             try
             {
+                Guid? incidentIdToNotify = null;
+
                 await _unitOfWork.ExecuteInTransactionAsync(async () =>
                 {
                     // 1. Get mission
@@ -267,11 +294,17 @@ namespace SnakeAid.Service.Implements
                         "Completed mission {MissionId} with {EvidenceCount} evidence photos. Notes: {Notes}",
                         missionId, evidenceMediaIds.Count, completionNotes ?? "None");
 
-                    // PUSH NOTIFICATION: Notify Member that mission is completed
-                    await _notificationService.NotifyMissionCompletedAsync(mission.IncidentId, new { missionId = missionId });
+                    // Capture intent for notification outside transaction
+                    incidentIdToNotify = mission.IncidentId;
 
                     return mission;
                 });
+
+                // PUSH NOTIFICATION: Notify Member that mission is completed (OUTSIDE TRANSACTION)
+                if (incidentIdToNotify.HasValue)
+                {
+                    await _notificationService.NotifyMissionCompletedAsync(incidentIdToNotify.Value, new { missionId = missionId });
+                }
             }
             catch (Exception ex)
             {
@@ -283,11 +316,18 @@ namespace SnakeAid.Service.Implements
         /// <summary>
         /// User cancel mission: Set status to Cancelled, no new session
         /// Only allowed during Preparing phase (before rescuer starts moving)
+        /// <summary>
+        /// Cancels a rescue mission on behalf of the user and updates the associated incident to Cancelled.
         /// </summary>
+        /// <param name="missionId">The identifier of the mission to cancel.</param>
+        /// <param name="reason">The user-provided reason for the cancellation.</param>
         public async Task UserCancelMissionAsync(Guid missionId, string reason)
         {
             try
             {
+                Guid? incidentIdToNotify = null;
+                string? reasonToNotify = null;
+
                 await _unitOfWork.ExecuteInTransactionAsync(async () =>
                 {
                     var mission = await _unitOfWork.GetRepository<RescueMission>().FirstOrDefaultAsync(
@@ -322,11 +362,18 @@ namespace SnakeAid.Service.Implements
 
                     _logger.LogInformation("User cancelled mission {MissionId} with reason: {Reason}", missionId, reason);
 
-                    // PUSH NOTIFICATION: Notify Rescuer about user cancellation
-                    await _notificationService.NotifyMissionCancelledAsync(mission.IncidentId, reason);
+                    // Capture intent for notification outside transaction
+                    incidentIdToNotify = mission.IncidentId;
+                    reasonToNotify = reason;
 
                     return mission;
                 });
+
+                // PUSH NOTIFICATION: Notify Rescuer about user cancellation (OUTSIDE TRANSACTION)
+                if (incidentIdToNotify.HasValue)
+                {
+                    await _notificationService.NotifyMissionCancelledAsync(incidentIdToNotify.Value, reasonToNotify ?? reason);
+                }
             }
             catch (Exception ex)
             {
@@ -338,13 +385,21 @@ namespace SnakeAid.Service.Implements
         /// <summary>
         /// Rescuer abort mission: Set status to MissionAborted, create new session with increased radius
         /// Allowed during Preparing or EnRoute phases (not allowed after RescuerArrived)
+        /// <summary>
+        /// Aborts an active rescue mission and resets the associated incident so it can be retried.
         /// </summary>
+        /// <param name="missionId">The identifier of the mission to abort.</param>
+        /// <param name="reason">The rescuer-provided reason for aborting the mission; this is included in the notification sent to the member.</param>
+        /// <exception cref="NotFoundException">Thrown when the specified mission or its associated incident cannot be found.</exception>
+        /// <exception cref="BadRequestException">Thrown when the mission's current status does not allow aborting (only allowed during Preparing or EnRoute).</exception>
         public async Task RescuerAbortMissionAsync(Guid missionId, string reason)
         {
             Guid incidentId = Guid.Empty;
 
             try
             {
+                Guid? incidentIdToNotify = null;
+
                 // Step 1: Abort mission in transaction
                 await _unitOfWork.ExecuteInTransactionAsync(async () =>
                 {
@@ -393,12 +448,18 @@ namespace SnakeAid.Service.Implements
 
                     _logger.LogInformation("Updated incident {IncidentId} to Pending status in transaction", incident.Id);
 
-                    // PUSH NOTIFICATION: Notify Member about rescuer abort (before new session starts)
-                    await _notificationService.NotifyMissionCancelledAsync(incident.Id, reason);
+                    // Capture intent for notification outside transaction
+                    incidentIdToNotify = incident.Id;
 
                     incidentId = incident.Id;
                     return mission;
                 });
+
+                // PUSH NOTIFICATION: Notify Member about rescuer abort (OUTSIDE TRANSACTION)
+                if (incidentIdToNotify.HasValue)
+                {
+                    await _notificationService.NotifyMissionCancelledAsync(incidentIdToNotify.Value, reason);
+                }
 
                 _unitOfWork.ClearChangeTracker();
 
