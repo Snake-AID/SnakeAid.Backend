@@ -124,13 +124,14 @@ namespace SnakeAid.Api.Controllers
         /// Cancel a snake catching request
         /// </summary>
         /// <param name="requestId">The ID of the snake catching request to cancel</param>
-        [HttpPost("cancel/{requestId:guid}")]
+        [HttpPatch("cancel/{requestId:guid}")]
         [SwaggerOperation(
             Summary = "Cancel Snake Catching Request",
             Description = "Cancel a snake catching request. Rules: " +
                 "1) If status is Pending, it will be cancelled directly. " +
                 "2) If status is Assigned and mission is Preparing, both request and mission will be cancelled. " +
-                "3) If mission is EnRoute, cancellation is not allowed.")]
+                "3) If mission is EnRoute, cancellation is not allowed. " +
+                "Note: No refund will be processed automatically.")]
         [SwaggerResponse(200, "Request cancelled successfully", typeof(ApiResponse<DetailSnakeCatchingRequestResponse>))]
         [SwaggerResponse(400, "Invalid request (cannot cancel in current status)")]
         [SwaggerResponse(401, "User not authenticated")]
