@@ -11,4 +11,5 @@ public interface IPayOsPaymentService
     Task<PayOsWebhookResponse> ConfirmPaymentAsync(Guid transactionId, CancellationToken cancellationToken);
     Task<PayOsWebhookResponse> ConfirmPaymentByOrderCodeAsync(long orderCode, CancellationToken cancellationToken);
     Task<TransferToRescuerResponse> TransferToRescuerAsync(TransferToRescuerRequest request, CancellationToken cancellationToken);
+    Task<RefundTransactionResponse> RefundTransactionAsync(RefundTransactionRequest request, CancellationToken cancellationToken);
 }
