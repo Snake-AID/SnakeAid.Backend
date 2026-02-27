@@ -41,7 +41,7 @@ namespace SnakeAid.Api.Hubs
             var userIdString = Context.UserIdentifier;
             if (string.IsNullOrEmpty(userIdString) || !Guid.TryParse(userIdString, out var userId))
             {
-                _logger.LogWarning("Connection rejected: Unauthenticated user.");
+                _logger.LogWarning("Connection rejected: Unauthenticated user or invalid UserIdentifier. Value: '{UserIdentifier}'", userIdString ?? "NULL");
                 Context.Abort();
                 return;
             }
@@ -65,6 +65,7 @@ namespace SnakeAid.Api.Hubs
                 return;
             }
 
+            Context.Items["IncidentId"] = incidentId;
             await Groups.AddToGroupAsync(Context.ConnectionId, incidentId.ToString());
             _logger.LogInformation("User {UserId} joined MissionHub for Incident {IncidentId}", userId, incidentId);
 
@@ -76,6 +77,19 @@ namespace SnakeAid.Api.Hubs
             var userIdString = Context.UserIdentifier;
             if (string.IsNullOrEmpty(userIdString) || !Guid.TryParse(userIdString, out var userId))
             {
+                _logger.LogWarning("Operation UpdateLocation rejected: Invalid or missing UserIdentifier. Value: '{UserIdentifier}'", userIdString ?? "NULL");
+                Context.Abort();
+                return;
+            }
+
+            // Verify authorization: Caller must be authorized for this specific incidentId
+            if (!Context.Items.TryGetValue("IncidentId", out var authorizedIdObj) ||
+                authorizedIdObj is not Guid authorizedId ||
+                authorizedId != incidentId)
+            {
+                _logger.LogWarning("Operation UpdateLocation rejected: User {UserId} is not authorized for Incident {IncidentId}. Authorized Incident: {AuthorizedId}",
+                    userId, incidentId, authorizedIdObj ?? "NONE");
+                Context.Abort();
                 return;
             }
 

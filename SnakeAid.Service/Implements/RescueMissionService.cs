@@ -132,6 +132,9 @@ namespace SnakeAid.Service.Implements
 
             try
             {
+                Guid? incidentIdToNotify = null;
+                RescueMissionStatus? statusToNotify = null;
+
                 await _unitOfWork.ExecuteInTransactionAsync(async () =>
                 {
                     var mission = await _unitOfWork.GetRepository<RescueMission>().FirstOrDefaultAsync(
@@ -168,18 +171,25 @@ namespace SnakeAid.Service.Implements
 
                     _logger.LogInformation("Updated mission {MissionId} status to {Status}", missionId, status);
 
-                    // PUSH NOTIFICATION: Notify participants about status change
-                    if (status == RescueMissionStatus.RescuerArrived)
-                    {
-                        await _notificationService.NotifyRescuerArrivedAsync(mission.IncidentId);
-                    }
-                    else if (status == RescueMissionStatus.EnRoute)
-                    {
-                        await _notificationService.NotifyMissionStartedAsync(mission.IncidentId, new { status = status.ToString() });
-                    }
+                    // Capture intent for notification outside transaction
+                    incidentIdToNotify = mission.IncidentId;
+                    statusToNotify = status;
 
                     return mission;
                 });
+
+                // PUSH NOTIFICATION: Notify participants about status change (OUTSIDE TRANSACTION)
+                if (incidentIdToNotify.HasValue && statusToNotify.HasValue)
+                {
+                    if (statusToNotify.Value == RescueMissionStatus.RescuerArrived)
+                    {
+                        await _notificationService.NotifyRescuerArrivedAsync(incidentIdToNotify.Value);
+                    }
+                    else if (statusToNotify.Value == RescueMissionStatus.EnRoute)
+                    {
+                        await _notificationService.NotifyMissionStartedAsync(incidentIdToNotify.Value, new { status = statusToNotify.Value.ToString() });
+                    }
+                }
             }
             catch (Exception ex)
             {
@@ -195,6 +205,8 @@ namespace SnakeAid.Service.Implements
         {
             try
             {
+                Guid? incidentIdToNotify = null;
+
                 await _unitOfWork.ExecuteInTransactionAsync(async () =>
                 {
                     // 1. Get mission
@@ -267,11 +279,17 @@ namespace SnakeAid.Service.Implements
                         "Completed mission {MissionId} with {EvidenceCount} evidence photos. Notes: {Notes}",
                         missionId, evidenceMediaIds.Count, completionNotes ?? "None");
 
-                    // PUSH NOTIFICATION: Notify Member that mission is completed
-                    await _notificationService.NotifyMissionCompletedAsync(mission.IncidentId, new { missionId = missionId });
+                    // Capture intent for notification outside transaction
+                    incidentIdToNotify = mission.IncidentId;
 
                     return mission;
                 });
+
+                // PUSH NOTIFICATION: Notify Member that mission is completed (OUTSIDE TRANSACTION)
+                if (incidentIdToNotify.HasValue)
+                {
+                    await _notificationService.NotifyMissionCompletedAsync(incidentIdToNotify.Value, new { missionId = missionId });
+                }
             }
             catch (Exception ex)
             {
@@ -288,6 +306,9 @@ namespace SnakeAid.Service.Implements
         {
             try
             {
+                Guid? incidentIdToNotify = null;
+                string? reasonToNotify = null;
+
                 await _unitOfWork.ExecuteInTransactionAsync(async () =>
                 {
                     var mission = await _unitOfWork.GetRepository<RescueMission>().FirstOrDefaultAsync(
@@ -322,11 +343,18 @@ namespace SnakeAid.Service.Implements
 
                     _logger.LogInformation("User cancelled mission {MissionId} with reason: {Reason}", missionId, reason);
 
-                    // PUSH NOTIFICATION: Notify Rescuer about user cancellation
-                    await _notificationService.NotifyMissionCancelledAsync(mission.IncidentId, reason);
+                    // Capture intent for notification outside transaction
+                    incidentIdToNotify = mission.IncidentId;
+                    reasonToNotify = reason;
 
                     return mission;
                 });
+
+                // PUSH NOTIFICATION: Notify Rescuer about user cancellation (OUTSIDE TRANSACTION)
+                if (incidentIdToNotify.HasValue)
+                {
+                    await _notificationService.NotifyMissionCancelledAsync(incidentIdToNotify.Value, reasonToNotify!);
+                }
             }
             catch (Exception ex)
             {
@@ -345,6 +373,8 @@ namespace SnakeAid.Service.Implements
 
             try
             {
+                Guid? incidentIdToNotify = null;
+
                 // Step 1: Abort mission in transaction
                 await _unitOfWork.ExecuteInTransactionAsync(async () =>
                 {
@@ -393,12 +423,18 @@ namespace SnakeAid.Service.Implements
 
                     _logger.LogInformation("Updated incident {IncidentId} to Pending status in transaction", incident.Id);
 
-                    // PUSH NOTIFICATION: Notify Member about rescuer abort (before new session starts)
-                    await _notificationService.NotifyMissionCancelledAsync(incident.Id, reason);
+                    // Capture intent for notification outside transaction
+                    incidentIdToNotify = incident.Id;
 
                     incidentId = incident.Id;
                     return mission;
                 });
+
+                // PUSH NOTIFICATION: Notify Member about rescuer abort (OUTSIDE TRANSACTION)
+                if (incidentIdToNotify.HasValue)
+                {
+                    await _notificationService.NotifyMissionCancelledAsync(incidentIdToNotify.Value, reason);
+                }
 
                 _unitOfWork.ClearChangeTracker();
 
