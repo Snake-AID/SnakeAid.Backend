@@ -3,6 +3,7 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.SignalR;
 using SnakeAid.Api.Hubs;
 using SnakeAid.Service.Interfaces;
+using SnakeAid.Core.Exceptions;
 
 namespace SnakeAid.Api.Services
 {
@@ -20,85 +21,48 @@ namespace SnakeAid.Api.Services
         }
 
         public async Task NotifyMissionStartedAsync(Guid incidentId, object missionInfo)
-        {
-            try
-            {
-                await _hubContext.Clients.Group(incidentId.ToString()).SendAsync("MissionStarted", missionInfo);
-                _logger.LogInformation("Notified MissionStarted for incident {IncidentId}", incidentId);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error notifying MissionStarted for incident {IncidentId}: {Message}", incidentId, ex.Message);
-            }
-        }
+            => await SafeExecuteAsync(() => _hubContext.Clients.Group(incidentId.ToString()).SendAsync("MissionStarted", missionInfo),
+                "MissionStarted", incidentId);
 
         public async Task NotifyRescuerArrivedAsync(Guid incidentId)
-        {
-            try
-            {
-                await _hubContext.Clients.Group(incidentId.ToString()).SendAsync("RescuerArrived");
-                _logger.LogInformation("Notified RescuerArrived for incident {IncidentId}", incidentId);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error notifying RescuerArrived for incident {IncidentId}: {Message}", incidentId, ex.Message);
-            }
-        }
+            => await SafeExecuteAsync(() => _hubContext.Clients.Group(incidentId.ToString()).SendAsync("RescuerArrived"),
+                "RescuerArrived", incidentId);
 
         public async Task NotifyMissionCompletedAsync(Guid incidentId, object result)
-        {
-            try
-            {
-                await _hubContext.Clients.Group(incidentId.ToString()).SendAsync("MissionCompleted", result);
-                _logger.LogInformation("Notified MissionCompleted for incident {IncidentId}", incidentId);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error notifying MissionCompleted for incident {IncidentId}: {Message}", incidentId, ex.Message);
-            }
-        }
+            => await SafeExecuteAsync(() => _hubContext.Clients.Group(incidentId.ToString()).SendAsync("MissionCompleted", result),
+                "MissionCompleted", incidentId);
 
         public async Task NotifyMissionCancelledAsync(Guid incidentId, string reason)
-        {
-            try
-            {
-                await _hubContext.Clients.Group(incidentId.ToString()).SendAsync("MissionCancelled", new { Reason = reason });
-                _logger.LogInformation("Notified MissionCancelled for incident {IncidentId}", incidentId);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error notifying MissionCancelled for incident {IncidentId}: {Message}", incidentId, ex.Message);
-            }
-        }
+            => await SafeExecuteAsync(() => _hubContext.Clients.Group(incidentId.ToString()).SendAsync("MissionCancelled", new { Reason = reason }),
+                "MissionCancelled", incidentId);
 
         public async Task NotifyRescuerLocationUpdateAsync(Guid incidentId, double latitude, double longitude)
-        {
-            try
+            => await SafeExecuteAsync(() => _hubContext.Clients.Group(incidentId.ToString()).SendAsync("LocationUpdated", new
             {
-                await _hubContext.Clients.Group(incidentId.ToString()).SendAsync("LocationUpdated", new
-                {
-                    Latitude = latitude,
-                    Longitude = longitude,
-                    UpdatedAt = DateTime.UtcNow
-                });
-                _logger.LogInformation("Notified RescuerLocationUpdate for incident {IncidentId} at {Latitude}, {Longitude}", incidentId, latitude, longitude);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error notifying RescuerLocationUpdate for incident {IncidentId}: {Message}", incidentId, ex.Message);
-            }
-        }
+                Latitude = latitude,
+                Longitude = longitude,
+                UpdatedAt = DateTime.UtcNow
+            }), "RescuerLocationUpdate", incidentId);
 
         public async Task NotifyMemberSessionExpiredAsync(Guid incidentId)
+            => await SafeExecuteAsync(() => _hubContext.Clients.Group(incidentId.ToString()).SendAsync("SessionExpired"),
+                "SessionExpired", incidentId);
+
+        private async Task SafeExecuteAsync(Func<Task> action, string actionName, Guid incidentId)
         {
             try
             {
-                await _hubContext.Clients.Group(incidentId.ToString()).SendAsync("SessionExpired");
-                _logger.LogInformation("Notified SessionExpired for incident {IncidentId}", incidentId);
+                await action();
+                _logger.LogInformation("Notified {Action} for incident {IncidentId}", actionName, incidentId);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error notifying SessionExpired for incident {IncidentId}: {Message}", incidentId, ex.Message);
+                _logger.LogError(new SignalRNotificationException($"Error notifying {actionName} for incident {incidentId}", ex),
+                    "SignalR_Notification_Error");
             }
         }
     }

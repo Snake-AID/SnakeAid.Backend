@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.Logging;
 using SnakeAid.Api.Hubs;
 using SnakeAid.Service.Interfaces;
+using SnakeAid.Core.Exceptions;
 
 namespace SnakeAid.Api.Services
 {
@@ -35,118 +36,63 @@ namespace SnakeAid.Api.Services
 
         public async Task SendNewRequestAsync(string rescuerId, object requestData)
         {
+            // Business logic: only notify monitors if request is actually sent to a connected rescuer
             if (ConnectedRescuers.TryGetValue(rescuerId, out var connectionId))
-            {
-                try
+                await SafeExecuteAsync(async () =>
                 {
                     await _hubContext.Clients.Client(connectionId).SendAsync("NewRescueRequest", requestData);
-                    _logger.LogInformation("Sent rescue request to rescuer {RescuerId}", rescuerId);
-
-                    // Optional: Broadcast to Monitors for dashboard tracking
-                    await _hubContext.Clients.Group("Monitors").SendAsync("NewRescueRequest", new
-                    {
-                        RescuerId = rescuerId,
-                        Data = requestData
-                    });
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Error sending request to rescuer {RescuerId}: {Message}", rescuerId, ex.Message);
-                }
-            }
+                    await _hubContext.Clients.Group("Monitors").SendAsync("NewRescueRequest", new { RescuerId = rescuerId, Data = requestData });
+                }, "SendNewRequest", rescuerId);
             else
-            {
                 _logger.LogWarning("Rescuer {RescuerId} not connected, cannot send request", rescuerId);
-            }
         }
 
         public async Task NotifyRequestTakenAsync(string rescuerId, Guid requestId)
-        {
-            if (ConnectedRescuers.TryGetValue(rescuerId, out var connectionId))
-            {
-                try
-                {
-                    await _hubContext.Clients.Client(connectionId).SendAsync("RequestTaken", new
-                    {
-                        RequestId = requestId,
-                        Message = "This request has been taken by another rescuer."
-                    });
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Error notifying rescuer {RescuerId} about taken request: {Message}", rescuerId, ex.Message);
-                }
-            }
-
-            // Always notify Monitors regardless of rescuer connection state
-            await _hubContext.Clients.Group("Monitors").SendAsync("RequestTaken", new
-            {
-                RequestId = requestId,
-                TargetRescuerId = rescuerId
-            });
-        }
+            => await NotifyRescuerAndMonitorsAsync(rescuerId, "RequestTaken",
+                connId => _hubContext.Clients.Client(connId).SendAsync("RequestTaken", new { RequestId = requestId, Message = "This request has been taken by another rescuer." }),
+                new { RequestId = requestId, TargetRescuerId = rescuerId });
 
         public async Task NotifyRequestCancelledAsync(string rescuerId, Guid requestId)
-        {
-            if (ConnectedRescuers.TryGetValue(rescuerId, out var connectionId))
-            {
-                try
-                {
-                    await _hubContext.Clients.Client(connectionId).SendAsync("RequestCancelled", new
-                    {
-                        RequestId = requestId,
-                        Message = "This request has been cancelled by the user."
-                    });
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Error notifying rescuer {RescuerId} about cancelled request: {Message}", rescuerId, ex.Message);
-                }
-            }
-
-            // Always notify Monitors regardless of rescuer connection state
-            await _hubContext.Clients.Group("Monitors").SendAsync("RequestCancelled", new
-            {
-                RequestId = requestId,
-                TargetRescuerId = rescuerId
-            });
-        }
+            => await NotifyRescuerAndMonitorsAsync(rescuerId, "RequestCancelled",
+                connId => _hubContext.Clients.Client(connId).SendAsync("RequestCancelled", new { RequestId = requestId, Message = "This request has been cancelled by the user." }),
+                new { RequestId = requestId, TargetRescuerId = rescuerId });
 
         public async Task NotifyRequestExpiredAsync(string rescuerId, Guid requestId)
+            => await NotifyRescuerAndMonitorsAsync(rescuerId, "RequestExpired",
+                connId => _hubContext.Clients.Client(connId).SendAsync("RequestExpired", new { RequestId = requestId, Message = "This request has expired." }),
+                new { RequestId = requestId, TargetRescuerId = rescuerId });
+
+        #region Helper methods
+        private async Task NotifyRescuerAndMonitorsAsync(string rescuerId, string actionName, Func<string, Task> rescuerAction, object monitorData)
         {
+            // Always try notify Rescuer if online
             if (ConnectedRescuers.TryGetValue(rescuerId, out var connectionId))
-            {
-                try
-                {
-                    _logger.LogInformation("Sending RequestExpired notification to rescuer {RescuerId} (connectionId: {ConnectionId})",
-                        rescuerId, connectionId);
-
-                    await _hubContext.Clients.Client(connectionId).SendAsync("RequestExpired", new
-                    {
-                        RequestId = requestId,
-                        Message = "This request has expired."
-                    });
-
-                    _logger.LogInformation("Successfully sent RequestExpired notification to rescuer {RescuerId}", rescuerId);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Error notifying rescuer {RescuerId} about expired request: {Message}", rescuerId, ex.Message);
-                }
-            }
+                await SafeExecuteAsync(() => rescuerAction(connectionId), actionName, rescuerId);
             else
-            {
-                _logger.LogWarning("Cannot send RequestExpired to rescuer {RescuerId} - not in ConnectedRescuers dictionary. Current connections: {Count}",
-                    rescuerId, ConnectedRescuers.Count);
-            }
+                _logger.LogWarning("Rescuer {RescuerId} not connected for {Action}", rescuerId, actionName);
 
-            // Always notify Monitors regardless of rescuer connection state
-            await _hubContext.Clients.Group("Monitors").SendAsync("RequestExpired", new
-            {
-                RequestId = requestId,
-                TargetRescuerId = rescuerId
-            });
+            // Always notify Monitors
+            await SafeExecuteAsync(() => _hubContext.Clients.Group("Monitors").SendAsync(actionName, monitorData), $"{actionName}Monitor", "Monitors");
         }
+
+        private async Task SafeExecuteAsync(Func<Task> action, string actionName, string contextId)
+        {
+            try
+            {
+                await action();
+                _logger.LogInformation("Successfully executed {Action} for {ContextId}", actionName, contextId);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(new SignalRNotificationException($"Error in {actionName} for {contextId}", ex),
+                    "SignalR_Notification_Error");
+            }
+        }
+        #endregion
 
         #region Static methods for Hub to manage connections
 
