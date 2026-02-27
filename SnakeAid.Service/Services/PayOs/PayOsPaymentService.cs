@@ -825,7 +825,7 @@ public class PayOsPaymentService : IPayOsPaymentService
             {
                 Id = Guid.NewGuid(),
                 UserId = systemAccountId,
-                ReferenceId = null,
+                ReferenceId = request.ReferenceId,
                 Amount = request.Amount,
                 Currency = "VND",
                 TransactionType = TransactionType.WalletWithdraw,
@@ -842,7 +842,7 @@ public class PayOsPaymentService : IPayOsPaymentService
             {
                 Id = Guid.NewGuid(),
                 UserId = request.ReceiverId,
-                ReferenceId = null,
+                ReferenceId = request.ReferenceId,
                 Amount = request.Amount,
                 Currency = "VND",
                 TransactionType = request.TransactionType,

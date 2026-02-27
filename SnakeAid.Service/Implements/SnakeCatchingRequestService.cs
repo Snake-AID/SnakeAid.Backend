@@ -458,6 +458,147 @@ namespace SnakeAid.Service.Implements
             }
         }
 
+        public async Task<DetailSnakeCatchingRequestResponse> CancelSnakeCatchingRequestAsync(
+            Guid userId,
+            Guid requestId,
+            CancelSnakeCatchingRequestRequest request)
+        {
+            try
+            {
+                if (request == null || string.IsNullOrWhiteSpace(request.Reason))
+                {
+                    throw new BadRequestException("Cancellation reason is required.");
+                }
+
+                return await _unitOfWork.ExecuteInTransactionAsync(async () =>
+                {
+                    // Get the snake catching request with mission
+                    var snakeCatchingRequest = await _unitOfWork.GetRepository<SnakeCatchingRequest>().FirstOrDefaultAsync(
+                        predicate: r => r.Id == requestId,
+                        include: query => query.Include(r => r.Mission)
+                    );
+
+                    if (snakeCatchingRequest == null)
+                    {
+                        throw new NotFoundException($"Snake catching request with ID {requestId} not found.");
+                    }
+
+                    // Validate that the user is the owner of the request
+                    if (snakeCatchingRequest.UserId != userId)
+                    {
+                        throw new BadRequestException("You are not authorized to cancel this request.");
+                    }
+
+                    // Handle cancellation based on current status
+                    if (snakeCatchingRequest.Status == RequestStatus.Pending)
+                    {
+                        // If status is Pending, simply change to Cancelled
+                        snakeCatchingRequest.Status = RequestStatus.Cancelled;
+                        snakeCatchingRequest.CancellationReason = request.Reason;
+                        
+                        _unitOfWork.GetRepository<SnakeCatchingRequest>().Update(snakeCatchingRequest);
+                        
+                        _logger.LogInformation(
+                            "Snake catching request {RequestId} cancelled from Pending status.",
+                            requestId);
+                    }
+                    else if (snakeCatchingRequest.Status == RequestStatus.Assigned)
+                    {
+                        // If status is Assigned, check the mission status
+                        if (snakeCatchingRequest.Mission == null)
+                        {
+                            throw new BadRequestException("Mission not found for this assigned request.");
+                        }
+
+                        if (snakeCatchingRequest.Mission.Status == CatchingMissionStatus.Preparing)
+                        {
+                            // If mission status is Preparing, allow cancellation
+                            snakeCatchingRequest.Status = RequestStatus.Cancelled;
+                            snakeCatchingRequest.CancellationReason = request.Reason;
+                            
+                            // Update mission status to Cancelled
+                            snakeCatchingRequest.Mission.Status = CatchingMissionStatus.Cancelled;
+                            snakeCatchingRequest.Mission.CancellationReason = request.Reason;
+                            
+                            _unitOfWork.GetRepository<SnakeCatchingRequest>().Update(snakeCatchingRequest);
+                            _unitOfWork.GetRepository<SnakeCatchingMission>().Update(snakeCatchingRequest.Mission);
+                            
+                            _logger.LogInformation(
+                                "Snake catching request {RequestId} and mission {MissionId} cancelled from Assigned/Preparing status.",
+                                requestId, snakeCatchingRequest.Mission.Id);
+                        }
+                        else if (snakeCatchingRequest.Mission.Status == CatchingMissionStatus.EnRoute)
+                        {
+                            // If mission status is EnRoute, do not allow cancellation
+                            throw new BadRequestException("Cannot cancel request. The rescuer is already on the way (En Route).");
+                        }
+                        else
+                        {
+                            // Other mission statuses (Arrived, Completed, etc.)
+                            throw new BadRequestException($"Cannot cancel request. Mission status is {snakeCatchingRequest.Mission.Status}.");
+                        }
+                    }
+                    else
+                    {
+                        // Other request statuses (Finished, Paid, Completed, Cancelled, etc.)
+                        throw new BadRequestException($"Cannot cancel request with status {snakeCatchingRequest.Status}.");
+                    }
+
+                    await _unitOfWork.CommitAsync();
+
+                    // Reload the request with all navigation properties for response
+                    var updatedRequest = await _unitOfWork.GetRepository<SnakeCatchingRequest>().FirstOrDefaultAsync(
+                        predicate: r => r.Id == requestId,
+                        include: query => query
+                            .Include(r => r.User)
+                                .ThenInclude(u => u.Account)
+                            .Include(r => r.AssignedRescuer)
+                                .ThenInclude(ar => ar.Account)
+                            .Include(r => r.Mission)
+                                .ThenInclude(m => m.MissionDetails)
+                                    .ThenInclude(md => md.SnakeSpecies)
+                            .Include(r => r.Details)
+                                .ThenInclude(d => d.SnakeSpecies)
+                    );
+
+                    if (updatedRequest == null)
+                    {
+                        throw new Exception("Failed to retrieve updated request.");
+                    }
+
+                    // Attach media for request
+                    await updatedRequest.AttachReportMediaAsync(_unitOfWork, MediaReferenceType.SnakeCatchingRequest);
+                    
+                    // Attach media for mission if exists
+                    if (updatedRequest.Mission != null)
+                    {
+                        await updatedRequest.Mission.AttachReportMediaAsync(_unitOfWork, MediaReferenceType.SnakeCatchingMission);
+                    }
+
+                    var response = updatedRequest.Adapt<DetailSnakeCatchingRequestResponse>();
+                    if (response.EstimatedPrice.HasValue)
+                    {
+                        var perKmRate = _configuration.GetValue<decimal>("LocationIq:PricePerKilometer");
+                        if (perKmRate > 0)
+                        {
+                            response.DistanceKm = (double)(response.EstimatedPrice.Value / perKmRate);
+                        }
+                    }
+
+                    _logger.LogInformation(
+                        "Snake catching request cancelled successfully. RequestId: {RequestId}, UserId: {UserId}, Reason: {Reason}",
+                        requestId, userId, request.Reason);
+
+                    return response;
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error cancelling snake catching request: {Message}", ex.Message);
+                throw;
+            }
+        }
+
         private string? ExtractFilenameFromUrl(string url)
         {
             try
