@@ -742,4 +742,147 @@ public class PayOsPaymentService : IPayOsPaymentService
             throw;
         }
     }
+
+    public async Task<RefundTransactionResponse> RefundTransactionAsync(
+        RefundTransactionRequest request,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            _logger.LogInformation("{Prefix} [RefundTransaction] Processing refund for Receiver {ReceiverId}, Amount {Amount}",
+                LogPrefix, request.ReceiverId, request.Amount);
+
+            // Validate amount
+            if (request.Amount <= 0)
+            {
+                throw new InvalidOperationException("Refund amount must be greater than 0");
+            }
+
+            // Validate receiver exists
+            var receiverExists = await _unitOfWork.GetRepository<Account>()
+                .ExistsAsync(a => a.Id == request.ReceiverId, cancellationToken);
+
+            if (!receiverExists)
+            {
+                throw new InvalidOperationException($"Receiver account {request.ReceiverId} not found");
+            }
+
+            var systemAccountId = Guid.Parse(systemId);
+
+            // Get system wallet
+            var systemWallet = await _unitOfWork.GetRepository<Wallet>()
+                .FirstOrDefaultAsync(
+                    predicate: w => w.UserId == systemAccountId,
+                    asNoTracking: false,
+                    cancellationToken: cancellationToken);
+
+            if (systemWallet == null)
+            {
+                throw new InvalidOperationException($"System wallet for account {systemAccountId} not found");
+            }
+
+            // Check if system wallet has enough balance
+            if (systemWallet.Balance < request.Amount)
+            {
+                throw new InvalidOperationException(
+                    $"Insufficient balance in system wallet. Required: {request.Amount}, Available: {systemWallet.Balance}");
+            }
+
+            var systemBalanceBefore = systemWallet.Balance;
+
+            // Get or create receiver wallet
+            var receiverWallet = await _unitOfWork.GetRepository<Wallet>()
+                .FirstOrDefaultAsync(
+                    predicate: w => w.UserId == request.ReceiverId,
+                    asNoTracking: false,
+                    cancellationToken: cancellationToken);
+
+            if (receiverWallet == null)
+            {
+                // Create wallet if not exists
+                receiverWallet = new Wallet
+                {
+                    Id = Guid.NewGuid(),
+                    UserId = request.ReceiverId,
+                    Balance = 0
+                };
+                await _unitOfWork.GetRepository<Wallet>().InsertAsync(receiverWallet);
+                _logger.LogInformation("{Prefix} [RefundTransaction] Created new wallet for receiver {ReceiverId}",
+                    LogPrefix, request.ReceiverId);
+            }
+
+            var receiverBalanceBefore = receiverWallet.Balance;
+
+            // Update wallet balances
+            systemWallet.Balance -= request.Amount;
+            receiverWallet.Balance += request.Amount;
+
+            _unitOfWork.GetRepository<Wallet>().Update(systemWallet);
+            _unitOfWork.GetRepository<Wallet>().Update(receiverWallet);
+
+            // Create transaction for system wallet withdrawal
+            var systemWithdrawTransaction = new Transaction
+            {
+                Id = Guid.NewGuid(),
+                UserId = systemAccountId,
+                ReferenceId = null,
+                Amount = request.Amount,
+                Currency = "VND",
+                TransactionType = TransactionType.WalletWithdraw,
+                Description = $"Refund to receiver {request.ReceiverId}: {request.Description}",
+                PaymentMethod = "Internal",
+                ExternalTransactionId = $"REFUND-{Guid.NewGuid()}",
+                CreatedAt = DateTime.UtcNow
+            };
+
+            await _unitOfWork.GetRepository<Transaction>().InsertAsync(systemWithdrawTransaction);
+
+            // Create transaction for receiver wallet refund
+            var refundTransaction = new Transaction
+            {
+                Id = Guid.NewGuid(),
+                UserId = request.ReceiverId,
+                ReferenceId = null,
+                Amount = request.Amount,
+                Currency = "VND",
+                TransactionType = request.TransactionType,
+                Description = $"Refund: {request.Description}",
+                PaymentMethod = "Internal",
+                ExternalTransactionId = $"REFUND-{Guid.NewGuid()}",
+                CreatedAt = DateTime.UtcNow
+            };
+
+            await _unitOfWork.GetRepository<Transaction>().InsertAsync(refundTransaction);
+
+            await _unitOfWork.CommitAsync();
+
+            _logger.LogInformation(
+                "{Prefix} [RefundTransaction] Successfully refunded {Amount} " +
+                "from system ({SystemBalance} -> {SystemBalanceAfter}) to receiver {ReceiverId} ({ReceiverBalance} -> {ReceiverBalanceAfter}). " +
+                "Transactions created: Withdraw={WithdrawTxId}, Refund={RefundTxId}",
+                LogPrefix, request.Amount,
+                systemBalanceBefore, systemWallet.Balance, request.ReceiverId, receiverBalanceBefore, receiverWallet.Balance,
+                systemWithdrawTransaction.Id, refundTransaction.Id);
+
+            return new RefundTransactionResponse
+            {
+                Success = true,
+                Message = "Refund completed successfully",
+                ReceiverId = request.ReceiverId,
+                RefundAmount = request.Amount,
+                RefundTransactionId = refundTransaction.Id,
+                SystemWalletBalanceBefore = systemBalanceBefore,
+                SystemWalletBalanceAfter = systemWallet.Balance,
+                ReceiverWalletBalanceBefore = receiverBalanceBefore,
+                ReceiverWalletBalanceAfter = receiverWallet.Balance,
+                RefundedAt = DateTime.UtcNow
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "{Prefix} [RefundTransaction] Failed to refund for Receiver {ReceiverId}",
+                LogPrefix, request.ReceiverId);
+            throw;
+        }
+    }
 }
