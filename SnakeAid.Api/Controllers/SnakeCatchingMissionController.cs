@@ -103,5 +103,39 @@ When completed successfully:
                 result,
                 "Mission completed successfully! Request marked as completed."));
         }
+
+        /// <summary>
+        /// Abort mission - transition to MissionAborted
+        /// Can only abort when mission status is Preparing or EnRoute
+        /// </summary>
+        [HttpPatch("{missionId}/abort")]
+        [SwaggerOperation(
+            Summary = "Abort Mission",
+            Description = @"Abort the snake catching mission (Preparing/EnRoute → MissionAborted).
+
+Requirements:
+- Mission must be in Preparing or EnRoute status
+- Reason is required
+
+When aborted successfully:
+- Mission status is updated to MissionAborted
+- CancellationReason is set to the provided reason
+- SnakeCatchingRequest is reset to Pending status
+- AssignedRescuer is cleared so other rescuers can accept the request
+- If any paid transactions exist (CatchingPayment or CatchingDeposit), automatic refund is processed to user's wallet")]
+        [SwaggerResponse(200, "Mission aborted successfully", typeof(ApiResponse<SnakeCatchingMissionDetailResponse>))]
+        [SwaggerResponse(400, "Invalid status transition - can only abort from Preparing or EnRoute")]
+        [SwaggerResponse(403, "Not authorized")]
+        [SwaggerResponse(404, "Mission not found")]
+        public async Task<IActionResult> AbortMission(
+            Guid missionId,
+            [FromBody] AbortSnakeCatchingMissionRequest request)
+        {
+            var rescuerId = GetCurrentUserId();
+            var result = await _missionService.AbortMissionAsync(rescuerId, missionId, request);
+            return Ok(ApiResponseBuilder.BuildSuccessResponse(
+                result,
+                "Mission aborted successfully."));
+        }
     }
 }
