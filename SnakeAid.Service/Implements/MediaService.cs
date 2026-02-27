@@ -37,7 +37,7 @@ public class MediaService : IMediaService
         CancellationToken ct = default)
     {
         _logger.LogInformation("Uploading report media for reference {ReferenceId}, type: {Type}, purpose: {Purpose}",
-            request.ReferenceId, referenceType, purpose);
+            request.ReferenceId?.ToString() ?? "None", referenceType, purpose);
 
         // Upload file to Cloudinary first
         var uploadResult = await _cloudinaryService.UploadImageAsync(request.File, user, "report-media", ct);
