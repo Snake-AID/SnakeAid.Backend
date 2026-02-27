@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging;
 using SnakeAid.Core.Domains;
 using SnakeAid.Core.Exceptions;
 using SnakeAid.Core.Requests.SnakeCatchingRequest;
+using SnakeAid.Core.Requests.PayOs;
 using SnakeAid.Core.Responses.SnakeCatchingRequest;
 using SnakeAid.Repository.Data;
 using SnakeAid.Repository.Interfaces;
@@ -19,17 +20,20 @@ namespace SnakeAid.Service.Implements
         private readonly ILogger<SnakeCatchingRequestService> _logger;
         private readonly IConfiguration _configuration;
         private readonly ILocationIqService _locationIqService;
+        private readonly IPayOsPaymentService _payOsPaymentService;
 
         public SnakeCatchingRequestService(
             IUnitOfWork<SnakeAidDbContext> unitOfWork,
             ILogger<SnakeCatchingRequestService> logger,
             IConfiguration configuration,
-            ILocationIqService locationIqService)
+            ILocationIqService locationIqService,
+            IPayOsPaymentService payOsPaymentService)
         {
             _unitOfWork = unitOfWork;
             _logger = logger;
             _configuration = configuration;
             _locationIqService = locationIqService;
+            _payOsPaymentService = payOsPaymentService;
         }
 
         public async Task<CreateSnakeCatchingRequestResponse> CreateSnakeCatchingRequestAsync(
@@ -545,6 +549,58 @@ namespace SnakeAid.Service.Implements
                     }
 
                     await _unitOfWork.CommitAsync();
+
+                    // Check for paid transactions and process refund (OUTSIDE the transaction)
+                    var paidTransactions = await _unitOfWork.GetRepository<Transaction>().GetListAsync(
+                        predicate: t => t.ReferenceId == requestId &&
+                                       t.ExternalTransactionId != null &&
+                                       (t.TransactionType == TransactionType.CatchingPayment ||
+                                        t.TransactionType == TransactionType.CatchingDeposit),
+                        asNoTracking: true,
+                        cancellationToken: default);
+
+                    if (paidTransactions != null && paidTransactions.Any())
+                    {
+                        var totalRefundAmount = paidTransactions.Sum(t => t.Amount);
+                        
+                        _logger.LogInformation(
+                            "Found {Count} paid transaction(s) for request {RequestId}. Total refund amount: {Amount}",
+                            paidTransactions.Count(), requestId, totalRefundAmount);
+
+                        try
+                        {
+                            // Process refund to user wallet
+                            var refundRequest = new RefundTransactionRequest
+                            {
+                                ReceiverId = userId,
+                                ReferenceId = requestId,
+                                Amount = totalRefundAmount,
+                                Description = $"Refund for cancelled request {requestId}: {request.Reason}",
+                                TransactionType = TransactionType.CatchingRefund
+                            };
+
+                            var refundResponse = await _payOsPaymentService.RefundTransactionAsync(
+                                refundRequest,
+                                cancellationToken: default);
+
+                            _logger.LogInformation(
+                                "Refund processed successfully for request {RequestId}. RefundAmount: {Amount}, RefundTransactionId: {TransactionId}",
+                                requestId, refundResponse.RefundAmount, refundResponse.RefundTransactionId);
+                        }
+                        catch (Exception refundEx)
+                        {
+                            // Log error but don't fail the cancellation
+                            _logger.LogError(refundEx,
+                                "Failed to process refund for request {RequestId}. User may need manual refund.",
+                                requestId);
+                        }
+                    }
+                    else
+                    {
+                        _logger.LogInformation(
+                            "No paid transactions found for request {RequestId}. No refund needed.",
+                            requestId);
+                    }
 
                     // Reload the request with all navigation properties for response
                     var updatedRequest = await _unitOfWork.GetRepository<SnakeCatchingRequest>().FirstOrDefaultAsync(
