@@ -81,6 +81,7 @@ namespace SnakeAid.Api.Services
                     Longitude = longitude,
                     UpdatedAt = DateTime.UtcNow
                 });
+                _logger.LogInformation("Notified RescuerLocationUpdate for incident {IncidentId} at {Latitude}, {Longitude}", incidentId, latitude, longitude);
             }
             catch (Exception ex)
             {

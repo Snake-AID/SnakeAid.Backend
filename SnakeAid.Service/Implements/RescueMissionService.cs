@@ -353,7 +353,7 @@ namespace SnakeAid.Service.Implements
                 // PUSH NOTIFICATION: Notify Rescuer about user cancellation (OUTSIDE TRANSACTION)
                 if (incidentIdToNotify.HasValue)
                 {
-                    await _notificationService.NotifyMissionCancelledAsync(incidentIdToNotify.Value, reasonToNotify ?? reason);
+                    await _notificationService.NotifyMissionCancelledAsync(incidentIdToNotify.Value, reasonToNotify!);
                 }
             }
             catch (Exception ex)
