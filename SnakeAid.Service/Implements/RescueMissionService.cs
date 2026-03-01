@@ -103,7 +103,6 @@ namespace SnakeAid.Service.Implements
 
                     await _unitOfWork.GetRepository<RescueMission>().InsertAsync(mission);
                     _unitOfWork.GetRepository<SnakebiteIncident>().Update(incident);
-                    await _unitOfWork.CommitAsync();
 
                     _logger.LogInformation("Created mission {MissionId} for incident {IncidentId} with rescuer {RescuerId}",
                         mission.Id, incidentId, rescuerId);
@@ -130,56 +129,58 @@ namespace SnakeAid.Service.Implements
             //     throw new BadRequestException("Use CompleteMissionAsync to complete mission with evidence photos.");
             // }
 
+            RescueMission mission;
+
             try
             {
-                await _unitOfWork.ExecuteInTransactionAsync(async () =>
+                // Step 1: Update database in transaction
+                mission = await _unitOfWork.ExecuteInTransactionAsync(async () =>
                 {
-                    var mission = await _unitOfWork.GetRepository<RescueMission>().FirstOrDefaultAsync(
+                    var missionEntity = await _unitOfWork.GetRepository<RescueMission>().FirstOrDefaultAsync(
                         predicate: m => m.Id == missionId
                     );
 
-                    if (mission == null)
+                    if (missionEntity == null)
                     {
                         throw new NotFoundException("Mission not found.");
                     }
 
                     // Validate state transition
-                    if (!IsValidStatusTransition(mission.Status, status))
+                    if (!IsValidStatusTransition(missionEntity.Status, status))
                     {
-                        throw new BadRequestException($"Cannot transition from {mission.Status} to {status}");
+                        throw new BadRequestException($"Cannot transition from {missionEntity.Status} to {status}");
                     }
 
-                    mission.Status = status;
-                    mission.UpdatedAt = DateTime.UtcNow;
+                    missionEntity.Status = status;
+                    missionEntity.UpdatedAt = DateTime.UtcNow;
 
                     // Set timestamps based on status
                     switch (status)
                     {
                         case RescueMissionStatus.EnRoute:
-                            mission.StartedAt = DateTime.UtcNow;
+                            missionEntity.StartedAt = DateTime.UtcNow;
                             break;
                         case RescueMissionStatus.RescuerArrived:
-                            mission.ArrivedAt = DateTime.UtcNow;
+                            missionEntity.ArrivedAt = DateTime.UtcNow;
                             break;
                     }
 
-                    _unitOfWork.GetRepository<RescueMission>().Update(mission);
-                    await _unitOfWork.CommitAsync();
+                    _unitOfWork.GetRepository<RescueMission>().Update(missionEntity);
 
                     _logger.LogInformation("Updated mission {MissionId} status to {Status}", missionId, status);
 
-                    // PUSH NOTIFICATION: Notify participants about status change
-                    if (status == RescueMissionStatus.RescuerArrived)
-                    {
-                        await _notificationService.NotifyRescuerArrivedAsync(mission.IncidentId);
-                    }
-                    else if (status == RescueMissionStatus.EnRoute)
-                    {
-                        await _notificationService.NotifyMissionStartedAsync(mission.IncidentId, new { status = status.ToString() });
-                    }
-
-                    return mission;
+                    return missionEntity;
                 });
+
+                // Step 2: Send notifications AFTER transaction committed
+                if (status == RescueMissionStatus.RescuerArrived)
+                {
+                    await _notificationService.NotifyRescuerArrivedAsync(mission.IncidentId);
+                }
+                else if (status == RescueMissionStatus.EnRoute)
+                {
+                    await _notificationService.NotifyMissionStartedAsync(mission.IncidentId, new { status = status.ToString() });
+                }
             }
             catch (Exception ex)
             {
@@ -193,24 +194,27 @@ namespace SnakeAid.Service.Implements
         /// </summary>
         public async Task CompleteMissionAsync(Guid missionId, List<Guid> evidenceMediaIds, string? completionNotes)
         {
+            RescueMission mission;
+
             try
             {
-                await _unitOfWork.ExecuteInTransactionAsync(async () =>
+                // Step 1: Update database in transaction
+                mission = await _unitOfWork.ExecuteInTransactionAsync(async () =>
                 {
                     // 1. Get mission
-                    var mission = await _unitOfWork.GetRepository<RescueMission>().FirstOrDefaultAsync(
+                    var missionEntity = await _unitOfWork.GetRepository<RescueMission>().FirstOrDefaultAsync(
                         predicate: m => m.Id == missionId
                     );
 
-                    if (mission == null)
+                    if (missionEntity == null)
                     {
                         throw new NotFoundException("Mission not found.");
                     }
 
                     // 2. Validate status transition
-                    if (!IsValidStatusTransition(mission.Status, RescueMissionStatus.MissionCompleted))
+                    if (!IsValidStatusTransition(missionEntity.Status, RescueMissionStatus.MissionCompleted))
                     {
-                        throw new BadRequestException($"Cannot complete mission with status: {mission.Status}. Mission must be in RescuerArrived status.");
+                        throw new BadRequestException($"Cannot complete mission with status: {missionEntity.Status}. Mission must be in RescuerArrived status.");
                     }
 
                     // 3. Validate evidence media
@@ -244,14 +248,14 @@ namespace SnakeAid.Service.Implements
                     }
 
                     // 6. Update mission
-                    mission.Status = RescueMissionStatus.MissionCompleted;
-                    mission.CompletedAt = DateTime.UtcNow;
-                    mission.UpdatedAt = DateTime.UtcNow;
-                    mission.Notes = completionNotes;
+                    missionEntity.Status = RescueMissionStatus.MissionCompleted;
+                    missionEntity.CompletedAt = DateTime.UtcNow;
+                    missionEntity.UpdatedAt = DateTime.UtcNow;
+                    missionEntity.Notes = completionNotes;
 
                     // 7. Update incident status to Finished
                     var incident = await _unitOfWork.GetRepository<SnakebiteIncident>().FirstOrDefaultAsync(
-                        predicate: i => i.Id == mission.IncidentId
+                        predicate: i => i.Id == missionEntity.IncidentId
                     );
 
                     if (incident != null)
@@ -260,18 +264,17 @@ namespace SnakeAid.Service.Implements
                         _unitOfWork.GetRepository<SnakebiteIncident>().Update(incident);
                     }
 
-                    _unitOfWork.GetRepository<RescueMission>().Update(mission);
-                    await _unitOfWork.CommitAsync();
+                    _unitOfWork.GetRepository<RescueMission>().Update(missionEntity);
 
                     _logger.LogInformation(
                         "Completed mission {MissionId} with {EvidenceCount} evidence photos. Notes: {Notes}",
                         missionId, evidenceMediaIds.Count, completionNotes ?? "None");
 
-                    // PUSH NOTIFICATION: Notify Member that mission is completed
-                    await _notificationService.NotifyMissionCompletedAsync(mission.IncidentId, new { missionId = missionId });
-
-                    return mission;
+                    return missionEntity;
                 });
+
+                // Step 2: Send notification AFTER transaction committed
+                await _notificationService.NotifyMissionCompletedAsync(mission.IncidentId, new { missionId = missionId });
             }
             catch (Exception ex)
             {
@@ -286,47 +289,49 @@ namespace SnakeAid.Service.Implements
         /// </summary>
         public async Task UserCancelMissionAsync(Guid missionId, string reason)
         {
+            RescueMission mission;
+
             try
             {
-                await _unitOfWork.ExecuteInTransactionAsync(async () =>
+                // Step 1: Update database in transaction
+                mission = await _unitOfWork.ExecuteInTransactionAsync(async () =>
                 {
-                    var mission = await _unitOfWork.GetRepository<RescueMission>().FirstOrDefaultAsync(
+                    var missionEntity = await _unitOfWork.GetRepository<RescueMission>().FirstOrDefaultAsync(
                         predicate: m => m.Id == missionId,
                         include: q => q.Include(m => m.Incident)
                     );
 
-                    if (mission == null)
+                    if (missionEntity == null)
                     {
                         throw new NotFoundException("Mission not found.");
                     }
 
                     // Validate status transition using centralized method
-                    if (!IsValidStatusTransition(mission.Status, RescueMissionStatus.Cancelled))
+                    if (!IsValidStatusTransition(missionEntity.Status, RescueMissionStatus.Cancelled))
                     {
-                        throw new BadRequestException($"User cannot cancel mission with status: {mission.Status}. Only allowed during Preparing phase.");
+                        throw new BadRequestException($"User cannot cancel mission with status: {missionEntity.Status}. Only allowed during Preparing phase.");
                     }
 
-                    mission.Status = RescueMissionStatus.Cancelled;
-                    mission.CancellationReason = reason;
-                    mission.UpdatedAt = DateTime.UtcNow;
+                    missionEntity.Status = RescueMissionStatus.Cancelled;
+                    missionEntity.CancellationReason = reason;
+                    missionEntity.UpdatedAt = DateTime.UtcNow;
 
                     // Set incident to Cancelled (user doesn't want rescue anymore)
-                    var incident = mission.Incident;
+                    var incident = missionEntity.Incident;
                     incident.Status = SnakebiteIncidentStatus.Cancelled;
                     incident.AssignedRescuerId = null;
                     incident.AssignedAt = null;
 
-                    _unitOfWork.GetRepository<RescueMission>().Update(mission);
+                    _unitOfWork.GetRepository<RescueMission>().Update(missionEntity);
                     _unitOfWork.GetRepository<SnakebiteIncident>().Update(incident);
-                    await _unitOfWork.CommitAsync();
 
                     _logger.LogInformation("User cancelled mission {MissionId} with reason: {Reason}", missionId, reason);
 
-                    // PUSH NOTIFICATION: Notify Rescuer about user cancellation
-                    await _notificationService.NotifyMissionCancelledAsync(mission.IncidentId, reason);
-
-                    return mission;
+                    return missionEntity;
                 });
+
+                // Step 2: Send notification AFTER transaction committed
+                await _notificationService.NotifyMissionCancelledAsync(mission.IncidentId, reason);
             }
             catch (Exception ex)
             {
@@ -393,9 +398,6 @@ namespace SnakeAid.Service.Implements
 
                     _logger.LogInformation("Updated incident {IncidentId} to Pending status in transaction", incident.Id);
 
-                    // PUSH NOTIFICATION: Notify Member about rescuer abort (before new session starts)
-                    await _notificationService.NotifyMissionCancelledAsync(incident.Id, reason);
-
                     incidentId = incident.Id;
                     return mission;
                 });
@@ -404,6 +406,9 @@ namespace SnakeAid.Service.Implements
 
                 _logger.LogInformation("Transaction committed and change tracker cleared for incident {IncidentId}. Tracked entities after clear: {TrackedCount}",
                     incidentId, _unitOfWork.Context.ChangeTracker.Entries().Count());
+
+                // PUSH NOTIFICATION: Notify Member about rescuer abort AFTER transaction committed
+                await _notificationService.NotifyMissionCancelledAsync(incidentId, reason);
 
                 // Step 2: Create new session AFTER transaction committed
                 try

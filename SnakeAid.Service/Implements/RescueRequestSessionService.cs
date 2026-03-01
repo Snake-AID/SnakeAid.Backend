@@ -120,8 +120,8 @@ namespace SnakeAid.Service.Implements
         }
 
         /// Broadcast requests to rescuers - Internal version without transaction (accepts session object)
-        /// Returns tuple: (session, backgroundTimeoutAt) for scheduling timeout after commit
-        private async Task<(RescueRequestSession session, DateTime backgroundTimeoutAt)> BroadcastRequestsInternalAsync(RescueRequestSession session)
+        /// Returns tuple: (session, backgroundTimeoutAt, notificationData) for scheduling timeout and sending notifications after commit
+        private async Task<(RescueRequestSession session, DateTime backgroundTimeoutAt, List<(string userId, RescuerRequest request, RescueRequestSession session)> notificationData)> BroadcastRequestsInternalAsync(RescueRequestSession session)
         {
             if (session == null)
             {
@@ -169,7 +169,7 @@ namespace SnakeAid.Service.Implements
                     session.RadiusKm, session.Id);
                 // Return session with a default timeout (even though no rescuers were pinged)
                 var defaultTimeoutAt = DateTime.UtcNow.AddSeconds(REQUEST_TIMEOUT_SECONDS + BACKGROUND_TIMEOUT_BUFFER_SECONDS);
-                return (session, defaultTimeoutAt);
+                return (session, defaultTimeoutAt, new List<(string, RescuerRequest, RescueRequestSession)>());
             }
 
             // Get rescuer IDs for filtering
@@ -273,15 +273,12 @@ namespace SnakeAid.Service.Implements
             // Create lookup dictionary for O(1) rescuer lookup (optimization)
             var rescuerLookup = rescuersInRadius.ToDictionary(r => r.AccountId, r => r.AccountId.ToString());
 
-            // Push notifications to all connected rescuers (parallel execution)
-            var notificationTasks = requests.Select(request =>
-                SendRequestToRescuerAsync(
-                    rescuerLookup[request.RescuerId], // O(1) lookup instead of O(n)
-                    request,
-                    session
-                )
-            );
-            await Task.WhenAll(notificationTasks);
+            // Prepare notification data to send AFTER transaction commits
+            var notificationData = requests.Select(request => (
+                userId: rescuerLookup[request.RescuerId],
+                request: request,
+                session: session
+            )).ToList();
 
             // Update session tracking
             session.RescuersPinged = requests.Count;
@@ -297,18 +294,19 @@ namespace SnakeAid.Service.Implements
                 "Ready to commit transaction.",
                 requests.Count, session.Id, session.RadiusKm);
 
-            // Return session and timeout for scheduling AFTER commit
-            return (session, backgroundTimeoutAt);
+            // Return session, timeout, and notification data for processing AFTER commit
+            return (session, backgroundTimeoutAt, notificationData);
         }
 
         /// Broadcast requests to rescuers - Public version with transaction
         public async Task BroadcastRequestsAsync(Guid sessionId)
         {
             DateTime backgroundTimeoutAt = DateTime.MinValue;
+            List<(string userId, RescuerRequest request, RescueRequestSession session)> notificationData = new();
 
             try
             {
-                // Execute broadcast in transaction - get timeout time back
+                // Step 1: Execute broadcast in transaction - get timeout time and notification data back
                 var result = await _unitOfWork.ExecuteInTransactionAsync(async () =>
                 {
                     // Query session from database
@@ -325,20 +323,32 @@ namespace SnakeAid.Service.Implements
                     return await BroadcastRequestsInternalAsync(session);
                 });
 
-                // Extract session and timeout from result
-                var (session, timeoutAt) = result;
+                // Extract session, timeout, and notification data from result
+                var (session, timeoutAt, notifications) = result;
                 backgroundTimeoutAt = timeoutAt;
+                notificationData = notifications;
 
                 _logger.LogWarning("[Timeout Schedule] 🔓 Transaction COMMITTED successfully for session {SessionId}. " +
                     "Now scheduling timeout at {TimeoutAt} (in {Seconds}s)...",
                     sessionId, backgroundTimeoutAt, (backgroundTimeoutAt - DateTime.UtcNow).TotalSeconds);
 
-                // Schedule timeout AFTER transaction commits to prevent race conditions
-                // This ensures session is persisted to DB before background service can query it
+                // Step 2: Schedule timeout AFTER transaction commits
                 _timeoutService.ScheduleSessionTimeout(sessionId, backgroundTimeoutAt);
 
                 _logger.LogWarning("[Timeout Schedule] ✅ Timeout scheduled for session {SessionId} at {TimeoutAt}",
                     sessionId, backgroundTimeoutAt);
+
+                // Step 3: Send notifications AFTER transaction commits (parallel execution)
+                if (notificationData != null && notificationData.Any())
+                {
+                    var notificationTasks = notificationData.Select(data =>
+                        SendRequestToRescuerAsync(data.userId, data.request, data.session)
+                    );
+                    await Task.WhenAll(notificationTasks);
+
+                    _logger.LogInformation("Sent {Count} notifications for session {SessionId} after transaction commit",
+                        notificationData.Count, sessionId);
+                }
             }
             catch (Exception ex)
             {
@@ -366,8 +376,8 @@ namespace SnakeAid.Service.Implements
                 .Where(r => r.IsOnline)  // Filter 1: Online status
                 .Where(r => r.Type == RescuerType.Emergency || r.Type == RescuerType.Both)  // Filter 2: Type
                 .Where(r => r.LastLocation != null)  // Filter 3: Has location
-                .Where(r => r.LastLocation.Distance(incidentLocation) <= radiusMeters)  // Filter 4: Distance (uses GIST index)
-                .OrderBy(r => r.LastLocation.Distance(incidentLocation))  // Sort by distance
+                .Where(r => r.LastLocation!.Distance(incidentLocation) <= radiusMeters)  // Filter 4: Distance (uses GIST index)
+                .OrderBy(r => r.LastLocation!.Distance(incidentLocation))  // Sort by distance
                 .ToListAsync();
 
             _logger.LogWarning("✅ [QUERY RESULT] PostGIS query found {Count} rescuers (IsOnline=true, HasLocation=true, within {RadiusKm}km)",
@@ -489,37 +499,45 @@ namespace SnakeAid.Service.Implements
                     _logger.LogInformation("Session {SessionId} timed out, {Count} requests expired",
                         sessionId, pendingRequests.Count);
 
-                    // PUSH NOTIFICATION: Notify Member that mission session expired
-                    await _missionNotificationService.NotifyMemberSessionExpiredAsync(session.IncidentId);
-
-                    // Notify all rescuers that their requests have expired (parallel notifications)
-                    if (pendingRequests.Any())
-                    {
-                        var expiredNotificationTasks = pendingRequests.Select(request =>
-                            NotifyRequestExpiredAsync(request.RescuerId.ToString(), request.Id)
-                        ).ToArray();
-                        await Task.WhenAll(expiredNotificationTasks);
-                    }
-
                     // Try expand and create new session
                     _logger.LogInformation("Attempting to expand session for incident {IncidentId} (from session {SessionId})",
                         session.IncidentId, sessionId);
 
-                    var (success, timeoutAt) = await TryExpandAndCreateNewSessionAsync(session.IncidentId);
+                    var (success, timeoutAt, expandNotifications) = await TryExpandAndCreateNewSessionAsync(session.IncidentId);
 
-                    return (success, timeoutAt, session);
+                    // Return data for notifications AFTER transaction commits
+                    return (success, timeoutAt, session.IncidentId, pendingRequests, expandNotifications);
                 });
 
                 // Extract results from transaction
-                (bool expandSuccess, DateTime? expandTimeoutAt, RescueRequestSession processedSession) = result;
+                var (expandSuccess, expandTimeoutAt, incidentId, expiredRequests, expandNotificationData) = result;
 
-                // Schedule timeout for new session AFTER transaction commits (if expansion succeeded)
+                _logger.LogWarning("[Timeout Handler] 🔓 Transaction COMMITTED for session {SessionId}",
+                    sessionId);
+
+                // Step 2: Send notifications AFTER transaction committed
+                // Notify Member that session expired
+                await _missionNotificationService.NotifyMemberSessionExpiredAsync(incidentId);
+
+                // Notify all rescuers that their requests have expired (parallel notifications)
+                if (expiredRequests.Any())
+                {
+                    var expiredNotificationTasks = expiredRequests.Select(request =>
+                        NotifyRequestExpiredAsync(request.RescuerId.ToString(), request.Id)
+                    ).ToArray();
+                    await Task.WhenAll(expiredNotificationTasks);
+
+                    _logger.LogInformation("Sent {Count} expired notifications for session {SessionId}",
+                        expiredRequests.Count, sessionId);
+                }
+
+                // Step 3: Schedule timeout and send notifications for new session (if expansion succeeded)
                 if (expandSuccess && expandTimeoutAt.HasValue)
                 {
                     // Get the newly created session to get its ID
                     var newSession = await _unitOfWork.GetRepository<RescueRequestSession>()
                         .FirstOrDefaultAsync(
-                            predicate: s => s.IncidentId == processedSession.IncidentId && s.Status == SessionStatus.Active,
+                            predicate: s => s.IncidentId == incidentId && s.Status == SessionStatus.Active,
                             orderBy: q => q.OrderByDescending(s => s.SessionNumber)
                         );
 
@@ -532,11 +550,23 @@ namespace SnakeAid.Service.Implements
 
                         _logger.LogWarning("[Timeout Handler] ✅ Timeout scheduled for new session {NewSessionId}",
                             newSession.Id);
+
+                        // Send notifications for expanded session AFTER transaction committed
+                        if (expandNotificationData != null && expandNotificationData.Any())
+                        {
+                            var expandNotificationTasks = expandNotificationData.Select(data =>
+                                SendRequestToRescuerAsync(data.userId, data.request, data.session)
+                            );
+                            await Task.WhenAll(expandNotificationTasks);
+
+                            _logger.LogInformation("Sent {Count} new request notifications for expanded session {NewSessionId}",
+                                expandNotificationData.Count, newSession.Id);
+                        }
                     }
                     else
                     {
                         _logger.LogError("[Timeout Handler] ⚠️ Could not find newly created session for incident {IncidentId} to schedule timeout",
-                            processedSession.IncidentId);
+                            incidentId);
                     }
                 }
             }
@@ -555,9 +585,12 @@ namespace SnakeAid.Service.Implements
         /// Accept request: Update RescuerRequest, tạo RescueMission, mark others Taken
         public async Task<AcceptRescueResponse> AcceptRequestAsync(Guid requestId, Guid rescuerId)
         {
+            List<RescuerRequest>? otherRequestsToNotify = null;
+
             try
             {
-                return await _unitOfWork.ExecuteInTransactionAsync(async () =>
+                // Step 1: Execute accept logic in transaction
+                var result = await _unitOfWork.ExecuteInTransactionAsync(async () =>
                 {
                     // Load request with session only (no circular reference)
                     var request = await _unitOfWork.GetRepository<RescuerRequest>().FirstOrDefaultAsync(
@@ -604,6 +637,7 @@ namespace SnakeAid.Service.Implements
                         predicate: r => r.SessionId == request.SessionId && r.Id != requestId && r.Status == RescueRequestStatus.Pending,
                         asNoTracking: false
                     );
+
                     if (otherRequests.Any())
                     {
                         var updateTime = DateTime.UtcNow;
@@ -614,12 +648,6 @@ namespace SnakeAid.Service.Implements
                         }
                         // Batch update
                         _unitOfWork.GetRepository<RescuerRequest>().UpdateRange(otherRequests);
-
-                        // Notify other rescuers that request was taken (parallel notifications)
-                        var notificationTasks = otherRequests.Select(otherRequest =>
-                            NotifyRequestTakenAsync(otherRequest.RescuerId.ToString(), otherRequest.Id)
-                        );
-                        await Task.WhenAll(notificationTasks);
                     }
 
                     // Mark session as completed
@@ -685,8 +713,8 @@ namespace SnakeAid.Service.Implements
                     _logger.LogInformation("Rescuer {RescuerId} accepted request {RequestId} for incident {IncidentId}, mission {MissionId} created",
                         rescuerId, requestId, request.IncidentId, mission.Id);
 
-                    // Return response with mission info for client navigation
-                    return new AcceptRescueResponse
+                    // Return response with mission info and other requests for notification
+                    var response = new AcceptRescueResponse
                     {
                         RequestId = requestId,
                         IncidentId = request.IncidentId,
@@ -695,7 +723,27 @@ namespace SnakeAid.Service.Implements
                         AcceptedAt = DateTime.UtcNow,
                         Message = "Request accepted successfully! Mission created."
                     };
+
+                    return (response, otherRequests);
                 });
+
+                // Extract response and other requests
+                var (acceptResponse, otherRequests) = result;
+                otherRequestsToNotify = otherRequests.ToList();
+
+                // Step 2: Send notifications AFTER transaction committed
+                if (otherRequestsToNotify != null && otherRequestsToNotify.Any())
+                {
+                    var notificationTasks = otherRequestsToNotify.Select(otherRequest =>
+                        NotifyRequestTakenAsync(otherRequest.RescuerId.ToString(), otherRequest.Id)
+                    );
+                    await Task.WhenAll(notificationTasks);
+
+                    _logger.LogInformation("Sent {Count} 'request taken' notifications after accepting request {RequestId}",
+                        otherRequestsToNotify.Count, requestId);
+                }
+
+                return acceptResponse;
             }
             catch (Exception ex)
             {
@@ -723,9 +771,12 @@ namespace SnakeAid.Service.Implements
         /// Cancel session (user cancel incident)
         public async Task CancelSessionAsync(Guid sessionId)
         {
+            List<RescuerRequest>? cancelledRequests = null;
+
             try
             {
-                await _unitOfWork.ExecuteInTransactionAsync(async () =>
+                // Step 1: Execute cancel logic in transaction
+                var result = await _unitOfWork.ExecuteInTransactionAsync(async () =>
                 {
                     var session = await _unitOfWork.GetRepository<RescueRequestSession>().FirstOrDefaultAsync(
                         predicate: s => s.Id == sessionId,
@@ -737,15 +788,16 @@ namespace SnakeAid.Service.Implements
                         throw new NotFoundException("Session not found.");
                     }
 
+                    // Collect pending requests to cancel
+                    var pendingRequests = session.Requests.Where(r => r.Status == RescueRequestStatus.Pending).ToList();
+
                     // Cancel all pending requests
-                    foreach (var request in session.Requests.Where(r => r.Status == RescueRequestStatus.Pending))
+                    var updateTime = DateTime.UtcNow;
+                    foreach (var request in pendingRequests)
                     {
                         request.Status = RescueRequestStatus.Cancelled;
-                        request.UpdatedAt = DateTime.UtcNow;
+                        request.UpdatedAt = updateTime;
                         _unitOfWork.GetRepository<RescuerRequest>().Update(request);
-
-                        // Notify rescuer
-                        await NotifyRequestCancelledAsync(request.RescuerId.ToString(), request.Id);
                     }
 
                     session.Status = SessionStatus.Cancelled;
@@ -758,8 +810,22 @@ namespace SnakeAid.Service.Implements
 
                     _logger.LogInformation("Session {SessionId} cancelled", sessionId);
 
-                    return session;
+                    return pendingRequests;
                 });
+
+                cancelledRequests = result;
+
+                // Step 2: Send notifications AFTER transaction committed
+                if (cancelledRequests != null && cancelledRequests.Any())
+                {
+                    var notificationTasks = cancelledRequests.Select(request =>
+                        NotifyRequestCancelledAsync(request.RescuerId.ToString(), request.Id)
+                    );
+                    await Task.WhenAll(notificationTasks);
+
+                    _logger.LogInformation("Sent {Count} cancellation notifications for session {SessionId}",
+                        cancelledRequests.Count, sessionId);
+                }
             }
             catch (Exception ex)
             {
@@ -776,9 +842,9 @@ namespace SnakeAid.Service.Implements
         }
 
 
-        /// Expand radius và tạo session mới nếu cần
-        /// Returns: (success, timeoutAt) - timeoutAt is set if new session was created
-        public async Task<(bool success, DateTime? timeoutAt)> TryExpandAndCreateNewSessionAsync(Guid incidentId)
+        /// Expand radius và tạo session mới nếu cần (internal method)
+        /// Returns: (success, timeoutAt, notificationData) - timeoutAt and notificationData are set if new session was created
+        private async Task<(bool success, DateTime? timeoutAt, List<(string userId, RescuerRequest request, RescueRequestSession session)>? notificationData)> TryExpandAndCreateNewSessionAsync(Guid incidentId)
         {
             try
             {
@@ -791,7 +857,7 @@ namespace SnakeAid.Service.Implements
                     // Incident may have been deleted (user cancelled, etc.)
                     _logger.LogWarning("Incident {IncidentId} not found during session expansion - may have been cancelled",
                         incidentId);
-                    return (false, null);
+                    return (false, null, null);
                 }
 
                 // Check if incident is still pending
@@ -799,7 +865,7 @@ namespace SnakeAid.Service.Implements
                 {
                     _logger.LogInformation("Incident {IncidentId} is no longer pending ({Status}), skipping expand",
                         incidentId, incident.Status);
-                    return (false, null);
+                    return (false, null, null);
                 }
 
                 // Check if max sessions reached
@@ -810,7 +876,7 @@ namespace SnakeAid.Service.Implements
 
                     incident.Status = SnakebiteIncidentStatus.NoRescuerFound;
                     _unitOfWork.GetRepository<SnakebiteIncident>().Update(incident);
-                    return (false, null);
+                    return (false, null, null);
                 }
 
                 // Get next radius from progression
@@ -829,13 +895,13 @@ namespace SnakeAid.Service.Implements
                 );
 
                 // Broadcast requests for new session (pass session object - already in transaction)
-                var (broadcastedSession, timeoutAt) = await BroadcastRequestsInternalAsync(newSession);
+                var (broadcastedSession, timeoutAt, notificationData) = await BroadcastRequestsInternalAsync(newSession);
 
                 _logger.LogInformation("Expanded to session {SessionNumber} with radius {RadiusKm}km for incident {IncidentId}, timeout at {TimeoutAt}",
                     nextSessionNumber, nextRadius, incidentId, timeoutAt);
 
-                // Return success and timeout for caller to schedule AFTER transaction commits
-                return (true, timeoutAt);
+                // Return success, timeout, and notification data for caller to process AFTER transaction commits
+                return (true, timeoutAt, notificationData);
             }
             catch (Exception ex)
             {
