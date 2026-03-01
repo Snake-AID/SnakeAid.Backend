@@ -236,5 +236,47 @@ namespace SnakeAid.Service.Implements
                     throw new BadRequestException("Invalid user role for feedback.");
             }
         }
+
+        public async Task<List<UserFeedbackResponse>> GetFeedbacksByTargetUserIdAsync(Guid targetUserId)
+        {
+            try
+            {
+                // Validate target user exists
+                var targetUser = await _unitOfWork.GetRepository<Account>().FirstOrDefaultAsync(
+                    predicate: a => a.Id == targetUserId
+                );
+
+                if (targetUser == null)
+                {
+                    throw new NotFoundException("Target user not found.");
+                }
+
+                // Get all feedbacks for this user
+                var feedbacks = await _unitOfWork.GetRepository<Core.Domains.UserFeedback>().GetListAsync(
+                    predicate: f => f.TargetUserId == targetUserId,
+                    orderBy: query => query.OrderByDescending(f => f.CreatedAt),
+                    include: query => query
+                        .Include(f => f.Rater)
+                        .Include(f => f.TargetUser)
+                );
+
+                var responses = new List<UserFeedbackResponse>();
+
+                foreach (var feedback in feedbacks)
+                {
+                    var response = feedback.Adapt<UserFeedbackResponse>();
+                    response.RaterName = feedback.Rater?.FullName;
+                    response.TargetUserName = feedback.TargetUser?.FullName;
+                    responses.Add(response);
+                }
+
+                return responses;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting feedbacks for target user {TargetUserId}: {Message}", targetUserId, ex.Message);
+                throw;
+            }
+        }
     }
 }

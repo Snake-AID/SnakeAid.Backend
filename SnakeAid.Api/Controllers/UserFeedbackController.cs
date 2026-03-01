@@ -62,5 +62,34 @@ namespace SnakeAid.Api.Controllers
             var result = await _feedbackService.CreateFeedbackAsync(request, raterId);
             return Ok(ApiResponseBuilder.BuildSuccessResponse(result, "Feedback created successfully."));
         }
+
+        /// <summary>
+        /// Lấy tất cả feedback của một user
+        /// </summary>
+        /// <remarks>
+        /// Lấy danh sách tất cả feedback/đánh giá mà một user đã nhận.
+        /// 
+        /// Sắp xếp theo thời gian tạo mới nhất.
+        /// 
+        /// Kết quả bao gồm:
+        /// - Thông tin người đánh giá (Rater)
+        /// - Rating và comment
+        /// - Loại feedback (Emergency/Catching/Consultation)
+        /// - Reference ID liên quan
+        /// </remarks>
+        /// <param name="targetUserId">ID của user cần xem feedback</param>
+        [HttpGet("user/{targetUserId}")]
+        [SwaggerOperation(
+            Summary = "Lấy tất cả feedback của user",
+            Description = "Lấy danh sách feedback mà một user đã nhận"
+        )]
+        [SwaggerResponse(200, "Success", typeof(ApiResponse<List<UserFeedbackResponse>>))]
+        [SwaggerResponse(401, "Unauthorized")]
+        [SwaggerResponse(404, "Target user not found")]
+        public async Task<IActionResult> GetFeedbacksByTargetUserId([FromRoute] Guid targetUserId)
+        {
+            var result = await _feedbackService.GetFeedbacksByTargetUserIdAsync(targetUserId);
+            return Ok(ApiResponseBuilder.BuildSuccessResponse(result, $"Retrieved {result.Count} feedback(s)."));
+        }
     }
 }
