@@ -196,7 +196,7 @@ namespace SnakeAid.Service.Implements
                         envCost = catchingEnvExists.Price;
 
                         mission.CatchingEnvironmentId = request.CatchingEnvironmentId.Value;
-                        mission.CatchingEnvironment = catchingEnvExists; // Set navigation property
+                        mission.CatchingEnvironment = catchingEnvExists; 
                     }
 
                     //Update actual cost if provided
