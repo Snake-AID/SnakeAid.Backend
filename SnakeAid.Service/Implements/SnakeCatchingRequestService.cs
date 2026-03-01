@@ -309,6 +309,27 @@ namespace SnakeAid.Service.Implements
                         throw new BadRequestException("This request has already been assigned to another rescuer.");
                     }
 
+                    // Check for existing aborted mission and delete it before creating new one
+                    // This handles the case when a previous rescuer aborted and another rescuer is now accepting
+                    var existingMission = await _unitOfWork.GetRepository<SnakeCatchingMission>().FirstOrDefaultAsync(
+                        predicate: m => m.SnakeCatchingRequestId == requestId
+                    );
+
+                    if (existingMission != null)
+                    {
+                        if (existingMission.Status == CatchingMissionStatus.MissionAborted)
+                        {
+                            _logger.LogInformation(
+                                "Deleting aborted mission {MissionId} for request {RequestId} before creating new mission",
+                                existingMission.Id, requestId);
+                            _unitOfWork.GetRepository<SnakeCatchingMission>().Delete(existingMission);
+                        }
+                        else
+                        {
+                            throw new BadRequestException($"An active mission already exists for this request with status: {existingMission.Status}");
+                        }
+                    }
+
                     // Update the request with pre-calculated price
                     snakeRequest.AssignedRescuerId = rescuerId;
                     snakeRequest.AssignedAt = DateTime.UtcNow;
@@ -430,8 +451,6 @@ namespace SnakeAid.Service.Implements
                         detail.Price = detail.Quantity * additionalSnakePrice;
                     }
                 }
-
-                
 
                 _logger.LogInformation(
                     "Snake catching request details retrieved successfully. RequestId: {RequestId}",
