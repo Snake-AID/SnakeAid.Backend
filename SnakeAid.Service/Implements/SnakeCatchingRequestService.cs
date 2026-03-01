@@ -143,7 +143,7 @@ namespace SnakeAid.Service.Implements
                                 MediaUrl = mediaUrl,
                                 ContentType = DetermineContentType(mediaUrl),
                                 FileSize = 0, // Will be updated later if needed
-                                Purpose = MediaPurpose.SnakeOthers,
+                                Purpose = MediaPurpose.SnakeIdentification,
                                 UploadBatchId = uploadBatchId,
                                 SequenceOrder = sequenceOrder++,
                                 RequiresAIProcessing = true,
