@@ -21,6 +21,7 @@ namespace SnakeAid.Service.Implements
         private readonly IConfiguration _configuration;
         private readonly ILocationIqService _locationIqService;
         private readonly IPayOsPaymentService _payOsPaymentService;
+        private readonly decimal additionalSnakePrice = 100000;
 
         public SnakeCatchingRequestService(
             IUnitOfWork<SnakeAidDbContext> unitOfWork,
@@ -420,6 +421,11 @@ namespace SnakeAid.Service.Implements
                     {
                         response.DistanceKm = (double)(response.EstimatedPrice.Value / perKmRate);
                     }
+                }
+
+                foreach (var detail in response.Mission.MissionDetails)
+                {
+                    detail.Price = detail.Quantity * additionalSnakePrice;
                 }
 
                 _logger.LogInformation(
