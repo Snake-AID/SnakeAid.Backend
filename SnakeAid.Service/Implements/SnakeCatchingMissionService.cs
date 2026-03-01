@@ -196,10 +196,11 @@ namespace SnakeAid.Service.Implements
                         envCost = catchingEnvExists.Price;
 
                         mission.CatchingEnvironmentId = request.CatchingEnvironmentId.Value;
+                        mission.CatchingEnvironment = catchingEnvExists; // Set navigation property
                     }
 
                     //Update actual cost if provided
-                    var snakeQuantity = mission.MissionDetails?.Sum(d => d.Quantity) - 1;
+                    var snakeQuantity = mission.MissionDetails?.Sum(d => d.Quantity);
                     if (snakeQuantity > 0)
                     {
                         decimal additionalCosts = snakeQuantity.Value * additionalSnakePrice;
@@ -210,7 +211,7 @@ namespace SnakeAid.Service.Implements
                         mission.ActualCost = 0;
                     }
                     
-                    mission.Price = mission.ActualCost.Value;
+                    mission.Price = basePrice;
 
                     // Update mission to MissionCompleted
                     mission.Status = CatchingMissionStatus.MissionCompleted;
