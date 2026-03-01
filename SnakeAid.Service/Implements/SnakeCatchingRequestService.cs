@@ -423,10 +423,15 @@ namespace SnakeAid.Service.Implements
                     }
                 }
 
-                foreach (var detail in response.Mission.MissionDetails)
+                if (response.Mission != null)
                 {
-                    detail.Price = detail.Quantity * additionalSnakePrice;
+                    foreach (var detail in response.Mission.MissionDetails)
+                    {
+                        detail.Price = detail.Quantity * additionalSnakePrice;
+                    }
                 }
+
+                
 
                 _logger.LogInformation(
                     "Snake catching request details retrieved successfully. RequestId: {RequestId}",
