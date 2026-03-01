@@ -139,7 +139,7 @@ public class WalletPaymentService : IWalletPaymentService
                 ReferenceId = request.SnakeCatchingRequestId,
                 Amount = request.Amount, // Positive value, type indicates direction
                 Currency = "VND",
-                TransactionType = TransactionType.WalletWithdraw, // Money leaving user wallet
+                TransactionType = request.TransactionType, // Money leaving user wallet
                 Description = $"{description} - Payment for {request.TransactionType}",
                 PaymentMethod = "Wallet",
                 ExternalTransactionId = $"WALLET-{orderCode}",
