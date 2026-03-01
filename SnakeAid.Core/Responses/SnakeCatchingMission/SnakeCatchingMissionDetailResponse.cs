@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using SnakeAid.Core.Domains;
+using SnakeAid.Core.Responses.CatchingEnvironment;
 using SnakeAid.Core.Responses.Media;
 
 namespace SnakeAid.Core.Responses.SnakeCatchingMission
@@ -19,6 +20,8 @@ namespace SnakeAid.Core.Responses.SnakeCatchingMission
         public string? CancellationReason { get; set; }
         public decimal? EstimatedCost { get; set; }
         public decimal? ActualCost { get; set; }
+        public int? CatchingEnvironmentId { get; set; }
+        public CatchingEnvironmentResponse? CatchingEnvironment { get; set; }
         public DateTime CreatedAt { get; set; }
         public DateTime? UpdatedAt { get; set; }
         public List<CatchingMissionDetailResponse>? MissionDetails { get; set; }

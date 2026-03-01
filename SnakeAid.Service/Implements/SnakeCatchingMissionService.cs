@@ -5,6 +5,7 @@ using SnakeAid.Core.Domains;
 using SnakeAid.Core.Exceptions;
 using SnakeAid.Core.Requests.PayOs;
 using SnakeAid.Core.Requests.SnakeCatchingMission;
+using SnakeAid.Core.Responses.CatchingEnvironment;
 using SnakeAid.Core.Responses.Media;
 using SnakeAid.Core.Responses.SnakeCatchingMission;
 using SnakeAid.Repository.Data;
@@ -153,6 +154,7 @@ namespace SnakeAid.Service.Implements
                         predicate: m => m.Id == missionId && m.RescuerId == rescuerId,
                         include: q => q
                             .Include(m => m.SnakeCatchingRequest)
+                            .Include(m => m.CatchingEnvironment)
                             .Include(m => m.MissionDetails)
                             .ThenInclude(d => d.SnakeSpecies));
 
@@ -177,10 +179,37 @@ namespace SnakeAid.Service.Implements
                         throw new BadRequestException("Cannot complete mission. SnakeCatchingMission must have at least one evidence media.");
                     }
 
+                    // Update catching environment if provided
+                    decimal envCost = 0;
+
+                    if (request.CatchingEnvironmentId.HasValue)
+                    {
+                        // Validate catching environment exists
+                        var catchingEnvExists = await _unitOfWork.GetRepository<CatchingEnvironment>()
+                            .FirstOrDefaultAsync(predicate: ce => ce.Id == request.CatchingEnvironmentId.Value);
+
+                        if (catchingEnvExists == null)
+                        {
+                            throw new NotFoundException($"Catching environment with ID {request.CatchingEnvironmentId.Value} not found.");
+                        }
+
+                        envCost = catchingEnvExists.Price;
+
+                        mission.CatchingEnvironmentId = request.CatchingEnvironmentId.Value;
+                    }
+
                     //Update actual cost if provided
                     var snakeQuantity = mission.MissionDetails?.Sum(d => d.Quantity) - 1;
-                    decimal additionalCosts = snakeQuantity > 0 ? snakeQuantity.Value * additionalSnakePrice : 0;
-                    mission.ActualCost = basePrice + additionalCosts;
+                    if (snakeQuantity > 0)
+                    {
+                        decimal additionalCosts = snakeQuantity.Value * additionalSnakePrice;
+                        mission.ActualCost = basePrice + additionalCosts + envCost;
+                    }
+                    else
+                    {
+                        mission.ActualCost = 0;
+                    }
+                    
                     mission.Price = mission.ActualCost.Value;
 
                     // Update mission to MissionCompleted
@@ -190,6 +219,8 @@ namespace SnakeAid.Service.Implements
                     {
                         mission.Notes = request.Notes;
                     }
+                    
+                    
 
                     // Update mission first
                     _unitOfWork.GetRepository<SnakeCatchingMission>().Update(mission);
@@ -213,6 +244,12 @@ namespace SnakeAid.Service.Implements
                     await mission.AttachReportMediaAsync(_unitOfWork, MediaReferenceType.SnakeCatchingMission);
                     // Map to response with mission details
                     var response = mission.Adapt<SnakeCatchingMissionDetailResponse>();
+
+                    // Map catching environment if any
+                    if (mission.CatchingEnvironment != null)
+                    {
+                        response.CatchingEnvironment = mission.CatchingEnvironment.Adapt<CatchingEnvironmentResponse>();
+                    }
 
                     // Map mission details if any
                     if (mission.MissionDetails != null && mission.MissionDetails.Any())
