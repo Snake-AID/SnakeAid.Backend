@@ -11,6 +11,7 @@ using SnakeAid.Repository.Data;
 using SnakeAid.Repository.Interfaces;
 using SnakeAid.Service.Interfaces;
 using SnakeAid.Service.Extensions;
+using SnakeAid.Core.Responses.UserFeedback;
 
 namespace SnakeAid.Service.Implements
 {
@@ -449,6 +450,29 @@ namespace SnakeAid.Service.Implements
                     foreach (var detail in response.Mission.MissionDetails)
                     {
                         detail.Price = detail.Quantity * additionalSnakePrice;
+                    }
+                }
+
+                // Load feedbacks for assigned rescuer if exists
+                if (request.AssignedRescuerId.HasValue)
+                {
+                    var feedbacks = await _unitOfWork.GetRepository<UserFeedback>().GetListAsync(
+                        predicate: f => f.TargetUserId == request.AssignedRescuerId.Value,
+                        include: query => query
+                            .Include(f => f.Rater)
+                            .Include(f => f.TargetUser),
+                        orderBy: q => q.OrderByDescending(f => f.CreatedAt)
+                    );
+
+                    if (feedbacks != null && feedbacks.Any())
+                    {
+                        foreach (var feedback in feedbacks)
+                        {
+                            var feedbackResponse = feedback.Adapt<UserFeedbackResponse>();
+                            feedbackResponse.RaterName = feedback.Rater?.FullName;
+                            feedbackResponse.TargetUserName = feedback.TargetUser?.FullName;
+                            response.Feedbacks.Add(feedbackResponse);
+                        }
                     }
                 }
 
