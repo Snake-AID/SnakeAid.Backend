@@ -350,6 +350,8 @@ namespace SnakeAid.Service.Implements
 
             try
             {
+                Guid? incidentIdToNotify = null;
+
                 // Step 1: Abort mission in transaction
                 await _unitOfWork.ExecuteInTransactionAsync(async () =>
                 {
@@ -398,9 +400,18 @@ namespace SnakeAid.Service.Implements
 
                     _logger.LogInformation("Updated incident {IncidentId} to Pending status in transaction", incident.Id);
 
+                    // PUSH NOTIFICATION: Notify Member about rescuer abort (before new session starts)
+                    await _notificationService.NotifyMissionCancelledAsync(incident.Id, reason);
+
                     incidentId = incident.Id;
                     return mission;
                 });
+
+                // PUSH NOTIFICATION: Notify Member about rescuer abort (OUTSIDE TRANSACTION)
+                if (incidentIdToNotify.HasValue)
+                {
+                    await _notificationService.NotifyMissionCancelledAsync(incidentIdToNotify.Value, reason);
+                }
 
                 _unitOfWork.ClearChangeTracker();
 

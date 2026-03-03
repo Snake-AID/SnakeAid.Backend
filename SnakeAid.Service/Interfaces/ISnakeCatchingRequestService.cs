@@ -18,5 +18,7 @@ namespace SnakeAid.Service.Interfaces
 
         Task<List<ListSnakeCatchingRequestResponse>> GetAllRequestAsync();
 
+        Task<DetailSnakeCatchingRequestResponse> CancelSnakeCatchingRequestAsync(Guid userId, Guid requestId, CancelSnakeCatchingRequestRequest request);
+
     }
 }

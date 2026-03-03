@@ -45,9 +45,12 @@ namespace SnakeAid.Core.Domains
         [Column(TypeName = "numeric(18,2)")]
         public decimal? ActualCost { get; set; }
 
+        public int? CatchingEnvironmentId { get; set; }
+
         // Navigation properties
         public RescuerProfile Rescuer { get; set; }
         public SnakeCatchingRequest SnakeCatchingRequest { get; set; }
+        public CatchingEnvironment? CatchingEnvironment { get; set; }
         public ICollection<ReportMedia> Media { get; set; } = new List<ReportMedia>();
         public ICollection<CatchingMissionDetail> MissionDetails { get; set; } = new List<CatchingMissionDetail>();
     }

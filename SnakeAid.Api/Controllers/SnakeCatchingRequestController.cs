@@ -119,5 +119,38 @@ namespace SnakeAid.Api.Controllers
                 result,
                 "Snake catching request details retrieved successfully."));
         }
+
+        /// <summary>
+        /// Cancel a snake catching request
+        /// </summary>
+        /// <param name="requestId">The ID of the snake catching request to cancel</param>
+        [HttpPatch("cancel/{requestId:guid}")]
+        [SwaggerOperation(
+            Summary = "Cancel Snake Catching Request",
+            Description = "Cancel a snake catching request. Rules: " +
+                "1) If status is Pending, it will be cancelled directly. " +
+                "2) If status is Assigned and mission is Preparing, both request and mission will be cancelled. " +
+                "3) If mission is EnRoute, cancellation is not allowed. " +
+                "Note: No refund will be processed automatically.")]
+        [SwaggerResponse(200, "Request cancelled successfully", typeof(ApiResponse<DetailSnakeCatchingRequestResponse>))]
+        [SwaggerResponse(400, "Invalid request (cannot cancel in current status)")]
+        [SwaggerResponse(401, "User not authenticated")]
+        [SwaggerResponse(403, "User is not authorized to cancel this request")]
+        [SwaggerResponse(404, "Request not found")]
+        [ProducesResponseType(typeof(ApiResponse<DetailSnakeCatchingRequestResponse>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> CancelSnakeCatchingRequest(
+            [FromRoute] Guid requestId, 
+            [FromBody] CancelSnakeCatchingRequestRequest request)
+        {
+            var userId = GetCurrentUserId();
+
+            var result = await _snakeCatchingRequestService.CancelSnakeCatchingRequestAsync(userId, requestId, request);
+            
+            return Ok(ApiResponseBuilder.BuildSuccessResponse(
+                result,
+                "Snake catching request cancelled successfully."));
+        }
     }
 }

@@ -4,6 +4,7 @@ using SnakeAid.Core.Responses.Media;
 using SnakeAid.Core.Responses.MemberProfile;
 using SnakeAid.Core.Responses.RescuerProfile;
 using SnakeAid.Core.Responses.SnakeCatchingMission;
+using SnakeAid.Core.Responses.UserFeedback;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
@@ -63,5 +64,6 @@ namespace SnakeAid.Core.Responses.SnakeCatchingRequest
         public SnakeCatchingMissionDetailResponse? Mission { get; set; }
         public List<ReportMediaResponse> Media { get; set; } = new List<ReportMediaResponse>();
         public List<CatchingRequestDetailResponse> Details { get; set; } = new List<CatchingRequestDetailResponse>();
+        public List<UserFeedbackResponse> Feedbacks { get; set; } = new List<UserFeedbackResponse>();
     }
 }

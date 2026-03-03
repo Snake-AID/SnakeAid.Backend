@@ -10,5 +10,6 @@ namespace SnakeAid.Service.Interfaces
         Task<SnakeCatchingMissionDetailResponse> StartMissionAsync(Guid rescuerId, Guid missionId, UpdateMissionStatusRequest request);
         Task<SnakeCatchingMissionDetailResponse> MarkAsArrivedAsync(Guid rescuerId, Guid missionId, UpdateMissionStatusRequest request);
         Task<SnakeCatchingMissionDetailResponse> CompleteMissionAsync(Guid rescuerId, Guid missionId, UpdateMissionStatusRequest request);
+        Task<SnakeCatchingMissionDetailResponse> AbortMissionAsync(Guid rescuerId, Guid missionId, AbortSnakeCatchingMissionRequest request);
     }
 }

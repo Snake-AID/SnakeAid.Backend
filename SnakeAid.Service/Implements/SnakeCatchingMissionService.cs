@@ -3,7 +3,9 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using SnakeAid.Core.Domains;
 using SnakeAid.Core.Exceptions;
+using SnakeAid.Core.Requests.PayOs;
 using SnakeAid.Core.Requests.SnakeCatchingMission;
+using SnakeAid.Core.Responses.CatchingEnvironment;
 using SnakeAid.Core.Responses.Media;
 using SnakeAid.Core.Responses.SnakeCatchingMission;
 using SnakeAid.Repository.Data;
@@ -21,16 +23,19 @@ namespace SnakeAid.Service.Implements
     {
         private readonly IUnitOfWork<SnakeAidDbContext> _unitOfWork;
         private readonly ILogger<SnakeCatchingMissionService> _logger;
+        private readonly IPayOsPaymentService _payOsPaymentService;
 
         private readonly decimal basePrice = 500000;
         private readonly decimal additionalSnakePrice = 100000;
 
         public SnakeCatchingMissionService(
             IUnitOfWork<SnakeAidDbContext> unitOfWork,
-            ILogger<SnakeCatchingMissionService> logger)
+            ILogger<SnakeCatchingMissionService> logger,
+            IPayOsPaymentService payOsPaymentService)
         {
             _unitOfWork = unitOfWork;
             _logger = logger;
+            _payOsPaymentService = payOsPaymentService;
         }
 
         public async Task<SnakeCatchingMissionDetailResponse> StartMissionAsync(
@@ -149,6 +154,7 @@ namespace SnakeAid.Service.Implements
                         predicate: m => m.Id == missionId && m.RescuerId == rescuerId,
                         include: q => q
                             .Include(m => m.SnakeCatchingRequest)
+                            .Include(m => m.CatchingEnvironment)
                             .Include(m => m.MissionDetails)
                             .ThenInclude(d => d.SnakeSpecies));
 
@@ -173,11 +179,39 @@ namespace SnakeAid.Service.Implements
                         throw new BadRequestException("Cannot complete mission. SnakeCatchingMission must have at least one evidence media.");
                     }
 
+                    // Update catching environment if provided
+                    decimal envCost = 0;
+
+                    if (request.CatchingEnvironmentId.HasValue)
+                    {
+                        // Validate catching environment exists
+                        var catchingEnvExists = await _unitOfWork.GetRepository<CatchingEnvironment>()
+                            .FirstOrDefaultAsync(predicate: ce => ce.Id == request.CatchingEnvironmentId.Value);
+
+                        if (catchingEnvExists == null)
+                        {
+                            throw new NotFoundException($"Catching environment with ID {request.CatchingEnvironmentId.Value} not found.");
+                        }
+
+                        envCost = catchingEnvExists.Price;
+
+                        mission.CatchingEnvironmentId = request.CatchingEnvironmentId.Value;
+                        mission.CatchingEnvironment = catchingEnvExists; 
+                    }
+
                     //Update actual cost if provided
-                    var snakeQuantity = mission.MissionDetails?.Sum(d => d.Quantity) - 1;
-                    decimal additionalCosts = snakeQuantity > 0 ? snakeQuantity.Value * additionalSnakePrice : 0;
-                    mission.ActualCost = basePrice + additionalCosts;
-                    mission.Price = mission.ActualCost.Value;
+                    var snakeQuantity = mission.MissionDetails?.Sum(d => d.Quantity);
+                    if (snakeQuantity > 0)
+                    {
+                        decimal additionalCosts = snakeQuantity.Value * additionalSnakePrice;
+                        mission.ActualCost = basePrice + additionalCosts + envCost;
+                    }
+                    else
+                    {
+                        mission.ActualCost = 0;
+                    }
+                    
+                    mission.Price = basePrice;
 
                     // Update mission to MissionCompleted
                     mission.Status = CatchingMissionStatus.MissionCompleted;
@@ -186,6 +220,8 @@ namespace SnakeAid.Service.Implements
                     {
                         mission.Notes = request.Notes;
                     }
+                    
+                    
 
                     // Update mission first
                     _unitOfWork.GetRepository<SnakeCatchingMission>().Update(mission);
@@ -210,6 +246,12 @@ namespace SnakeAid.Service.Implements
                     // Map to response with mission details
                     var response = mission.Adapt<SnakeCatchingMissionDetailResponse>();
 
+                    // Map catching environment if any
+                    if (mission.CatchingEnvironment != null)
+                    {
+                        response.CatchingEnvironment = mission.CatchingEnvironment.Adapt<CatchingEnvironmentResponse>();
+                    }
+
                     // Map mission details if any
                     if (mission.MissionDetails != null && mission.MissionDetails.Any())
                     {
@@ -232,6 +274,133 @@ namespace SnakeAid.Service.Implements
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error completing mission: {Message}", ex.Message);
+                throw;
+            }
+        }
+
+        public async Task<SnakeCatchingMissionDetailResponse> AbortMissionAsync(
+            Guid rescuerId,
+            Guid missionId,
+            AbortSnakeCatchingMissionRequest request)
+        {
+            try
+            {
+                return await _unitOfWork.ExecuteInTransactionAsync(async () =>
+                {
+                    // Get mission with related request
+                    var mission = await _unitOfWork.GetRepository<SnakeCatchingMission>().FirstOrDefaultAsync(
+                        predicate: m => m.Id == missionId && m.RescuerId == rescuerId,
+                        include: q => q.Include(m => m.SnakeCatchingRequest));
+
+                    if (mission == null)
+                    {
+                        throw new NotFoundException("Mission not found or you don't have permission to access it.");
+                    }
+
+                    // Validate current status - only allow abort from Preparing or EnRoute
+                    if (mission.Status != CatchingMissionStatus.Preparing && mission.Status != CatchingMissionStatus.EnRoute)
+                    {
+                        throw new BadRequestException($"Cannot abort mission. Current status: {mission.Status}. Mission can only be aborted from Preparing or EnRoute status.");
+                    }
+
+                    // Update mission to MissionAborted
+                    mission.Status = CatchingMissionStatus.MissionAborted;
+                    mission.CancellationReason = request.Reason;
+                    _unitOfWork.GetRepository<SnakeCatchingMission>().Update(mission);
+
+                    // Reset SnakeCatchingRequest to Pending status
+                    var catchingRequest = await _unitOfWork.GetRepository<SnakeCatchingRequest>()
+                        .FirstOrDefaultAsync(predicate: r => r.Id == mission.SnakeCatchingRequestId);
+
+                    if (catchingRequest != null)
+                    {
+                        catchingRequest.Status = RequestStatus.Pending;
+                        catchingRequest.AssignedRescuerId = null;
+                        catchingRequest.AssignedAt = null;
+                        catchingRequest.Mission = null;
+                        _unitOfWork.GetRepository<SnakeCatchingRequest>().Update(catchingRequest);
+
+                        _logger.LogInformation(
+                            "Snake catching request reset to Pending. RequestId: {RequestId}",
+                            catchingRequest.Id);
+                    }
+
+                    await _unitOfWork.CommitAsync();
+
+                    _logger.LogInformation(
+                        "Mission aborted successfully. MissionId: {MissionId}, RescuerId: {RescuerId}, RequestId: {RequestId}, Reason: {Reason}",
+                        missionId, rescuerId, mission.SnakeCatchingRequestId, request.Reason);
+
+                    // Check for paid transactions and process refund (OUTSIDE the transaction)
+                    var paidTransactions = await _unitOfWork.GetRepository<Transaction>().GetListAsync(
+                        predicate: t => t.ReferenceId == mission.SnakeCatchingRequestId &&
+                                       t.ExternalTransactionId != null &&
+                                       (t.TransactionType == TransactionType.CatchingPayment ||
+                                        t.TransactionType == TransactionType.CatchingDeposit),
+                        asNoTracking: true,
+                        cancellationToken: default);
+
+                    if (paidTransactions != null && paidTransactions.Any())
+                    {
+                        var totalRefundAmount = paidTransactions.Sum(t => t.Amount);
+                        var userId = catchingRequest?.UserId ?? mission.SnakeCatchingRequest?.UserId;
+
+                        if (userId.HasValue)
+                        {
+                            _logger.LogInformation(
+                                "Found {Count} paid transaction(s) for mission {MissionId}. Total refund amount: {Amount}",
+                                paidTransactions.Count(), missionId, totalRefundAmount);
+
+                            try
+                            {
+                                // Process refund to user wallet
+                                var refundRequest = new RefundTransactionRequest
+                                {
+                                    ReceiverId = userId.Value,
+                                    ReferenceId = mission.SnakeCatchingRequestId,
+                                    Amount = totalRefundAmount,
+                                    Description = $"Refund for aborted mission {missionId}: {request.Reason}",
+                                    TransactionType = TransactionType.CatchingRefund
+                                };
+
+                                var refundResponse = await _payOsPaymentService.RefundTransactionAsync(
+                                    refundRequest,
+                                    cancellationToken: default);
+
+                                _logger.LogInformation(
+                                    "Refund processed successfully for mission {MissionId}. RefundAmount: {Amount}, RefundTransactionId: {TransactionId}",
+                                    missionId, refundResponse.RefundAmount, refundResponse.RefundTransactionId);
+                            }
+                            catch (Exception refundEx)
+                            {
+                                // Log error but don't fail the abort operation
+                                _logger.LogError(refundEx,
+                                    "Failed to process refund for mission {MissionId}. User may need manual refund.",
+                                    missionId);
+                            }
+                        }
+                        else
+                        {
+                            _logger.LogWarning(
+                                "Cannot process refund for mission {MissionId}. UserId not found.",
+                                missionId);
+                        }
+                    }
+                    else
+                    {
+                        _logger.LogInformation(
+                            "No paid transactions found for mission {MissionId}. No refund needed.",
+                            missionId);
+                    }
+
+                    await mission.AttachReportMediaAsync(_unitOfWork, MediaReferenceType.SnakeCatchingMission);
+                    var response = mission.Adapt<SnakeCatchingMissionDetailResponse>();
+                    return response;
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error aborting mission: {Message}", ex.Message);
                 throw;
             }
         }

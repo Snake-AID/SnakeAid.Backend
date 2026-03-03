@@ -5,11 +5,13 @@ using Microsoft.Extensions.Logging;
 using SnakeAid.Core.Domains;
 using SnakeAid.Core.Exceptions;
 using SnakeAid.Core.Requests.SnakeCatchingRequest;
+using SnakeAid.Core.Requests.PayOs;
 using SnakeAid.Core.Responses.SnakeCatchingRequest;
 using SnakeAid.Repository.Data;
 using SnakeAid.Repository.Interfaces;
 using SnakeAid.Service.Interfaces;
 using SnakeAid.Service.Extensions;
+using SnakeAid.Core.Responses.UserFeedback;
 
 namespace SnakeAid.Service.Implements
 {
@@ -19,17 +21,21 @@ namespace SnakeAid.Service.Implements
         private readonly ILogger<SnakeCatchingRequestService> _logger;
         private readonly IConfiguration _configuration;
         private readonly ILocationIqService _locationIqService;
+        private readonly IPayOsPaymentService _payOsPaymentService;
+        private readonly decimal additionalSnakePrice = 100000;
 
         public SnakeCatchingRequestService(
             IUnitOfWork<SnakeAidDbContext> unitOfWork,
             ILogger<SnakeCatchingRequestService> logger,
             IConfiguration configuration,
-            ILocationIqService locationIqService)
+            ILocationIqService locationIqService,
+            IPayOsPaymentService payOsPaymentService)
         {
             _unitOfWork = unitOfWork;
             _logger = logger;
             _configuration = configuration;
             _locationIqService = locationIqService;
+            _payOsPaymentService = payOsPaymentService;
         }
 
         public async Task<CreateSnakeCatchingRequestResponse> CreateSnakeCatchingRequestAsync(
@@ -138,7 +144,7 @@ namespace SnakeAid.Service.Implements
                                 MediaUrl = mediaUrl,
                                 ContentType = DetermineContentType(mediaUrl),
                                 FileSize = 0, // Will be updated later if needed
-                                Purpose = MediaPurpose.SnakeOthers,
+                                Purpose = MediaPurpose.SnakeIdentification,
                                 UploadBatchId = uploadBatchId,
                                 SequenceOrder = sequenceOrder++,
                                 RequiresAIProcessing = true,
@@ -304,6 +310,27 @@ namespace SnakeAid.Service.Implements
                         throw new BadRequestException("This request has already been assigned to another rescuer.");
                     }
 
+                    // Check for existing aborted mission and delete it before creating new one
+                    // This handles the case when a previous rescuer aborted and another rescuer is now accepting
+                    var existingMission = await _unitOfWork.GetRepository<SnakeCatchingMission>().FirstOrDefaultAsync(
+                        predicate: m => m.SnakeCatchingRequestId == requestId
+                    );
+
+                    if (existingMission != null)
+                    {
+                        if (existingMission.Status == CatchingMissionStatus.MissionAborted)
+                        {
+                            _logger.LogInformation(
+                                "Deleting aborted mission {MissionId} for request {RequestId} before creating new mission",
+                                existingMission.Id, requestId);
+                            _unitOfWork.GetRepository<SnakeCatchingMission>().Delete(existingMission);
+                        }
+                        else
+                        {
+                            throw new BadRequestException($"An active mission already exists for this request with status: {existingMission.Status}");
+                        }
+                    }
+
                     // Update the request with pre-calculated price
                     snakeRequest.AssignedRescuerId = rescuerId;
                     snakeRequest.AssignedAt = DateTime.UtcNow;
@@ -334,6 +361,10 @@ namespace SnakeAid.Service.Implements
                             .Include(r => r.AssignedRescuer)
                                 .ThenInclude(ar => ar.Account)
                             .Include(r => r.Mission)
+                                .ThenInclude(m => m.CatchingEnvironment)
+                            .Include(r => r.Mission)
+                                .ThenInclude(m => m.MissionDetails)
+                                    .ThenInclude(md => md.SnakeSpecies)
                             .Include(r => r.Details)
                                 .ThenInclude(d => d.SnakeSpecies)
                     );
@@ -382,6 +413,8 @@ namespace SnakeAid.Service.Implements
                         .Include(r => r.AssignedRescuer)
                             .ThenInclude(ar => ar.Account)
                         .Include(r => r.Mission)
+                            .ThenInclude(m => m.CatchingEnvironment)
+                        .Include(r => r.Mission)
                             .ThenInclude(m => m.MissionDetails)
                                 .ThenInclude(md => md.SnakeSpecies)
                         .Include(r => r.Details)
@@ -409,6 +442,37 @@ namespace SnakeAid.Service.Implements
                     if (perKmRate > 0)
                     {
                         response.DistanceKm = (double)(response.EstimatedPrice.Value / perKmRate);
+                    }
+                }
+
+                if (response.Mission != null)
+                {
+                    foreach (var detail in response.Mission.MissionDetails)
+                    {
+                        detail.Price = detail.Quantity * additionalSnakePrice;
+                    }
+                }
+
+                // Load feedbacks for assigned rescuer if exists
+                if (request.AssignedRescuerId.HasValue)
+                {
+                    var feedbacks = await _unitOfWork.GetRepository<UserFeedback>().GetListAsync(
+                        predicate: f => f.TargetUserId == request.AssignedRescuerId.Value,
+                        include: query => query
+                            .Include(f => f.Rater)
+                            .Include(f => f.TargetUser),
+                        orderBy: q => q.OrderByDescending(f => f.CreatedAt)
+                    );
+
+                    if (feedbacks != null && feedbacks.Any())
+                    {
+                        foreach (var feedback in feedbacks)
+                        {
+                            var feedbackResponse = feedback.Adapt<UserFeedbackResponse>();
+                            feedbackResponse.RaterName = feedback.Rater?.FullName;
+                            feedbackResponse.TargetUserName = feedback.TargetUser?.FullName;
+                            response.Feedbacks.Add(feedbackResponse);
+                        }
                     }
                 }
 
@@ -454,6 +518,153 @@ namespace SnakeAid.Service.Implements
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error getting all snake catching requests: {Message}", ex.Message);
+                throw;
+            }
+        }
+
+        public async Task<DetailSnakeCatchingRequestResponse> CancelSnakeCatchingRequestAsync(
+            Guid userId,
+            Guid requestId,
+            CancelSnakeCatchingRequestRequest request)
+        {
+            try
+            {
+                if (request == null || string.IsNullOrWhiteSpace(request.Reason))
+                {
+                    throw new BadRequestException("Cancellation reason is required.");
+                }
+
+                return await _unitOfWork.ExecuteInTransactionAsync(async () =>
+                {
+                    // Get the snake catching request with mission
+                    var snakeCatchingRequest = await _unitOfWork.GetRepository<SnakeCatchingRequest>().FirstOrDefaultAsync(
+                        predicate: r => r.Id == requestId,
+                        include: query => query.Include(r => r.Mission)
+                    );
+
+                    if (snakeCatchingRequest == null)
+                    {
+                        throw new NotFoundException($"Snake catching request with ID {requestId} not found.");
+                    }
+
+                    // Validate that the user is the owner of the request
+                    if (snakeCatchingRequest.UserId != userId)
+                    {
+                        throw new BadRequestException("You are not authorized to cancel this request.");
+                    }
+
+                    // Handle cancellation based on current status
+                    if (snakeCatchingRequest.Status == RequestStatus.Pending)
+                    {
+                        // If status is Pending, simply change to Cancelled
+                        snakeCatchingRequest.Status = RequestStatus.Cancelled;
+                        snakeCatchingRequest.CancellationReason = request.Reason;
+                        
+                        _unitOfWork.GetRepository<SnakeCatchingRequest>().Update(snakeCatchingRequest);
+                        
+                        _logger.LogInformation(
+                            "Snake catching request {RequestId} cancelled from Pending status.",
+                            requestId);
+                    }
+                    else if (snakeCatchingRequest.Status == RequestStatus.Assigned)
+                    {
+                        // If status is Assigned, check the mission status
+                        if (snakeCatchingRequest.Mission == null)
+                        {
+                            throw new BadRequestException("Mission not found for this assigned request.");
+                        }
+
+                        if (snakeCatchingRequest.Mission.Status == CatchingMissionStatus.Preparing)
+                        {
+                            // If mission status is Preparing, allow cancellation
+                            snakeCatchingRequest.Status = RequestStatus.Cancelled;
+                            snakeCatchingRequest.CancellationReason = request.Reason;
+                            
+                            // Update mission status to Cancelled
+                            snakeCatchingRequest.Mission.Status = CatchingMissionStatus.Cancelled;
+                            snakeCatchingRequest.Mission.CancellationReason = request.Reason;
+                            
+                            _unitOfWork.GetRepository<SnakeCatchingRequest>().Update(snakeCatchingRequest);
+                            _unitOfWork.GetRepository<SnakeCatchingMission>().Update(snakeCatchingRequest.Mission);
+                            
+                            _logger.LogInformation(
+                                "Snake catching request {RequestId} and mission {MissionId} cancelled from Assigned/Preparing status.",
+                                requestId, snakeCatchingRequest.Mission.Id);
+                        }
+                        else if (snakeCatchingRequest.Mission.Status == CatchingMissionStatus.EnRoute)
+                        {
+                            // If mission status is EnRoute, do not allow cancellation
+                            throw new BadRequestException("Cannot cancel request. The rescuer is already on the way (En Route).");
+                        }
+                        else
+                        {
+                            // Other mission statuses (Arrived, Completed, etc.)
+                            throw new BadRequestException($"Cannot cancel request. Mission status is {snakeCatchingRequest.Mission.Status}.");
+                        }
+                    }
+                    else
+                    {
+                        // Other request statuses (Finished, Paid, Completed, Cancelled, etc.)
+                        throw new BadRequestException($"Cannot cancel request with status {snakeCatchingRequest.Status}.");
+                    }
+
+                    await _unitOfWork.CommitAsync();
+
+                    _logger.LogInformation(
+                        "Snake catching request {RequestId} cancelled. Status updated to Cancelled.",
+                        requestId);
+
+                    // Reload the request with all navigation properties for response
+                    var updatedRequest = await _unitOfWork.GetRepository<SnakeCatchingRequest>().FirstOrDefaultAsync(
+                        predicate: r => r.Id == requestId,
+                        include: query => query
+                            .Include(r => r.User)
+                                .ThenInclude(u => u.Account)
+                            .Include(r => r.AssignedRescuer)
+                                .ThenInclude(ar => ar.Account)
+                            .Include(r => r.Mission)
+                                .ThenInclude(m => m.CatchingEnvironment)
+                            .Include(r => r.Mission)
+                                .ThenInclude(m => m.MissionDetails)
+                                    .ThenInclude(md => md.SnakeSpecies)
+                            .Include(r => r.Details)
+                                .ThenInclude(d => d.SnakeSpecies)
+                    );
+
+                    if (updatedRequest == null)
+                    {
+                        throw new Exception("Failed to retrieve updated request.");
+                    }
+
+                    // Attach media for request
+                    await updatedRequest.AttachReportMediaAsync(_unitOfWork, MediaReferenceType.SnakeCatchingRequest);
+                    
+                    // Attach media for mission if exists
+                    if (updatedRequest.Mission != null)
+                    {
+                        await updatedRequest.Mission.AttachReportMediaAsync(_unitOfWork, MediaReferenceType.SnakeCatchingMission);
+                    }
+
+                    var response = updatedRequest.Adapt<DetailSnakeCatchingRequestResponse>();
+                    if (response.EstimatedPrice.HasValue)
+                    {
+                        var perKmRate = _configuration.GetValue<decimal>("LocationIq:PricePerKilometer");
+                        if (perKmRate > 0)
+                        {
+                            response.DistanceKm = (double)(response.EstimatedPrice.Value / perKmRate);
+                        }
+                    }
+
+                    _logger.LogInformation(
+                        "Snake catching request cancelled successfully. RequestId: {RequestId}, UserId: {UserId}, Reason: {Reason}",
+                        requestId, userId, request.Reason);
+
+                    return response;
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error cancelling snake catching request: {Message}", ex.Message);
                 throw;
             }
         }

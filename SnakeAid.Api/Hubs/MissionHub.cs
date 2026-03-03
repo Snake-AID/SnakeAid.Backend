@@ -41,7 +41,7 @@ namespace SnakeAid.Api.Hubs
             var userIdString = Context.UserIdentifier;
             if (string.IsNullOrEmpty(userIdString) || !Guid.TryParse(userIdString, out var userId))
             {
-                _logger.LogWarning("Connection rejected: Unauthenticated user.");
+                _logger.LogWarning("Connection rejected: Unauthenticated user or invalid UserIdentifier. Value: '{UserIdentifier}'", userIdString ?? "NULL");
                 Context.Abort();
                 return;
             }
@@ -70,6 +70,7 @@ namespace SnakeAid.Api.Hubs
                 return;
             }
 
+            Context.Items["IncidentId"] = incidentId;
             await Groups.AddToGroupAsync(Context.ConnectionId, incidentId.ToString());
 
             var userRole = isMember ? "Member" : "Rescuer";

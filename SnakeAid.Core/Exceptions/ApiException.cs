@@ -59,6 +59,18 @@ public class ExternalServiceException : ApiException
     }
 }
 
+public class SignalRNotificationException : ApiException
+{
+    public SignalRNotificationException(string reason, Exception? innerException = null)
+        : base(reason, HttpStatusCode.InternalServerError)
+    {
+        if (innerException != null)
+        {
+            Data["InnerException"] = innerException.Message;
+        }
+    }
+}
+
 public class ValidationException : ApiException
 {
     public List<string> Errors { get; }
