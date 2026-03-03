@@ -5,6 +5,7 @@ namespace SnakeAid.Service.Interfaces
 {
     public interface IMissionNotificationService
     {
+        Task NotifyRescuerAcceptedAsync(Guid incidentId, object rescuerInfo);
         Task NotifyMissionStartedAsync(Guid incidentId, object missionInfo);
         Task NotifyRescuerArrivedAsync(Guid incidentId);
         Task NotifyMissionCompletedAsync(Guid incidentId, object result);

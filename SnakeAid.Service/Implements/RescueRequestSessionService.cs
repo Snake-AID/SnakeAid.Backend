@@ -732,6 +732,20 @@ namespace SnakeAid.Service.Implements
                 otherRequestsToNotify = otherRequests.ToList();
 
                 // Step 2: Send notifications AFTER transaction committed
+
+                // 2a. Notify member that rescuer has accepted (via MissionHub group)
+                await _missionNotificationService.NotifyRescuerAcceptedAsync(acceptResponse.IncidentId, new
+                {
+                    MissionId = acceptResponse.MissionId,
+                    RescuerId = acceptResponse.RescuerId,
+                    AcceptedAt = acceptResponse.AcceptedAt,
+                    Message = "A rescuer has accepted your SOS request! Preparing for rescue..."
+                });
+
+                _logger.LogInformation("Sent 'RescuerAccepted' notification to member via MissionHub for incident {IncidentId}",
+                    acceptResponse.IncidentId);
+
+                // 2b. Notify other rescuers that request was taken
                 if (otherRequestsToNotify != null && otherRequestsToNotify.Any())
                 {
                     var notificationTasks = otherRequestsToNotify.Select(otherRequest =>
