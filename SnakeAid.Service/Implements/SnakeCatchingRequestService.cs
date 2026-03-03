@@ -4,14 +4,15 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using SnakeAid.Core.Domains;
 using SnakeAid.Core.Exceptions;
-using SnakeAid.Core.Requests.SnakeCatchingRequest;
 using SnakeAid.Core.Requests.PayOs;
+using SnakeAid.Core.Requests.SnakeCatchingRequest;
 using SnakeAid.Core.Responses.SnakeCatchingRequest;
+using SnakeAid.Core.Responses.SnakeDetection;
+using SnakeAid.Core.Responses.UserFeedback;
 using SnakeAid.Repository.Data;
 using SnakeAid.Repository.Interfaces;
-using SnakeAid.Service.Interfaces;
 using SnakeAid.Service.Extensions;
-using SnakeAid.Core.Responses.UserFeedback;
+using SnakeAid.Service.Interfaces;
 
 namespace SnakeAid.Service.Implements
 {
@@ -22,6 +23,7 @@ namespace SnakeAid.Service.Implements
         private readonly IConfiguration _configuration;
         private readonly ILocationIqService _locationIqService;
         private readonly IPayOsPaymentService _payOsPaymentService;
+        private readonly ISnakeAIService _snakeAIService;
         private readonly decimal additionalSnakePrice = 100000;
 
         public SnakeCatchingRequestService(
@@ -29,13 +31,15 @@ namespace SnakeAid.Service.Implements
             ILogger<SnakeCatchingRequestService> logger,
             IConfiguration configuration,
             ILocationIqService locationIqService,
-            IPayOsPaymentService payOsPaymentService)
+            IPayOsPaymentService payOsPaymentService,
+            ISnakeAIService snakeAIService)
         {
             _unitOfWork = unitOfWork;
             _logger = logger;
             _configuration = configuration;
             _locationIqService = locationIqService;
             _payOsPaymentService = payOsPaymentService;
+            _snakeAIService = snakeAIService;
         }
 
         public async Task<CreateSnakeCatchingRequestResponse> CreateSnakeCatchingRequestAsync(
@@ -119,41 +123,52 @@ namespace SnakeAid.Service.Implements
                         }
                     }
 
+                    var aiResults = new List<SnakeDetectionResponse>();
+
                     // Handle media if provided
-                    if (request.MediaURLList != null && request.MediaURLList.Any())
+                    if (request.MediaIdList != null && request.MediaIdList.Any())
                     {
-                        var uploadBatchId = Guid.NewGuid();
-                        var sequenceOrder = 0;
-
-                        foreach (var mediaUrl in request.MediaURLList)
+                        foreach (var mediaId in request.MediaIdList)
                         {
-                            if (string.IsNullOrWhiteSpace(mediaUrl))
+                            var existingMedia = await _unitOfWork.GetRepository<ReportMedia>().FirstOrDefaultAsync(
+                                predicate: m => m.Id.ToString() == mediaId);
+
+                            if (existingMedia == null)
+                                throw new BadRequestException($"Media with ID {mediaId} not found.");
+
+                            existingMedia.ReferenceId = newRequest.Id;
+
+                            _unitOfWork.GetRepository<ReportMedia>().Update(existingMedia);
+
+                            if (existingMedia.Purpose == MediaPurpose.SnakeIdentification)
                             {
-                                continue; // Skip empty URLs
+                                // If media is for snake identification, call SnakeAIService to identify species
+                                try
+                                {
+                                    var identifiedSpecies = await _snakeAIService.DetectFromReportMediaAsync(existingMedia.Id);
+                                    if (identifiedSpecies != null)
+                                    {
+                                        _logger.LogInformation(
+                                            "Snake species identified by AI for media {MediaId}: {SpeciesName}",
+                                            existingMedia.Id, identifiedSpecies.Results.First().Snake.CommonName);
+                                        aiResults.Add(identifiedSpecies);
+                                    }
+                                    else
+                                    {
+                                        _logger.LogWarning(
+                                            "Snake AI service could not identify species for media {MediaId}",
+                                            existingMedia.Id);
+                                    }
+                                }
+                                catch (ExternalServiceException ex)
+                                {
+                                    _logger.LogError(ex, "Error calling Snake AI service for media {MediaId}: {Message}", existingMedia.Id, ex.Message);
+                                }
                             }
-
-                            // Extract filename from URL or generate one
-                            var filename = ExtractFilenameFromUrl(mediaUrl) ?? $"snake_catching_media_{DateTime.UtcNow:yyyyMMddHHmmss}_{sequenceOrder}";
-
-                            var media = new ReportMedia
-                            {
-                                Id = Guid.NewGuid(),
-                                ReferenceId = newRequest.Id,
-                                ReferenceType = MediaReferenceType.SnakeCatchingRequest,
-                                FileName = filename,
-                                MediaUrl = mediaUrl,
-                                ContentType = DetermineContentType(mediaUrl),
-                                FileSize = 0, // Will be updated later if needed
-                                Purpose = MediaPurpose.SnakeIdentification,
-                                UploadBatchId = uploadBatchId,
-                                SequenceOrder = sequenceOrder++,
-                                RequiresAIProcessing = true,
-                                IsProcessed = false
-                            };
-
-                            await _unitOfWork.GetRepository<ReportMedia>().InsertAsync(media);
                         }
                     }
+
+
 
                     // Save the request
                     await _unitOfWork.GetRepository<SnakeCatchingRequest>().InsertAsync(newRequest);
@@ -176,6 +191,10 @@ namespace SnakeAid.Service.Implements
                     await createdRequest.AttachReportMediaAsync(_unitOfWork, MediaReferenceType.SnakeCatchingRequest);
 
                     var response = createdRequest.Adapt<CreateSnakeCatchingRequestResponse>();
+                    
+                    // Add AI detection results to response
+                    response.AIResults = aiResults;
+                    
                     if (response.EstimatedPrice.HasValue)
                     {
                         var perKmRate = _configuration.GetValue<decimal>("LocationIq:PricePerKilometer");
@@ -435,7 +454,61 @@ namespace SnakeAid.Service.Implements
                     await request.Mission.AttachReportMediaAsync(_unitOfWork, MediaReferenceType.SnakeCatchingMission);
                 }
 
+                // Load AI recognition results for media with SnakeIdentification purpose
+                var aiResults = new List<SnakeDetectionResponse>();
+                var identificationMedia = await _unitOfWork.GetRepository<ReportMedia>().GetListAsync(
+                    predicate: m => m.ReferenceId == requestId && 
+                                   m.ReferenceType == MediaReferenceType.SnakeCatchingRequest &&
+                                   m.Purpose == MediaPurpose.SnakeIdentification,
+                    include: query => query
+                        .Include(m => m.AIRecognitionResults)
+                            .ThenInclude(r => r.AIModel)
+                        .Include(m => m.AIRecognitionResults)
+                            .ThenInclude(r => r.DetectedSpecies)
+                                .ThenInclude(s => s.SpeciesVenoms)
+                                    .ThenInclude(sv => sv.VenomType)
+                                        .ThenInclude(v => v.FirstAidGuideline)
+                );
+
+                // Build responses from completed recognition results
+                foreach (var media in identificationMedia)
+                {
+                    foreach (var recognitionResult in media.AIRecognitionResults.Where(r => r.Status == RecognitionStatus.Completed))
+                    {
+                        // Build SnakeDetectionResponse from loaded data
+                        var detectionResponse = new SnakeDetectionResponse
+                        {
+                            Metadata = new AiMetadata
+                            {
+                                ModelVersion = recognitionResult.AIModel?.Version,
+                                ImageWidth = 0,
+                                ImageHeight = 0,
+                                DetectionCount = 1,
+                                Warnings = null
+                            },
+                            RecognitionResultId = recognitionResult.Id,
+                            Results = new List<DetectionResult>
+                            {
+                                new DetectionResult
+                                {
+                                    Ai = new AiDetection
+                                    {
+                                        ClassId = 0,
+                                        ClassName = recognitionResult.YoloClassName,
+                                        Confidence = (float)recognitionResult.Confidence,
+                                        BBox = new SnakeBBox()
+                                    },
+                                    Snake = recognitionResult.DetectedSpecies
+                                }
+                            }
+                        };
+
+                        aiResults.Add(detectionResponse);
+                    }
+                }
+
                 var response = request.Adapt<DetailSnakeCatchingRequestResponse>();
+                response.AIResults = aiResults;
                 if (response.EstimatedPrice.HasValue)
                 {
                     var perKmRate = _configuration.GetValue<decimal>("LocationIq:PricePerKilometer");
