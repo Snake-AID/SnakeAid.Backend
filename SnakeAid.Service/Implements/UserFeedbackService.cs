@@ -70,18 +70,20 @@ namespace SnakeAid.Service.Implements
                     // Validate reference based on type
                     await ValidateReferenceAsync(request.ReferenceId, request.Type);
 
-                    // Check if feedback already exists for this reference
-                    var existingFeedback = await _unitOfWork.GetRepository<Core.Domains.UserFeedback>().FirstOrDefaultAsync(
-                        predicate: f => f.RaterId == raterId && f.ReferenceId == request.ReferenceId
+                    // Check if feedback already exists for this specific combination (rater -> target in this request)
+                    var existingFeedback = await _unitOfWork.GetRepository<UserFeedback>().FirstOrDefaultAsync(
+                        predicate: f => f.RaterId == raterId && 
+                                       f.ReferenceId == request.ReferenceId && 
+                                       f.TargetUserId == request.TargetUserId
                     );
 
                     if (existingFeedback != null)
                     {
-                        throw new BadRequestException("You have already submitted feedback for this request.");
+                        throw new BadRequestException("You have already submitted feedback for this user in this request.");
                     }
 
                     // Create new feedback
-                    var newFeedback = new Core.Domains.UserFeedback
+                    var newFeedback = new UserFeedback
                     {
                         Id = Guid.NewGuid(),
                         RaterId = raterId,
@@ -94,7 +96,7 @@ namespace SnakeAid.Service.Implements
                         UpdatedAt = DateTime.UtcNow
                     };
 
-                    await _unitOfWork.GetRepository<Core.Domains.UserFeedback>().InsertAsync(newFeedback);
+                    await _unitOfWork.GetRepository<UserFeedback>().InsertAsync(newFeedback);
 
                     // Update target user's rating based on role
                     var (updatedRating, updatedCount) = await UpdateUserRatingAsync(
