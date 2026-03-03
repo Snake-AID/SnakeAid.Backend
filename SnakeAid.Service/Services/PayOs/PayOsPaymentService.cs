@@ -107,8 +107,39 @@ public class PayOsPaymentService : IPayOsPaymentService
 
             if (existingTransaction != null)
             {
-                throw new InvalidOperationException(
-                    $"Payment transaction already exists for request {request.SnakeCatchingRequestId}");
+                // If transaction already has ExternalTransactionId, it means payment was completed
+                if (!string.IsNullOrEmpty(existingTransaction.ExternalTransactionId))
+                {
+                    throw new InvalidOperationException(
+                        $"Payment already completed for request {request.SnakeCatchingRequestId}");
+                }
+
+                // If no ExternalTransactionId, payment was not completed - allow retry
+                _logger.LogInformation("{Prefix} Found pending unpaid transaction {TransactionId}. Cancelling old payment link and allowing retry.", 
+                    LogPrefix, existingTransaction.Id);
+
+                // Try to cancel old payment link on PayOS
+                try
+                {
+                    var oldOrderCode = ExtractOrderCodeFromDescription(existingTransaction.Description);
+                    if (oldOrderCode > 0)
+                    {
+                        _logger.LogInformation("{Prefix} Cancelling old PayOS payment link with orderCode {OrderCode}", 
+                            LogPrefix, oldOrderCode);
+                        await _payOsClient.CancelPaymentLinkAsync(oldOrderCode, "Creating new payment link for retry", cancellationToken);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    // If cancel fails (e.g., link already expired), just log and continue
+                    _logger.LogWarning(ex, "{Prefix} Failed to cancel old payment link, continuing with new payment creation", LogPrefix);
+                }
+
+                // Delete old transaction to allow creating new one
+                _unitOfWork.GetRepository<Transaction>().Delete(existingTransaction);
+                await _unitOfWork.CommitAsync();
+                
+                _logger.LogInformation("{Prefix} Deleted old pending transaction, allowing new payment creation", LogPrefix);
             }
 
             // Generate orderCode

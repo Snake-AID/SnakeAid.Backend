@@ -286,6 +286,19 @@ Nếu không thể test webhook, sử dụng manual confirm endpoint với `tran
 - Verify `SnakeCatchingRequest` status = `Assigned` hoặc `Finished`
 - Check sender và receiver users exist
 
+### Payment bị kẹt / Không thể thanh toán lại
+**Vấn đề:** User tạo payment link nhưng không thanh toán (đóng trình duyệt, hết thời gian chờ, etc.), khi thử tạo lại payment thì bị lỗi "Payment transaction already exists".
+
+**Giải pháp:** Hệ thống đã được cập nhật để tự động xử lý:
+1. Kiểm tra transaction cũ có `ExternalTransactionId` chưa
+2. Nếu chưa có (chưa thanh toán), tự động:
+   - Cancel payment link cũ trên PayOS
+   - Xóa transaction cũ
+   - Cho phép tạo payment link mới
+3. Nếu đã có (đã thanh toán), báo lỗi để tránh duplicate payment
+
+**Lưu ý:** User có thể tạo payment link mới bất cứ lúc nào nếu payment trước chưa hoàn thành.
+
 ### Webhook không được gọi
 - Verify `WebhookConfirmUrl` accessible từ internet (dùng ngrok cho local)
 - Check PayOS dashboard cho webhook logs
