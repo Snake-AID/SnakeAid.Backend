@@ -30,6 +30,14 @@ namespace SnakeAid.Repository.Data.Configurations
             builder.HasIndex(m => m.SnakeCatchingRequestId)
                 .IsUnique()
                 .HasDatabaseName("IX_SnakeCatchingMissions_RequestId");
+
+            builder.HasOne(m => m.CatchingEnvironment)
+                .WithMany(e => e.SnakeCatchingMissions)
+                .HasForeignKey(m => m.CatchingEnvironmentId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            builder.HasIndex(m => m.CatchingEnvironmentId)
+                .HasDatabaseName("IX_SnakeCatchingMissions_CatchingEnvironmentId");
         }
     }
 }

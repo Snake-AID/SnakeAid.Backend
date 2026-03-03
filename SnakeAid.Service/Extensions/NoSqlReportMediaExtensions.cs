@@ -31,11 +31,12 @@ namespace SnakeAid.Service.Extensions
 
             // Single query to fetch all media for the given entities
             var allMedia = await unitOfWork.GetRepository<ReportMedia>()
-                .GetListAsync(predicate: m => entityIds.Contains(m.ReferenceId) && m.ReferenceType == referenceType);
+                .GetListAsync(predicate: m => m.ReferenceId.HasValue && entityIds.Contains(m.ReferenceId.Value) && m.ReferenceType == referenceType);
 
             // Group media by ReferenceId for O(1) in-memory lookup
             var mediaByReferenceId = allMedia
-                .GroupBy(m => m.ReferenceId)
+                .Where(m => m.ReferenceId.HasValue)
+                .GroupBy(m => m.ReferenceId!.Value)
                 .ToDictionary(g => g.Key, g => (ICollection<ReportMedia>)g.ToList());
 
             // Attach media to the original entities

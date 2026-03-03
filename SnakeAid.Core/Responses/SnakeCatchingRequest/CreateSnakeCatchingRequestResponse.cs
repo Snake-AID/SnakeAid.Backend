@@ -48,6 +48,8 @@ namespace SnakeAid.Core.Responses.SnakeCatchingRequest
 
         public Guid? AssignedRescuerId { get; set; }
 
+        public double? DistanceKm { get; set; } 
+
         public decimal? EstimatedPrice { get; set; }
 
         public string? CancellationReason { get; set; }

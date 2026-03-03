@@ -25,5 +25,7 @@ namespace SnakeAid.Core.Domains
         [Required]
         [StringLength(5)]
         public string Currency { get; set; }
+
+        public ICollection<SnakeCatchingMission> SnakeCatchingMissions { get; set; } = new List<SnakeCatchingMission>();
     }
 }

@@ -1,0 +1,301 @@
+@page "/admin/otps"
+@model SnakeAid.Api.Pages.Admin.Otps.IndexModel
+@{
+    ViewData["Title"] = "OTP Control | Admin Portal";
+}
+
+@section Styles {
+    <style>
+        /* OTP-SPECIFIC STYLES */
+        .otp-container {
+            background: var(--bg-panel);
+            backdrop-filter: blur(var(--glass-blur));
+            border: 1px solid var(--border-glass);
+            border-radius: 24px;
+            overflow: hidden;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        }
+
+        .modern-table {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: fixed;
+        }
+
+        .modern-table th {
+            padding: 24px;
+            text-align: left;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: var(--text-muted);
+            border-bottom: 1px solid var(--border-glass);
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .modern-table tr {
+            transition: all 0.2s ease;
+        }
+
+        .modern-table tr:not(.detail-row):hover {
+            background: rgba(255, 255, 255, 0.03);
+            cursor: pointer;
+        }
+
+        .modern-table td {
+            padding: 20px 24px;
+            border-bottom: 1px solid var(--border-glass);
+            vertical-align: middle;
+        }
+
+        .otp-code {
+            font-family: var(--font-mono);
+            font-size: 1.2rem;
+            font-weight: 700;
+            letter-spacing: 2px;
+            color: var(--accent-blue);
+            background: rgba(59, 130, 246, 0.1);
+            padding: 4px 12px;
+            border-radius: 8px;
+            border: 1px solid rgba(59, 130, 246, 0.2);
+        }
+
+        .user-info {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .user-name {
+            font-weight: 600;
+            color: #fff;
+            font-size: 1rem;
+        }
+
+        .user-email {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
+        /* STATUS BADGES */
+        .status-pill {
+            padding: 6px 14px;
+            border-radius: 99px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .status-active {
+            background: rgba(16, 185, 129, 0.1);
+            color: var(--accent-green);
+            border: 1px solid rgba(16, 185, 129, 0.2);
+        }
+
+        .status-expired {
+            background: rgba(244, 63, 94, 0.1);
+            color: var(--accent-red);
+            border: 1px solid rgba(244, 63, 94, 0.2);
+        }
+
+        .attempt-badge {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 32px;
+            height: 32px;
+            border-radius: 10px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-glass);
+            font-family: var(--font-mono);
+            font-weight: 700;
+        }
+
+        .role-tag {
+            font-size: 0.7rem;
+            font-weight: 800;
+            padding: 2px 8px;
+            border-radius: 4px;
+            text-transform: uppercase;
+            margin-right: 6px;
+        }
+
+        .role-admin { background: var(--accent-purple); color: #fff; }
+        .role-expert { background: var(--accent-gold); color: #fff; }
+        .role-rescuer { background: var(--accent-blue); color: #fff; }
+        .role-user { background: rgba(255,255,255,0.1); color: var(--text-muted); }
+
+        /* DETAIL VIEW */
+        .detail-row {
+            display: none;
+            background: rgba(0, 0, 0, 0.2);
+        }
+
+        .detail-row.is-active {
+            display: table-row;
+        }
+
+        .detail-content {
+            padding: 30px 50px;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @@keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-5px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .security-audit-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-glass);
+            border-radius: 20px;
+            padding: 24px;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 24px;
+        }
+
+        .audit-item h4 {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 12px;
+        }
+
+        .audit-value {
+            font-size: 1rem;
+            font-weight: 600;
+            color: #fff;
+        }
+
+        .text-center { text-align: center; }
+    </style>
+}
+
+<div class="page-header">
+    <div class="header-title-group">
+        <h1>OTP Control Hub</h1>
+        <p>Debug and security monitoring for the authentication ecosystem</p>
+    </div>
+    <div class="header-actions">
+        <div class="stat-badge">
+            <span class="stat-value">@Model.Otps.Count</span>
+            <span class="stat-label">Active Threshold</span>
+        </div>
+        <div class="stat-badge">
+            <span class="stat-value" style="color: var(--accent-blue)">MOD</span>
+            <span class="stat-label">Security Tier</span>
+        </div>
+    </div>
+</div>
+
+<div class="otp-container">
+    <table class="modern-table">
+        <thead>
+            <tr>
+                <th style="width: 15%">OTP Code</th>
+                <th style="width: 25%">Owner</th>
+                <th style="width: 15%">Account Role</th>
+                <th style="width: 15%">Security Status</th>
+                <th class="text-center" style="width: 10%">Attempts</th>
+                <th style="width: 20%">Expiration</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var o in Model.Otps)
+            {
+                var isExpired = o.ExpirationTime < DateTime.UtcNow;
+                var roleClass = "role-" + o.User?.Role.ToString().ToLower();
+                
+                <tr id="row-@o.Id" onclick="toggleOtp('@o.Id')">
+                    <td>
+                        <span class="otp-code">@o.OtpCode</span>
+                    </td>
+                    <td>
+                        <div class="user-info">
+                            <span class="user-name">@(o.User?.FullName ?? "Unknown")</span>
+                            <span class="user-email">@o.Email</span>
+                        </div>
+                    </td>
+                    <td>
+                        <span class="role-tag @roleClass">@(o.User?.Role.ToString() ?? "N/A")</span>
+                        @if (o.User != null && !o.User.IsActive) {
+                            <i class="bi bi-person-slash text-danger" title="Account Inactive"></i>
+                        }
+                    </td>
+                    <td>
+                        @if (isExpired) {
+                            <span class="status-pill status-expired">
+                                <i class="bi bi-clock-history"></i> Expired
+                            </span>
+                        } else if (o.AttemptLeft <= 0) {
+                            <span class="status-pill status-expired">
+                                <i class="bi bi-exclamation-octagon"></i> Locked
+                            </span>
+                        } else {
+                            <span class="status-pill status-active">
+                                <i class="bi bi-check2-circle"></i> Active
+                            </span>
+                        }
+                    </td>
+                    <td class="text-center">
+                        <div class="attempt-badge" style="color: @(o.AttemptLeft == 0 ? "var(--accent-red)" : "inherit")">
+                            @o.AttemptLeft
+                        </div>
+                    </td>
+                    <td>
+                        <span style="font-size: 0.9rem; @(isExpired ? "color: var(--accent-red)" : "color: var(--text-muted)")">
+                            @o.ExpirationTime.ToString("dd/MM HH:mm:ss")
+                        </span>
+                    </td>
+                </tr>
+                <tr id="detail-@o.Id" class="detail-row">
+                    <td colspan="6">
+                        <div class="detail-content">
+                            <div class="security-audit-card">
+                                <div class="audit-item">
+                                    <h4><i class="bi bi-fingerprint"></i> System ID</h4>
+                                    <div class="audit-value">@o.Id</div>
+                                </div>
+                                <div class="audit-item">
+                                    <h4><i class="bi bi-shield-lock"></i> Account Status</h4>
+                                    <div class="audit-value">
+                                        @(o.User?.IsActive == true ? "Operational" : "Deactivated / Suspended")
+                                    </div>
+                                </div>
+                                <div class="audit-item">
+                                    <h4><i class="bi bi-envelope-at"></i> Target Delivery</h4>
+                                    <div class="audit-value">@o.Email</div>
+                                </div>
+                            </div>
+                        </div>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>
+
+@section Scripts {
+    <script>
+        function toggleOtp(id) {
+            const detailRow = document.getElementById(`detail-${id}`);
+            const mainRow = document.getElementById(`row-${id}`);
+            const isActive = detailRow.classList.contains('is-active');
+            
+            // Close all others
+            document.querySelectorAll('.detail-row').forEach(r => r.classList.remove('is-active'));
+            document.querySelectorAll('.modern-table tr').forEach(r => r.classList.remove('expanded'));
+            
+            if (!isActive) {
+                detailRow.classList.add('is-active');
+                mainRow.classList.add('expanded');
+            }
+        }
+    </script>
+}

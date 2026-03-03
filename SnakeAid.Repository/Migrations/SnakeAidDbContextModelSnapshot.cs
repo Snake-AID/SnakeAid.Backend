@@ -1304,7 +1304,7 @@ namespace SnakeAid.Repository.Migrations
                     b.Property<int>("Purpose")
                         .HasColumnType("integer");
 
-                    b.Property<Guid>("ReferenceId")
+                    b.Property<Guid?>("ReferenceId")
                         .HasColumnType("uuid");
 
                     b.Property<int>("ReferenceType")
@@ -1783,6 +1783,9 @@ namespace SnakeAid.Repository.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)");
 
+                    b.Property<int?>("CatchingEnvironmentId")
+                        .HasColumnType("integer");
+
                     b.Property<DateTime?>("CompletedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -1815,6 +1818,9 @@ namespace SnakeAid.Repository.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("CatchingEnvironmentId")
+                        .HasDatabaseName("IX_SnakeCatchingMissions_CatchingEnvironmentId");
 
                     b.HasIndex("RescuerId")
                         .HasDatabaseName("IX_SnakeCatchingMissions_RescuerId");
@@ -3157,6 +3163,11 @@ namespace SnakeAid.Repository.Migrations
 
             modelBuilder.Entity("SnakeAid.Core.Domains.SnakeCatchingMission", b =>
                 {
+                    b.HasOne("SnakeAid.Core.Domains.CatchingEnvironment", "CatchingEnvironment")
+                        .WithMany("SnakeCatchingMissions")
+                        .HasForeignKey("CatchingEnvironmentId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("SnakeAid.Core.Domains.RescuerProfile", "Rescuer")
                         .WithMany("CatchingMissions")
                         .HasForeignKey("RescuerId")
@@ -3168,6 +3179,8 @@ namespace SnakeAid.Repository.Migrations
                         .HasForeignKey("SnakeAid.Core.Domains.SnakeCatchingMission", "SnakeCatchingRequestId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.Navigation("CatchingEnvironment");
 
                     b.Navigation("Rescuer");
 
@@ -3372,6 +3385,11 @@ namespace SnakeAid.Repository.Migrations
             modelBuilder.Entity("SnakeAid.Core.Domains.Antivenom", b =>
                 {
                     b.Navigation("SpeciesAntivenoms");
+                });
+
+            modelBuilder.Entity("SnakeAid.Core.Domains.CatchingEnvironment", b =>
+                {
+                    b.Navigation("SnakeCatchingMissions");
                 });
 
             modelBuilder.Entity("SnakeAid.Core.Domains.ExpertProfile", b =>

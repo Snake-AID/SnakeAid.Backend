@@ -63,20 +63,37 @@ namespace SnakeAid.Api
                     if (hasSerilogConfig)
                     {
                         loggerConfiguration.ReadFrom.Configuration(context.Configuration);
+                        loggerConfiguration.MinimumLevel.Override("Microsoft.Hosting.Lifetime", Serilog.Events.LogEventLevel.Information);
                     }
                     else
                     {
                         loggerConfiguration
                             .Enrich.FromLogContext()
-                            .WriteTo.Console();
+                            .WriteTo.Console()
+                            .MinimumLevel.Override("Microsoft.Hosting.Lifetime", Serilog.Events.LogEventLevel.Information);
                     }
 
                     loggerConfiguration.ReadFrom.Services(services);
                 });
 
+                var connectionString = builder.Configuration.GetConnectionString("SupabaseConnection");
+
+                // Fix for Supabase MaxClientsInSessionMode error
+                // Redirect to Transaction pooling mode port (6543) and disable prepared statements
+                if (!string.IsNullOrEmpty(connectionString) && connectionString.Contains("pooler.supabase.com"))
+                {
+                    var npgsqlBuilder = new Npgsql.NpgsqlConnectionStringBuilder(connectionString);
+                    if (npgsqlBuilder.Port == 5432)
+                    {
+                        npgsqlBuilder.Port = 6543;
+                    }
+                    npgsqlBuilder.MaxAutoPrepare = 0;
+                    connectionString = npgsqlBuilder.ConnectionString;
+                }
+
                 builder.Services.AddDbContext<SnakeAidDbContext>(options =>
                 {
-                    options.UseNpgsql(builder.Configuration.GetConnectionString("SupabaseConnection"),
+                    options.UseNpgsql(connectionString,
                         sqlOptions =>
                         {
                             sqlOptions.UseNetTopologySuite();
@@ -89,7 +106,7 @@ namespace SnakeAid.Api
 
                 // Add IUnitOfWork and UnitOfWork
                 builder.Services.AddScoped<SnakeAid.Repository.Interfaces.IUnitOfWork<SnakeAidDbContext>, SnakeAid.Repository.Implements.UnitOfWork<SnakeAidDbContext>>();
-                
+
                 // Also register base IUnitOfWork interface for services that don't need generic version
                 builder.Services.AddScoped<SnakeAid.Repository.Interfaces.IUnitOfWork>(provider =>
                     provider.GetRequiredService<SnakeAid.Repository.Interfaces.IUnitOfWork<SnakeAidDbContext>>());
@@ -325,6 +342,8 @@ namespace SnakeAid.Api
                 app.MapHub<TestChatHub>("/chat-hub").RequireCors("SignalRCorsPolicy");
 
                 app.MapHub<RescuerHub>("/rescuer-hub").RequireCors("SignalRCorsPolicy");
+
+                app.MapHub<MissionHub>("/mission-hub").RequireCors("SignalRCorsPolicy");
 
                 // Map Razor pages
                 app.MapRazorPages();

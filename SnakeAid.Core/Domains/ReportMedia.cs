@@ -10,7 +10,7 @@ namespace SnakeAid.Core.Domains
         public Guid Id { get; set; }
 
         // Reference to parent entity
-        public Guid ReferenceId { get; set; }  // ID của entity cha
+        public Guid? ReferenceId { get; set; }  // ID của entity cha
         public MediaReferenceType ReferenceType { get; set; }
 
         // Media info

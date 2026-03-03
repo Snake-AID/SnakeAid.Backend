@@ -17,6 +17,5 @@ public class UploadReportMediaRequest
     /// <summary>
     /// ID of the parent entity (IncidentId, ReportId, etc.)
     /// </summary>
-    [Required]
-    public Guid ReferenceId { get; set; }
+    public Guid? ReferenceId { get; set; }
 }

@@ -22,16 +22,20 @@ namespace SnakeAid.Service.Implements
         private const decimal DEFAULT_RESCUE_PRICE = 500000m;
 
 
+        private readonly IMissionNotificationService _notificationService;
+
         public RescueMissionService(
             IUnitOfWork<SnakeAidDbContext> unitOfWork,
             ILogger<RescueMissionService> logger,
             IConfiguration configuration,
-            IRescueRequestSessionService sessionService)
+            IRescueRequestSessionService sessionService,
+            IMissionNotificationService notificationService)
         {
             _unitOfWork = unitOfWork;
             _logger = logger;
             _configuration = configuration;
             _sessionService = sessionService;
+            _notificationService = notificationService;
         }
 
         /// <summary>
@@ -115,12 +119,22 @@ namespace SnakeAid.Service.Implements
         }
 
         /// <summary>
-        /// Update mission status (e.g., EnRoute, Arrived, Completed)
+        /// Update mission status (e.g., EnRoute, Arrived)
+        /// For completion, use CompleteMissionAsync instead
         /// </summary>
         public async Task UpdateMissionStatusAsync(Guid missionId, RescueMissionStatus status)
         {
+            // Don't allow direct completion via this method - use CompleteMissionAsync
+            // if (status == RescueMissionStatus.MissionCompleted)
+            // {
+            //     throw new BadRequestException("Use CompleteMissionAsync to complete mission with evidence photos.");
+            // }
+
             try
             {
+                Guid? incidentIdToNotify = null;
+                RescueMissionStatus? statusToNotify = null;
+
                 await _unitOfWork.ExecuteInTransactionAsync(async () =>
                 {
                     var mission = await _unitOfWork.GetRepository<RescueMission>().FirstOrDefaultAsync(
@@ -150,26 +164,32 @@ namespace SnakeAid.Service.Implements
                         case RescueMissionStatus.RescuerArrived:
                             mission.ArrivedAt = DateTime.UtcNow;
                             break;
-                        case RescueMissionStatus.MissionCompleted:
-                            mission.CompletedAt = DateTime.UtcNow;
-                            // Update incident status to Finished
-                            var incident = await _unitOfWork.GetRepository<SnakebiteIncident>().FirstOrDefaultAsync(
-                                predicate: i => i.Id == mission.IncidentId
-                            );
-                            if (incident != null)
-                            {
-                                incident.Status = SnakebiteIncidentStatus.Finished;
-                                _unitOfWork.GetRepository<SnakebiteIncident>().Update(incident);
-                            }
-                            break;
                     }
 
                     _unitOfWork.GetRepository<RescueMission>().Update(mission);
                     await _unitOfWork.CommitAsync();
 
                     _logger.LogInformation("Updated mission {MissionId} status to {Status}", missionId, status);
+
+                    // Capture intent for notification outside transaction
+                    incidentIdToNotify = mission.IncidentId;
+                    statusToNotify = status;
+
                     return mission;
                 });
+
+                // PUSH NOTIFICATION: Notify participants about status change (OUTSIDE TRANSACTION)
+                if (incidentIdToNotify.HasValue && statusToNotify.HasValue)
+                {
+                    if (statusToNotify.Value == RescueMissionStatus.RescuerArrived)
+                    {
+                        await _notificationService.NotifyRescuerArrivedAsync(incidentIdToNotify.Value);
+                    }
+                    else if (statusToNotify.Value == RescueMissionStatus.EnRoute)
+                    {
+                        await _notificationService.NotifyMissionStartedAsync(incidentIdToNotify.Value, new { status = statusToNotify.Value.ToString() });
+                    }
+                }
             }
             catch (Exception ex)
             {
@@ -178,12 +198,117 @@ namespace SnakeAid.Service.Implements
             }
         }
 
+        /// <summary>
+        /// Complete mission with evidence photos validation
+        /// </summary>
+        public async Task CompleteMissionAsync(Guid missionId, List<Guid> evidenceMediaIds, string? completionNotes)
+        {
+            try
+            {
+                Guid? incidentIdToNotify = null;
+
+                await _unitOfWork.ExecuteInTransactionAsync(async () =>
+                {
+                    // 1. Get mission
+                    var mission = await _unitOfWork.GetRepository<RescueMission>().FirstOrDefaultAsync(
+                        predicate: m => m.Id == missionId
+                    );
+
+                    if (mission == null)
+                    {
+                        throw new NotFoundException("Mission not found.");
+                    }
+
+                    // 2. Validate status transition
+                    if (!IsValidStatusTransition(mission.Status, RescueMissionStatus.MissionCompleted))
+                    {
+                        throw new BadRequestException($"Cannot complete mission with status: {mission.Status}. Mission must be in RescuerArrived status.");
+                    }
+
+                    // 3. Validate evidence media
+                    if (evidenceMediaIds == null || !evidenceMediaIds.Any())
+                    {
+                        throw new BadRequestException("At least one evidence photo is required to complete the mission.");
+                    }
+
+                    var reportMediaRepo = _unitOfWork.GetRepository<ReportMedia>();
+                    var evidenceMedia = await reportMediaRepo.GetListAsync(
+                        predicate: m => evidenceMediaIds.Contains(m.Id),
+                        asNoTracking: false
+                    );
+
+                    if (evidenceMedia.Count != evidenceMediaIds.Count)
+                    {
+                        throw new BadRequestException("One or more evidence media not found.");
+                    }
+
+                    // 4. Validate all media belong to this mission and are Evidence type
+                    var invalidMedia = evidenceMedia.Where(m =>
+                        m.ReferenceId != missionId ||
+                        m.ReferenceType != MediaReferenceType.RescueMission ||
+                        m.Purpose != MediaPurpose.Evidence
+                    ).ToList();
+
+                    if (invalidMedia.Any())
+                    {
+                        var invalidIds = string.Join(", ", invalidMedia.Select(m => m.Id));
+                        throw new BadRequestException($"Invalid evidence media: {invalidIds}. All media must belong to this mission and have Purpose=Evidence.");
+                    }
+
+                    // 6. Update mission
+                    mission.Status = RescueMissionStatus.MissionCompleted;
+                    mission.CompletedAt = DateTime.UtcNow;
+                    mission.UpdatedAt = DateTime.UtcNow;
+                    mission.Notes = completionNotes;
+
+                    // 7. Update incident status to Finished
+                    var incident = await _unitOfWork.GetRepository<SnakebiteIncident>().FirstOrDefaultAsync(
+                        predicate: i => i.Id == mission.IncidentId
+                    );
+
+                    if (incident != null)
+                    {
+                        incident.Status = SnakebiteIncidentStatus.Finished;
+                        _unitOfWork.GetRepository<SnakebiteIncident>().Update(incident);
+                    }
+
+                    _unitOfWork.GetRepository<RescueMission>().Update(mission);
+                    await _unitOfWork.CommitAsync();
+
+                    _logger.LogInformation(
+                        "Completed mission {MissionId} with {EvidenceCount} evidence photos. Notes: {Notes}",
+                        missionId, evidenceMediaIds.Count, completionNotes ?? "None");
+
+                    // Capture intent for notification outside transaction
+                    incidentIdToNotify = mission.IncidentId;
+
+                    return mission;
+                });
+
+                // PUSH NOTIFICATION: Notify Member that mission is completed (OUTSIDE TRANSACTION)
+                if (incidentIdToNotify.HasValue)
+                {
+                    await _notificationService.NotifyMissionCompletedAsync(incidentIdToNotify.Value, new { missionId = missionId });
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error completing mission {MissionId}: {Message}", missionId, ex.Message);
+                throw;
+            }
+        }
+
+        /// <summary>
         /// User cancel mission: Set status to Cancelled, no new session
-        /// Only allowed before rescuer updates to EnRoute status
+        /// Only allowed during Preparing phase (before rescuer starts moving)
+        /// </summary>
         public async Task UserCancelMissionAsync(Guid missionId, string reason)
         {
             try
             {
+                Guid? incidentIdToNotify = null;
+                string? reasonToNotify = null;
+
                 await _unitOfWork.ExecuteInTransactionAsync(async () =>
                 {
                     var mission = await _unitOfWork.GetRepository<RescueMission>().FirstOrDefaultAsync(
@@ -196,8 +321,8 @@ namespace SnakeAid.Service.Implements
                         throw new NotFoundException("Mission not found.");
                     }
 
-                    // User can only cancel before rescuer goes EnRoute
-                    if (mission.Status != RescueMissionStatus.Preparing)
+                    // Validate status transition using centralized method
+                    if (!IsValidStatusTransition(mission.Status, RescueMissionStatus.Cancelled))
                     {
                         throw new BadRequestException($"User cannot cancel mission with status: {mission.Status}. Only allowed during Preparing phase.");
                     }
@@ -218,10 +343,18 @@ namespace SnakeAid.Service.Implements
 
                     _logger.LogInformation("User cancelled mission {MissionId} with reason: {Reason}", missionId, reason);
 
-                    // No new session created - user wants to end the incident
+                    // Capture intent for notification outside transaction
+                    incidentIdToNotify = mission.IncidentId;
+                    reasonToNotify = reason;
 
                     return mission;
                 });
+
+                // PUSH NOTIFICATION: Notify Rescuer about user cancellation (OUTSIDE TRANSACTION)
+                if (incidentIdToNotify.HasValue)
+                {
+                    await _notificationService.NotifyMissionCancelledAsync(incidentIdToNotify.Value, reasonToNotify!);
+                }
             }
             catch (Exception ex)
             {
@@ -230,14 +363,18 @@ namespace SnakeAid.Service.Implements
             }
         }
 
+        /// <summary>
         /// Rescuer abort mission: Set status to MissionAborted, create new session with increased radius
-        /// Allowed during Preparing or EnRoute phases
+        /// Allowed during Preparing or EnRoute phases (not allowed after RescuerArrived)
+        /// </summary>
         public async Task RescuerAbortMissionAsync(Guid missionId, string reason)
         {
             Guid incidentId = Guid.Empty;
 
             try
             {
+                Guid? incidentIdToNotify = null;
+
                 // Step 1: Abort mission in transaction
                 await _unitOfWork.ExecuteInTransactionAsync(async () =>
                 {
@@ -251,8 +388,8 @@ namespace SnakeAid.Service.Implements
                         throw new NotFoundException("Mission not found.");
                     }
 
-                    // Rescuer can abort during Preparing or EnRoute
-                    if (mission.Status != RescueMissionStatus.Preparing && mission.Status != RescueMissionStatus.EnRoute)
+                    // Validate status transition using centralized method
+                    if (!IsValidStatusTransition(mission.Status, RescueMissionStatus.MissionAborted))
                     {
                         throw new BadRequestException($"Cannot abort mission with status: {mission.Status}. Only allowed during Preparing or EnRoute phases.");
                     }
@@ -286,9 +423,18 @@ namespace SnakeAid.Service.Implements
 
                     _logger.LogInformation("Updated incident {IncidentId} to Pending status in transaction", incident.Id);
 
+                    // Capture intent for notification outside transaction
+                    incidentIdToNotify = incident.Id;
+
                     incidentId = incident.Id;
                     return mission;
                 });
+
+                // PUSH NOTIFICATION: Notify Member about rescuer abort (OUTSIDE TRANSACTION)
+                if (incidentIdToNotify.HasValue)
+                {
+                    await _notificationService.NotifyMissionCancelledAsync(incidentIdToNotify.Value, reason);
+                }
 
                 _unitOfWork.ClearChangeTracker();
 
@@ -322,14 +468,19 @@ namespace SnakeAid.Service.Implements
         {
             return (current, next) switch
             {
+                // Normal flow
                 (RescueMissionStatus.Preparing, RescueMissionStatus.EnRoute) => true,
-                (RescueMissionStatus.Preparing, RescueMissionStatus.Cancelled) => true,
                 (RescueMissionStatus.EnRoute, RescueMissionStatus.RescuerArrived) => true,
-                (RescueMissionStatus.EnRoute, RescueMissionStatus.Cancelled) => true,
-                (RescueMissionStatus.EnRoute, RescueMissionStatus.MissionAborted) => true,
                 (RescueMissionStatus.RescuerArrived, RescueMissionStatus.MissionCompleted) => true,
                 (RescueMissionStatus.RescuerArrived, RescueMissionStatus.MissionUncompleted) => true,
-                (RescueMissionStatus.RescuerArrived, RescueMissionStatus.MissionAborted) => true,
+
+                // User cancellation: Only during Preparing phase
+                (RescueMissionStatus.Preparing, RescueMissionStatus.Cancelled) => true,
+
+                // Rescuer abort: Only during Preparing or EnRoute
+                (RescueMissionStatus.Preparing, RescueMissionStatus.MissionAborted) => true,
+                (RescueMissionStatus.EnRoute, RescueMissionStatus.MissionAborted) => true,
+
                 _ => false
             };
         }
