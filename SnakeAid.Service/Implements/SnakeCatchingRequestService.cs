@@ -160,8 +160,9 @@ namespace SnakeAid.Service.Implements
                                             existingMedia.Id);
                                     }
                                 }
-                                catch (ExternalServiceException ex)
+                                catch (Exception ex)
                                 {
+                                    // Log the error but don't fail the entire request creation if AI detection fails
                                     _logger.LogError(ex, "Error calling Snake AI service for media {MediaId}: {Message}", existingMedia.Id, ex.Message);
                                 }
                             }

@@ -168,8 +168,22 @@ public class SnakeAIService : ISnakeAIService
                 await _unitOfWork.GetRepository<SnakeAIRecognitionResult>().InsertAsync(recognitionResult, ct);
 
                 // Update ReportMedia processing status
-                var reportMedia = await _unitOfWork.GetRepository<ReportMedia>()
-                    .FirstOrDefaultAsync(predicate: m => m.Id == reportMediaId, asNoTracking: false, cancellationToken: ct);
+                // Use the tracked entity from context instead of querying again to avoid tracking conflicts
+                var reportMediaEntry = _unitOfWork.Context.ChangeTracker.Entries<ReportMedia>()
+                    .FirstOrDefault(e => e.Entity.Id == reportMediaId);
+
+                ReportMedia? reportMedia = null;
+                if (reportMediaEntry != null)
+                {
+                    // Entity already tracked, use it
+                    reportMedia = reportMediaEntry.Entity;
+                }
+                else
+                {
+                    // Entity not tracked, query it
+                    reportMedia = await _unitOfWork.GetRepository<ReportMedia>()
+                        .FirstOrDefaultAsync(predicate: m => m.Id == reportMediaId, asNoTracking: false, cancellationToken: ct);
+                }
 
                 if (reportMedia != null)
                 {
@@ -178,7 +192,8 @@ public class SnakeAIService : ISnakeAIService
                     _unitOfWork.GetRepository<ReportMedia>().Update(reportMedia);
                 }
 
-                await _unitOfWork.CommitAsync();
+                // Don't commit here - let the calling service handle transaction commit
+                // await _unitOfWork.CommitAsync();
                 savedRecognitionResult = recognitionResult;
 
                 _logger.LogInformation(
