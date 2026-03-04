@@ -20,6 +20,13 @@ namespace SnakeAid.Api.Services
             _logger = logger;
         }
 
+        public async Task NotifyRescuerAcceptedAsync(Guid incidentId, object rescuerInfo)
+        {
+            await SafeExecuteAsync(() => _hubContext.Clients.Group(incidentId.ToString())
+            .SendAsync("RescuerAccepted", rescuerInfo),
+                "RescuerAccepted", incidentId);
+        }
+
         public async Task NotifyMissionStartedAsync(Guid incidentId, object missionInfo)
             => await SafeExecuteAsync(() => _hubContext.Clients.Group(incidentId.ToString()).SendAsync("MissionStarted", missionInfo),
                 "MissionStarted", incidentId);

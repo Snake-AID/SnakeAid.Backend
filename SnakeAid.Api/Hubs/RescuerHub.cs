@@ -39,9 +39,7 @@ namespace SnakeAid.Api.Hubs
             _onlineStatusService = onlineStatusService;
         }
 
-        /// <summary>
-        /// Khi rescuer connect và join để nhận requests
-        /// </summary>
+        /// Rescuer joins the hub to receice rescue request from server
         public async Task JoinAsRescuer(string userId)
         {
             _logger.LogInformation("JoinAsRescuer called for userId: {UserId}, ConnectionId: {ConnectionId}, Current dictionary size: {DictSize}",
@@ -113,9 +111,44 @@ namespace SnakeAid.Api.Hubs
             }
         }
 
+        // The method for rescuer to update location when they are idle and wait for the mission request from server.
+        public async Task UpdateLocation(double latitude, double longitude)
+        {
+            var userIdString = Context.UserIdentifier;
+            if (string.IsNullOrEmpty(userIdString) || !Guid.TryParse(userIdString, out var userId))
+            {
+                _logger.LogWarning("UpdateLocation rejected: Invalid or missing user identifier");
+                return;
+            }
 
-        // REMOVED: UpdateLocation has been moved to MissionHub for active missions.
-        // For general idling tracking, a separate mechanism or dedicated background service should be used.
+            try
+            {
+                // Update location in database (used for radius search in rescue requests)
+                await _rescuerLocationService.UpdateLocationAsync(userId, latitude, longitude, null, null, null);
+
+                _logger.LogDebug("Idle location updated for rescuer {UserId}: ({Lat}, {Lng})",
+                    userId, latitude, longitude);
+
+                // Confirm back to rescuer
+                await Clients.Caller.SendAsync("LocationUpdated", new
+                {
+                    UserId = userId,
+                    Latitude = latitude,
+                    Longitude = longitude,
+                    UpdatedAt = DateTime.UtcNow,
+                    Message = "Location updated successfully"
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating location for rescuer {UserId}", userId);
+                await Clients.Caller.SendAsync("LocationError", new
+                {
+                    Error = "Failed to update location",
+                    Message = "An unexpected error occurred while updating location."
+                });
+            }
+        }
 
         public override async Task OnDisconnectedAsync(Exception? exception)
         {

@@ -33,10 +33,6 @@ namespace SnakeAid.Service.Interfaces
         // Cancel session (user cancel incident)
         Task CancelSessionAsync(Guid sessionId);
 
-        // Expand radius và tạo session mới nếu cần (internal call từ HandleSessionTimeout)
-        // Returns: (success, timeoutAt) - timeoutAt is set if new session was created
-        Task<(bool success, DateTime? timeoutAt)> TryExpandAndCreateNewSessionAsync(Guid incidentId);
-
         // Start initial rescue session for incident
         Task StartRescueSessionAsync(Guid incidentId);
 
