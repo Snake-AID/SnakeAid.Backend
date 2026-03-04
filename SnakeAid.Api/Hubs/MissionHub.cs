@@ -58,7 +58,12 @@ namespace SnakeAid.Api.Hubs
                 return;
             }
 
-            if (incident.UserId != userId && incident.AssignedRescuerId != userId)
+            // Allow member (incident creator) to join immediately after SOS
+            // Allow assigned rescuer to join after they accept the request
+            var isMember = incident.UserId == userId;
+            var isAssignedRescuer = incident.AssignedRescuerId != null && incident.AssignedRescuerId == userId;
+
+            if (!isMember && !isAssignedRescuer)
             {
                 _logger.LogWarning("Connection rejected: User {UserId} not authorized for incident {IncidentId}.", userId, incidentId);
                 Context.Abort();
@@ -67,45 +72,106 @@ namespace SnakeAid.Api.Hubs
 
             Context.Items["IncidentId"] = incidentId;
             await Groups.AddToGroupAsync(Context.ConnectionId, incidentId.ToString());
-            _logger.LogInformation("User {UserId} joined MissionHub for Incident {IncidentId}", userId, incidentId);
+
+            var userRole = isMember ? "Member" : "Rescuer";
+            _logger.LogInformation("{UserRole} {UserId} joined MissionHub for Incident {IncidentId}", userRole, userId, incidentId);
+
+            // Send confirmation to caller
+            await Clients.Caller.SendAsync("JoinedMissionHub", new
+            {
+                IncidentId = incidentId,
+                UserId = userIdString,
+                Role = userRole,
+                Message = $"Successfully joined mission tracking for incident {incidentId}",
+                Timestamp = DateTime.UtcNow
+            });
 
             await base.OnConnectedAsync();
         }
 
+        /// Update location for both Member and Rescuer during active mission.
+        /// Broadcasts location to the other party in the incident group.
+        /// Only rescuer location is persisted to database (for future radius searches).
         public async Task UpdateLocation(Guid incidentId, double latitude, double longitude)
         {
+            if (!Context.Items.TryGetValue("IncidentId", out var incidentObj)
+                || incidentObj is not Guid connectedIncidentId
+                || connectedIncidentId != incidentId)
+            {
+                _logger.LogWarning("UpdateLocation rejected: Incident context mismatch. Connected={ConnectedIncidentId}, Payload={PayloadIncidentId}",
+                    incidentObj, incidentId);
+                await Clients.Caller.SendAsync("LocationError", new
+                {
+                    Error = "InvalidIncidentContext"
+                });
+                return;
+            }
+
             var userIdString = Context.UserIdentifier;
             if (string.IsNullOrEmpty(userIdString) || !Guid.TryParse(userIdString, out var userId))
             {
-                _logger.LogWarning("Operation UpdateLocation rejected: Invalid or missing UserIdentifier. Value: '{UserIdentifier}'", userIdString ?? "NULL");
-                Context.Abort();
+                _logger.LogWarning("UpdateLocation rejected: Invalid user identifier");
                 return;
             }
 
-            // Verify authorization: Caller must be authorized for this specific incidentId
-            if (!Context.Items.TryGetValue("IncidentId", out var authorizedIdObj) ||
-                authorizedIdObj is not Guid authorizedId ||
-                authorizedId != incidentId)
+            // Validate coordinates
+            if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180)
             {
-                _logger.LogWarning("Operation UpdateLocation rejected: User {UserId} is not authorized for Incident {IncidentId}. Authorized Incident: {AuthorizedId}",
-                    userId, incidentId, authorizedIdObj ?? "NONE");
-                Context.Abort();
+                _logger.LogWarning("UpdateLocation rejected: Invalid coordinates ({Lat}, {Lng})", latitude, longitude);
                 return;
             }
 
-            // Update in DB
-            await _rescuerLocationService.UpdateLocationAsync(userId, latitude, longitude, null, null, null);
+            // Get incident to identify sender role
+            var incident = await _unitOfWork.GetRepository<SnakebiteIncident>().FirstOrDefaultAsync(
+                predicate: i => i.Id == incidentId
+            );
 
-            // Broadcast to Group (Member and Rescuer)
-            await Clients.Group(incidentId.ToString()).SendAsync("LocationUpdated", new
+            if (incident == null)
+            {
+                _logger.LogWarning("UpdateLocation rejected: Incident {IncidentId} not found", incidentId);
+                return;
+            }
+
+            // Identify sender: Member or Rescuer
+            var isMember = incident.UserId == userId;
+            var isAssignedRescuer = incident.AssignedRescuerId != null && incident.AssignedRescuerId == userId;
+
+            if (!isMember && !isAssignedRescuer)
+            {
+                _logger.LogWarning("UpdateLocation rejected: User {UserId} not authorized for incident {IncidentId}", userId, incidentId);
+                return;
+            }
+
+            var senderRole = isMember ? "Member" : "Rescuer";
+            var eventName = isMember ? "MemberLocationUpdated" : "RescuerLocationUpdated";
+
+            // Rescuer location updates is persisted to database
+            // Member location is only broadcasted via mission hub and not stored
+            if (isAssignedRescuer)
+            {
+                try
+                {
+                    await _rescuerLocationService.UpdateLocationAsync(userId, latitude, longitude, null, null, null);
+                    _logger.LogDebug("Rescuer {UserId} location saved to database", userId);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to save rescuer location to database");
+                }
+            }
+
+            // Broadcast to Group (Member and Rescuer can see each other)
+            await Clients.Group(incidentId.ToString()).SendAsync(eventName, new
             {
                 UserId = userIdString,
+                Role = senderRole,
                 Latitude = latitude,
                 Longitude = longitude,
                 UpdatedAt = DateTime.UtcNow
             });
 
-            _logger.LogInformation("Mission location update: Rescuer {UserId} in Incident {IncidentId}", userId, incidentId);
+            _logger.LogInformation("{Role} {UserId} location updated in Incident {IncidentId}: ({Lat}, {Lng})",
+                senderRole, userId, incidentId, latitude, longitude);
         }
     }
 }

@@ -58,7 +58,7 @@ namespace SnakeAid.Service.Implements
                     }
                     existingIncident.Status = SnakebiteIncidentStatus.Cancelled;
                     _unitOfWork.GetRepository<SnakebiteIncident>().Update(existingIncident);
-                    await _unitOfWork.CommitAsync();
+
                     var responseData = existingIncident.Adapt<CreateIncidentResponse>();
                     return responseData;
                 });
