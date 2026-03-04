@@ -345,6 +345,162 @@ public class PayOsController : BaseController<PayOsController>
     }
 
     /// <summary>
+    /// PayOS cancel URL handler
+    /// </summary>
+    /// <param name="code">PayOS response code</param>
+    /// <param name="id">PayOS transaction ID</param>
+    /// <param name="cancel">Whether payment was cancelled</param>
+    /// <param name="status">Payment status (CANCELLED, etc.)</param>
+    /// <param name="orderCode">Order code</param>
+    /// <returns>Payment cancellation page</returns>
+    [AllowAnonymous]
+    [HttpGet("cancel")]
+    [SwaggerOperation(
+        Summary = "PayOS cancel URL handler",
+        Description = "Handles the cancel URL when user cancels payment on PayOS portal.",
+        Tags = new[] { "Payments" })]
+    public IActionResult Cancel(
+        [FromQuery] string code,
+        [FromQuery] string id,
+        [FromQuery] bool cancel,
+        [FromQuery] string status,
+        [FromQuery] long orderCode)
+    {
+        try
+        {
+            _logger.LogInformation("[PayOS Cancel] code={Code}, id={Id}, cancel={Cancel}, status={Status}, orderCode={OrderCode}", 
+                code, id, cancel, status, orderCode);
+
+            // Return a simple HTML page showing cancellation
+            var cancelHtml = $@"
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset='utf-8'>
+    <meta name='viewport' content='width=device-width, initial-scale=1'>
+    <title>Payment Cancelled</title>
+    <style>
+        body {{
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        }}
+        .container {{
+            background: white;
+            padding: 3rem;
+            border-radius: 1rem;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            text-align: center;
+            max-width: 500px;
+        }}
+        .icon {{
+            font-size: 4rem;
+            margin-bottom: 1rem;
+        }}
+        h1 {{
+            color: #333;
+            margin-bottom: 1rem;
+        }}
+        p {{
+            color: #666;
+            margin-bottom: 2rem;
+            line-height: 1.6;
+        }}
+        .details {{
+            background: #f5f5f5;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            margin: 1.5rem 0;
+            text-align: left;
+        }}
+        .detail-row {{
+            display: flex;
+            justify-content: space-between;
+            padding: 0.5rem 0;
+            border-bottom: 1px solid #ddd;
+        }}
+        .detail-row:last-child {{
+            border-bottom: none;
+        }}
+        .label {{
+            color: #666;
+            font-weight: 500;
+        }}
+        .value {{
+            color: #333;
+            font-weight: 600;
+        }}
+        .button-group {{
+            display: flex;
+            gap: 1rem;
+            margin-top: 1.5rem;
+        }}
+        button {{
+            flex: 1;
+            color: white;
+            border: none;
+            padding: 1rem 2rem;
+            border-radius: 0.5rem;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s;
+        }}
+        .btn-close {{
+            background: #6c757d;
+        }}
+        .btn-close:hover {{
+            background: #5a6268;
+        }}
+        .btn-retry {{
+            background: #667eea;
+        }}
+        .btn-retry:hover {{
+            background: #5568d3;
+        }}
+    </style>
+</head>
+<body>
+    <div class='container'>
+        <div class='icon'>⚠️</div>
+        <h1>Payment Cancelled</h1>
+        <p>Your payment has been cancelled. The transaction was not completed.</p>
+        
+        <div class='details'>
+            <div class='detail-row'>
+                <span class='label'>Order Code:</span>
+                <span class='value'>{orderCode}</span>
+            </div>
+            <div class='detail-row'>
+                <span class='label'>Transaction ID:</span>
+                <span class='value'>{id}</span>
+            </div>
+            <div class='detail-row'>
+                <span class='label'>Status:</span>
+                <span class='value'>{status}</span>
+            </div>
+        </div>
+        
+        <div class='button-group'>
+            <button class='btn-close' onclick='window.close()'>Close Window</button>
+        </div>
+    </div>
+</body>
+</html>";
+
+            return Content(cancelHtml, "text/html");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error processing PayOS cancel");
+            return Content("<html><body><h1>Error processing payment cancellation</h1></body></html>", "text/html");
+        }
+    }
+
+    /// <summary>
     /// PayOS webhook endpoint
     /// </summary>
     /// <param name="cancellationToken">Cancellation token</param>
