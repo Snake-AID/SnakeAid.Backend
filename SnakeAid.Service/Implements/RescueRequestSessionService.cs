@@ -53,6 +53,32 @@ namespace SnakeAid.Service.Implements
             _timeoutService = timeoutService;
         }
 
+
+        /// Execute async task safely - log error but do not throw.
+        /// Used for post-commit notifications to prevent false errors after successful DB commit.
+        private async Task SafeExecuteAsync(Func<Task> action, string operationName)
+        {
+            try
+            {
+                await action();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "[SafeExecute] Failed to execute {OperationName}: {Message}. DB transaction already committed - continuing without throwing.",
+                    operationName, ex.Message);
+            }
+        }
+
+        /// <summary>
+        /// Execute multiple async tasks in parallel safely - log errors but do not throw.
+        /// Each task is isolated, one failure won't affect others.
+        /// </summary>
+        private async Task SafeExecuteAllAsync(IEnumerable<(Func<Task> action, string operationName)> operations)
+        {
+            var tasks = operations.Select(op => SafeExecuteAsync(op.action, op.operationName));
+            await Task.WhenAll(tasks);
+        }
+
         /// Tạo session mới cho incident (initial hoặc expand) - Internal version without transaction
         private async Task<RescueRequestSession> CreateSessionInternalAsync(Guid incidentId, int sessionNumber, int radiusKm, SessionTrigger trigger)
         {
@@ -323,8 +349,8 @@ namespace SnakeAid.Service.Implements
                     return await BroadcastRequestsInternalAsync(session);
                 });
 
-                // Extract session, timeout, and notification data from result
-                var (session, timeoutAt, notifications) = result;
+                // Extract timeout and notification data from result
+                var (_, timeoutAt, notifications) = result;
                 backgroundTimeoutAt = timeoutAt;
                 notificationData = notifications;
 
@@ -338,15 +364,16 @@ namespace SnakeAid.Service.Implements
                 _logger.LogWarning("[Timeout Schedule] ✅ Timeout scheduled for session {SessionId} at {TimeoutAt}",
                     sessionId, backgroundTimeoutAt);
 
-                // Step 3: Send notifications AFTER transaction commits (parallel execution)
+                // Step 3: Send notifications AFTER transaction commits (parallel, best-effort, isolated)
                 if (notificationData != null && notificationData.Any())
                 {
-                    var notificationTasks = notificationData.Select(data =>
-                        SendRequestToRescuerAsync(data.userId, data.request, data.session)
-                    );
-                    await Task.WhenAll(notificationTasks);
+                    var operations = notificationData.Select(data => (
+                        (Func<Task>)(() => SendRequestToRescuerAsync(data.userId, data.request, data.session)),
+                        $"SendRequestToRescuer-{data.request.Id}"
+                    ));
+                    await SafeExecuteAllAsync(operations);
 
-                    _logger.LogInformation("Sent {Count} notifications for session {SessionId} after transaction commit",
+                    _logger.LogInformation("{Count} notification attempts completed (parallel) for session {SessionId} after transaction commit",
                         notificationData.Count, sessionId);
                 }
             }
@@ -519,15 +546,16 @@ namespace SnakeAid.Service.Implements
                 // Notify Member that session expired
                 await _missionNotificationService.NotifyMemberSessionExpiredAsync(incidentId);
 
-                // Notify all rescuers that their requests have expired (parallel notifications)
+                // Notify all rescuers that their requests have expired (parallel, best-effort)
                 if (expiredRequests.Any())
                 {
-                    var expiredNotificationTasks = expiredRequests.Select(request =>
-                        NotifyRequestExpiredAsync(request.RescuerId.ToString(), request.Id)
-                    ).ToArray();
-                    await Task.WhenAll(expiredNotificationTasks);
+                    var operations = expiredRequests.Select(request => (
+                        (Func<Task>)(() => NotifyRequestExpiredAsync(request.RescuerId.ToString(), request.Id)),
+                        $"NotifyExpired-{request.Id}"
+                    ));
+                    await SafeExecuteAllAsync(operations);
 
-                    _logger.LogInformation("Sent {Count} expired notifications for session {SessionId}",
+                    _logger.LogInformation("{Count} expired notification attempts completed (parallel) for session {SessionId}",
                         expiredRequests.Count, sessionId);
                 }
 
@@ -551,15 +579,16 @@ namespace SnakeAid.Service.Implements
                         _logger.LogWarning("[Timeout Handler] ✅ Timeout scheduled for new session {NewSessionId}",
                             newSession.Id);
 
-                        // Send notifications for expanded session AFTER transaction committed
+                        // Send notifications for expanded session AFTER transaction committed (parallel, best-effort)
                         if (expandNotificationData != null && expandNotificationData.Any())
                         {
-                            var expandNotificationTasks = expandNotificationData.Select(data =>
-                                SendRequestToRescuerAsync(data.userId, data.request, data.session)
-                            );
-                            await Task.WhenAll(expandNotificationTasks);
+                            var operations = expandNotificationData.Select(data => (
+                                (Func<Task>)(() => SendRequestToRescuerAsync(data.userId, data.request, data.session)),
+                                $"SendExpandedRequest-{data.request.Id}"
+                            ));
+                            await SafeExecuteAllAsync(operations);
 
-                            _logger.LogInformation("Sent {Count} new request notifications for expanded session {NewSessionId}",
+                            _logger.LogInformation("{Count} expanded session notification attempts completed (parallel) for session {NewSessionId}",
                                 expandNotificationData.Count, newSession.Id);
                         }
                     }
@@ -745,15 +774,16 @@ namespace SnakeAid.Service.Implements
                 _logger.LogInformation("Sent 'RescuerAccepted' notification to member via MissionHub for incident {IncidentId}",
                     acceptResponse.IncidentId);
 
-                // 2b. Notify other rescuers that request was taken
+                // 2b. Notify other rescuers that request was taken (parallel, best-effort)
                 if (otherRequestsToNotify != null && otherRequestsToNotify.Any())
                 {
-                    var notificationTasks = otherRequestsToNotify.Select(otherRequest =>
-                        NotifyRequestTakenAsync(otherRequest.RescuerId.ToString(), otherRequest.Id)
-                    );
-                    await Task.WhenAll(notificationTasks);
+                    var operations = otherRequestsToNotify.Select(otherRequest => (
+                        (Func<Task>)(() => NotifyRequestTakenAsync(otherRequest.RescuerId.ToString(), otherRequest.Id)),
+                        $"NotifyTaken-{otherRequest.Id}"
+                    ));
+                    await SafeExecuteAllAsync(operations);
 
-                    _logger.LogInformation("Sent {Count} 'request taken' notifications after accepting request {RequestId}",
+                    _logger.LogInformation("{Count} 'request taken' notification attempts completed (parallel) after accepting request {RequestId}",
                         otherRequestsToNotify.Count, requestId);
                 }
 
@@ -829,15 +859,16 @@ namespace SnakeAid.Service.Implements
 
                 cancelledRequests = result;
 
-                // Step 2: Send notifications AFTER transaction committed
+                // Step 2: Send notifications AFTER transaction committed (parallel, best-effort)
                 if (cancelledRequests != null && cancelledRequests.Any())
                 {
-                    var notificationTasks = cancelledRequests.Select(request =>
-                        NotifyRequestCancelledAsync(request.RescuerId.ToString(), request.Id)
-                    );
-                    await Task.WhenAll(notificationTasks);
+                    var operations = cancelledRequests.Select(request => (
+                        (Func<Task>)(() => NotifyRequestCancelledAsync(request.RescuerId.ToString(), request.Id)),
+                        $"NotifyCancelled-{request.Id}"
+                    ));
+                    await SafeExecuteAllAsync(operations);
 
-                    _logger.LogInformation("Sent {Count} cancellation notifications for session {SessionId}",
+                    _logger.LogInformation("{Count} cancellation notification attempts completed (parallel) for session {SessionId}",
                         cancelledRequests.Count, sessionId);
                 }
             }
@@ -909,7 +940,7 @@ namespace SnakeAid.Service.Implements
                 );
 
                 // Broadcast requests for new session (pass session object - already in transaction)
-                var (broadcastedSession, timeoutAt, notificationData) = await BroadcastRequestsInternalAsync(newSession);
+                var (_, timeoutAt, notificationData) = await BroadcastRequestsInternalAsync(newSession);
 
                 _logger.LogInformation("Expanded to session {SessionNumber} with radius {RadiusKm}km for incident {IncidentId}, timeout at {TimeoutAt}",
                     nextSessionNumber, nextRadius, incidentId, timeoutAt);

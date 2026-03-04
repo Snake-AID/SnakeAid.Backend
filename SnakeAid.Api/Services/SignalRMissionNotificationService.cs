@@ -22,7 +22,9 @@ namespace SnakeAid.Api.Services
 
         public async Task NotifyRescuerAcceptedAsync(Guid incidentId, object rescuerInfo)
         {
-            await _hubContext.Clients.Group(incidentId.ToString()).SendAsync("RescuerAccepted", rescuerInfo);
+            await SafeExecuteAsync(() => _hubContext.Clients.Group(incidentId.ToString())
+            .SendAsync("RescuerAccepted", rescuerInfo),
+                "RescuerAccepted", incidentId);
         }
 
         public async Task NotifyMissionStartedAsync(Guid incidentId, object missionInfo)

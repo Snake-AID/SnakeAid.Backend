@@ -94,6 +94,19 @@ namespace SnakeAid.Api.Hubs
         /// Only rescuer location is persisted to database (for future radius searches).
         public async Task UpdateLocation(Guid incidentId, double latitude, double longitude)
         {
+            if (!Context.Items.TryGetValue("IncidentId", out var incidentObj)
+                || incidentObj is not Guid connectedIncidentId
+                || connectedIncidentId != incidentId)
+            {
+                _logger.LogWarning("UpdateLocation rejected: Incident context mismatch. Connected={ConnectedIncidentId}, Payload={PayloadIncidentId}",
+                    incidentObj, incidentId);
+                await Clients.Caller.SendAsync("LocationError", new
+                {
+                    Error = "InvalidIncidentContext"
+                });
+                return;
+            }
+
             var userIdString = Context.UserIdentifier;
             if (string.IsNullOrEmpty(userIdString) || !Guid.TryParse(userIdString, out var userId))
             {

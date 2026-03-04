@@ -346,14 +346,12 @@ namespace SnakeAid.Service.Implements
         /// </summary>
         public async Task RescuerAbortMissionAsync(Guid missionId, string reason)
         {
-            Guid incidentId = Guid.Empty;
+            Guid incidentId;
 
             try
             {
-                Guid? incidentIdToNotify = null;
-
                 // Step 1: Abort mission in transaction
-                await _unitOfWork.ExecuteInTransactionAsync(async () =>
+                incidentId = await _unitOfWork.ExecuteInTransactionAsync(async () =>
                 {
                     // Query mission WITHOUT Include to avoid navigation property tracking issues
                     var mission = await _unitOfWork.GetRepository<RescueMission>().FirstOrDefaultAsync(
@@ -400,18 +398,8 @@ namespace SnakeAid.Service.Implements
 
                     _logger.LogInformation("Updated incident {IncidentId} to Pending status in transaction", incident.Id);
 
-                    // PUSH NOTIFICATION: Notify Member about rescuer abort (before new session starts)
-                    await _notificationService.NotifyMissionCancelledAsync(incident.Id, reason);
-
-                    incidentId = incident.Id;
-                    return mission;
+                    return mission.IncidentId;
                 });
-
-                // PUSH NOTIFICATION: Notify Member about rescuer abort (OUTSIDE TRANSACTION)
-                if (incidentIdToNotify.HasValue)
-                {
-                    await _notificationService.NotifyMissionCancelledAsync(incidentIdToNotify.Value, reason);
-                }
 
                 _unitOfWork.ClearChangeTracker();
 

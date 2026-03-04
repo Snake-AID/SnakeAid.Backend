@@ -145,7 +145,7 @@ namespace SnakeAid.Api.Hubs
                 await Clients.Caller.SendAsync("LocationError", new
                 {
                     Error = "Failed to update location",
-                    Message = ex.Message
+                    Message = "An unexpected error occurred while updating location."
                 });
             }
         }
