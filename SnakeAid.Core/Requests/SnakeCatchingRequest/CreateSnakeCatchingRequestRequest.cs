@@ -40,6 +40,6 @@ namespace SnakeAid.Core.Requests.SnakeCatchingRequest
         /// </summary>
         public List<SnakeSpeciesRequestItem> SnakeSpeciesList { get; set; } = new List<SnakeSpeciesRequestItem>();
 
-        public List<string?> MediaURLList { get; set; } = new List<string>();
+        public List<string?> MediaIdList { get; set; } = new List<string>();
     }
 }
