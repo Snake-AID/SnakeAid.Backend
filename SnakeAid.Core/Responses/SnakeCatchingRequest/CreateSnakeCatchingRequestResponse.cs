@@ -49,7 +49,7 @@ namespace SnakeAid.Core.Responses.SnakeCatchingRequest
 
         public Guid? AssignedRescuerId { get; set; }
 
-        public double? DistanceKm { get; set; } 
+        public double? DistanceKm { get; set; }
 
         public decimal? EstimatedPrice { get; set; }
 
@@ -61,7 +61,7 @@ namespace SnakeAid.Core.Responses.SnakeCatchingRequest
         // Navigation properties
         public BriefMemberProfileResponse User { get; set; }
         public BriefRescuerProfileResponse? AssignedRescuer { get; set; }
-        public CreateSnakeCatchingMissionResponse? Mission { get; set; }
+        public List<CreateSnakeCatchingMissionResponse> Missions { get; set; } = new List<CreateSnakeCatchingMissionResponse>();
         public List<ReportMediaResponse> Media { get; set; } = new List<ReportMediaResponse>();
         public List<CatchingRequestDetailResponse> Details { get; set; } = new List<CatchingRequestDetailResponse>();
         public List<SnakeDetectionResponse> AIResults { get; set; } = new List<SnakeDetectionResponse>();

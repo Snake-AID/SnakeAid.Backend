@@ -27,10 +27,11 @@ namespace SnakeAid.Repository.Data.Configurations
                 .HasForeignKey(r => r.AssignedRescuerId)
                 .OnDelete(DeleteBehavior.SetNull);
 
-            // Relationship: Request -> Mission (1-1)
-            builder.HasOne(r => r.Mission)
+            // Relationship: Request -> Missions (1-N)
+            // A request can have multiple missions (e.g., when a mission is aborted and a new rescuer accepts)
+            builder.HasMany(r => r.Missions)
                 .WithOne(m => m.SnakeCatchingRequest)
-                .HasForeignKey<SnakeCatchingMission>(m => m.SnakeCatchingRequestId)
+                .HasForeignKey(m => m.SnakeCatchingRequestId)
                 .OnDelete(DeleteBehavior.Cascade);
 
             // Indexes

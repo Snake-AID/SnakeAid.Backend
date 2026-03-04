@@ -196,7 +196,7 @@ namespace SnakeAid.Service.Implements
                         envCost = catchingEnvExists.Price;
 
                         mission.CatchingEnvironmentId = request.CatchingEnvironmentId.Value;
-                        mission.CatchingEnvironment = catchingEnvExists; 
+                        mission.CatchingEnvironment = catchingEnvExists;
                     }
 
                     //Update actual cost if provided
@@ -210,7 +210,7 @@ namespace SnakeAid.Service.Implements
                     {
                         mission.ActualCost = 0;
                     }
-                    
+
                     mission.Price = basePrice;
 
                     // Update mission to MissionCompleted
@@ -220,8 +220,8 @@ namespace SnakeAid.Service.Implements
                     {
                         mission.Notes = request.Notes;
                     }
-                    
-                    
+
+
 
                     // Update mission first
                     _unitOfWork.GetRepository<SnakeCatchingMission>().Update(mission);
@@ -317,7 +317,6 @@ namespace SnakeAid.Service.Implements
                         catchingRequest.Status = RequestStatus.Pending;
                         catchingRequest.AssignedRescuerId = null;
                         catchingRequest.AssignedAt = null;
-                        catchingRequest.Mission = null;
                         _unitOfWork.GetRepository<SnakeCatchingRequest>().Update(catchingRequest);
 
                         _logger.LogInformation(

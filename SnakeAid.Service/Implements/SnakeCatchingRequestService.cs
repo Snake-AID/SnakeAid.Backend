@@ -192,10 +192,10 @@ namespace SnakeAid.Service.Implements
                     await createdRequest.AttachReportMediaAsync(_unitOfWork, MediaReferenceType.SnakeCatchingRequest);
 
                     var response = createdRequest.Adapt<CreateSnakeCatchingRequestResponse>();
-                    
+
                     // Add AI detection results to response
                     response.AIResults = aiResults;
-                    
+
                     if (response.EstimatedPrice.HasValue)
                     {
                         var perKmRate = _configuration.GetValue<decimal>("LocationIq:PricePerKilometer");
@@ -219,7 +219,7 @@ namespace SnakeAid.Service.Implements
             }
         }
 
-        
+
 
         public async Task<CreateSnakeCatchingRequestResponse> AcceptSnakeCatchingRequestAsync(
             Guid rescuerId,
@@ -330,25 +330,17 @@ namespace SnakeAid.Service.Implements
                         throw new BadRequestException("This request has already been assigned to another rescuer.");
                     }
 
-                    // Check for existing aborted mission and delete it before creating new one
-                    // This handles the case when a previous rescuer aborted and another rescuer is now accepting
-                    var existingMission = await _unitOfWork.GetRepository<SnakeCatchingMission>().FirstOrDefaultAsync(
+                    // Check for existing active mission to prevent duplicate active missions
+                    // Aborted missions are kept for history; only block if there's a non-terminal mission
+                    var activeMission = await _unitOfWork.GetRepository<SnakeCatchingMission>().FirstOrDefaultAsync(
                         predicate: m => m.SnakeCatchingRequestId == requestId
+                                     && m.Status != CatchingMissionStatus.MissionAborted
+                                     && m.Status != CatchingMissionStatus.Cancelled
                     );
 
-                    if (existingMission != null)
+                    if (activeMission != null)
                     {
-                        if (existingMission.Status == CatchingMissionStatus.MissionAborted)
-                        {
-                            _logger.LogInformation(
-                                "Deleting aborted mission {MissionId} for request {RequestId} before creating new mission",
-                                existingMission.Id, requestId);
-                            _unitOfWork.GetRepository<SnakeCatchingMission>().Delete(existingMission);
-                        }
-                        else
-                        {
-                            throw new BadRequestException($"An active mission already exists for this request with status: {existingMission.Status}");
-                        }
+                        throw new BadRequestException($"An active mission already exists for this request with status: {activeMission.Status}");
                     }
 
                     // Update the request with pre-calculated price
@@ -380,9 +372,9 @@ namespace SnakeAid.Service.Implements
                             .Include(r => r.User)
                             .Include(r => r.AssignedRescuer)
                                 .ThenInclude(ar => ar.Account)
-                            .Include(r => r.Mission)
+                            .Include(r => r.Missions)
                                 .ThenInclude(m => m.CatchingEnvironment)
-                            .Include(r => r.Mission)
+                            .Include(r => r.Missions)
                                 .ThenInclude(m => m.MissionDetails)
                                     .ThenInclude(md => md.SnakeSpecies)
                             .Include(r => r.Details)
@@ -432,9 +424,9 @@ namespace SnakeAid.Service.Implements
                             .ThenInclude(u => u.Account)
                         .Include(r => r.AssignedRescuer)
                             .ThenInclude(ar => ar.Account)
-                        .Include(r => r.Mission)
+                        .Include(r => r.Missions)
                             .ThenInclude(m => m.CatchingEnvironment)
-                        .Include(r => r.Mission)
+                        .Include(r => r.Missions)
                             .ThenInclude(m => m.MissionDetails)
                                 .ThenInclude(md => md.SnakeSpecies)
                         .Include(r => r.Details)
@@ -448,17 +440,17 @@ namespace SnakeAid.Service.Implements
 
                 // Attach media for request
                 await request.AttachReportMediaAsync(_unitOfWork, MediaReferenceType.SnakeCatchingRequest);
-                
-                // Attach media for mission if exists
-                if (request.Mission != null)
+
+                // Attach media for all missions (historical + active)
+                foreach (var mission in request.Missions)
                 {
-                    await request.Mission.AttachReportMediaAsync(_unitOfWork, MediaReferenceType.SnakeCatchingMission);
+                    await mission.AttachReportMediaAsync(_unitOfWork, MediaReferenceType.SnakeCatchingMission);
                 }
 
                 // Load AI recognition results for media with SnakeIdentification purpose
                 var aiResults = new List<SnakeDetectionResponse>();
                 var identificationMedia = await _unitOfWork.GetRepository<ReportMedia>().GetListAsync(
-                    predicate: m => m.ReferenceId == requestId && 
+                    predicate: m => m.ReferenceId == requestId &&
                                    m.ReferenceType == MediaReferenceType.SnakeCatchingRequest &&
                                    m.Purpose == MediaPurpose.SnakeIdentification,
                     include: query => query
@@ -519,9 +511,9 @@ namespace SnakeAid.Service.Implements
                     }
                 }
 
-                if (response.Mission != null)
+                foreach (var missionResponse in response.Missions)
                 {
-                    foreach (var detail in response.Mission.MissionDetails)
+                    foreach (var detail in missionResponse.MissionDetails)
                     {
                         detail.Price = detail.Quantity * additionalSnakePrice;
                     }
@@ -610,10 +602,10 @@ namespace SnakeAid.Service.Implements
 
                 return await _unitOfWork.ExecuteInTransactionAsync(async () =>
                 {
-                    // Get the snake catching request with mission
+                    // Get the snake catching request with missions
                     var snakeCatchingRequest = await _unitOfWork.GetRepository<SnakeCatchingRequest>().FirstOrDefaultAsync(
                         predicate: r => r.Id == requestId,
-                        include: query => query.Include(r => r.Mission)
+                        include: query => query.Include(r => r.Missions)
                     );
 
                     if (snakeCatchingRequest == null)
@@ -633,39 +625,44 @@ namespace SnakeAid.Service.Implements
                         // If status is Pending, simply change to Cancelled
                         snakeCatchingRequest.Status = RequestStatus.Cancelled;
                         snakeCatchingRequest.CancellationReason = request.Reason;
-                        
+
                         _unitOfWork.GetRepository<SnakeCatchingRequest>().Update(snakeCatchingRequest);
-                        
+
                         _logger.LogInformation(
                             "Snake catching request {RequestId} cancelled from Pending status.",
                             requestId);
                     }
                     else if (snakeCatchingRequest.Status == RequestStatus.Assigned)
                     {
-                        // If status is Assigned, check the mission status
-                        if (snakeCatchingRequest.Mission == null)
+                        // If status is Assigned, check the active mission status
+                        var activeMission = snakeCatchingRequest.Missions
+                            .OrderByDescending(m => m.CreatedAt)
+                            .FirstOrDefault(m => m.Status != CatchingMissionStatus.MissionAborted
+                                              && m.Status != CatchingMissionStatus.Cancelled);
+
+                        if (activeMission == null)
                         {
-                            throw new BadRequestException("Mission not found for this assigned request.");
+                            throw new BadRequestException("Active mission not found for this assigned request.");
                         }
 
-                        if (snakeCatchingRequest.Mission.Status == CatchingMissionStatus.Preparing)
+                        if (activeMission.Status == CatchingMissionStatus.Preparing)
                         {
                             // If mission status is Preparing, allow cancellation
                             snakeCatchingRequest.Status = RequestStatus.Cancelled;
                             snakeCatchingRequest.CancellationReason = request.Reason;
-                            
+
                             // Update mission status to Cancelled
-                            snakeCatchingRequest.Mission.Status = CatchingMissionStatus.Cancelled;
-                            snakeCatchingRequest.Mission.CancellationReason = request.Reason;
-                            
+                            activeMission.Status = CatchingMissionStatus.Cancelled;
+                            activeMission.CancellationReason = request.Reason;
+
                             _unitOfWork.GetRepository<SnakeCatchingRequest>().Update(snakeCatchingRequest);
-                            _unitOfWork.GetRepository<SnakeCatchingMission>().Update(snakeCatchingRequest.Mission);
-                            
+                            _unitOfWork.GetRepository<SnakeCatchingMission>().Update(activeMission);
+
                             _logger.LogInformation(
                                 "Snake catching request {RequestId} and mission {MissionId} cancelled from Assigned/Preparing status.",
-                                requestId, snakeCatchingRequest.Mission.Id);
+                                requestId, activeMission.Id);
                         }
-                        else if (snakeCatchingRequest.Mission.Status == CatchingMissionStatus.EnRoute)
+                        else if (activeMission.Status == CatchingMissionStatus.EnRoute)
                         {
                             // If mission status is EnRoute, do not allow cancellation
                             throw new BadRequestException("Cannot cancel request. The rescuer is already on the way (En Route).");
@@ -673,7 +670,7 @@ namespace SnakeAid.Service.Implements
                         else
                         {
                             // Other mission statuses (Arrived, Completed, etc.)
-                            throw new BadRequestException($"Cannot cancel request. Mission status is {snakeCatchingRequest.Mission.Status}.");
+                            throw new BadRequestException($"Cannot cancel request. Mission status is {activeMission.Status}.");
                         }
                     }
                     else
@@ -696,9 +693,9 @@ namespace SnakeAid.Service.Implements
                                 .ThenInclude(u => u.Account)
                             .Include(r => r.AssignedRescuer)
                                 .ThenInclude(ar => ar.Account)
-                            .Include(r => r.Mission)
+                            .Include(r => r.Missions)
                                 .ThenInclude(m => m.CatchingEnvironment)
-                            .Include(r => r.Mission)
+                            .Include(r => r.Missions)
                                 .ThenInclude(m => m.MissionDetails)
                                     .ThenInclude(md => md.SnakeSpecies)
                             .Include(r => r.Details)
@@ -712,11 +709,11 @@ namespace SnakeAid.Service.Implements
 
                     // Attach media for request
                     await updatedRequest.AttachReportMediaAsync(_unitOfWork, MediaReferenceType.SnakeCatchingRequest);
-                    
-                    // Attach media for mission if exists
-                    if (updatedRequest.Mission != null)
+
+                    // Attach media for all missions
+                    foreach (var mission in updatedRequest.Missions)
                     {
-                        await updatedRequest.Mission.AttachReportMediaAsync(_unitOfWork, MediaReferenceType.SnakeCatchingMission);
+                        await mission.AttachReportMediaAsync(_unitOfWork, MediaReferenceType.SnakeCatchingMission);
                     }
 
                     var response = updatedRequest.Adapt<DetailSnakeCatchingRequestResponse>();

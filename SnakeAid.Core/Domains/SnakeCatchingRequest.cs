@@ -58,7 +58,7 @@ namespace SnakeAid.Core.Domains
         // Navigation properties
         public MemberProfile User { get; set; }
         public RescuerProfile? AssignedRescuer { get; set; }
-        public SnakeCatchingMission? Mission { get; set; }
+        public ICollection<SnakeCatchingMission> Missions { get; set; } = new List<SnakeCatchingMission>();
         public ICollection<ReportMedia> Media { get; set; } = new List<ReportMedia>();
         public ICollection<CatchingRequestDetail> Details { get; set; } = new List<CatchingRequestDetail>();
     }
