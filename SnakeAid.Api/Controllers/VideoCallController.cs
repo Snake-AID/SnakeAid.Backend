@@ -7,6 +7,8 @@ using Swashbuckle.AspNetCore.Annotations;
 using SnakeAid.Core.Requests.LiveKit;
 using SnakeAid.Core.Responses.LiveKit;
 using SnakeAid.Core.Settings;
+using SnakeAid.Repository.Data;
+using SnakeAid.Repository.Interfaces;
 using SnakeAid.Service.Interfaces;
 
 namespace SnakeAid.Api.Controllers;
@@ -17,17 +19,20 @@ public class VideoCallController : BaseController<VideoCallController>
 {
     private readonly ILiveKitService _liveKitService;
     private readonly LiveKitOptions _liveKitOptions;
+    private readonly IUnitOfWork<SnakeAidDbContext> _unitOfWork;
 
     public VideoCallController(
         ILogger<VideoCallController> logger,
         IHttpContextAccessor httpContextAccessor,
         IMapper mapper,
         ILiveKitService liveKitService,
-        IOptions<LiveKitOptions> liveKitOptions)
+        IOptions<LiveKitOptions> liveKitOptions,
+        IUnitOfWork<SnakeAidDbContext> unitOfWork)
         : base(logger, httpContextAccessor, mapper)
     {
         _liveKitService = liveKitService;
         _liveKitOptions = liveKitOptions.Value;
+        _unitOfWork = unitOfWork;
     }
 
     /// <summary>
@@ -43,7 +48,7 @@ public class VideoCallController : BaseController<VideoCallController>
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    public Task<IActionResult> GenerateVideoToken(
+    public async Task<IActionResult> GenerateVideoToken(
         Guid consultationId,
         CancellationToken cancellationToken)
     {
@@ -51,7 +56,30 @@ public class VideoCallController : BaseController<VideoCallController>
         {
             var userId = GetCurrentUserId();
             var userRole = GetCurrentUserRole();
-            var roomName = $"consultation-{consultationId}";
+            var consultation = await _unitOfWork.GetRepository<SnakeAid.Core.Domains.Consultation>()
+                .FirstOrDefaultAsync(predicate: c => c.Id == consultationId, cancellationToken: cancellationToken);
+
+            if (consultation == null)
+            {
+                return NotFound(new
+                {
+                    success = false,
+                    message = "Consultation not found"
+                });
+            }
+
+            var isParticipant = consultation.CallerId == userId || consultation.CalleeId == userId;
+            var isAdmin = userRole.Equals("Admin", StringComparison.OrdinalIgnoreCase);
+            if (!isParticipant && !isAdmin)
+            {
+                return StatusCode(StatusCodes.Status403Forbidden, new
+                {
+                    success = false,
+                    message = "You are not allowed to access this consultation room"
+                });
+            }
+
+            var roomName = consultation.RoomId;
 
             var grants = BuildGrants(roomName, userRole);
 
@@ -68,21 +96,21 @@ public class VideoCallController : BaseController<VideoCallController>
                 RoomName = roomName
             };
 
-            return Task.FromResult<IActionResult>(Ok(new
+            return Ok(new
             {
                 success = true,
                 message = "Video token generated successfully",
                 data = response
-            }));
+            });
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error generating video token for consultation {ConsultationId}", consultationId);
-            return Task.FromResult<IActionResult>(StatusCode(500, new
+            return StatusCode(500, new
             {
                 success = false,
                 message = "An error occurred while generating video token"
-            }));
+            });
         }
     }
 
