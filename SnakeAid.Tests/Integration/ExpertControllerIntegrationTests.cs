@@ -47,7 +47,9 @@ public class ExpertControllerIntegrationTests
 
         var result = await controller.CreateBulkTimeSlots(request);
 
-        Assert.IsType<OkObjectResult>(result);
+        var ok = Assert.IsType<OkObjectResult>(result);
+        var payload = Assert.IsType<ApiResponse<object>>(ok.Value);
+        Assert.True(payload.IsSuccess);
         var slotCount = await db.ExpertTimeSlots.CountAsync(s => s.ExpertId == expertId);
         Assert.Equal(2, slotCount);
     }
@@ -95,9 +97,10 @@ public class ExpertControllerIntegrationTests
         var result = await controller.GetExpertReviews(expertId, new PaginationRequest { PageNumber = 1, PageSize = 10 });
 
         var ok = Assert.IsType<OkObjectResult>(result.Result);
-        var payload = Assert.IsType<PagingResponse<UserFeedbackResponse>>(ok.Value);
-        Assert.Single(payload.Items);
-        Assert.All(payload.Items, i => Assert.Equal(FeedbackType.Consultation, i.Type));
+        var payload = Assert.IsType<ApiResponse<PagingResponse<UserFeedbackResponse>>>(ok.Value);
+        Assert.NotNull(payload.Data);
+        Assert.Single(payload.Data.Items);
+        Assert.All(payload.Data.Items, i => Assert.Equal(FeedbackType.Consultation, i.Type));
     }
 
     [Fact]
@@ -139,8 +142,9 @@ public class ExpertControllerIntegrationTests
         var result = await controller.GetExpertTimeSlots(expertId);
 
         var ok = Assert.IsType<OkObjectResult>(result.Result);
-        var payload = Assert.IsAssignableFrom<IEnumerable<ExpertTimeSlotResponse>>(ok.Value);
-        Assert.Single(payload);
+        var payload = Assert.IsType<ApiResponse<IEnumerable<ExpertTimeSlotResponse>>>(ok.Value);
+        Assert.NotNull(payload.Data);
+        Assert.Single(payload.Data);
     }
 
     private static ExpertController BuildController(ExpertService service, Guid userId, string role)

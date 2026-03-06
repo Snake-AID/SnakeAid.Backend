@@ -1,11 +1,12 @@
+using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Logging.Abstractions;
 using SnakeAid.Core.Domains;
 using SnakeAid.Core.Requests.Consultation;
 using SnakeAid.Repository.Data;
 using SnakeAid.Repository.Implements;
 using SnakeAid.Service.Implements;
+using System.Reflection;
 
 namespace SnakeAid.Tests.Integration;
 
@@ -155,12 +156,17 @@ public class ScheduledConsultationIntegrationTests
 
     private static SnakeAidDbContext CreateDbContext()
     {
+        var connection = new SqliteConnection("Data Source=:memory:");
+        connection.Open();
+
         var options = new DbContextOptionsBuilder<SnakeAidDbContext>()
-            .UseInMemoryDatabase($"ScheduledConsultationTests_{Guid.NewGuid():N}")
-            .ConfigureWarnings(w => w.Ignore(InMemoryEventId.TransactionIgnoredWarning))
+            .UseSqlite(connection)
             .Options;
 
-        return new SnakeAidDbContext(options);
+        var context = new ScheduledConsultationSqliteDbContext(options);
+        context.Database.EnsureCreated();
+
+        return context;
     }
 
     private static async Task SeedUserAndExpertAsync(SnakeAidDbContext db, Guid userId, Guid expertId)
@@ -200,5 +206,120 @@ public class ScheduledConsultationIntegrationTests
         });
 
         await db.SaveChangesAsync();
+    }
+
+    private sealed class ScheduledConsultationSqliteDbContext : SnakeAidDbContext
+    {
+        public ScheduledConsultationSqliteDbContext(DbContextOptions<SnakeAidDbContext> options)
+            : base(options)
+        {
+        }
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            var keep = new HashSet<Type>
+            {
+                typeof(Account),
+                typeof(ExpertProfile),
+                typeof(ExpertTimeSlot),
+                typeof(Consultation),
+                typeof(ConsultationBooking),
+                typeof(UserFeedback)
+            };
+
+            var dbSetEntityTypes = typeof(SnakeAidDbContext)
+                .GetProperties(BindingFlags.Public | BindingFlags.Instance)
+                .Where(p => p.PropertyType.IsGenericType && p.PropertyType.GetGenericTypeDefinition() == typeof(DbSet<>))
+                .Select(p => p.PropertyType.GetGenericArguments()[0])
+                .Distinct();
+
+            foreach (var type in dbSetEntityTypes)
+            {
+                if (!keep.Contains(type))
+                {
+                    modelBuilder.Ignore(type);
+                }
+            }
+
+            modelBuilder.Entity<Account>(entity =>
+            {
+                entity.HasKey(a => a.Id);
+            });
+
+            modelBuilder.Entity<ExpertProfile>(entity =>
+            {
+                entity.HasKey(e => e.AccountId);
+                entity.HasOne(e => e.Account)
+                    .WithOne()
+                    .HasForeignKey<ExpertProfile>(e => e.AccountId)
+                    .OnDelete(DeleteBehavior.Cascade);
+                entity.Ignore(e => e.Specializations);
+            });
+
+            modelBuilder.Entity<ExpertTimeSlot>(entity =>
+            {
+                entity.HasKey(s => s.Id);
+                entity.Property(s => s.Version)
+                    .IsConcurrencyToken()
+                    .ValueGeneratedNever()
+                    .HasDefaultValue(0u);
+                entity.HasIndex(s => new { s.ExpertId, s.StartTime, s.EndTime }).IsUnique();
+                entity.HasOne(s => s.Expert)
+                    .WithMany()
+                    .HasForeignKey(s => s.ExpertId)
+                    .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            modelBuilder.Entity<Consultation>(entity =>
+            {
+                entity.HasKey(c => c.Id);
+                entity.HasOne(c => c.Caller)
+                    .WithMany()
+                    .HasForeignKey(c => c.CallerId)
+                    .OnDelete(DeleteBehavior.Restrict);
+                entity.HasOne(c => c.Callee)
+                    .WithMany()
+                    .HasForeignKey(c => c.CalleeId)
+                    .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            modelBuilder.Entity<ConsultationBooking>(entity =>
+            {
+                entity.HasKey(b => b.Id);
+                entity.Property(b => b.Version)
+                    .IsConcurrencyToken()
+                    .ValueGeneratedNever()
+                    .HasDefaultValue(0u);
+                entity.HasOne(b => b.User)
+                    .WithMany()
+                    .HasForeignKey(b => b.UserId)
+                    .OnDelete(DeleteBehavior.Restrict);
+                entity.HasOne(b => b.Expert)
+                    .WithMany()
+                    .HasForeignKey(b => b.ExpertId)
+                    .OnDelete(DeleteBehavior.Restrict);
+                entity.HasOne(b => b.TimeSlot)
+                    .WithMany()
+                    .HasForeignKey(b => b.TimeSlotId)
+                    .OnDelete(DeleteBehavior.Restrict);
+                entity.HasOne(b => b.Consultation)
+                    .WithMany()
+                    .HasForeignKey(b => b.ConsultationId)
+                    .OnDelete(DeleteBehavior.SetNull);
+            });
+
+            modelBuilder.Entity<UserFeedback>(entity =>
+            {
+                entity.HasKey(f => f.Id);
+                entity.HasOne(f => f.Rater)
+                    .WithMany()
+                    .HasForeignKey(f => f.RaterId)
+                    .OnDelete(DeleteBehavior.Restrict);
+                entity.HasOne(f => f.TargetUser)
+                    .WithMany()
+                    .HasForeignKey(f => f.TargetUserId)
+                    .OnDelete(DeleteBehavior.Restrict);
+            });
+        }
     }
 }
