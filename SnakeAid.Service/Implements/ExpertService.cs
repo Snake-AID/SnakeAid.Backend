@@ -286,7 +286,7 @@ namespace SnakeAid.Service.Implements
 
         private static bool IsUniqueExpertTimeSlotViolation(DbUpdateException ex)
         {
-            const string indexName = "IX_ExpertTimeSlots_ExpertId_StartTime_EndTime";
+            const string indexName = "UX_ExpertTimeSlots_ExpertId_StartTime_EndTime";
             var message = $"{ex.Message} {ex.InnerException?.Message}";
 
             if (message.Contains(indexName, StringComparison.OrdinalIgnoreCase))

@@ -37,6 +37,11 @@ public class BookingService : IBookingService
                     throw new NotFoundException("Requested time slot was not found.");
                 }
 
+                if (slot.StartTime <= DateTime.UtcNow)
+                {
+                    throw new ConflictException("This time slot has already started and can no longer be booked.");
+                }
+
                 if (slot.Status != TimeSlotStatus.Available)
                 {
                     throw new ConflictException("This time slot is no longer available.");

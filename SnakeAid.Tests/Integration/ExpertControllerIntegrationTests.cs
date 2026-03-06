@@ -1,8 +1,8 @@
 using System.Security.Claims;
+using Microsoft.Data.Sqlite;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Logging.Abstractions;
 using SnakeAid.Api.Controllers;
 using SnakeAid.Core.Domains;
@@ -14,6 +14,7 @@ using SnakeAid.Core.Responses.UserFeedback;
 using SnakeAid.Repository.Data;
 using SnakeAid.Repository.Implements;
 using SnakeAid.Service.Implements;
+using System.Reflection;
 
 namespace SnakeAid.Tests.Integration;
 
@@ -167,11 +168,16 @@ public class ExpertControllerIntegrationTests
 
     private static SnakeAidDbContext CreateDbContext()
     {
+        var connection = new SqliteConnection("Data Source=:memory:");
+        connection.Open();
+
         var options = new DbContextOptionsBuilder<SnakeAidDbContext>()
-            .UseInMemoryDatabase($"ExpertControllerTests_{Guid.NewGuid():N}")
-            .ConfigureWarnings(w => w.Ignore(InMemoryEventId.TransactionIgnoredWarning))
+            .UseSqlite(connection)
             .Options;
-        return new SnakeAidDbContext(options);
+
+        var context = new ExpertControllerSqliteDbContext(options);
+        context.Database.EnsureCreated();
+        return context;
     }
 
     private static async Task SeedExpertAsync(SnakeAidDbContext db, Guid expertId)
@@ -237,5 +243,80 @@ public class ExpertControllerIntegrationTests
         });
 
         await db.SaveChangesAsync();
+    }
+
+    private sealed class ExpertControllerSqliteDbContext : SnakeAidDbContext
+    {
+        public ExpertControllerSqliteDbContext(DbContextOptions<SnakeAidDbContext> options)
+            : base(options)
+        {
+        }
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            var keep = new HashSet<Type>
+            {
+                typeof(Account),
+                typeof(ExpertProfile),
+                typeof(ExpertTimeSlot),
+                typeof(UserFeedback)
+            };
+
+            var dbSetEntityTypes = typeof(SnakeAidDbContext)
+                .GetProperties(BindingFlags.Public | BindingFlags.Instance)
+                .Where(p => p.PropertyType.IsGenericType && p.PropertyType.GetGenericTypeDefinition() == typeof(DbSet<>))
+                .Select(p => p.PropertyType.GetGenericArguments()[0])
+                .Distinct();
+
+            foreach (var type in dbSetEntityTypes)
+            {
+                if (!keep.Contains(type))
+                {
+                    modelBuilder.Ignore(type);
+                }
+            }
+
+            modelBuilder.Entity<Account>(entity =>
+            {
+                entity.HasKey(a => a.Id);
+            });
+
+            modelBuilder.Entity<ExpertProfile>(entity =>
+            {
+                entity.HasKey(e => e.AccountId);
+                entity.HasOne(e => e.Account)
+                    .WithOne()
+                    .HasForeignKey<ExpertProfile>(e => e.AccountId)
+                    .OnDelete(DeleteBehavior.Cascade);
+                entity.Ignore(e => e.Specializations);
+            });
+
+            modelBuilder.Entity<ExpertTimeSlot>(entity =>
+            {
+                entity.HasKey(s => s.Id);
+                entity.Property(s => s.Version)
+                    .IsConcurrencyToken()
+                    .ValueGeneratedNever()
+                    .HasDefaultValue(0u);
+                entity.HasIndex(s => new { s.ExpertId, s.StartTime, s.EndTime }).IsUnique();
+                entity.HasOne(s => s.Expert)
+                    .WithMany()
+                    .HasForeignKey(s => s.ExpertId)
+                    .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            modelBuilder.Entity<UserFeedback>(entity =>
+            {
+                entity.HasKey(f => f.Id);
+                entity.HasOne(f => f.Rater)
+                    .WithMany()
+                    .HasForeignKey(f => f.RaterId)
+                    .OnDelete(DeleteBehavior.Restrict);
+                entity.HasOne(f => f.TargetUser)
+                    .WithMany()
+                    .HasForeignKey(f => f.TargetUserId)
+                    .OnDelete(DeleteBehavior.Restrict);
+            });
+        }
     }
 }
