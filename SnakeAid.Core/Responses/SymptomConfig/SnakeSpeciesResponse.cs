@@ -10,17 +10,17 @@ namespace SnakeAid.Core.Responses.SymptomConfig
     {
         public int Id { get; set; }
 
-        public string ScientificName { get; set; }
+        public string ScientificName { get; set; } = string.Empty;
 
-        public string Slug { get; set; }
+        public string Slug { get; set; } = string.Empty;
 
-        public string CommonName { get; set; }
+        public string CommonName { get; set; } = string.Empty;
 
-        public string ImageUrl { get; set; }
+        public string ImageUrl { get; set; } = string.Empty;
 
-        public string Description { get; set; }
+        public string Description { get; set; } = string.Empty;
 
-        public string IdentificationSummary { get; set; }
+        public string IdentificationSummary { get; set; } = string.Empty;
 
         public PrimaryVenomType? PrimaryVenomType { get; set; }
 

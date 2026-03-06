@@ -7,6 +7,7 @@ using SnakeAid.Core.Responses.SymptomConfig;
 
 namespace SnakeAid.Core.Responses.Media
 {
+    /// Response for Member/Rescuer mobile apps.
     public class SnakeAIDetectMediaResponse
     {
         public Guid Id { get; set; }
@@ -23,7 +24,8 @@ namespace SnakeAid.Core.Responses.Media
 
         public int? SequenceOrder { get; set; }
 
-        public ICollection<SnakeAIRecognitionResultResponse> AIRecognitionResults { get; set; } = new List<SnakeAIRecognitionResultResponse>();
+        /// List of detected snake species from AI recognition.
+        public List<SnakeSpeciesResponse> DetectedSpecies { get; set; } = new List<SnakeSpeciesResponse>();
     }
 
     public class SnakeAIRecognitionResultResponse

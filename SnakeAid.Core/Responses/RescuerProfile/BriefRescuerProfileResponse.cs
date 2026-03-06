@@ -23,8 +23,6 @@ namespace SnakeAid.Core.Responses.RescuerProfile
 
         public RescuerType Type { get; set; } = RescuerType.Emergency;
 
-        public Point? LastLocation { get; set; }
-
         public DateTime? LastLocationUpdate { get; set; }
 
         // Statistics

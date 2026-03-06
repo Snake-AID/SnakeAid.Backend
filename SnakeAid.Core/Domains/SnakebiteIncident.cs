@@ -50,8 +50,24 @@ namespace SnakeAid.Core.Domains
 
         public DateTime? IncidentOccurredAt { get; set; }  // Khi nào bị cắn
 
+        // Snake Identification
+        [ForeignKey(nameof(IdentifiedSnakeSpecies))]
+        public int? IdentifiedSnakeSpeciesId { get; set; }  // Loài rắn đã được xác định
+
+        public SnakeIdentificationMethod IdentificationMethod { get; set; } = SnakeIdentificationMethod.None;
+
+        [ForeignKey(nameof(AIRecognitionResult))]
+        public Guid? AIRecognitionResultId { get; set; }  // Nếu xác định bằng AI
+
+        [Column(TypeName = "jsonb")]
+        public FilterAnswerData? FilterAnswers { get; set; }  // Nếu xác định bằng filter questions
+
+        public DateTime? IdentifiedAt { get; set; }  // Thời điểm xác định được loài rắn
+
         // Navigation properties
         public MemberProfile User { get; set; }
+        public SnakeSpecies? IdentifiedSnakeSpecies { get; set; }
+        public SnakeAIRecognitionResult? AIRecognitionResult { get; set; }
         public RescuerProfile? AssignedRescuer { get; set; }
         public ICollection<RescueRequestSession> Sessions { get; set; } = new List<RescueRequestSession>();
         public ICollection<RescuerRequest> AllRequests { get; set; } = new List<RescuerRequest>(); // Denormalized for easy query
@@ -81,5 +97,39 @@ namespace SnakeAid.Core.Domains
         Paid = 5,
         Disputed = 6,
         Completed = 7
+    }
+
+    public enum SnakeIdentificationMethod
+    {
+        None = 0,              // Chưa xác định
+        AIDetection = 1,       // Xác định bằng AI từ ảnh
+        FilterQuestions = 2,   // Xác định bằng trả lời câu hỏi filter
+        ManualByRescuer = 3,   // Rescuer xác định trực tiếp
+        ExpertVerified = 4     // Chuyên gia xác nhận
+    }
+
+    /// <summary>
+    /// Lưu thông tin câu trả lời filter questions của user
+    /// </summary>
+    public class FilterAnswerData
+    {
+        public List<FilterAnswer> Answers { get; set; } = new();
+        public List<int> MatchedSnakeSpeciesIds { get; set; } = new();  // Danh sách rắn khớp
+        public int? SelectedSnakeSpeciesId { get; set; }  // Rắn mà user chọn cuối cùng (nếu có nhiều kết quả)
+    }
+
+    public class FilterAnswer
+    {
+        [Required]
+        public int QuestionId { get; set; }
+
+        [Required]
+        public string QuestionText { get; set; } = string.Empty;
+
+        [Required]
+        public int SelectedOptionId { get; set; }
+
+        [Required]
+        public string SelectedOptionText { get; set; } = string.Empty;
     }
 }

@@ -1,10 +1,12 @@
 ﻿using NetTopologySuite.Geometries;
 using SnakeAid.Core.Domains;
+using SnakeAid.Core.Responses.FirstAid;
 using SnakeAid.Core.Responses.Media;
 using SnakeAid.Core.Responses.MemberProfile;
 using SnakeAid.Core.Responses.RescueMission;
 using SnakeAid.Core.Responses.RescueRequestSession;
 using SnakeAid.Core.Responses.RescuerProfile;
+using SnakeAid.Core.Responses.SymptomConfig;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
@@ -44,11 +46,24 @@ namespace SnakeAid.Core.Responses.SnakebiteIncident
 
         public DateTime? IncidentOccurredAt { get; set; }
 
+        /// Loài rắn đã được xác định (nếu có)
+        public SnakeSpeciesResponse? IdentifiedSnake { get; set; }
+
+        /// Context về cách xác định loài rắn (nếu có)
+        public SnakeIdentificationContext? IdentificationContext { get; set; }
+
         // Navigation properties
         public BriefMemberProfileResponse User { get; set; }
         public BriefRescuerProfileResponse? AssignedRescuer { get; set; }
 
-        public CreateRescueMissionResponse? RescueMission { get; set; }
+        public CreateRescueMissionResponse? ActiveMission { get; set; }
+
+        // How many rescuer had attempted (also includes aborted missions)
+        public int TotalRescueAttempts { get; set; }
+
+        /// Number of rescue missions that were aborted by rescuers.
+        public int FailedAttemptsCount { get; set; }
+
         public List<SnakeAIDetectMediaResponse> Media { get; set; } = new List<SnakeAIDetectMediaResponse>();
     }
 }

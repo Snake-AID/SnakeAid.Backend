@@ -28,8 +28,19 @@ namespace SnakeAid.Core.Mappings
                 .Map(dest => dest.LocationCoordinates, src => src.LocationCoordinates);
 
             config.NewConfig<SnakebiteIncident, DetailSnakebiteIncidentResponse>()
-                .Map(dest => dest.RescueMission, src =>
-                    src.Missions.OrderByDescending(m => m.CreatedAt).FirstOrDefault());
+                // Map ActiveMission: only return active missions (not aborted/cancelled)
+                .Map(dest => dest.ActiveMission, src =>
+                    src.Missions
+                        .Where(m => m.Status != RescueMissionStatus.MissionAborted && m.Status != RescueMissionStatus.Cancelled)
+                        .OrderByDescending(m => m.CreatedAt)
+                        .FirstOrDefault())
+                // Count total attempts (all missions regardless of status)
+                .Map(dest => dest.TotalRescueAttempts, src => src.Missions.Count)
+                // Count failed attempts (only aborted missions)
+                .Map(dest => dest.FailedAttemptsCount, src =>
+                    src.Missions.Count(m => m.Status == RescueMissionStatus.MissionAborted))
+                // Map Media with AI detection results
+                .Map(dest => dest.Media, src => src.Media);
         }
     }
 }

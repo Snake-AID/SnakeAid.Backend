@@ -113,5 +113,44 @@ namespace SnakeAid.Api.Controllers
             var result = await _incidentService.CancelIncidentAsync(incidentId);
             return Ok(ApiResponseBuilder.BuildSuccessResponse(result, "Incident cancelled successfully!"));
         }
+
+        /// <summary>
+        /// Identify snake species for incident using AI recognition result
+        /// </summary>
+        [HttpPost("{incidentId}/identify/ai")]
+        [SwaggerOperation(Summary = "Identify Snake by AI", Description = "Set the identified snake species for an incident based on AI recognition result")]
+        [SwaggerResponse(200, "Snake identified successfully", typeof(ApiResponse<IdentifySnakeResponse>))]
+        [SwaggerResponse(404, "Incident or recognition result not found")]
+        [SwaggerResponse(400, "Invalid recognition result")]
+        public async Task<IActionResult> IdentifySnakeByAI(Guid incidentId, [FromBody] IdentifyByAIRequest request)
+        {
+            var result = await _incidentService.IdentifySnakeByAIAsync(incidentId, request.RecognitionResultId);
+            return Ok(ApiResponseBuilder.BuildSuccessResponse(result, "Snake identified successfully via AI detection!"));
+        }
+
+        /// <summary>
+        /// Identify snake species for incident using filter questions
+        /// </summary>
+        [HttpPost("{incidentId}/identify/filter")]
+        [SwaggerOperation(Summary = "Identify Snake by Filter", Description = "Set the identified snake species for an incident based on user's answers to filter questions")]
+        [SwaggerResponse(200, "Snake identified successfully", typeof(ApiResponse<IdentifySnakeResponse>))]
+        [SwaggerResponse(404, "Incident not found")]
+        [SwaggerResponse(400, "Invalid filter answers or no matching snake found")]
+        public async Task<IActionResult> IdentifySnakeByFilter(Guid incidentId, [FromBody] IdentifyByFilterRequest request)
+        {
+            var result = await _incidentService.IdentifySnakeByFilterAsync(incidentId, request);
+            return Ok(ApiResponseBuilder.BuildSuccessResponse(result, "Snake identified successfully via filter questions!"));
+        }
+
+        /// <summary>
+        /// DEBUG: Get raw media count for incident, test if media are being saved correctly in database
+        /// </summary>
+        [HttpGet("{incidentId}/debug/media-count")]
+        [SwaggerOperation(Summary = "Debug Media Count", Description = "Check how many media items exist for this incident in database")]
+        public async Task<IActionResult> DebugMediaCount(Guid incidentId)
+        {
+            var result = await _incidentService.GetMediaDebugInfoAsync(incidentId);
+            return Ok(ApiResponseBuilder.BuildSuccessResponse(result, "Debug info retrieved"));
+        }
     }
 }

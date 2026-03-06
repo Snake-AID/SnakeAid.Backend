@@ -309,8 +309,16 @@ public class SnakeAIService : ISnakeAIService
             throw new NotFoundException("ReportMedia not found.");
         }
 
-        // 3. Call detection with imageUrl
-        return await DetectAsync(reportMedia.MediaUrl, reportMediaId, ct);
+        // 3. Call detection with imageUrl and commit the transaction
+        var result = await DetectAsync(reportMedia.MediaUrl, reportMediaId, ct);
+
+        // 4. Commit all changes (SnakeAIRecognitionResult + ReportMedia updates)
+        await _unitOfWork.CommitAsync();
+
+        _logger.LogInformation("Detection completed and saved for ReportMedia {MediaId}, RecognitionResult {ResultId}",
+            reportMediaId, result.RecognitionResultId);
+
+        return result;
     }
 
     /// <inheritdoc />

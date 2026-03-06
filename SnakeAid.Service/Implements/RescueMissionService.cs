@@ -1,12 +1,18 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
 using Mapster;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using SnakeAid.Core.Domains;
 using SnakeAid.Core.Exceptions;
+using SnakeAid.Core.Responses.Media;
 using SnakeAid.Core.Responses.RescueMission;
+using SnakeAid.Core.Responses.SymptomConfig;
 using SnakeAid.Repository.Data;
 using SnakeAid.Repository.Interfaces;
+using SnakeAid.Service.Extensions;
 using SnakeAid.Service.Interfaces;
 
 namespace SnakeAid.Service.Implements
@@ -486,9 +492,6 @@ namespace SnakeAid.Service.Implements
                             .ThenInclude(i => i.User)
                                 .ThenInclude(u => u.Account)
                         .Include(m => m.Incident)
-                        // .ThenInclude(i => i.Media)
-                        //     .ThenInclude(media => media.AIRecognitionResults)
-                        //         .ThenInclude(ar => ar.DetectedSpecies)
                         .Include(m => m.Rescuer)
                             .ThenInclude(r => r.Account)
                 );
@@ -498,9 +501,53 @@ namespace SnakeAid.Service.Implements
                     throw new NotFoundException($"Mission {missionId} not found.");
                 }
 
+                await mission.Incident.AttachReportMediaAsync(_unitOfWork, MediaReferenceType.SnakebiteIncident);
+
+                // DEBUG: Log media and AI results
+                _logger.LogInformation("Mission {MissionId}: Loaded {MediaCount} media items",
+                    missionId, mission.Incident.Media?.Count ?? 0);
+
+                foreach (var media in mission.Incident.Media ?? Enumerable.Empty<ReportMedia>())
+                {
+                    _logger.LogInformation(
+                        "Media {MediaId}: Processed={IsProcessed}, AIResults={ResultCount}, HasSpecies={HasSpecies}",
+                        media.Id,
+                        media.IsProcessed,
+                        media.AIRecognitionResults?.Count ?? 0,
+                        media.AIRecognitionResults?.Any(r => r.DetectedSpecies != null) ?? false);
+
+                    foreach (var result in media.AIRecognitionResults ?? Enumerable.Empty<SnakeAIRecognitionResult>())
+                    {
+                        _logger.LogInformation(
+                            "  - Result {ResultId}: Status={Status}, IsMapped={IsMapped}, Confidence={Confidence}, SpeciesId={SpeciesId}",
+                            result.Id, result.Status, result.IsMapped, result.Confidence, result.DetectedSpeciesId);
+                    }
+                }
+
                 var response = mission.Adapt<DetailRescueMissionResponse>();
 
-                _logger.LogInformation("Retrieved detailed mission info for {MissionId}", missionId);
+                // Manual map Media to ensure DetectedSpecies are properly mapped
+                // Mapster có thể không handle đúng complex LINQ trong nested mapping
+                if (mission.Incident.Media != null && mission.Incident.Media.Any() && response.Incident != null)
+                {
+                    response.Incident.Media = mission.Incident.Media.Adapt<List<SnakeAIDetectMediaResponse>>();
+                }
+
+                _logger.LogInformation("Mapped response: Incident Media Count = {MediaCount}",
+                    response.Incident?.Media?.Count ?? 0);
+                // DEBUG: Log mapped media DetectedSpecies
+                foreach (var mappedMedia in response.Incident?.Media ?? Enumerable.Empty<SnakeAIDetectMediaResponse>())
+                {
+                    _logger.LogInformation(
+                        "Mapped Media {MediaId}: DetectedSpecies Count = {SpeciesCount}",
+                        mappedMedia.Id,
+                        mappedMedia.DetectedSpecies?.Count ?? 0);
+
+                    foreach (var species in mappedMedia.DetectedSpecies ?? Enumerable.Empty<SnakeSpeciesResponse>())
+                    {
+                        _logger.LogInformation("  - Species: {SpeciesId} {CommonName}", species.Id, species.CommonName);
+                    }
+                }
                 return response;
             }
             catch (Exception ex)
