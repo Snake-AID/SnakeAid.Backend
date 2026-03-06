@@ -56,7 +56,7 @@ namespace SnakeAid.Api.Controllers
         /// List all experts (for patients to browse).
         /// </summary>
         [HttpGet]
-        public async Task<ActionResult<ApiResponse<PagingResponse<ExpertProfileResponse>>>> GetExperts([FromQuery] PaginationRequest request)
+        public async Task<ActionResult<ApiResponse<PagingResponse<ExpertProfileResponse>>>> GetExperts([FromQuery] ExpertDirectoryQueryRequest request)
         {
             var result = await _expertService.GetExpertsAsync(request);
             return Ok(ApiResponseBuilder.BuildSuccessResponse(result));
