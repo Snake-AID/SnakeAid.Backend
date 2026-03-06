@@ -1,6 +1,7 @@
 using MapsterMapper;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using SnakeAid.Core.Meta;
 using SnakeAid.Core.Requests.Consultation;
 using SnakeAid.Core.Responses.UserFeedback;
 using SnakeAid.Service.Interfaces;
@@ -29,15 +30,15 @@ public class ConsultationsController : BaseController<ConsultationsController>
     {
         var actorId = GetCurrentUserId();
         await _consultationService.EndConsultationAsync(consultationId, actorId);
-        return Ok(new { message = "Consultation ended successfully." });
+        return Ok(ApiResponseBuilder.BuildSuccessResponse("Consultation ended successfully."));
     }
 
     [HttpPost("{consultationId:guid}/reviews")]
     [Authorize(Roles = "User")]
-    public async Task<ActionResult<UserFeedbackResponse>> CreateReview(Guid consultationId, [FromBody] CreateConsultationReviewRequest request)
+    public async Task<ActionResult<ApiResponse<UserFeedbackResponse>>> CreateReview(Guid consultationId, [FromBody] CreateConsultationReviewRequest request)
     {
         var raterId = GetCurrentUserId();
         var result = await _consultationService.CreateConsultationReviewAsync(consultationId, raterId, request);
-        return Ok(result);
+        return Ok(ApiResponseBuilder.BuildSuccessResponse(result));
     }
 }
