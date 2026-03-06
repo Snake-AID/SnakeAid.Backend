@@ -1,3 +1,4 @@
+using System;
 using System.Threading.Tasks;
 
 namespace SnakeAid.Service.Interfaces
@@ -6,5 +7,6 @@ namespace SnakeAid.Service.Interfaces
     {
         bool IsExpertConnected(string expertId);
         Task SendEmergencyRequestAsync(string expertId, object requestData);
+        Task NotifyEmergencyRequestStatusChangedAsync(Guid requestId, object statusData);
     }
 }

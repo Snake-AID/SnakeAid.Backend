@@ -45,6 +45,15 @@ namespace SnakeAid.Api.Services
                 expertId);
         }
 
+        public async Task NotifyEmergencyRequestStatusChangedAsync(Guid requestId, object statusData)
+        {
+            var groupName = BuildEmergencyRequestGroupName(requestId);
+            await SafeExecuteAsync(
+                () => _hubContext.Clients.Group(groupName).SendAsync("EmergencyRequestStatusChanged", statusData),
+                "NotifyEmergencyRequestStatusChanged",
+                groupName);
+        }
+
         public static void AddConnection(string expertId, string connectionId)
         {
             ConnectedExperts[expertId] = connectionId;
@@ -59,6 +68,11 @@ namespace SnakeAid.Api.Services
         {
             var item = ConnectedExperts.FirstOrDefault(x => x.Value == connectionId);
             return item.Equals(default(KeyValuePair<string, string>)) ? null : item.Key;
+        }
+
+        public static string BuildEmergencyRequestGroupName(Guid requestId)
+        {
+            return $"consultation:emergency:request:{requestId:N}";
         }
 
         private async Task SafeExecuteAsync(Func<Task> action, string actionName, string expertId)

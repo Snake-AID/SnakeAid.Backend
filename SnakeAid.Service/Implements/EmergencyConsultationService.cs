@@ -95,7 +95,7 @@ namespace SnakeAid.Service.Implements
         {
             var now = DateTime.UtcNow;
 
-            return await _unitOfWork.ExecuteInTransactionAsync(async () =>
+            var result = await _unitOfWork.ExecuteInTransactionAsync(async () =>
             {
                 var pingRepo = _unitOfWork.GetRepository<ConsultationPingRequest>();
                 var ping = await pingRepo.FirstOrDefaultAsync(
@@ -157,6 +157,9 @@ namespace SnakeAid.Service.Implements
 
                 return ToResponse(ping, consultation.RoomId);
             });
+
+            await _notificationService.NotifyEmergencyRequestStatusChangedAsync(requestId, result);
+            return result;
         }
 
         public async Task<EmergencyConsultationRequestResponse> RejectEmergencyRequestAsync(Guid requestId, Guid expertId)
@@ -189,7 +192,9 @@ namespace SnakeAid.Service.Implements
                 requestId,
                 expertId);
 
-            return ToResponse(ping, null);
+            var result = ToResponse(ping, null);
+            await _notificationService.NotifyEmergencyRequestStatusChangedAsync(requestId, result);
+            return result;
         }
 
         private static void EnsurePendingStateForResponse(ConsultationPingRequest ping, DateTime now)

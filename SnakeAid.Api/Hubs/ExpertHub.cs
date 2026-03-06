@@ -87,6 +87,28 @@ namespace SnakeAid.Api.Hubs
                 onlineExpertIds.Count);
         }
 
+        public async Task JoinEmergencyRequestRoom(Guid requestId)
+        {
+            EnsureRoleOrThrow("User");
+
+            var memberId = GetCurrentUserId();
+            var ping = await _unitOfWork.GetRepository<ConsultationPingRequest>().FirstOrDefaultAsync(
+                predicate: p => p.Id == requestId && p.RescuerId == memberId);
+
+            if (ping == null)
+            {
+                throw new HubException("Emergency request was not found for current user.");
+            }
+
+            var groupName = SignalRExpertEmergencyNotificationService.BuildEmergencyRequestGroupName(requestId);
+            await Groups.AddToGroupAsync(Context.ConnectionId, groupName);
+            await Clients.Caller.SendAsync("JoinedEmergencyRequestRoom", new
+            {
+                RequestId = requestId,
+                GroupName = groupName
+            });
+        }
+
         public override async Task OnDisconnectedAsync(Exception? exception)
         {
             var expertIdText = SignalRExpertEmergencyNotificationService.FindExpertIdByConnection(Context.ConnectionId);
