@@ -112,8 +112,8 @@ public class BookingService : IBookingService
         }
         catch (DbUpdateException ex)
         {
-            _logger.LogWarning(ex, "Booking DB conflict for userId={UserId}, timeSlotId={TimeSlotId}", userId, request.TimeSlotId);
-            throw new ConflictException("Unable to reserve this time slot due to concurrent updates. Please retry.");
+            _logger.LogError(ex, "Unexpected database update error while creating booking for userId={UserId}, timeSlotId={TimeSlotId}", userId, request.TimeSlotId);
+            throw;
         }
     }
 
