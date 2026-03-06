@@ -1,5 +1,5 @@
+using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Logging.Abstractions;
 using SnakeAid.Core.Domains;
 using SnakeAid.Core.Exceptions;
@@ -7,6 +7,10 @@ using SnakeAid.Core.Requests.Expert;
 using SnakeAid.Repository.Data;
 using SnakeAid.Repository.Implements;
 using SnakeAid.Service.Implements;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Reflection;
 
 namespace SnakeAid.Tests.Unit;
 
@@ -131,16 +135,75 @@ public class ExpertServiceTests
         Assert.True(hasUniqueCompositeIndex);
     }
 
-    private static SnakeAidDbContext CreateDbContext()
+    [Fact]
+    public async Task GetExpertsAsync_ShouldFilterByIsOnline()
     {
-        var options = new DbContextOptionsBuilder<SnakeAidDbContext>()
-            .UseInMemoryDatabase($"ExpertServiceTests_{Guid.NewGuid():N}")
-            .ConfigureWarnings(w => w.Ignore(InMemoryEventId.TransactionIgnoredWarning))
-            .Options;
-        return new SnakeAidDbContext(options);
+        var onlineExpertId = Guid.NewGuid();
+        var offlineExpertId = Guid.NewGuid();
+
+        await using var db = CreateDbContext();
+        await SeedExpertAsync(db, onlineExpertId, isOnline: true, fee: 150_000m, rating: 4.5m, ratingCount: 50);
+        await SeedExpertAsync(db, offlineExpertId, isOnline: false, fee: 200_000m, rating: 4.9m, ratingCount: 100);
+
+        var service = new ExpertService(new UnitOfWork<SnakeAidDbContext>(db), NullLogger<ExpertService>.Instance);
+        var result = await service.GetExpertsAsync(new ExpertDirectoryQueryRequest
+        {
+            PageNumber = 1,
+            PageSize = 10,
+            IsOnline = true
+        });
+
+        var items = result.Items.ToList();
+        Assert.Single(items);
+        Assert.Equal(onlineExpertId, items[0].AccountId);
     }
 
-    private static async Task SeedExpertAsync(SnakeAidDbContext db, Guid expertId)
+    [Fact]
+    public async Task GetExpertsAsync_ShouldSortByConsultationFeeDescending()
+    {
+        var cheaperExpertId = Guid.NewGuid();
+        var expensiveExpertId = Guid.NewGuid();
+
+        await using var db = CreateDbContext();
+        await SeedExpertAsync(db, cheaperExpertId, isOnline: true, fee: 90_000m, rating: 4.7m, ratingCount: 30);
+        await SeedExpertAsync(db, expensiveExpertId, isOnline: true, fee: 210_000m, rating: 4.2m, ratingCount: 20);
+
+        var service = new ExpertService(new UnitOfWork<SnakeAidDbContext>(db), NullLogger<ExpertService>.Instance);
+        var result = await service.GetExpertsAsync(new ExpertDirectoryQueryRequest
+        {
+            PageNumber = 1,
+            PageSize = 10,
+            SortBy = "consultationFee",
+            SortOrder = "desc"
+        });
+
+        var items = result.Items.ToList();
+        Assert.True(items.Count >= 2);
+        Assert.Equal(expensiveExpertId, items[0].AccountId);
+        Assert.Equal(cheaperExpertId, items[1].AccountId);
+    }
+
+    private static SnakeAidDbContext CreateDbContext()
+    {
+        var connection = new SqliteConnection("Data Source=:memory:");
+        connection.Open();
+
+        var options = new DbContextOptionsBuilder<SnakeAidDbContext>()
+            .UseSqlite(connection)
+            .Options;
+
+        var context = new ExpertServiceSqliteDbContext(options);
+        context.Database.EnsureCreated();
+        return context;
+    }
+
+    private static async Task SeedExpertAsync(
+        SnakeAidDbContext db,
+        Guid expertId,
+        bool isOnline = true,
+        decimal fee = 120_000m,
+        decimal rating = 0m,
+        int ratingCount = 0)
     {
         db.Set<Account>().Add(new Account
         {
@@ -158,10 +221,112 @@ public class ExpertServiceTests
         {
             AccountId = expertId,
             Biography = "Unit test bio",
-            ConsultationFee = 120_000m,
-            IsOnline = true
+            ConsultationFee = fee,
+            IsOnline = isOnline,
+            Rating = rating,
+            RatingCount = ratingCount
+        });
+
+        var specialization = await db.Set<Specialization>().FirstOrDefaultAsync(s => s.Name == "General");
+        if (specialization == null)
+        {
+            specialization = new Specialization { Name = "General" };
+            db.Set<Specialization>().Add(specialization);
+            await db.SaveChangesAsync();
+        }
+
+        db.Set<ExpertSpecialization>().Add(new ExpertSpecialization
+        {
+            Id = Guid.NewGuid(),
+            ExpertId = expertId,
+            SpecializationId = specialization.Id
         });
 
         await db.SaveChangesAsync();
+    }
+
+    private sealed class ExpertServiceSqliteDbContext : SnakeAidDbContext
+    {
+        public ExpertServiceSqliteDbContext(DbContextOptions<SnakeAidDbContext> options)
+            : base(options)
+        {
+        }
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            var keep = new HashSet<Type>
+            {
+                typeof(Account),
+                typeof(ExpertProfile),
+                typeof(ExpertTimeSlot),
+                typeof(Specialization),
+                typeof(ExpertSpecialization)
+            };
+
+            var dbSetEntityTypes = typeof(SnakeAidDbContext)
+                .GetProperties(BindingFlags.Public | BindingFlags.Instance)
+                .Where(p => p.PropertyType.IsGenericType && p.PropertyType.GetGenericTypeDefinition() == typeof(DbSet<>))
+                .Select(p => p.PropertyType.GetGenericArguments()[0])
+                .Distinct();
+
+            foreach (var type in dbSetEntityTypes)
+            {
+                if (!keep.Contains(type))
+                {
+                    modelBuilder.Ignore(type);
+                }
+            }
+
+            modelBuilder.Entity<Account>(entity =>
+            {
+                entity.HasKey(a => a.Id);
+            });
+
+            modelBuilder.Entity<ExpertProfile>(entity =>
+            {
+                entity.HasKey(e => e.AccountId);
+                entity.HasOne(e => e.Account)
+                    .WithOne()
+                    .HasForeignKey<ExpertProfile>(e => e.AccountId)
+                    .OnDelete(DeleteBehavior.Cascade);
+                entity.HasMany(e => e.Specializations)
+                    .WithOne(es => es.Expert)
+                    .HasForeignKey(es => es.ExpertId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            modelBuilder.Entity<Specialization>(entity =>
+            {
+                entity.HasKey(s => s.Id);
+                entity.Property(s => s.Id).ValueGeneratedOnAdd();
+            });
+
+            modelBuilder.Entity<ExpertSpecialization>(entity =>
+            {
+                entity.HasKey(es => es.Id);
+                entity.HasOne(es => es.Expert)
+                    .WithMany(e => e.Specializations)
+                    .HasForeignKey(es => es.ExpertId)
+                    .OnDelete(DeleteBehavior.Cascade);
+                entity.HasOne(es => es.Specialization)
+                    .WithMany(s => s.ExpertSpecializations)
+                    .HasForeignKey(es => es.SpecializationId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            modelBuilder.Entity<ExpertTimeSlot>(entity =>
+            {
+                entity.HasKey(s => s.Id);
+                entity.Property(s => s.Version)
+                    .IsConcurrencyToken()
+                    .ValueGeneratedNever()
+                    .HasDefaultValue(0u);
+                entity.HasIndex(s => new { s.ExpertId, s.StartTime, s.EndTime }).IsUnique();
+                entity.HasOne(s => s.Expert)
+                    .WithMany()
+                    .HasForeignKey(s => s.ExpertId)
+                    .OnDelete(DeleteBehavior.Restrict);
+            });
+        }
     }
 }

@@ -12,7 +12,7 @@ namespace SnakeAid.Service.Interfaces
     {
         Task UpdateSettingsAsync(Guid expertId, ExpertSettingsRequest request);
         Task CreateBulkTimeSlotsAsync(Guid expertId, BulkTimeSlotRequest request);
-        Task<PagingResponse<ExpertProfileResponse>> GetExpertsAsync(PaginationRequest request);
+        Task<PagingResponse<ExpertProfileResponse>> GetExpertsAsync(ExpertDirectoryQueryRequest request);
         Task<ExpertProfileResponse> GetExpertProfileAsync(Guid expertId);
         Task<PagingResponse<UserFeedbackResponse>> GetExpertReviewsAsync(Guid expertId, PaginationRequest request);
         Task<IEnumerable<ExpertTimeSlotResponse>> GetAvailableTimeSlotsAsync(Guid expertId);

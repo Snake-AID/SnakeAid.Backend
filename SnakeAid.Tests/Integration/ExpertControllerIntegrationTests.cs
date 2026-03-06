@@ -14,6 +14,7 @@ using SnakeAid.Core.Responses.UserFeedback;
 using SnakeAid.Repository.Data;
 using SnakeAid.Repository.Implements;
 using SnakeAid.Service.Implements;
+using System.Linq;
 using System.Reflection;
 
 namespace SnakeAid.Tests.Integration;
@@ -148,6 +149,67 @@ public class ExpertControllerIntegrationTests
         Assert.Single(payload.Data);
     }
 
+    [Fact]
+    public async Task GetExperts_ShouldFilterByIsOnlineAndSpecialization()
+    {
+        var onlineExpertId = Guid.NewGuid();
+        var offlineExpertId = Guid.NewGuid();
+
+        await using var db = CreateDbContext();
+        await SeedExpertAsync(db, onlineExpertId, isOnline: true, fee: 150_000m, rating: 4.8m, ratingCount: 100, specializationName: "Ran Doc Viet Nam");
+        await SeedExpertAsync(db, offlineExpertId, isOnline: false, fee: 120_000m, rating: 4.9m, ratingCount: 120, specializationName: "Ran Canh");
+
+        var service = new ExpertService(new UnitOfWork<SnakeAidDbContext>(db), NullLogger<ExpertService>.Instance);
+        var controller = BuildController(service, Guid.Empty, "User");
+
+        var request = new ExpertDirectoryQueryRequest
+        {
+            PageNumber = 1,
+            PageSize = 10,
+            IsOnline = true,
+            Specialization = "Doc"
+        };
+
+        var result = await controller.GetExperts(request);
+
+        var ok = Assert.IsType<OkObjectResult>(result.Result);
+        var payload = Assert.IsType<ApiResponse<PagingResponse<ExpertProfileResponse>>>(ok.Value);
+        Assert.NotNull(payload.Data);
+        var items = payload.Data.Items.ToList();
+        Assert.Single(items);
+        Assert.Equal(onlineExpertId, items[0].AccountId);
+    }
+
+    [Fact]
+    public async Task GetExperts_ShouldSortByConsultationFeeAscending()
+    {
+        var expensiveExpertId = Guid.NewGuid();
+        var cheapExpertId = Guid.NewGuid();
+
+        await using var db = CreateDbContext();
+        await SeedExpertAsync(db, expensiveExpertId, isOnline: true, fee: 300_000m, rating: 4.9m, ratingCount: 100, specializationName: "Rắn Độc");
+        await SeedExpertAsync(db, cheapExpertId, isOnline: true, fee: 100_000m, rating: 4.1m, ratingCount: 20, specializationName: "Rắn Độc");
+
+        var service = new ExpertService(new UnitOfWork<SnakeAidDbContext>(db), NullLogger<ExpertService>.Instance);
+        var controller = BuildController(service, Guid.Empty, "User");
+
+        var result = await controller.GetExperts(new ExpertDirectoryQueryRequest
+        {
+            PageNumber = 1,
+            PageSize = 10,
+            SortBy = "consultationFee",
+            SortOrder = "asc"
+        });
+
+        var ok = Assert.IsType<OkObjectResult>(result.Result);
+        var payload = Assert.IsType<ApiResponse<PagingResponse<ExpertProfileResponse>>>(ok.Value);
+        Assert.NotNull(payload.Data);
+        var items = payload.Data.Items.ToList();
+        Assert.True(items.Count >= 2);
+        Assert.Equal(cheapExpertId, items[0].AccountId);
+        Assert.Equal(expensiveExpertId, items[1].AccountId);
+    }
+
     private static ExpertController BuildController(ExpertService service, Guid userId, string role)
     {
         var controller = new ExpertController(service);
@@ -180,7 +242,14 @@ public class ExpertControllerIntegrationTests
         return context;
     }
 
-    private static async Task SeedExpertAsync(SnakeAidDbContext db, Guid expertId)
+    private static async Task SeedExpertAsync(
+        SnakeAidDbContext db,
+        Guid expertId,
+        bool isOnline = true,
+        decimal fee = 150_000m,
+        decimal rating = 0m,
+        int ratingCount = 0,
+        string specializationName = "General")
     {
         db.Set<Account>().Add(new Account
         {
@@ -198,8 +267,28 @@ public class ExpertControllerIntegrationTests
         {
             AccountId = expertId,
             Biography = "Integration bio",
-            ConsultationFee = 150_000m,
-            IsOnline = true
+            ConsultationFee = fee,
+            IsOnline = isOnline,
+            Rating = rating,
+            RatingCount = ratingCount
+        });
+
+        var specialization = await db.Set<Specialization>().FirstOrDefaultAsync(s => s.Name == specializationName);
+        if (specialization == null)
+        {
+            specialization = new Specialization
+            {
+                Name = specializationName
+            };
+            db.Set<Specialization>().Add(specialization);
+            await db.SaveChangesAsync();
+        }
+
+        db.Set<ExpertSpecialization>().Add(new ExpertSpecialization
+        {
+            Id = Guid.NewGuid(),
+            ExpertId = expertId,
+            SpecializationId = specialization.Id
         });
 
         await db.SaveChangesAsync();
@@ -259,7 +348,9 @@ public class ExpertControllerIntegrationTests
                 typeof(Account),
                 typeof(ExpertProfile),
                 typeof(ExpertTimeSlot),
-                typeof(UserFeedback)
+                typeof(UserFeedback),
+                typeof(Specialization),
+                typeof(ExpertSpecialization)
             };
 
             var dbSetEntityTypes = typeof(SnakeAidDbContext)
@@ -288,7 +379,29 @@ public class ExpertControllerIntegrationTests
                     .WithOne()
                     .HasForeignKey<ExpertProfile>(e => e.AccountId)
                     .OnDelete(DeleteBehavior.Cascade);
-                entity.Ignore(e => e.Specializations);
+                entity.HasMany(e => e.Specializations)
+                    .WithOne(es => es.Expert)
+                    .HasForeignKey(es => es.ExpertId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            modelBuilder.Entity<Specialization>(entity =>
+            {
+                entity.HasKey(s => s.Id);
+                entity.Property(s => s.Id).ValueGeneratedOnAdd();
+            });
+
+            modelBuilder.Entity<ExpertSpecialization>(entity =>
+            {
+                entity.HasKey(es => es.Id);
+                entity.HasOne(es => es.Expert)
+                    .WithMany(e => e.Specializations)
+                    .HasForeignKey(es => es.ExpertId)
+                    .OnDelete(DeleteBehavior.Cascade);
+                entity.HasOne(es => es.Specialization)
+                    .WithMany(s => s.ExpertSpecializations)
+                    .HasForeignKey(es => es.SpecializationId)
+                    .OnDelete(DeleteBehavior.Cascade);
             });
 
             modelBuilder.Entity<ExpertTimeSlot>(entity =>

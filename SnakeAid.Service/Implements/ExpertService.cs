@@ -132,12 +132,47 @@ namespace SnakeAid.Service.Implements
             }
         }
 
-        public async Task<PagingResponse<ExpertProfileResponse>> GetExpertsAsync(PaginationRequest request)
+        public async Task<PagingResponse<ExpertProfileResponse>> GetExpertsAsync(ExpertDirectoryQueryRequest request)
         {
+            var specializationFilter = request.Specialization?.Trim();
+            var hasSpecializationFilter = !string.IsNullOrWhiteSpace(specializationFilter);
+            var hasSortBy = !string.IsNullOrWhiteSpace(request.SortBy);
+            var sortBy = request.SortBy?.Trim().ToLowerInvariant();
+            var isAscending = string.Equals(request.SortOrder?.Trim(), "asc", StringComparison.OrdinalIgnoreCase);
+
             var pagedData = await _unitOfWork.GetRepository<ExpertProfile>().GetPagingListAsync(
-                predicate: p => p.Account.IsActive,
+                predicate: p =>
+                    p.Account.IsActive
+                    && (!request.IsOnline.HasValue || p.IsOnline == request.IsOnline.Value)
+                    && (!hasSpecializationFilter
+                        || p.Specializations.Any(es =>
+                            es.Specialization != null
+                            && es.Specialization.Name != null
+                            && es.Specialization.Name.ToLower().Contains(specializationFilter!.ToLower()))),
                 include: q => q.Include(p => p.Account).Include(p => p.Specializations).ThenInclude(es => es.Specialization),
-                orderBy: q => q.OrderByDescending(p => p.Rating).ThenByDescending(p => p.RatingCount),
+                orderBy: q =>
+                {
+                    if (!hasSortBy)
+                    {
+                        return q
+                            .OrderByDescending(p => (double)p.Rating)
+                            .ThenByDescending(p => p.RatingCount)
+                            .ThenBy(p => p.AccountId);
+                    }
+
+                    return sortBy switch
+                    {
+                        "isonline" => isAscending
+                            ? q.OrderBy(p => p.IsOnline).ThenByDescending(p => (double)p.Rating).ThenByDescending(p => p.RatingCount).ThenBy(p => p.AccountId)
+                            : q.OrderByDescending(p => p.IsOnline).ThenByDescending(p => (double)p.Rating).ThenByDescending(p => p.RatingCount).ThenBy(p => p.AccountId),
+                        "consultationfee" => isAscending
+                            ? q.OrderBy(p => (double)p.ConsultationFee).ThenByDescending(p => (double)p.Rating).ThenByDescending(p => p.RatingCount).ThenBy(p => p.AccountId)
+                            : q.OrderByDescending(p => (double)p.ConsultationFee).ThenByDescending(p => (double)p.Rating).ThenByDescending(p => p.RatingCount).ThenBy(p => p.AccountId),
+                        _ => isAscending
+                            ? q.OrderBy(p => (double)p.Rating).ThenByDescending(p => p.RatingCount).ThenBy(p => p.AccountId)
+                            : q.OrderByDescending(p => (double)p.Rating).ThenByDescending(p => p.RatingCount).ThenBy(p => p.AccountId)
+                    };
+                },
                 page: request.PageNumber,
                 size: request.PageSize
             );
