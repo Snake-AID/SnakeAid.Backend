@@ -2,10 +2,10 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using NetTopologySuite.Geometries;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
-using SnakeAid.Core.Domains;
 using SnakeAid.Repository.Data;
 
 #nullable disable
@@ -13,14 +13,16 @@ using SnakeAid.Repository.Data;
 namespace SnakeAid.Repository.Migrations
 {
     [DbContext(typeof(SnakeAidDbContext))]
-    partial class SnakeAidDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260305181346_AddUniqueExpertTimeSlotConstraint")]
+    partial class AddUniqueExpertTimeSlotConstraint
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
                 .HasDefaultSchema("SnakeAid")
-                .HasAnnotation("ProductVersion", "8.0.11")
+                .HasAnnotation("ProductVersion", "8.0.23")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.HasPostgresExtension(modelBuilder, "postgis");
@@ -652,10 +654,6 @@ namespace SnakeAid.Repository.Migrations
 
                     b.Property<decimal>("Price")
                         .HasColumnType("numeric");
-
-                    b.Property<string>("ProblemDescription")
-                        .HasMaxLength(2000)
-                        .HasColumnType("character varying(2000)");
 
                     b.Property<int>("Status")
                         .HasColumnType("integer");
@@ -1835,6 +1833,7 @@ namespace SnakeAid.Repository.Migrations
                         .HasDatabaseName("IX_SnakeCatchingMissions_RescuerId");
 
                     b.HasIndex("SnakeCatchingRequestId")
+                        .IsUnique()
                         .HasDatabaseName("IX_SnakeCatchingMissions_RequestId");
 
                     b.HasIndex("Status")
@@ -2094,9 +2093,6 @@ namespace SnakeAid.Repository.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
-                    b.Property<Guid?>("AIRecognitionResultId")
-                        .HasColumnType("uuid");
-
                     b.Property<DateTime?>("AssignedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -2114,18 +2110,6 @@ namespace SnakeAid.Repository.Migrations
                         .HasColumnType("integer");
 
                     b.Property<int>("CurrentSessionNumber")
-                        .HasColumnType("integer");
-
-                    b.Property<FilterAnswerData>("FilterAnswers")
-                        .HasColumnType("jsonb");
-
-                    b.Property<int>("IdentificationMethod")
-                        .HasColumnType("integer");
-
-                    b.Property<DateTime?>("IdentifiedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<int?>("IdentifiedSnakeSpeciesId")
                         .HasColumnType("integer");
 
                     b.Property<DateTime?>("IncidentOccurredAt")
@@ -2155,12 +2139,8 @@ namespace SnakeAid.Repository.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("AIRecognitionResultId");
-
                     b.HasIndex("AssignedRescuerId")
                         .HasDatabaseName("IX_SnakebiteIncidents_AssignedRescuerId");
-
-                    b.HasIndex("IdentifiedSnakeSpeciesId");
 
                     b.HasIndex("Status")
                         .HasDatabaseName("IX_SnakebiteIncidents_Status");
@@ -3256,18 +3236,10 @@ namespace SnakeAid.Repository.Migrations
 
             modelBuilder.Entity("SnakeAid.Core.Domains.SnakebiteIncident", b =>
                 {
-                    b.HasOne("SnakeAid.Core.Domains.SnakeAIRecognitionResult", "AIRecognitionResult")
-                        .WithMany()
-                        .HasForeignKey("AIRecognitionResultId");
-
                     b.HasOne("SnakeAid.Core.Domains.RescuerProfile", "AssignedRescuer")
                         .WithMany()
                         .HasForeignKey("AssignedRescuerId")
                         .OnDelete(DeleteBehavior.SetNull);
-
-                    b.HasOne("SnakeAid.Core.Domains.SnakeSpecies", "IdentifiedSnakeSpecies")
-                        .WithMany()
-                        .HasForeignKey("IdentifiedSnakeSpeciesId");
 
                     b.HasOne("SnakeAid.Core.Domains.MemberProfile", "User")
                         .WithMany("SnakebiteIncidents")
@@ -3275,11 +3247,7 @@ namespace SnakeAid.Repository.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.Navigation("AIRecognitionResult");
-
                     b.Navigation("AssignedRescuer");
-
-                    b.Navigation("IdentifiedSnakeSpecies");
 
                     b.Navigation("User");
                 });

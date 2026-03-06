@@ -30,6 +30,10 @@ namespace SnakeAid.Repository.Data.Configurations
 
             builder.HasIndex(t => new { t.ExpertId, t.StartTime })
                 .HasDatabaseName("IX_ExpertTimeSlots_ExpertId_StartTime");
+
+            builder.HasIndex(t => new { t.ExpertId, t.StartTime, t.EndTime })
+                .IsUnique()
+                .HasDatabaseName("UX_ExpertTimeSlots_ExpertId_StartTime_EndTime");
         }
     }
 }
