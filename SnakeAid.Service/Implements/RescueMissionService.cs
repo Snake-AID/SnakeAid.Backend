@@ -528,7 +528,7 @@ namespace SnakeAid.Service.Implements
 
                 // Manual map Media to ensure DetectedSpecies are properly mapped
                 // Mapster có thể không handle đúng complex LINQ trong nested mapping
-                if (mission.Incident.Media != null && mission.Incident.Media.Any())
+                if (mission.Incident.Media != null && mission.Incident.Media.Any() && response.Incident != null)
                 {
                     response.Incident.Media = mission.Incident.Media.Adapt<List<SnakeAIDetectMediaResponse>>();
                 }
