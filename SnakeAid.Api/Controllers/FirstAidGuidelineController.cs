@@ -15,15 +15,18 @@ namespace SnakeAid.Api.Controllers
     public class FirstAidGuidelineController : BaseController<FirstAidGuidelineController>
     {
         private readonly IFirstAidGuidelineService _guidelineService;
+        private readonly IFirstAidRecommendationService _recommendationService;
 
         public FirstAidGuidelineController(
             ILogger<FirstAidGuidelineController> logger,
             IHttpContextAccessor httpContextAccessor,
             IMapper mapper,
-            IFirstAidGuidelineService guidelineService)
+            IFirstAidGuidelineService guidelineService,
+            IFirstAidRecommendationService recommendationService)
             : base(logger, httpContextAccessor, mapper)
         {
             _guidelineService = guidelineService;
+            _recommendationService = recommendationService;
         }
 
         /// <summary>
@@ -122,6 +125,44 @@ namespace SnakeAid.Api.Controllers
         {
             await _guidelineService.DeleteFirstAidGuidelineAsync(id);
             return Ok(ApiResponseBuilder.BuildSuccessResponse("First aid guideline deleted successfully!"));
+        }
+
+        /// <summary>
+        /// Get recommended first aid guideline for a snakebite incident
+        /// </summary>
+        [HttpGet("recommendation/incident/{incidentId}")]
+        [SwaggerOperation(Summary = "Get Recommendation for Incident", Description = "Get the recommended first aid guideline for a specific snakebite incident based on identified snake")]
+        [SwaggerResponse(200, "Success", typeof(ApiResponse<Core.Responses.FirstAid.FirstAidRecommendationResponse>))]
+        [SwaggerResponse(404, "Incident not found")]
+        public async Task<IActionResult> GetRecommendationForIncident(Guid incidentId)
+        {
+            var result = await _recommendationService.GetRecommendationForIncidentAsync(incidentId);
+            return Ok(ApiResponseBuilder.BuildSuccessResponse(result));
+        }
+
+        /// <summary>
+        /// Get first aid guideline recommendation for a specific snake species
+        /// </summary>
+        [HttpGet("recommendation/species/{snakeSpeciesId}")]
+        [SwaggerOperation(Summary = "Get Recommendation for Species", Description = "Get the first aid guideline recommendation for a specific snake species")]
+        [SwaggerResponse(200, "Success", typeof(ApiResponse<Core.Responses.FirstAid.FirstAidRecommendationResponse>))]
+        [SwaggerResponse(404, "Snake species not found")]
+        public async Task<IActionResult> GetRecommendationForSpecies(int snakeSpeciesId)
+        {
+            var result = await _recommendationService.GetRecommendationForSpeciesAsync(snakeSpeciesId);
+            return Ok(ApiResponseBuilder.BuildSuccessResponse(result));
+        }
+
+        /// <summary>
+        /// Get general first aid guideline for snake bites (when snake is not identified)
+        /// </summary>
+        [HttpGet("recommendation/general")]
+        [SwaggerOperation(Summary = "Get General Recommendation", Description = "Get general first aid guideline for snake bites when the snake species is not identified")]
+        [SwaggerResponse(200, "Success", typeof(ApiResponse<Core.Responses.FirstAid.FirstAidRecommendationResponse>))]
+        public async Task<IActionResult> GetGeneralRecommendation()
+        {
+            var result = await _recommendationService.GetGeneralRecommendationAsync();
+            return Ok(ApiResponseBuilder.BuildSuccessResponse(result));
         }
     }
 }

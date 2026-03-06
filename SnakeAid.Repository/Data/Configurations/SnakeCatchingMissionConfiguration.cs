@@ -28,7 +28,6 @@ namespace SnakeAid.Repository.Data.Configurations
                 .HasDatabaseName("IX_SnakeCatchingMissions_RescuerId");
 
             builder.HasIndex(m => m.SnakeCatchingRequestId)
-                .IsUnique()
                 .HasDatabaseName("IX_SnakeCatchingMissions_RequestId");
 
             builder.HasOne(m => m.CatchingEnvironment)

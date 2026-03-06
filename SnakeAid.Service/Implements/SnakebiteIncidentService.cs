@@ -13,6 +13,7 @@ using SnakeAid.Repository.Data;
 using SnakeAid.Repository.Interfaces;
 using SnakeAid.Service.Interfaces;
 using SnakeAid.Service.Extensions;
+using SnakeAid.Core.Responses.SymptomConfig;
 
 namespace SnakeAid.Service.Implements
 {
@@ -238,8 +239,8 @@ namespace SnakeAid.Service.Implements
                                 .Include(i => i.AssignedRescuer)
                                     .ThenInclude(r => r.Account)
                                 .Include(i => i.Missions)
-                        // .Include(i => i.Media)
-                        //     .ThenInclude(m => m.AIRecognitionResults)
+                                .Include(i => i.IdentifiedSnakeSpecies)
+                                .Include(i => i.AIRecognitionResult)
                         );
 
                     if (existingIncident == null)
@@ -249,7 +250,32 @@ namespace SnakeAid.Service.Implements
 
                     await existingIncident.AttachReportMediaAsync(_unitOfWork, MediaReferenceType.SnakebiteIncident);
 
+                    _logger.LogInformation("Loaded {MediaCount} media items for incident {IncidentId}",
+                        existingIncident.Media?.Count ?? 0, incidentId);
+
                     var responseData = existingIncident.Adapt<DetailSnakebiteIncidentResponse>();
+
+                    // Map identified snake manually if available
+                    if (existingIncident.IdentifiedSnakeSpecies != null)
+                    {
+                        responseData.IdentifiedSnake = existingIncident.IdentifiedSnakeSpecies.Adapt<SnakeSpeciesResponse>();
+
+                        responseData.IdentificationContext = new Core.Responses.FirstAid.SnakeIdentificationContext
+                        {
+                            Method = existingIncident.IdentificationMethod,
+                            IdentifiedAt = existingIncident.IdentifiedAt ?? DateTime.UtcNow
+                        };
+
+                        // Add AI confidence if applicable
+                        if (existingIncident.IdentificationMethod == SnakeIdentificationMethod.AIDetection
+                            && existingIncident.AIRecognitionResult != null)
+                        {
+                            responseData.IdentificationContext.AIConfidence = (float)existingIncident.AIRecognitionResult.Confidence;
+                        }
+                    }
+
+                    _logger.LogInformation("Mapped {MediaCount} media items in response for incident {IncidentId}",
+                        responseData.Media?.Count ?? 0, incidentId);
 
                     return responseData;
                 });
@@ -347,6 +373,9 @@ namespace SnakeAid.Service.Implements
                     existingIncident.SeverityLevel = severityLevel;
                     _unitOfWork.GetRepository<SnakebiteIncident>().Update(existingIncident);
                     await _unitOfWork.CommitAsync();
+
+                    // Attach media before mapping to response
+                    await existingIncident.AttachReportMediaAsync(_unitOfWork, MediaReferenceType.SnakebiteIncident);
 
                     var responseData = existingIncident.Adapt<UpdateSymptomReportResponse>();
                     return responseData;
@@ -502,6 +531,297 @@ namespace SnakeAid.Service.Implements
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error starting rescue for incident {IncidentId}: {Message}", incidentId, ex.Message);
+                throw;
+            }
+        }
+
+        public async Task<object> GetMediaDebugInfoAsync(Guid incidentId)
+        {
+            try
+            {
+                // Get all media for this incident using raw query
+                var allMediaForIncident = await _unitOfWork.GetRepository<ReportMedia>()
+                    .GetListAsync(
+                        predicate: m => m.ReferenceId == incidentId && m.ReferenceType == MediaReferenceType.SnakebiteIncident
+                    );
+
+                // Get all media with any reference to this ID (regardless of type)
+                var allMediaWithThisId = await _unitOfWork.GetRepository<ReportMedia>()
+                    .GetListAsync(
+                        predicate: m => m.ReferenceId == incidentId
+                    );
+
+                // Get all media for SnakebiteIncident type
+                var allSnakebiteMedia = await _unitOfWork.GetRepository<ReportMedia>()
+                    .GetListAsync(
+                        predicate: m => m.ReferenceType == MediaReferenceType.SnakebiteIncident
+                    );
+
+                return new
+                {
+                    IncidentId = incidentId,
+                    MediaForThisIncident = allMediaForIncident.Select(m => new
+                    {
+                        m.Id,
+                        m.ReferenceId,
+                        m.ReferenceType,
+                        m.Purpose,
+                        m.MediaUrl,
+                        m.RequiresAIProcessing,
+                        m.IsProcessed
+                    }).ToList(),
+                    CountForThisIncident = allMediaForIncident.Count,
+                    MediaWithThisIdAnyType = allMediaWithThisId.Select(m => new
+                    {
+                        m.Id,
+                        m.ReferenceId,
+                        m.ReferenceType
+                    }).ToList(),
+                    AllSnakebiteIncidentMedia = allSnakebiteMedia.Select(m => new
+                    {
+                        m.Id,
+                        m.ReferenceId,
+                        m.ReferenceType
+                    }).ToList()
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting media debug info for incident {IncidentId}: {Message}", incidentId, ex.Message);
+                throw;
+            }
+        }
+
+        public async Task<IdentifySnakeResponse> IdentifySnakeByAIAsync(Guid incidentId, Guid recognitionResultId)
+        {
+            try
+            {
+                return await _unitOfWork.ExecuteInTransactionAsync(async () =>
+                {
+                    // 1. Validate incident exists
+                    var incident = await _unitOfWork.GetRepository<SnakebiteIncident>()
+                        .FirstOrDefaultAsync(predicate: i => i.Id == incidentId);
+
+                    if (incident == null)
+                    {
+                        _logger.LogWarning("Snakebite incident not found: {IncidentId}", incidentId);
+                        throw new NotFoundException("Snakebite incident not found.");
+                    }
+
+                    // 2. Validate recognition result exists and belongs to this incident
+                    var recognitionResult = await _unitOfWork.GetRepository<SnakeAIRecognitionResult>()
+                        .FirstOrDefaultAsync(
+                            predicate: r => r.Id == recognitionResultId,
+                            include: query => query
+                                .Include(r => r.ReportMedia)
+                                .Include(r => r.DetectedSpecies)
+                        );
+
+                    if (recognitionResult == null)
+                    {
+                        _logger.LogWarning("Recognition result not found: {ResultId}", recognitionResultId);
+                        throw new NotFoundException("Recognition result not found.");
+                    }
+
+                    // Verify the recognition result's media belongs to this incident
+                    if (recognitionResult.ReportMedia == null ||
+                        recognitionResult.ReportMedia.ReferenceId != incidentId ||
+                        recognitionResult.ReportMedia.ReferenceType != MediaReferenceType.SnakebiteIncident)
+                    {
+                        _logger.LogWarning("Recognition result {ResultId} does not belong to incident {IncidentId}",
+                            recognitionResultId, incidentId);
+                        throw new BadRequestException("Recognition result does not belong to this incident.");
+                    }
+
+                    if (recognitionResult.DetectedSpeciesId == null || recognitionResult.DetectedSpecies == null)
+                    {
+                        _logger.LogWarning("Recognition result {ResultId} has no detected species", recognitionResultId);
+                        throw new BadRequestException("No species detected in this recognition result.");
+                    }
+
+                    // 3. Update incident with identification
+                    incident.IdentifiedSnakeSpeciesId = recognitionResult.DetectedSpeciesId.Value;
+                    incident.IdentificationMethod = SnakeIdentificationMethod.AIDetection;
+                    incident.AIRecognitionResultId = recognitionResultId;
+                    incident.IdentifiedAt = DateTime.UtcNow;
+
+                    _unitOfWork.GetRepository<SnakebiteIncident>().Update(incident);
+
+                    _logger.LogInformation("Snake identified for incident {IncidentId}: Species {SpeciesId} via AI with confidence {Confidence}",
+                        incidentId, recognitionResult.DetectedSpeciesId, recognitionResult.Confidence);
+
+                    return new IdentifySnakeResponse
+                    {
+                        IncidentId = incidentId,
+                        IdentifiedSnakeSpeciesId = recognitionResult.DetectedSpeciesId.Value,
+                        IdentificationMethod = SnakeIdentificationMethod.AIDetection,
+                        IdentifiedAt = incident.IdentifiedAt.Value,
+                        Snake = new SnakeSpeciesResponse
+                        {
+                            Id = recognitionResult.DetectedSpecies.Id,
+                            ScientificName = recognitionResult.DetectedSpecies.ScientificName,
+                            CommonName = recognitionResult.DetectedSpecies.CommonName ?? string.Empty,
+                            Slug = recognitionResult.DetectedSpecies.Slug,
+                            ImageUrl = recognitionResult.DetectedSpecies.ImageUrl,
+                            Description = recognitionResult.DetectedSpecies.Description ?? string.Empty,
+                            IdentificationSummary = recognitionResult.DetectedSpecies.IdentificationSummary ?? string.Empty,
+                            PrimaryVenomType = recognitionResult.DetectedSpecies.PrimaryVenomType,
+                            RiskLevel = recognitionResult.DetectedSpecies.RiskLevel,
+                            IsVenomous = recognitionResult.DetectedSpecies.IsVenomous,
+                            IsActive = recognitionResult.DetectedSpecies.IsActive
+                        },
+                        AIRecognitionResultId = recognitionResultId,
+                        AIConfidence = (float)recognitionResult.Confidence
+                    };
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error identifying snake by AI for incident {IncidentId}: {Message}", incidentId, ex.Message);
+                throw;
+            }
+        }
+
+        public async Task<IdentifySnakeResponse> IdentifySnakeByFilterAsync(Guid incidentId, IdentifyByFilterRequest request)
+        {
+            try
+            {
+                return await _unitOfWork.ExecuteInTransactionAsync(async () =>
+                {
+                    // 1. Validate incident exists
+                    var incident = await _unitOfWork.GetRepository<SnakebiteIncident>()
+                        .FirstOrDefaultAsync(predicate: i => i.Id == incidentId);
+
+                    if (incident == null)
+                    {
+                        _logger.LogWarning("Snakebite incident not found: {IncidentId}", incidentId);
+                        throw new NotFoundException("Snakebite incident not found.");
+                    }
+
+                    // 2. Validate answers and get questions/options
+                    var questionIds = request.Answers.Select(a => a.QuestionId).Distinct().ToList();
+                    var questions = await _unitOfWork.GetRepository<FilterQuestion>()
+                        .GetListAsync(
+                            predicate: q => questionIds.Contains(q.Id) && q.IsActive,
+                            include: query => query.Include(q => q.FilterOptions)
+                        );
+
+                    if (questions.Count != questionIds.Count)
+                    {
+                        throw new BadRequestException("Some questions are invalid or inactive.");
+                    }
+
+                    // 3. Find all snake species that match the selected options
+                    var selectedOptionIds = request.Answers.Select(a => a.SelectedOptionId).ToList();
+
+                    var mappings = await _unitOfWork.GetRepository<FilterSnakeMapping>()
+                        .GetListAsync(
+                            predicate: m => selectedOptionIds.Contains(m.FilterOptionId) && m.IsActive,
+                            include: query => query
+                                .Include(m => m.FilterOption)
+                                .Include(m => m.SnakeSpecies)
+                        );
+
+                    // Group by snake species and count how many filter criteria match
+                    var snakeMatches = mappings
+                        .GroupBy(m => m.SnakeSpeciesId)
+                        .Select(g => new
+                        {
+                            SnakeSpeciesId = g.Key,
+                            MatchCount = g.Count(),
+                            Species = g.First().SnakeSpecies
+                        })
+                        .OrderByDescending(s => s.MatchCount)
+                        .ToList();
+
+                    if (!snakeMatches.Any())
+                    {
+                        _logger.LogWarning("No snake species matched the filter answers for incident {IncidentId}", incidentId);
+                        throw new BadRequestException("No snake species found matching the provided answers.");
+                    }
+
+                    // 4. Determine which snake to identify
+                    int identifiedSpeciesId;
+                    SnakeSpecies identifiedSpecies;
+
+                    if (request.SelectedSnakeSpeciesId.HasValue)
+                    {
+                        // User explicitly selected from multiple matches
+                        var selected = snakeMatches.FirstOrDefault(m => m.SnakeSpeciesId == request.SelectedSnakeSpeciesId.Value);
+                        if (selected == null)
+                        {
+                            throw new BadRequestException("Selected snake species is not in the matched results.");
+                        }
+                        identifiedSpeciesId = selected.SnakeSpeciesId;
+                        identifiedSpecies = selected.Species;
+                    }
+                    else
+                    {
+                        // Use the best match (highest match count)
+                        var bestMatch = snakeMatches.First();
+                        identifiedSpeciesId = bestMatch.SnakeSpeciesId;
+                        identifiedSpecies = bestMatch.Species;
+                    }
+
+                    // 5. Build FilterAnswerData
+                    var filterAnswerData = new FilterAnswerData
+                    {
+                        Answers = request.Answers.Select(a =>
+                        {
+                            var question = questions.First(q => q.Id == a.QuestionId);
+                            var option = question.FilterOptions.First(o => o.Id == a.SelectedOptionId);
+                            return new FilterAnswer
+                            {
+                                QuestionId = a.QuestionId,
+                                QuestionText = question.Question,
+                                SelectedOptionId = a.SelectedOptionId,
+                                SelectedOptionText = option.OptionText
+                            };
+                        }).ToList(),
+                        MatchedSnakeSpeciesIds = snakeMatches.Select(m => m.SnakeSpeciesId).ToList(),
+                        SelectedSnakeSpeciesId = identifiedSpeciesId
+                    };
+
+                    // 6. Update incident with identification
+                    incident.IdentifiedSnakeSpeciesId = identifiedSpeciesId;
+                    incident.IdentificationMethod = SnakeIdentificationMethod.FilterQuestions;
+                    incident.FilterAnswers = filterAnswerData;
+                    incident.IdentifiedAt = DateTime.UtcNow;
+
+                    _unitOfWork.GetRepository<SnakebiteIncident>().Update(incident);
+
+                    _logger.LogInformation("Snake identified for incident {IncidentId}: Species {SpeciesId} via filter questions with {MatchCount} matches",
+                        incidentId, identifiedSpeciesId, snakeMatches.Count);
+
+                    return new IdentifySnakeResponse
+                    {
+                        IncidentId = incidentId,
+                        IdentifiedSnakeSpeciesId = identifiedSpeciesId,
+                        IdentificationMethod = SnakeIdentificationMethod.FilterQuestions,
+                        IdentifiedAt = incident.IdentifiedAt.Value,
+                        Snake = new SnakeSpeciesResponse
+                        {
+                            Id = identifiedSpecies.Id,
+                            ScientificName = identifiedSpecies.ScientificName,
+                            CommonName = identifiedSpecies.CommonName ?? string.Empty,
+                            Slug = identifiedSpecies.Slug,
+                            ImageUrl = identifiedSpecies.ImageUrl,
+                            Description = identifiedSpecies.Description ?? string.Empty,
+                            IdentificationSummary = identifiedSpecies.IdentificationSummary ?? string.Empty,
+                            PrimaryVenomType = identifiedSpecies.PrimaryVenomType,
+                            RiskLevel = identifiedSpecies.RiskLevel,
+                            IsVenomous = identifiedSpecies.IsVenomous,
+                            IsActive = identifiedSpecies.IsActive
+                        },
+                        MatchedSnakes = snakeMatches.Select(m =>
+                            $"{m.Species.CommonName ?? m.Species.ScientificName} ({m.MatchCount} matches)")
+                            .ToList()
+                    };
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error identifying snake by filter for incident {IncidentId}: {Message}", incidentId, ex.Message);
                 throw;
             }
         }

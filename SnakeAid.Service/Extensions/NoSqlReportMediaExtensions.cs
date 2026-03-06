@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using SnakeAid.Core.Domains;
 using SnakeAid.Repository.Interfaces;
 
@@ -29,9 +30,15 @@ namespace SnakeAid.Service.Extensions
 
             var entityIds = entities.Select(e => e.Id).ToList();
 
-            // Single query to fetch all media for the given entities
+            // Single query to fetch all media for the given entities WITH AIRecognitionResults
             var allMedia = await unitOfWork.GetRepository<ReportMedia>()
-                .GetListAsync(predicate: m => m.ReferenceId.HasValue && entityIds.Contains(m.ReferenceId.Value) && m.ReferenceType == referenceType);
+                .GetListAsync(
+                    predicate: m => m.ReferenceId.HasValue && entityIds.Contains(m.ReferenceId.Value) && m.ReferenceType == referenceType,
+                    include: q => q
+                        .Include(m => m.AIRecognitionResults)
+                            .ThenInclude(r => r.DetectedSpecies)
+                                .ThenInclude(s => s.SpeciesVenoms)
+                                    .ThenInclude(sv => sv.VenomType));
 
             // Group media by ReferenceId for O(1) in-memory lookup
             var mediaByReferenceId = allMedia

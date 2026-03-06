@@ -87,7 +87,17 @@ namespace SnakeAid.Api.Services
                     CreatedAt = DateTime.UtcNow,
                     UpdatedAt = DateTime.UtcNow
                 };
+
+                var memberWallet = new Wallet
+                {
+                    Id = DEMO_USER_ID,
+                    Balance = 500000,
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
+                };
+
                 await _dbContext.MemberProfiles.AddAsync(memberProfile);
+                await _dbContext.Wallets.AddAsync(memberWallet);
                 await _dbContext.SaveChangesAsync();
 
                 // Create demo rescuers with locations
@@ -144,7 +154,17 @@ namespace SnakeAid.Api.Services
                         CreatedAt = DateTime.UtcNow,
                         UpdatedAt = DateTime.UtcNow
                     };
+
+                    var rescuerWallet = new Wallet
+                    {
+                        Id = r.Id,
+                        Balance = 10000,
+                        CreatedAt = DateTime.UtcNow,
+                        UpdatedAt = DateTime.UtcNow
+                    };
+
                     await _dbContext.RescuerProfiles.AddAsync(rescuerProfile);
+                    await _dbContext.Wallets.AddAsync(rescuerWallet);
                 }
 
                 await _dbContext.SaveChangesAsync();

@@ -26,5 +26,13 @@ namespace SnakeAid.Service.Interfaces
         // Handle rescuer accept (từ SignalR callback)
         Task<AcceptRescueResponse> AcceptRescueAsync(Guid requestId, Guid rescuerId);
 
+        // Debug: Get media info
+        Task<object> GetMediaDebugInfoAsync(Guid incidentId);
+
+        // Snake Identification
+        Task<IdentifySnakeResponse> IdentifySnakeByAIAsync(Guid incidentId, Guid recognitionResultId);
+
+        Task<IdentifySnakeResponse> IdentifySnakeByFilterAsync(Guid incidentId, IdentifyByFilterRequest request);
+
     }
 }
