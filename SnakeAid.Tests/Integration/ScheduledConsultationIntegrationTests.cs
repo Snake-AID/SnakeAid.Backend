@@ -3,9 +3,11 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using SnakeAid.Core.Domains;
 using SnakeAid.Core.Requests.Consultation;
+using SnakeAid.Core.Responses.Consultation;
 using SnakeAid.Repository.Data;
 using SnakeAid.Repository.Implements;
 using SnakeAid.Service.Implements;
+using SnakeAid.Service.Interfaces;
 using System.Reflection;
 
 namespace SnakeAid.Tests.Integration;
@@ -31,7 +33,7 @@ public class ScheduledConsultationIntegrationTests
         });
         await db.SaveChangesAsync();
 
-        var bookingService = new BookingService(new UnitOfWork<SnakeAidDbContext>(db), NullLogger<BookingService>.Instance);
+        var bookingService = new BookingService(new UnitOfWork<SnakeAidDbContext>(db), new FakeConsultationPaymentService(), NullLogger<BookingService>.Instance);
         var response = await bookingService.CreateScheduledBookingAsync(userId, new CreateConsultationBookingRequest
         {
             TimeSlotId = slotId,
@@ -100,7 +102,7 @@ public class ScheduledConsultationIntegrationTests
 
         await db.SaveChangesAsync();
 
-        var consultationService = new ConsultationService(new UnitOfWork<SnakeAidDbContext>(db), NullLogger<ConsultationService>.Instance);
+        var consultationService = new ConsultationService(new UnitOfWork<SnakeAidDbContext>(db), new FakeConsultationPaymentService(), NullLogger<ConsultationService>.Instance);
         await consultationService.EndConsultationAsync(consultationId, userId);
 
         var consultation = await db.Consultations.FirstAsync(c => c.Id == consultationId);
@@ -137,7 +139,7 @@ public class ScheduledConsultationIntegrationTests
 
         await db.SaveChangesAsync();
 
-        var consultationService = new ConsultationService(new UnitOfWork<SnakeAidDbContext>(db), NullLogger<ConsultationService>.Instance);
+        var consultationService = new ConsultationService(new UnitOfWork<SnakeAidDbContext>(db), new FakeConsultationPaymentService(), NullLogger<ConsultationService>.Instance);
         var response = await consultationService.CreateConsultationReviewAsync(consultationId, userId, new CreateConsultationReviewRequest
         {
             Rating = 5,
@@ -152,6 +154,21 @@ public class ScheduledConsultationIntegrationTests
         var expertProfile = await db.ExpertProfiles.FirstAsync(e => e.AccountId == expertId);
         Assert.Equal(1, expertProfile.RatingCount);
         Assert.Equal(5m, expertProfile.Rating);
+    }
+
+    private sealed class FakeConsultationPaymentService : IConsultationPaymentService
+    {
+        public List<Guid> SettledConsultationIds { get; } = new();
+
+        public Task<ConsultationPaymentResponse> PayScheduledBookingAsync(Guid userId, Guid bookingId, ProcessConsultationPaymentRequest request, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task<ConsultationPaymentResponse> PayEmergencyRequestAsync(Guid userId, Guid requestId, ProcessConsultationPaymentRequest request, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task<bool> RefundEmergencyEscrowAsync(Guid requestId, string reason, CancellationToken cancellationToken = default) => Task.FromResult(false);
+        public Task<int> ExpireEmergencyRequestsAsync(CancellationToken cancellationToken = default) => Task.FromResult(0);
+        public Task<bool> SettleConsultationEscrowAsync(Guid consultationId, CancellationToken cancellationToken = default)
+        {
+            SettledConsultationIds.Add(consultationId);
+            return Task.FromResult(true);
+        }
     }
 
     private static SnakeAidDbContext CreateDbContext()
