@@ -14,7 +14,7 @@ using System.Threading.Tasks;
 namespace SnakeAid.Api.Controllers
 {
     [ApiController]
-    [Route("api/v1/experts")]
+    [Route("api/experts")]
     public class ExpertController : ControllerBase
     {
         private readonly IExpertService _expertService;

@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using NetTopologySuite.Geometries;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
@@ -13,9 +14,11 @@ using SnakeAid.Repository.Data;
 namespace SnakeAid.Repository.Migrations
 {
     [DbContext(typeof(SnakeAidDbContext))]
-    partial class SnakeAidDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260306203521_AddEmergencyConsultationFeeToExpertProfile")]
+    partial class AddEmergencyConsultationFeeToExpertProfile
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

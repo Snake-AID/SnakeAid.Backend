@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using SnakeAid.Core.Domains;
 using SnakeAid.Core.Requests.Consultation;
+using SnakeAid.Core.Responses.Consultation;
 using SnakeAid.Repository.Data;
 using SnakeAid.Repository.Implements;
 using SnakeAid.Service.Implements;
@@ -28,6 +29,7 @@ public class EmergencyConsultationIntegrationTests
         var service = new EmergencyConsultationService(
             new UnitOfWork<SnakeAidDbContext>(db),
             new FakeExpertEmergencyNotificationService(),
+            new FakeConsultationPaymentService(),
             NullLogger<EmergencyConsultationService>.Instance);
 
         var response = await service.CreateEmergencyRequestAsync(userId, new CreateEmergencyConsultationRequest
@@ -37,12 +39,12 @@ public class EmergencyConsultationIntegrationTests
 
         Assert.Equal(expertId, response.ExpertId);
         Assert.Equal(userId, response.RequesterId);
-        Assert.Equal(ConsultationPingStatus.PendingExpertResponse, response.Status);
+        Assert.Equal(ConsultationPingStatus.PendingPayment, response.Status);
 
         var ping = await db.ConsultationPingRequests.FirstAsync(x => x.Id == response.RequestId);
         Assert.Equal(expertId, ping.ExpertId);
         Assert.Equal(userId, ping.RescuerId);
-        Assert.NotNull(ping.ExpiresAt);
+        Assert.Null(ping.ExpiresAt);
     }
 
     [Fact]
@@ -94,6 +96,7 @@ public class EmergencyConsultationIntegrationTests
         var service = new EmergencyConsultationService(
             new UnitOfWork<SnakeAidDbContext>(db),
             new FakeExpertEmergencyNotificationService(),
+            new FakeConsultationPaymentService(),
             NullLogger<EmergencyConsultationService>.Instance);
 
         var response = await service.AcceptEmergencyRequestAsync(requestId, expertId);
@@ -266,5 +269,14 @@ public class EmergencyConsultationIntegrationTests
                 entity.Ignore(p => p.RescueMission);
             });
         }
+    }
+
+    private sealed class FakeConsultationPaymentService : IConsultationPaymentService
+    {
+        public Task<ConsultationPaymentResponse> PayScheduledBookingAsync(Guid userId, Guid bookingId, ProcessConsultationPaymentRequest request, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task<ConsultationPaymentResponse> PayEmergencyRequestAsync(Guid userId, Guid requestId, ProcessConsultationPaymentRequest request, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task<bool> RefundEmergencyEscrowAsync(Guid requestId, string reason, CancellationToken cancellationToken = default) => Task.FromResult(true);
+        public Task<int> ExpireEmergencyRequestsAsync(CancellationToken cancellationToken = default) => Task.FromResult(0);
+        public Task<bool> SettleConsultationEscrowAsync(Guid consultationId, CancellationToken cancellationToken = default) => Task.FromResult(true);
     }
 }
