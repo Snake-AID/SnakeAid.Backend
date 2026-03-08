@@ -6,6 +6,7 @@ using SnakeAid.Core.Requests.Consultation;
 using SnakeAid.Core.Responses.Consultation;
 using SnakeAid.Repository.Data;
 using SnakeAid.Repository.Interfaces;
+using SnakeAid.Service.Helpers;
 using SnakeAid.Service.Interfaces;
 
 namespace SnakeAid.Service.Implements;
@@ -39,6 +40,11 @@ public class ConsultationPaymentService : IConsultationPaymentService
 
         return await _unitOfWork.ExecuteInTransactionAsync(async () =>
         {
+            await PostgresAdvisoryLockHelper.AcquireTransactionLockAsync(
+                _unitOfWork.Context,
+                $"consultation:booking-payment:{bookingId}",
+                cancellationToken);
+
             var bookingRepo = _unitOfWork.GetRepository<ConsultationBooking>();
             var booking = await bookingRepo.FirstOrDefaultAsync(
                 predicate: b => b.Id == bookingId,
@@ -110,6 +116,11 @@ public class ConsultationPaymentService : IConsultationPaymentService
 
         (response, expertId, requestedAt, expiresAt) = await _unitOfWork.ExecuteInTransactionAsync(async () =>
         {
+            await PostgresAdvisoryLockHelper.AcquireTransactionLockAsync(
+                _unitOfWork.Context,
+                $"consultation:emergency-payment:{requestId}",
+                cancellationToken);
+
             var pingRepo = _unitOfWork.GetRepository<ConsultationPingRequest>();
             var ping = await pingRepo.FirstOrDefaultAsync(
                 predicate: p => p.Id == requestId,
@@ -209,6 +220,11 @@ public class ConsultationPaymentService : IConsultationPaymentService
     {
         return await _unitOfWork.ExecuteInTransactionAsync(async () =>
         {
+            await PostgresAdvisoryLockHelper.AcquireTransactionLockAsync(
+                _unitOfWork.Context,
+                $"consultation:refund:{requestId}",
+                cancellationToken);
+
             var ping = await _unitOfWork.GetRepository<ConsultationPingRequest>().FirstOrDefaultAsync(
                 predicate: p => p.Id == requestId,
                 asNoTracking: false,
@@ -275,6 +291,11 @@ public class ConsultationPaymentService : IConsultationPaymentService
     {
         return await _unitOfWork.ExecuteInTransactionAsync(async () =>
         {
+            await PostgresAdvisoryLockHelper.AcquireTransactionLockAsync(
+                _unitOfWork.Context,
+                $"consultation:settlement:{consultationId}",
+                cancellationToken);
+
             var existingPayout = await FindTransactionAsync(consultationId, TransactionType.ExpertPayout, cancellationToken);
             if (existingPayout != null)
             {
