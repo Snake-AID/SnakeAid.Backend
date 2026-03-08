@@ -100,6 +100,7 @@ public class BookingService : IBookingService
                 {
                     Id = booking.Id,
                     UserId = booking.UserId,
+                    UserName = null,
                     ExpertId = booking.ExpertId,
                     ExpertName = expertAccount?.FullName,
                     Price = booking.Price,
@@ -138,6 +139,40 @@ public class BookingService : IBookingService
         {
             Id = booking.Id,
             UserId = booking.UserId,
+            UserName = booking.User?.FullName,
+            ExpertId = booking.ExpertId,
+            ExpertName = booking.Expert?.FullName,
+            Price = booking.Price,
+            BookedAt = booking.BookedAt,
+            PaymentDeadline = booking.PaymentDeadline,
+            Status = booking.Status,
+            ProblemDescription = booking.ProblemDescription,
+            TimeSlotId = booking.TimeSlotId,
+            SlotStartTime = booking.TimeSlot.StartTime,
+            SlotEndTime = booking.TimeSlot.EndTime,
+            ConsultationId = booking.ConsultationId,
+            RoomId = booking.Consultation?.RoomId
+        });
+    }
+
+    public async Task<IEnumerable<ConsultationBookingResponse>> GetExpertBookingsAsync(Guid expertId)
+    {
+        var bookings = await _unitOfWork.GetRepository<ConsultationBooking>().GetListAsync(
+            predicate: b =>
+                b.ExpertId == expertId
+                && (b.Status == BookingStatus.Confirmed || b.Status == BookingStatus.Completed),
+            orderBy: q => q.OrderBy(b => b.TimeSlot.StartTime),
+            include: q => q
+                .Include(b => b.User)
+                .Include(b => b.Expert)
+                .Include(b => b.TimeSlot)
+                .Include(b => b.Consultation));
+
+        return bookings.Select(booking => new ConsultationBookingResponse
+        {
+            Id = booking.Id,
+            UserId = booking.UserId,
+            UserName = booking.User?.FullName,
             ExpertId = booking.ExpertId,
             ExpertName = booking.Expert?.FullName,
             Price = booking.Price,

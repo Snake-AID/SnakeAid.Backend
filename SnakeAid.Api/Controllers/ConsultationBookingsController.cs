@@ -42,4 +42,13 @@ public class ConsultationBookingsController : BaseController<ConsultationBooking
         var result = await _bookingService.GetMyBookingsAsync(userId);
         return Ok(ApiResponseBuilder.BuildSuccessResponse(result));
     }
+
+    [HttpGet("expert/my-bookings")]
+    [Authorize(Roles = "Expert")]
+    public async Task<ActionResult<ApiResponse<IEnumerable<ConsultationBookingResponse>>>> GetExpertBookings()
+    {
+        var expertId = GetCurrentUserId();
+        var result = await _bookingService.GetExpertBookingsAsync(expertId);
+        return Ok(ApiResponseBuilder.BuildSuccessResponse(result));
+    }
 }
