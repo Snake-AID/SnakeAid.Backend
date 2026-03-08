@@ -144,3 +144,11 @@ public class ConfigurationException : ApiException
     {
     }
 }
+
+public class DatabaseSchemaMismatchException : ApiException
+{
+    public DatabaseSchemaMismatchException(string reason)
+        : base(reason, HttpStatusCode.ServiceUnavailable)
+    {
+    }
+}
