@@ -5,7 +5,7 @@ namespace SnakeAid.Core.Requests.Consultation;
 public class ProcessConsultationPaymentRequest
 {
     [Required]
-    public ConsultationPaymentMethod PaymentMethod { get; set; }
+    public ConsultationPaymentMethod? PaymentMethod { get; set; }
 }
 
 public enum ConsultationPaymentMethod

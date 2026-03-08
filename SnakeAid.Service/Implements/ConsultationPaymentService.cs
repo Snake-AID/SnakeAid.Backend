@@ -35,7 +35,7 @@ public class ConsultationPaymentService : IConsultationPaymentService
         ProcessConsultationPaymentRequest request,
         CancellationToken cancellationToken = default)
     {
-        EnsureWalletPaymentMethod(request.PaymentMethod);
+        var paymentMethod = EnsureWalletPaymentMethod(request.PaymentMethod);
 
         return await _unitOfWork.ExecuteInTransactionAsync(async () =>
         {
@@ -86,7 +86,7 @@ public class ConsultationPaymentService : IConsultationPaymentService
                 TransactionId = transfer.TransactionId,
                 Amount = booking.Price,
                 Currency = "VND",
-                PaymentMethod = request.PaymentMethod,
+                PaymentMethod = paymentMethod,
                 Status = "Escrowed",
                 UserWalletBalanceAfter = transfer.UserWalletBalanceAfter,
                 SystemWalletBalanceAfter = transfer.SystemWalletBalanceAfter,
@@ -101,7 +101,7 @@ public class ConsultationPaymentService : IConsultationPaymentService
         ProcessConsultationPaymentRequest request,
         CancellationToken cancellationToken = default)
     {
-        EnsureWalletPaymentMethod(request.PaymentMethod);
+        var paymentMethod = EnsureWalletPaymentMethod(request.PaymentMethod);
 
         ConsultationPaymentResponse response;
         Guid expertId;
@@ -177,7 +177,7 @@ public class ConsultationPaymentService : IConsultationPaymentService
                     TransactionId = transfer.TransactionId,
                     Amount = emergencyFee,
                     Currency = "VND",
-                    PaymentMethod = request.PaymentMethod,
+                    PaymentMethod = paymentMethod,
                     Status = "Escrowed",
                     UserWalletBalanceAfter = transfer.UserWalletBalanceAfter,
                     SystemWalletBalanceAfter = transfer.SystemWalletBalanceAfter,
@@ -321,12 +321,19 @@ public class ConsultationPaymentService : IConsultationPaymentService
         });
     }
 
-    private static void EnsureWalletPaymentMethod(ConsultationPaymentMethod paymentMethod)
+    private static ConsultationPaymentMethod EnsureWalletPaymentMethod(ConsultationPaymentMethod? paymentMethod)
     {
+        if (paymentMethod == null)
+        {
+            throw new ValidationException("PaymentMethod is required.");
+        }
+
         if (paymentMethod != ConsultationPaymentMethod.WalletBalance)
         {
             throw new ValidationException("Only WalletBalance payment is supported in this MVP build.");
         }
+
+        return paymentMethod.Value;
     }
 
     private async Task<Transaction?> FindTransactionAsync(Guid referenceId, TransactionType transactionType, CancellationToken cancellationToken)
