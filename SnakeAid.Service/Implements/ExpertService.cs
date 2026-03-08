@@ -32,9 +32,10 @@ namespace SnakeAid.Service.Implements
         {
             try
             {
-                if (!request.ConsultationFee.HasValue)
+                var scheduledFee = request.ScheduledConsultationFee ?? request.ConsultationFee;
+                if (!scheduledFee.HasValue)
                 {
-                    throw new ValidationException("ConsultationFee is required.");
+                    throw new ValidationException("ScheduledConsultationFee is required.");
                 }
 
                 var profile = await _unitOfWork.GetRepository<ExpertProfile>().FirstOrDefaultAsync(
@@ -45,7 +46,8 @@ namespace SnakeAid.Service.Implements
                 if (profile == null) throw new NotFoundException("Expert profile not found.");
 
                 profile.Biography = request.Biography;
-                profile.ConsultationFee = request.ConsultationFee.Value;
+                profile.ConsultationFee = scheduledFee.Value;
+                profile.EmergencyConsultationFee = request.EmergencyConsultationFee ?? scheduledFee.Value;
 
                 _unitOfWork.GetRepository<ExpertProfile>().Update(profile);
                 await _unitOfWork.CommitAsync();
@@ -179,19 +181,7 @@ namespace SnakeAid.Service.Implements
 
             return new PagingResponse<ExpertProfileResponse>
             {
-                Items = pagedData.Items.Select(p => new ExpertProfileResponse
-                {
-                    AccountId = p.AccountId,
-                    Name = p.Account?.FullName ?? string.Empty,
-                    AvatarUrl = p.Account?.AvatarUrl,
-                    Biography = p.Biography,
-                    IsOnline = p.IsOnline,
-                    ConsultationFee = p.ConsultationFee,
-                    Rating = p.Rating,
-                    RatingCount = p.RatingCount,
-                    IsVerified = true,
-                    Specializations = p.Specializations.Select(s => s.Specialization.Name).ToList()
-                }).ToList(),
+                Items = await MapExpertProfilesAsync(pagedData.Items),
                 Meta = pagedData.Meta
             };
         }
@@ -205,19 +195,7 @@ namespace SnakeAid.Service.Implements
 
             if (p == null) throw new NotFoundException("Expert profile not found.");
 
-            return new ExpertProfileResponse
-            {
-                AccountId = p.AccountId,
-                Name = p.Account?.FullName ?? string.Empty,
-                AvatarUrl = p.Account?.AvatarUrl,
-                Biography = p.Biography,
-                IsOnline = p.IsOnline,
-                ConsultationFee = p.ConsultationFee,
-                Rating = p.Rating,
-                RatingCount = p.RatingCount,
-                IsVerified = true,
-                Specializations = p.Specializations.Select(s => s.Specialization.Name).ToList()
-            };
+            return (await MapExpertProfilesAsync(new List<ExpertProfile> { p })).Single();
         }
 
         public async Task<PagingResponse<UserFeedbackResponse>> GetExpertReviewsAsync(Guid expertId, PaginationRequest request)
@@ -251,6 +229,72 @@ namespace SnakeAid.Service.Implements
             );
 
             return slots.Adapt<List<ExpertTimeSlotResponse>>();
+        }
+
+        private async Task<List<ExpertProfileResponse>> MapExpertProfilesAsync(IEnumerable<ExpertProfile> profiles)
+        {
+            var profileList = profiles.ToList();
+            var expertIds = profileList.Select(p => p.AccountId).ToList();
+
+            var completedConsultations = await SafeGetListAsync<Consultation>(
+                predicate: c => expertIds.Contains(c.CalleeId) && c.Status == ConsultationStatus.Completed);
+
+            var allConsultations = await SafeGetListAsync<Consultation>(
+                predicate: c => expertIds.Contains(c.CalleeId));
+
+            var emergencyRequests = await SafeGetListAsync<ConsultationPingRequest>(
+                predicate: p => expertIds.Contains(p.ExpertId) && p.RespondedAt.HasValue);
+
+            return profileList.Select(p =>
+            {
+                var scheduledFee = p.ConsultationFee;
+                var emergencyFee = p.EmergencyConsultationFee ?? scheduledFee;
+                var expertCompleted = completedConsultations.Where(c => c.CalleeId == p.AccountId).ToList();
+                var expertAll = allConsultations.Where(c => c.CalleeId == p.AccountId).ToList();
+                var expertRequests = emergencyRequests.Where(r => r.ExpertId == p.AccountId).ToList();
+                double? averageResponseTimeMinutes = expertRequests.Count == 0
+                    ? null
+                    : expertRequests.Average(r => (r.RespondedAt!.Value - r.RequestedAt).TotalMinutes);
+                decimal? successRate = expertAll.Count == 0
+                    ? null
+                    : Math.Round((decimal)expertCompleted.Count / expertAll.Count * 100m, 2);
+
+                return new ExpertProfileResponse
+                {
+                    AccountId = p.AccountId,
+                    Name = p.Account?.FullName ?? string.Empty,
+                    AvatarUrl = p.Account?.AvatarUrl,
+                    Biography = p.Biography,
+                    IsOnline = p.IsOnline,
+                    ConsultationFee = scheduledFee,
+                    ScheduledConsultationFee = scheduledFee,
+                    EmergencyConsultationFee = emergencyFee,
+                    Rating = p.Rating,
+                    RatingCount = p.RatingCount,
+                    IsVerified = false,
+                    TotalConsultations = expertCompleted.Count,
+                    AverageResponseTimeMinutes = averageResponseTimeMinutes,
+                    SuccessRate = successRate,
+                    Specializations = p.Specializations
+                        .Where(s => s.Specialization?.Name != null)
+                        .Select(s => s.Specialization!.Name)
+                        .ToList()
+                };
+            }).ToList();
+        }
+
+        private async Task<List<TEntity>> SafeGetListAsync<TEntity>(System.Linq.Expressions.Expression<Func<TEntity, bool>> predicate)
+            where TEntity : class
+        {
+            try
+            {
+                var result = await _unitOfWork.GetRepository<TEntity>().GetListAsync(predicate: predicate);
+                return result.ToList();
+            }
+            catch (InvalidOperationException)
+            {
+                return new List<TEntity>();
+            }
         }
 
         private static DateTime NormalizeWeekStartUtc(DateTime? weekStartDate)
