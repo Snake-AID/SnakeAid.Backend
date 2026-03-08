@@ -10,4 +10,5 @@ public interface IBookingService
 {
     Task<ConsultationBookingResponse> CreateScheduledBookingAsync(Guid userId, CreateConsultationBookingRequest request);
     Task<IEnumerable<ConsultationBookingResponse>> GetMyBookingsAsync(Guid userId);
+    Task<int> AutoCompleteElapsedScheduledConsultationsAsync(CancellationToken cancellationToken = default);
 }

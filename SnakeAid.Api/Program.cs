@@ -157,6 +157,10 @@ namespace SnakeAid.Api
                 builder.Services.AddSingleton<IHostedService>(provider =>
                     provider.GetRequiredService<SnakeAid.Service.Implements.SessionTimeoutBackgroundService>());
 
+                builder.Services.AddSingleton<SnakeAid.Service.Implements.ConsultationLifecycleBackgroundService>();
+                builder.Services.AddSingleton<IHostedService>(provider =>
+                    provider.GetRequiredService<SnakeAid.Service.Implements.ConsultationLifecycleBackgroundService>());
+
                 builder.Services.AddMemoryCache();
 
                 // Health checks endpoint

@@ -18,15 +18,18 @@ namespace SnakeAid.Service.Implements
 
         private readonly IUnitOfWork<SnakeAidDbContext> _unitOfWork;
         private readonly IExpertEmergencyNotificationService _notificationService;
+        private readonly IConsultationPaymentService _consultationPaymentService;
         private readonly ILogger<EmergencyConsultationService> _logger;
 
         public EmergencyConsultationService(
             IUnitOfWork<SnakeAidDbContext> unitOfWork,
             IExpertEmergencyNotificationService notificationService,
+            IConsultationPaymentService consultationPaymentService,
             ILogger<EmergencyConsultationService> logger)
         {
             _unitOfWork = unitOfWork;
             _notificationService = notificationService;
+            _consultationPaymentService = consultationPaymentService;
             _logger = logger;
         }
 
@@ -41,16 +44,11 @@ namespace SnakeAid.Service.Implements
                 throw new NotFoundException("Selected expert was not found.");
             }
 
-            if (!_notificationService.IsExpertConnected(request.ExpertId.ToString()))
-            {
-                throw new ConflictException("Selected expert is currently offline for immediate consultation.");
-            }
-
             var activeRequest = await _unitOfWork.GetRepository<ConsultationPingRequest>().FirstOrDefaultAsync(
                 predicate: p =>
                     p.RescuerId == requesterId
                     && p.ExpertId == request.ExpertId
-                    && p.Status == ConsultationPingStatus.PendingExpertResponse
+                    && (p.Status == ConsultationPingStatus.PendingPayment || p.Status == ConsultationPingStatus.PendingExpertResponse)
                     && (!p.ExpiresAt.HasValue || p.ExpiresAt > now));
 
             if (activeRequest != null)
@@ -63,24 +61,13 @@ namespace SnakeAid.Service.Implements
                 Id = Guid.NewGuid(),
                 RescuerId = requesterId,
                 ExpertId = request.ExpertId,
-                Status = ConsultationPingStatus.PendingExpertResponse,
+                Status = ConsultationPingStatus.PendingPayment,
                 RequestedAt = now,
-                ExpiresAt = now.Add(DefaultRequestTtl)
+                ExpiresAt = null
             };
 
             await _unitOfWork.GetRepository<ConsultationPingRequest>().InsertAsync(ping);
             await _unitOfWork.CommitAsync();
-
-            await _notificationService.SendEmergencyRequestAsync(
-                request.ExpertId.ToString(),
-                new
-                {
-                    requestId = ping.Id,
-                    requesterId,
-                    expertId = request.ExpertId,
-                    requestedAt = ping.RequestedAt,
-                    expiresAt = ping.ExpiresAt
-                });
 
             _logger.LogInformation(
                 "Emergency consultation request created. RequestId={RequestId}, RequesterId={RequesterId}, ExpertId={ExpertId}",
@@ -107,10 +94,10 @@ namespace SnakeAid.Service.Implements
                     throw new NotFoundException("Emergency consultation request was not found.");
                 }
 
-                if (ping.ExpertId != expertId)
-                {
-                    throw new ForbiddenException("You are not allowed to accept this emergency request.");
-                }
+            if (ping.ExpertId != expertId)
+            {
+                throw new ForbiddenException("You are not allowed to accept this emergency request.");
+            }
 
                 EnsurePendingStateForResponse(ping, now);
 
@@ -186,6 +173,7 @@ namespace SnakeAid.Service.Implements
             ping.RespondedAt = now;
             _unitOfWork.GetRepository<ConsultationPingRequest>().Update(ping);
             await _unitOfWork.CommitAsync();
+            await _consultationPaymentService.RefundEmergencyEscrowAsync(requestId, "Emergency consultation request rejected by expert.");
 
             _logger.LogInformation(
                 "Emergency request rejected. RequestId={RequestId}, ExpertId={ExpertId}",

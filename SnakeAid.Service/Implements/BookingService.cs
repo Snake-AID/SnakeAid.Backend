@@ -13,11 +13,16 @@ namespace SnakeAid.Service.Implements;
 public class BookingService : IBookingService
 {
     private readonly IUnitOfWork<SnakeAidDbContext> _unitOfWork;
+    private readonly IConsultationPaymentService _consultationPaymentService;
     private readonly ILogger<BookingService> _logger;
 
-    public BookingService(IUnitOfWork<SnakeAidDbContext> unitOfWork, ILogger<BookingService> logger)
+    public BookingService(
+        IUnitOfWork<SnakeAidDbContext> unitOfWork,
+        IConsultationPaymentService consultationPaymentService,
+        ILogger<BookingService> logger)
     {
         _unitOfWork = unitOfWork;
+        _consultationPaymentService = consultationPaymentService;
         _logger = logger;
     }
 
@@ -146,5 +151,51 @@ public class BookingService : IBookingService
             ConsultationId = booking.ConsultationId,
             RoomId = booking.Consultation?.RoomId
         });
+    }
+
+    public async Task<int> AutoCompleteElapsedScheduledConsultationsAsync(CancellationToken cancellationToken = default)
+    {
+        var now = DateTime.UtcNow;
+        var bookings = await _unitOfWork.GetRepository<ConsultationBooking>().GetListAsync(
+            predicate: b =>
+                b.Status == BookingStatus.Confirmed
+                && b.ConsultationId.HasValue
+                && b.TimeSlot.EndTime <= now
+                && b.Consultation != null
+                && b.Consultation.Status != ConsultationStatus.Completed,
+            include: q => q.Include(b => b.TimeSlot).Include(b => b.Consultation),
+            asNoTracking: false,
+            cancellationToken: cancellationToken);
+
+        var completedCount = 0;
+        foreach (var booking in bookings)
+        {
+            booking.Status = BookingStatus.Completed;
+            _unitOfWork.GetRepository<ConsultationBooking>().Update(booking);
+
+            if (booking.Consultation != null)
+            {
+                booking.Consultation.Status = ConsultationStatus.Completed;
+                booking.Consultation.EndTime = booking.TimeSlot.EndTime;
+                _unitOfWork.GetRepository<Consultation>().Update(booking.Consultation);
+            }
+
+            if (booking.TimeSlot.Status == TimeSlotStatus.Reserved)
+            {
+                booking.TimeSlot.Status = TimeSlotStatus.Booked;
+                _unitOfWork.GetRepository<ExpertTimeSlot>().Update(booking.TimeSlot);
+            }
+
+            await _unitOfWork.CommitAsync();
+
+            if (booking.ConsultationId.HasValue)
+            {
+                await _consultationPaymentService.SettleConsultationEscrowAsync(booking.ConsultationId.Value, cancellationToken);
+            }
+
+            completedCount++;
+        }
+
+        return completedCount;
     }
 }

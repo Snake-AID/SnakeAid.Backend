@@ -12,11 +12,16 @@ namespace SnakeAid.Service.Implements;
 public class ConsultationService : IConsultationService
 {
     private readonly IUnitOfWork<SnakeAidDbContext> _unitOfWork;
+    private readonly IConsultationPaymentService _consultationPaymentService;
     private readonly ILogger<ConsultationService> _logger;
 
-    public ConsultationService(IUnitOfWork<SnakeAidDbContext> unitOfWork, ILogger<ConsultationService> logger)
+    public ConsultationService(
+        IUnitOfWork<SnakeAidDbContext> unitOfWork,
+        IConsultationPaymentService consultationPaymentService,
+        ILogger<ConsultationService> logger)
     {
         _unitOfWork = unitOfWork;
+        _consultationPaymentService = consultationPaymentService;
         _logger = logger;
     }
 
@@ -69,6 +74,7 @@ public class ConsultationService : IConsultationService
         }
 
         await _unitOfWork.CommitAsync();
+        await _consultationPaymentService.SettleConsultationEscrowAsync(consultationId);
     }
 
     public async Task<UserFeedbackResponse> CreateConsultationReviewAsync(Guid consultationId, Guid raterId, CreateConsultationReviewRequest request)
