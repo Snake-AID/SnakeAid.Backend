@@ -9,7 +9,7 @@ using SnakeAid.Service.Interfaces;
 namespace SnakeAid.Api.Controllers;
 
 [ApiController]
-[Route("api/v1/consultation-payments")]
+[Route("api/consultation-payments")]
 [Authorize]
 public class ConsultationPaymentsController : BaseController<ConsultationPaymentsController>
 {
@@ -25,7 +25,7 @@ public class ConsultationPaymentsController : BaseController<ConsultationPayment
         _consultationPaymentService = consultationPaymentService;
     }
 
-    [HttpPost("scheduled-bookings/{bookingId:guid}")]
+    [HttpPost("/api/consultation-bookings/{bookingId:guid}/payments")]
     [Authorize(Roles = "User")]
     public async Task<ActionResult<ApiResponse<ConsultationPaymentResponse>>> PayScheduledBooking(
         Guid bookingId,
@@ -37,7 +37,7 @@ public class ConsultationPaymentsController : BaseController<ConsultationPayment
         return Ok(ApiResponseBuilder.BuildSuccessResponse(result));
     }
 
-    [HttpPost("emergency-requests/{requestId:guid}")]
+    [HttpPost("/api/consultations/emergency-requests/{requestId:guid}/payments")]
     [Authorize(Roles = "User")]
     public async Task<ActionResult<ApiResponse<ConsultationPaymentResponse>>> PayEmergencyRequest(
         Guid requestId,

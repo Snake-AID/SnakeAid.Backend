@@ -10,7 +10,7 @@ using SnakeAid.Service.Interfaces;
 namespace SnakeAid.Api.Controllers;
 
 [ApiController]
-[Route("api/v1/consultations")]
+[Route("api/consultations")]
 [Authorize]
 public class ConsultationsController : BaseController<ConsultationsController>
 {
@@ -46,7 +46,7 @@ public class ConsultationsController : BaseController<ConsultationsController>
         return Ok(ApiResponseBuilder.BuildSuccessResponse(result));
     }
 
-    [HttpPost("emergency")]
+    [HttpPost("emergency-requests")]
     [Authorize(Roles = "User")]
     public async Task<ActionResult<ApiResponse<EmergencyConsultationRequestResponse>>> CreateEmergencyConsultationRequest([FromBody] CreateEmergencyConsultationRequest request)
     {
