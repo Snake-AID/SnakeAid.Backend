@@ -24,6 +24,10 @@ namespace SnakeAid.Core.Domains
         [Column(TypeName = "numeric(18,2)")]
         public decimal ConsultationFee { get; set; }
 
+        [Range(0, 999999.99)]
+        [Column(TypeName = "numeric(18,2)")]
+        public decimal? EmergencyConsultationFee { get; set; }
+
         [Range(0.0, 5.0)]
         [Column(TypeName = "numeric(3,2)")]
         public decimal Rating { get; set; } = 0;
