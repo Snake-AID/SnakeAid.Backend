@@ -20,6 +20,7 @@ namespace SnakeAid.Repository.Seeds
             public string Name { get; set; }
             public string ContactNumber { get; set; }
             public CoordinatesDto Coordinates { get; set; }
+            public string Address { get; set; }
             public bool IsActive { get; set; }
             public DateTime CreatedAt { get; set; }
             public DateTime UpdatedAt { get; set; }
@@ -1912,7 +1913,7 @@ namespace SnakeAid.Repository.Seeds
                 var assemblyPath = System.Reflection.Assembly.GetExecutingAssembly().Location;
                 var assemblyDirectory = Path.GetDirectoryName(assemblyPath);
                 var projectRoot = Path.GetFullPath(Path.Combine(assemblyDirectory, "..", "..", "..", ".."));
-                var jsonPath = Path.Combine(projectRoot, "SnakeAid.Repository", "Seeds", "hcm_hospital_data.json");
+                var jsonPath = Path.Combine(projectRoot, "SnakeAid.Repository", "Seeds", "hcm_hospital_master_data.json");
                 var hospitalsJson = await File.ReadAllTextAsync(jsonPath);
                 var hospitals = JsonSerializer.Deserialize<List<HospitalDto>>(hospitalsJson);
 
@@ -1920,7 +1921,7 @@ namespace SnakeAid.Repository.Seeds
                 {
                     Id = h.Id,
                     Name = h.Name,
-                    Address = h.Name, // Using name as address since JSON doesn't have address
+                    Address = h.Address,
                     ContactNumber = h.ContactNumber,
                     Location = _geometryFactory.CreatePoint(new Coordinate(h.Coordinates.Lng, h.Coordinates.Lat)),
                     IsActive = h.IsActive

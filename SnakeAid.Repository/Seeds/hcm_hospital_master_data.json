@@ -3,6 +3,7 @@
     "Id": 1,
     "Name": "Bệnh viện Phụ sản Mekong",
     "ContactNumber": "19006113",
+    "Address": "Bệnh viện Phụ sản Mekong, Đường Nguyễn Văn Trỗi, Phường Tân Sơn Hòa, Thủ Đức, Thành phố Hồ Chí Minh, 72215, Việt Nam",
     "Coordinates": {
       "Lat": 10.7998479,
       "Lng": 106.6675233
@@ -15,6 +16,7 @@
     "Id": 2,
     "Name": "Trung Tâm Chẩn Đoán Y Khoa Medic - BV Hòa Hảo",
     "ContactNumber": "02839270284",
+    "Address": "Trung Tâm Chẩn Đoán Y Khoa Medic - BV Hòa Hảo, Đường Hòa Hảo, Khu phố 11, Phường Vườn Lài, Thủ Đức, Thành phố Hồ Chí Minh, 72712, Việt Nam",
     "Coordinates": {
       "Lat": 10.762528,
       "Lng": 106.6701859
@@ -27,6 +29,7 @@
     "Id": 3,
     "Name": "Bệnh viện Đa khoa Quốc Tế Miền Đông",
     "ContactNumber": "02837307125",
+    "Address": "Bệnh viện Đa khoa Quốc Tế Miền Đông, Đường D5, Khu phố Nguyễn Trãi, Phường Lái Thiêu, Thuận An, Thành phố Hồ Chí Minh, 75206, Việt Nam",
     "Coordinates": {
       "Lat": 10.9034999,
       "Lng": 106.7102737
@@ -39,6 +42,7 @@
     "Id": 4,
     "Name": "Bệnh Viện Quốc Tế Minh Anh",
     "ContactNumber": "02862600818",
+    "Address": "Bệnh Viện Quốc Tế Minh Anh, Đường số 1B, Khu phố 22, Phường An Lạc, Thành phố Hồ Chí Minh, 73118, Việt Nam",
     "Coordinates": {
       "Lat": 10.747644,
       "Lng": 106.6143869
@@ -51,6 +55,7 @@
     "Id": 5,
     "Name": "Bệnh Viện Mắt Sài Gòn",
     "ContactNumber": "1900555553",
+    "Address": "Bệnh Viện Mắt Sài Gòn, 100, Lê Thị Riêng, Khu phố 1, Phường Bến Thành, Thủ Đức, Thành phố Hồ Chí Minh, 70200, Việt Nam",
     "Coordinates": {
       "Lat": 10.7713711,
       "Lng": 106.6909391
@@ -63,6 +68,7 @@
     "Id": 6,
     "Name": "Bệnh Viện Đa Khoa Mỹ Đức",
     "ContactNumber": "0838100290",
+    "Address": "Bệnh Viện Đa Khoa Mỹ Đức, Hẻm 4 Núi Thành, Phường Tân Bình, Thành phố Hồ Chí Minh, 10000, Việt Nam",
     "Coordinates": {
       "Lat": 10.7999684,
       "Lng": 106.6415956
@@ -75,6 +81,7 @@
     "Id": 7,
     "Name": "Trung Tâm Hiến Máu Nhân Đạo",
     "ContactNumber": "38658509",
+    "Address": "Trung Tâm Hiến Múa Nhân Đạo, Hẻm 6/10 đường số 3, Khu phố 5, Phường Phú Thọ, Thành phố Hồ Chí Minh, 72117, Việt Nam",
     "Coordinates": {
       "Lat": 10.7756389,
       "Lng": 106.6557898
@@ -87,6 +94,7 @@
     "Id": 8,
     "Name": "Bệnh Viện Hòa Hảo",
     "ContactNumber": "02839270284",
+    "Address": "Bệnh Viện Hòa Hảo, Hẻm 270/18 Hòa Hảo, Khu phố 11, Phường Vườn Lài, Thủ Đức, Thành phố Hồ Chí Minh, 72712, Việt Nam",
     "Coordinates": {
       "Lat": 10.7626193,
       "Lng": 106.6702604
@@ -99,6 +107,7 @@
     "Id": 9,
     "Name": "Bệnh Viện Sài Gòn ITO",
     "ContactNumber": "02839912030",
+    "Address": "Bệnh Viện Sài Gòn ITO, Lê Văn Sỹ, Khu phố 6, Phường Tân Sơn Hòa, Thủ Đức, Thành phố Hồ Chí Minh, 72215, Việt Nam",
     "Coordinates": {
       "Lat": 10.7950017,
       "Lng": 106.6672345
@@ -111,6 +120,7 @@
     "Id": 10,
     "Name": "Trạm Y Tế Phường 7 Quận Phú Nhuận",
     "ContactNumber": "02839955482",
+    "Address": "Trạm Y Tế Phường 7 Quận Phú Nhuận, Phan Đăng Lưu, Khu phố 14, Phường Cầu Kiệu, Thủ Đức, Thành phố Hồ Chí Minh, 72317, Việt Nam",
     "Coordinates": {
       "Lat": 10.8037745,
       "Lng": 106.6866028
@@ -123,6 +133,7 @@
     "Id": 11,
     "Name": "Bệnh viện Đa khoa Tân Hưng",
     "ContactNumber": "02837760648",
+    "Address": "Bệnh viện Đa khoa Tân Hưng, Trần Xuân Soạn, Khu phố 69, Phường Tân Hưng, Thành phố Hồ Chí Minh, 72911, Việt Nam",
     "Coordinates": {
       "Lat": 10.7515951,
       "Lng": 106.696342
@@ -135,6 +146,7 @@
     "Id": 12,
     "Name": "Bệnh Viện Hoà Hảo",
     "ContactNumber": "02839270284",
+    "Address": "Bệnh Viện Hoà Hảo, Dương Đình Nghệ, Khu phố Bình Đường 2, Phường Dĩ An, Thủ Đức, Thành phố Hồ Chí Minh, 75350, Việt Nam",
     "Coordinates": {
       "Lat": 10.8699419,
       "Lng": 106.7631673
@@ -147,6 +159,7 @@
     "Id": 13,
     "Name": "Bệnh viện Đa khoa Tâm Trí Sài Gòn",
     "ContactNumber": "02862636969",
+    "Address": "Bệnh viện Đa khoa Tâm Trí Sài Gòn, Trường Chinh, Khu phố 27, Phường Đông Hưng Thuận, Thuận An, Thành phố Hồ Chí Minh, 71509, Việt Nam",
     "Coordinates": {
       "Lat": 10.8317212,
       "Lng": 106.6218645
@@ -159,6 +172,7 @@
     "Id": 14,
     "Name": "Bệnh Viện Đa khoa An Phú",
     "ContactNumber": "",
+    "Address": "Bệnh Viện Đa khoa An Phú, Đường 22 Tháng 12, Hoà Lân 2, Phường An Phú, Phường Thuận Giao, Thành phố Hồ Chí Minh, 75000, Việt Nam",
     "Coordinates": {
       "Lat": 10.9475149,
       "Lng": 106.7371674
@@ -171,6 +185,7 @@
     "Id": 15,
     "Name": "Bệnh Viện Hoàn Hảo 2",
     "ContactNumber": "",
+    "Address": "Bệnh Viện Hoàn Hảo 2, Đường Bình Hòa 24, Khu phố Đồng An 2, Phường Bình Hòa, Thuận An, Thành phố Hồ Chí Minh, 75207, Việt Nam",
     "Coordinates": {
       "Lat": 10.8910082,
       "Lng": 106.7273892
@@ -183,6 +198,7 @@
     "Id": 16,
     "Name": "Bệnh viện Gia An 115",
     "ContactNumber": "02862885886",
+    "Address": "Bệnh viện Gia An 115, Đường 17A, Khu phố 26, Phường An Lạc, Thành phố Hồ Chí Minh, 71959, Việt Nam",
     "Coordinates": {
       "Lat": 10.7405442,
       "Lng": 106.607722
@@ -195,6 +211,7 @@
     "Id": 17,
     "Name": "Bệnh viện Quận 1 (cơ sở 2)",
     "ContactNumber": "02838206746",
+    "Address": "Bệnh viện Quận 1 (cơ sở 2), 235-237, Trần Hưng Đạo, Khu phố 30, Phường Cầu Ông Lãnh, Thủ Đức, Thành phố Hồ Chí Minh, 71010, Việt Nam",
     "Coordinates": {
       "Lat": 10.7651115,
       "Lng": 106.6932273
@@ -207,6 +224,7 @@
     "Id": 18,
     "Name": "BỆNH VIỆN MẮT",
     "ContactNumber": "",
+    "Address": "BỆNH VIỆN MẮT, Hẻm 458 Huỳnh Tấn Phát, Khu phố 31, Phường Tân Thuận, Thành phố Hồ Chí Minh, 72911, Việt Nam",
     "Coordinates": {
       "Lat": 10.7441887,
       "Lng": 106.7275329
@@ -219,6 +237,7 @@
     "Id": 19,
     "Name": "Trạm y tế xã An Linh",
     "ContactNumber": "",
+    "Address": "Trạm y tế xã An Linh, Đường huyện 507, Khu phố Tiến Hưng 7, Xã An Long, Thành phố Hồ Chí Minh, Phường Bình Phước, Tỉnh Đồng Nai, Việt Nam",
     "Coordinates": {
       "Lat": 11.3590399,
       "Lng": 106.7256654
@@ -231,6 +250,7 @@
     "Id": 20,
     "Name": "Bệnh Viện Thuận An",
     "ContactNumber": "",
+    "Address": "Bệnh Viện Thuận An, Nguyễn Văn Tiết, Khu phố Đông Tư, Phường Lái Thiêu, Thuận An, Thành phố Hồ Chí Minh, 75206, Việt Nam",
     "Coordinates": {
       "Lat": 10.9090145,
       "Lng": 106.7019094
@@ -243,6 +263,7 @@
     "Id": 21,
     "Name": "Nam tân Uyên",
     "ContactNumber": "",
+    "Address": "Nam tân Uyên, Đường tỉnh 746, Bến Sắn, Phường Tân Hiệp, Thành phố Hồ Chí Minh, Việt Nam",
     "Coordinates": {
       "Lat": 11.0444737,
       "Lng": 106.7312059
@@ -255,6 +276,7 @@
     "Id": 22,
     "Name": "Bệnh viện Quân y 175",
     "ContactNumber": "19001175",
+    "Address": "Bệnh viện Quân y 175, 786, Nguyễn Kiệm, Phường Hạnh Thông, Thủ Đức, Thành phố Hồ Chí Minh, 70048, Việt Nam",
     "Coordinates": {
       "Lat": 10.8184252,
       "Lng": 106.6808112
@@ -267,6 +289,7 @@
     "Id": 23,
     "Name": "Bệnh viện Nhân dân Gia Định",
     "ContactNumber": "02838412692",
+    "Address": "Bệnh viện Nhân dân Gia Định, Phan Đăng Lưu, Khu phố 1, Phường Gia Định, Thủ Đức, Thành phố Hồ Chí Minh, 72317, Việt Nam",
     "Coordinates": {
       "Lat": 10.8039083,
       "Lng": 106.6941137
@@ -279,6 +302,7 @@
     "Id": 24,
     "Name": "Bệnh viện Pháp Việt",
     "ContactNumber": "02854113333",
+    "Address": "Bệnh viện Pháp Việt, 6, Nguyễn Lương Bằng, Phường Tân Mỹ, Thành phố Hồ Chí Minh, 72915, Việt Nam",
     "Coordinates": {
       "Lat": 10.7323638,
       "Lng": 106.7179388
@@ -291,6 +315,7 @@
     "Id": 25,
     "Name": "Bệnh viện Tim Tâm Đức",
     "ContactNumber": "02854110026",
+    "Address": "Bệnh viện Tim Tâm Đức, Nguyễn Lương Bằng, Phường Tân Mỹ, Thành phố Hồ Chí Minh, 72915, Việt Nam",
     "Coordinates": {
       "Lat": 10.7334899,
       "Lng": 106.7177983
@@ -303,6 +328,7 @@
     "Id": 26,
     "Name": "Bệnh viện Nhi đồng 2",
     "ContactNumber": "02838295723",
+    "Address": "Đức Mẹ Maria, 14, Đường Lý Tự Trọng, Khu phố 2, Phường Sài Gòn, Thủ Đức, Thành phố Hồ Chí Minh, 71006, Việt Nam",
     "Coordinates": {
       "Lat": 10.7814535,
       "Lng": 106.7028174
@@ -315,6 +341,7 @@
     "Id": 27,
     "Name": "Bệnh viện Nhân dân Gia Định - cơ sở 2",
     "ContactNumber": "02838412692",
+    "Address": "Huỳnh Thúc Kháng, Khu phố 8, Phường Bến Thành, Thủ Đức, Thành phố Hồ Chí Minh, 71010, Việt Nam",
     "Coordinates": {
       "Lat": 10.7720169,
       "Lng": 106.6994936
@@ -327,6 +354,7 @@
     "Id": 28,
     "Name": "Bệnh viện Đa khoa Khánh Hội",
     "ContactNumber": "",
+    "Address": "Bến Vân Đồn, Phường Xóm Chiếu, Thủ Đức, Thành phố Hồ Chí Minh, 72806, Việt Nam",
     "Coordinates": {
       "Lat": 10.7652457,
       "Lng": 106.7021855
@@ -339,6 +367,7 @@
     "Id": 29,
     "Name": "Bệnh viện Hùng Vương",
     "ContactNumber": "02838558532",
+    "Address": "Bệnh viện Hùng Vương, Đường Hồng Bàng, Khu phố 11, Phường Chợ Lớn, Thủ Đức, Thành phố Hồ Chí Minh, 72415, Việt Nam",
     "Coordinates": {
       "Lat": 10.7562251,
       "Lng": 106.6616571
@@ -351,6 +380,7 @@
     "Id": 30,
     "Name": "Bệnh viện 30 Tháng 4",
     "ContactNumber": "02838381568",
+    "Address": "Bệnh viện 30 Tháng 4, 9, Sư Vạn Hạnh, Khu phố 28, Phường An Đông, Thủ Đức, Thành phố Hồ Chí Minh, 72712, Việt Nam",
     "Coordinates": {
       "Lat": 10.7590776,
       "Lng": 106.6730558
@@ -363,6 +393,7 @@
     "Id": 31,
     "Name": "Bệnh viện An Bình",
     "ContactNumber": "02839234359",
+    "Address": "Bệnh viện An Bình, 146, Đường Trần Tuấn Khải, Khu phố 17, Phường An Đông, Thành phố Hồ Chí Minh, 72712, Việt Nam",
     "Coordinates": {
       "Lat": 10.7541327,
       "Lng": 106.6722008
@@ -375,6 +406,7 @@
     "Id": 32,
     "Name": "Bệnh viện Truyền máu Huyết học",
     "ContactNumber": "02839571342",
+    "Address": "Bệnh viện Truyền máu Huyết học, 118, Đường Hồng Bàng, Khu phố 11, Phường Chợ Lớn, Thủ Đức, Thành phố Hồ Chí Minh, 72415, Việt Nam",
     "Coordinates": {
       "Lat": 10.7565034,
       "Lng": 106.6658762
@@ -387,6 +419,7 @@
     "Id": 33,
     "Name": "Bệnh viện Bệnh Nhiệt đới",
     "ContactNumber": "02839239004",
+    "Address": "Bệnh viện Bệnh Nhiệt đới, 764, Võ Văn Kiệt, Khu phố 8, Phường Chợ Quán, Thành phố Hồ Chí Minh, 72760, Việt Nam",
     "Coordinates": {
       "Lat": 10.7531975,
       "Lng": 106.6783574
@@ -399,6 +432,7 @@
     "Id": 34,
     "Name": "Bệnh viện Phạm Ngọc Thạch",
     "ContactNumber": "02838550207",
+    "Address": "Bệnh viện Phạm Ngọc Thạch, 120, Đường Hồng Bàng, Khu phố 2, Phường Chợ Lớn, Thủ Đức, Thành phố Hồ Chí Minh, 72415, Việt Nam",
     "Coordinates": {
       "Lat": 10.7572199,
       "Lng": 106.6650519
@@ -411,6 +445,7 @@
     "Id": 35,
     "Name": "Bệnh viện Đại học Y Dược Thành phố Hồ Chí Minh",
     "ContactNumber": "02838554269",
+    "Address": "Bệnh viện Đại học Y Dược Thành phố Hồ Chí Minh, 215, Đường Hồng Bàng, Khu phố 2, Phường Chợ Lớn, Thủ Đức, Thành phố Hồ Chí Minh, 72415, Việt Nam",
     "Coordinates": {
       "Lat": 10.7552707,
       "Lng": 106.6645719
@@ -423,6 +458,7 @@
     "Id": 36,
     "Name": "Bệnh viện Nguyễn Trãi",
     "ContactNumber": "02839235020",
+    "Address": "Bệnh viện Nguyễn Trãi, 314, Đường Nguyễn Trãi, Khu phố 19, Phường An Đông, Thủ Đức, Thành phố Hồ Chí Minh, 72760, Việt Nam",
     "Coordinates": {
       "Lat": 10.7568408,
       "Lng": 106.6750363
@@ -435,6 +471,7 @@
     "Id": 37,
     "Name": "Viện Pasteur Thành phố Hồ Chí Minh",
     "ContactNumber": "02838230352",
+    "Address": "Viện Pasteur, Nam Kỳ Khởi Nghĩa, Khu phố 12, Phường Xuân Hòa, Thủ Đức, Thành phố Hồ Chí Minh, 70001, Việt Nam",
     "Coordinates": {
       "Lat": 10.786266,
       "Lng": 106.688855
@@ -447,6 +484,7 @@
     "Id": 38,
     "Name": "Bệnh viện Thống Nhất",
     "ContactNumber": "02838690277",
+    "Address": "Bệnh viện Thống Nhất, 1, Lý Thường Kiệt, Phường Tân Sơn Nhất, Thành phố Hồ Chí Minh, 72117, Việt Nam",
     "Coordinates": {
       "Lat": 10.7910792,
       "Lng": 106.6535424
@@ -459,6 +497,7 @@
     "Id": 39,
     "Name": "Trung tâm y tế Vietsovpetro",
     "ContactNumber": "",
+    "Address": "Trung tâm y tế Vietsovpetro, 2, Pasteur, Khu Năm Tầng, Phường Tam Thắng, Thành phố Hồ Chí Minh, 76666, Việt Nam",
     "Coordinates": {
       "Lat": 10.3602708,
       "Lng": 107.0838967
@@ -471,6 +510,7 @@
     "Id": 40,
     "Name": "Bệnh viện Quốc tế Hạnh Phúc",
     "ContactNumber": "19006765",
+    "Address": "Cầu Vĩnh Bình, Khu phố Đông, Phường Bình Hòa, Thuận An, Thành phố Hồ Chí Minh, 70000, Việt Nam",
     "Coordinates": {
       "Lat": 10.8678097,
       "Lng": 106.7142927
@@ -483,6 +523,7 @@
     "Id": 41,
     "Name": "Bệnh viện Mắt Thành phố Hồ Chí Minh",
     "ContactNumber": "02839325713",
+    "Address": "Vietinbank, Bà Huyện Thanh Quan, Khu phố 7, Phường Xuân Hòa, Thủ Đức, Thành phố Hồ Chí Minh, 70001, Việt Nam",
     "Coordinates": {
       "Lat": 10.7787242,
       "Lng": 106.6849361
@@ -495,6 +536,7 @@
     "Id": 42,
     "Name": "Bệnh viện Đa khoa Nguyễn Thị Thập",
     "ContactNumber": "",
+    "Address": "Bệnh viện Đa khoa Nguyễn Thị Thập, 101, Nguyễn Thị Thập, Khu phố 22, Phường Tân Mỹ, Thành phố Hồ Chí Minh, 72911, Việt Nam",
     "Coordinates": {
       "Lat": 10.737275,
       "Lng": 106.7240834
@@ -507,6 +549,7 @@
     "Id": 43,
     "Name": "Bệnh viện Trưng Vương",
     "ContactNumber": "02838656744",
+    "Address": "Bệnh viện Trưng Vương, 266, Lý Thường Kiệt, Khu phố 9, Phường Diên Hồng, Thủ Đức, Thành phố Hồ Chí Minh, 72415, Việt Nam",
     "Coordinates": {
       "Lat": 10.7708709,
       "Lng": 106.6595573
@@ -519,6 +562,7 @@
     "Id": 44,
     "Name": "Bệnh viện Nhi đồng 1",
     "ContactNumber": "02839271119",
+    "Address": "Bệnh viện Nhi đồng 1, 532, Đường 3 Tháng 2, Khu phố 24, Phường Vườn Lài, Thủ Đức, Thành phố Hồ Chí Minh, 72712, Việt Nam",
     "Coordinates": {
       "Lat": 10.7688069,
       "Lng": 106.6699394
@@ -531,6 +575,7 @@
     "Id": 45,
     "Name": "Bệnh viện Da liễu",
     "ContactNumber": "02839308131",
+    "Address": "Vietcombank, Ngô Thời Nhiệm, Khu phố 1, Phường Xuân Hòa, Thủ Đức, Thành phố Hồ Chí Minh, 70001, Việt Nam",
     "Coordinates": {
       "Lat": 10.7767949,
       "Lng": 106.6868606
@@ -543,6 +588,7 @@
     "Id": 46,
     "Name": "Bệnh viện Đa khoa Bà Rịa",
     "ContactNumber": "02543731115",
+    "Address": "Căn tin bệnh viện bà rịa, Nguyễn Lân, Phường Tam Long, Thành phố Hồ Chí Minh, 78107, Việt Nam",
     "Coordinates": {
       "Lat": 10.5094268,
       "Lng": 107.1969894
@@ -555,6 +601,7 @@
     "Id": 47,
     "Name": "Trung tâm Y tế Phường Kim Dinh",
     "ContactNumber": "",
+    "Address": "Trung tâm Y tế Phường Kim Dinh, Phan Văn Trị, Kim Hải, Phường Long Hương, Thành phố Hồ Chí Minh, 78106, Việt Nam",
     "Coordinates": {
       "Lat": 10.5056194,
       "Lng": 107.1306361
@@ -567,6 +614,7 @@
     "Id": 48,
     "Name": "Bệnh viện Quân Dân Y",
     "ContactNumber": "",
+    "Address": "Bệnh viện Quân Dân Y, Võ Văn Kiệt, Khu phố 2, Phường Tam Long, Thành phố Hồ Chí Minh, 78106, Việt Nam",
     "Coordinates": {
       "Lat": 10.5080898,
       "Lng": 107.1941958
@@ -579,6 +627,7 @@
     "Id": 49,
     "Name": "Bệnh viện Phổi Phạm Hữu Chí",
     "ContactNumber": "",
+    "Address": "Bệnh viện Phổi Phạm Hữu Chí, Hương lộ 14, An Đồng, Xã Long Điền, Thành phố Hồ Chí Minh, Việt Nam",
     "Coordinates": {
       "Lat": 10.4829757,
       "Lng": 107.2418046
@@ -591,6 +640,7 @@
     "Id": 50,
     "Name": "Bệnh viện Vạn Hạnh",
     "ContactNumber": "02838632553",
+    "Address": "Bệnh viện Vạn Hạnh, Hẻm 781 Lê Hồng Phong, Khu phố 9, Phường Hòa Hưng, Thủ Đức, Thành phố Hồ Chí Minh, 72712, Việt Nam",
     "Coordinates": {
       "Lat": 10.7718189,
       "Lng": 106.6713752
@@ -603,6 +653,7 @@
     "Id": 51,
     "Name": "Bệnh viện Đa khoa Tân Định",
     "ContactNumber": "",
+    "Address": "Bà Lê Chân, Khu phố 14, Phường Tân Định, Thủ Đức, Thành phố Hồ Chí Minh, 72200, Việt Nam",
     "Coordinates": {
       "Lat": 10.7902069,
       "Lng": 106.6896592
@@ -615,6 +666,7 @@
     "Id": 52,
     "Name": "Bệnh viện Từ Dũ",
     "ContactNumber": "02854042829",
+    "Address": "Bệnh viện Từ Dũ, 284, Cống Quỳnh, Khu phố 26, Phường Bến Thành, Thủ Đức, Thành phố Hồ Chí Minh, 72406, Việt Nam",
     "Coordinates": {
       "Lat": 10.7688942,
       "Lng": 106.6860103
@@ -627,6 +679,7 @@
     "Id": 53,
     "Name": "Bệnh viện Y học cổ truyền Bình Dương",
     "ContactNumber": "",
+    "Address": "Bệnh viện Y học cổ truyền Bình Dương, 2, Bác sĩ Yersin, Khu phố Hiệp Thành 1, Phường Thủ Dầu Một, Thành phố Hồ Chí Minh, 75106, Việt Nam",
     "Coordinates": {
       "Lat": 10.980771,
       "Lng": 106.6577829
@@ -639,6 +692,7 @@
     "Id": 54,
     "Name": "Trung tâm Y tế khu vực Phú Mỹ",
     "ContactNumber": "",
+    "Address": "Trung tâm Y tế khu vực Phú Mỹ, Trường Chinh, Vạn Hạnh, Phường Phú Mỹ, Thành phố Hồ Chí Minh, 78706, Việt Nam",
     "Coordinates": {
       "Lat": 10.5963299,
       "Lng": 107.0593865
@@ -651,6 +705,7 @@
     "Id": 55,
     "Name": "Bệnh viện 1A",
     "ContactNumber": "02838631251",
+    "Address": "Bệnh viện 1A, 542, Lý Thường Kiệt, Phường Tân Hòa, Thành phố Hồ Chí Minh, 72117, Việt Nam",
     "Coordinates": {
       "Lat": 10.7889136,
       "Lng": 106.6537197
@@ -663,6 +718,7 @@
     "Id": 56,
     "Name": "Trung tâm Y tế khu vực Dĩ An",
     "ContactNumber": "",
+    "Address": "Trung tâm Y tế khu vực Dĩ An, Đường tỉnh 743A, Khu phố Đông An, Phường Tân Đông Hiệp, Thành phố Hồ Chí Minh, 75207, Việt Nam",
     "Coordinates": {
       "Lat": 10.9101691,
       "Lng": 106.7816616
@@ -675,6 +731,7 @@
     "Id": 57,
     "Name": "Trung tâm Điều dưỡng Người bệnh Tâm Thần Thủ Đức",
     "ContactNumber": "",
+    "Address": "Trung tâm Điều dưỡng Người bệnh Tâm Thần Thủ Đức, 37, Phú Châu, Khu phố 55, Phường Tam Bình, Thủ Đức, Thành phố Hồ Chí Minh, 75350, Việt Nam",
     "Coordinates": {
       "Lat": 10.8671055,
       "Lng": 106.7463839
@@ -687,6 +744,7 @@
     "Id": 58,
     "Name": "Trạm y tế Phước Bình",
     "ContactNumber": "",
+    "Address": "Trạm y tế Phước Bình, Đường số 22, Khu phố 45, Phường Phước Long, Thủ Đức, Thành phố Hồ Chí Minh, 71350, Việt Nam",
     "Coordinates": {
       "Lat": 10.8158227,
       "Lng": 106.7731278
@@ -699,6 +757,7 @@
     "Id": 59,
     "Name": "Trung tâm Y tế khu vực Thuận An",
     "ContactNumber": "",
+    "Address": "Trung tâm Y tế khu vực Thuận An, Ba Tháng Hai, Khu phố Đông Tư, Phường Lái Thiêu, Thuận An, Thành phố Hồ Chí Minh, 75206, Việt Nam",
     "Coordinates": {
       "Lat": 10.9084931,
       "Lng": 106.7025838
@@ -711,6 +770,7 @@
     "Id": 60,
     "Name": "Bệnh viện Bình Dân",
     "ContactNumber": "02838394747",
+    "Address": "Bệnh viện Bình Dân, Điện Biên Phủ, Cư xá Đô Thành, Phường Vườn Lài, Thủ Đức, Thành phố Hồ Chí Minh, 72406, Việt Nam",
     "Coordinates": {
       "Lat": 10.7741311,
       "Lng": 106.6813679
@@ -723,6 +783,7 @@
     "Id": 61,
     "Name": "Bệnh viện Đa khoa khu vực Thủ Đức",
     "ContactNumber": "02838963194",
+    "Address": "Bệnh viện Đa khoa khu vực Thủ Đức, Đường số 16, Khu phố 31, Phường Linh Xuân, Thủ Đức, Thành phố Hồ Chí Minh, 00084, Việt Nam",
     "Coordinates": {
       "Lat": 10.8622334,
       "Lng": 106.7805429
@@ -735,6 +796,7 @@
     "Id": 62,
     "Name": "Trung tâm Y tế khu vực Phú Giáo",
     "ContactNumber": "",
+    "Address": "căn tin bệnh viện-120000071202, Đường 19 tháng 5, Khu phố 8, Xã Phú Giáo, Thành phố Hồ Chí Minh, Việt Nam",
     "Coordinates": {
       "Lat": 11.2892008,
       "Lng": 106.7973809
@@ -747,6 +809,7 @@
     "Id": 63,
     "Name": "Viện Y Dược học Dân tộc",
     "ContactNumber": "02838443047",
+    "Address": "Viện Y Dược học Dân tộc, 273, Nguyễn Văn Trỗi, Khu phố 8, Phường Phú Nhuận, Thủ Đức, Thành phố Hồ Chí Minh, 72217, Việt Nam",
     "Coordinates": {
       "Lat": 10.797087,
       "Lng": 106.6712263
@@ -759,6 +822,7 @@
     "Id": 64,
     "Name": "Trung tâm Y tế khu vực Hồ Tràm",
     "ContactNumber": "",
+    "Address": "Trung tâm Y tế khu vực Hồ Tràm, Quốc lộ 55, Thạnh Sơn, Xã Hồ Tràm, Thành phố Hồ Chí Minh, 78500, Việt Nam",
     "Coordinates": {
       "Lat": 10.5384993,
       "Lng": 107.4129397
@@ -771,6 +835,7 @@
     "Id": 65,
     "Name": "Bệnh viện Đa khoa Tân Bình",
     "ContactNumber": "02838652588",
+    "Address": "Bệnh viện Đa khoa Tân Bình, Lê Bình, Phường Tân Sơn Nhất, Thủ Đức, Thành phố Hồ Chí Minh, 72106, Việt Nam",
     "Coordinates": {
       "Lat": 10.7944261,
       "Lng": 106.6554163
@@ -783,6 +848,7 @@
     "Id": 66,
     "Name": "Viện Tim Thành phố Hồ Chí Minh",
     "ContactNumber": "02838651586",
+    "Address": "Viện Tim Thành phố Hồ Chí Minh, 86/4, Thành Thái, Khu phố 1, Phường Diên Hồng, Thủ Đức, Thành phố Hồ Chí Minh, 72117, Việt Nam",
     "Coordinates": {
       "Lat": 10.7732058,
       "Lng": 106.666965
@@ -795,6 +861,7 @@
     "Id": 67,
     "Name": "Bệnh viện Đa khoa Tân Phú",
     "ContactNumber": "02838650258",
+    "Address": "Bệnh viện Đa khoa Tân Phú, 609-611, Âu Cơ, Khu phố 11, Phường Tân Phú, Thành phố Hồ Chí Minh, 72000, Việt Nam",
     "Coordinates": {
       "Lat": 10.7835098,
       "Lng": 106.6419173
@@ -807,6 +874,7 @@
     "Id": 68,
     "Name": "Bệnh viện An Sinh",
     "ContactNumber": "028 3845 7777",
+    "Address": "Trần Huy Liệu, Khu phố 17, Phường Phú Nhuận, Thủ Đức, Thành phố Hồ Chí Minh, 70150, Việt Nam",
     "Coordinates": {
       "Lat": 10.7913163,
       "Lng": 106.6785309
@@ -819,6 +887,7 @@
     "Id": 69,
     "Name": "Bệnh viện Đa khoa Bình Phú",
     "ContactNumber": "",
+    "Address": "Bệnh viện Đa khoa Bình Phú, 2, Chợ Lớn, Khu phố 7, Phường Bình Phú, Thành phố Hồ Chí Minh, 71910, Việt Nam",
     "Coordinates": {
       "Lat": 10.7465336,
       "Lng": 106.6345704
@@ -831,6 +900,7 @@
     "Id": 70,
     "Name": "Bệnh viện Ngọc Phú",
     "ContactNumber": "",
+    "Address": "Bệnh viện Ngọc Phú, Đường Phạm Hùng, Khu phố 75, Phường Chánh Hưng, Thành phố Hồ Chí Minh, 73009, Việt Nam",
     "Coordinates": {
       "Lat": 10.7394843,
       "Lng": 106.6691079
@@ -843,6 +913,7 @@
     "Id": 71,
     "Name": "Bệnh viện Đa khoa Chánh Hưng",
     "ContactNumber": "02838554269",
+    "Address": "Bệnh viện Đa khoa Chánh Hưng, 82, Cao Lỗ, Khu phố 48, Phường Chánh Hưng, Thành phố Hồ Chí Minh, 73009, Việt Nam",
     "Coordinates": {
       "Lat": 10.7416982,
       "Lng": 106.6764696
@@ -855,6 +926,7 @@
     "Id": 72,
     "Name": "Trung tâm Y tế Dự phòng Quận 8",
     "ContactNumber": "",
+    "Address": "Trung tâm Y tế Dự phòng Quận 8, Hẻm 106 Ưu Long, Phường Phú Định, Thành phố Hồ Chí Minh, 73000, Việt Nam",
     "Coordinates": {
       "Lat": 10.7480741,
       "Lng": 106.6633623
@@ -867,6 +939,7 @@
     "Id": 73,
     "Name": "Trạm y tế phường 9 quận 8",
     "ContactNumber": "",
+    "Address": "Trạm y tế phường 9 quận 8, Hẻm 627 Đường Hưng Phú, Khu phố 64, Phường Chánh Hưng, Thành phố Hồ Chí Minh, 73009, Việt Nam",
     "Coordinates": {
       "Lat": 10.745995,
       "Lng": 106.6701652
@@ -879,6 +952,7 @@
     "Id": 74,
     "Name": "Bệnh viện Chấn thương Chỉnh hình",
     "ContactNumber": "02839237007",
+    "Address": "Bệnh viện Chấn thương Chỉnh hình, 929, Đường Trần Hưng Đạo, Khu phố 13, Phường Chợ Quán, Thủ Đức, Thành phố Hồ Chí Minh, 72760, Việt Nam",
     "Coordinates": {
       "Lat": 10.7541795,
       "Lng": 106.6779595
@@ -891,6 +965,7 @@
     "Id": 75,
     "Name": "Bệnh viện Đa khoa Lãnh Binh Thăng",
     "ContactNumber": "",
+    "Address": "Bệnh viện Đa khoa Lãnh Binh Thăng, 72, Đường số 5, Khu phố 24, Phường Bình Thới, Thành phố Hồ Chí Minh, 72415, Việt Nam",
     "Coordinates": {
       "Lat": 10.7606826,
       "Lng": 106.6479151
@@ -903,6 +978,7 @@
     "Id": 76,
     "Name": "Bệnh viện Đa khoa Bình Tân",
     "ContactNumber": "02837508225",
+    "Address": "Bệnh viện Đa khoa Bình Tân, 809, Hương Lộ 2, Khu phố 41, Phường Bình Trị Đông, Thành phố Hồ Chí Minh, 73118, Việt Nam",
     "Coordinates": {
       "Lat": 10.7644533,
       "Lng": 106.6032245
@@ -915,6 +991,7 @@
     "Id": 77,
     "Name": "Bệnh viện Triều An",
     "ContactNumber": "02837509999",
+    "Address": "Bệnh viện Triều An, 425, Đường Kinh Dương Vương, Khu phố 40, Phường An Lạc, Thành phố Hồ Chí Minh, 73118, Việt Nam",
     "Coordinates": {
       "Lat": 10.7391983,
       "Lng": 106.6171202
@@ -927,6 +1004,7 @@
     "Id": 78,
     "Name": "Bệnh viện Quận 10",
     "ContactNumber": "02838626978",
+    "Address": "571, Sư Vạn Hạnh, Khu phố 15, Phường Hòa Hưng, Thủ Đức, Thành phố Hồ Chí Minh, 72000, Việt Nam",
     "Coordinates": {
       "Lat": 10.7760365,
       "Lng": 106.6664866
@@ -939,6 +1017,7 @@
     "Id": 79,
     "Name": "Bệnh viện Răng Hàm Mặt Trung ương Thành phố Hồ Chí Minh",
     "ContactNumber": "02838556732",
+    "Address": "Bệnh viện Răng Hàm Mặt Trung ương Thành phố Hồ Chí Minh, 201A, Đường Nguyễn Chí Thanh, Khu phố 12, Phường Chợ Lớn, Thủ Đức, Thành phố Hồ Chí Minh, 72415, Việt Nam",
     "Coordinates": {
       "Lat": 10.7578104,
       "Lng": 106.6606503
@@ -951,6 +1030,7 @@
     "Id": 80,
     "Name": "Bệnh viện Đại học Y Dược - Cơ sở 2",
     "ContactNumber": "",
+    "Address": "Bệnh viện Đại học Y Dược - Cơ sở 2, Lý Thường Kiệt, Khu phố 12, Phường Chợ Lớn, Thủ Đức, Thành phố Hồ Chí Minh, 72415, Việt Nam",
     "Coordinates": {
       "Lat": 10.7579293,
       "Lng": 106.6612354
@@ -963,6 +1043,7 @@
     "Id": 81,
     "Name": "Bệnh viện Chợ Rẫy",
     "ContactNumber": "02838554137",
+    "Address": "Bệnh viện Chợ Rẫy, 201B, Đường Nguyễn Chí Thanh, Khu phố 12, Phường Chợ Lớn, Thủ Đức, Thành phố Hồ Chí Minh, 72415, Việt Nam",
     "Coordinates": {
       "Lat": 10.75695,
       "Lng": 106.6597328
@@ -975,6 +1056,7 @@
     "Id": 82,
     "Name": "Bệnh viện Răng Hàm Mặt Thành phố Hồ Chí Minh",
     "ContactNumber": "02838360191",
+    "Address": "ATM Agribank, Trần Hưng Đạo, Khu phố 29, Phường Cầu Ông Lãnh, Thủ Đức, Thành phố Hồ Chí Minh, 70200, Việt Nam",
     "Coordinates": {
       "Lat": 10.763482,
       "Lng": 106.691909
@@ -987,6 +1069,7 @@
     "Id": 83,
     "Name": "Bệnh viện Phục hồi chức năng - Điều trị bệnh nghề nghiệp",
     "ContactNumber": "02838581441",
+    "Address": "Bệnh viện Phục hồi chức năng - Điều trị bệnh nghề nghiệp, 313, Âu Dương Lân, Khu phố 11, Phường Chánh Hưng, Thành phố Hồ Chí Minh, 72900, Việt Nam",
     "Coordinates": {
       "Lat": 10.7414789,
       "Lng": 106.6863883
@@ -999,6 +1082,7 @@
     "Id": 84,
     "Name": "Bệnh viện Đa khoa Bình Chánh",
     "ContactNumber": "02837602895",
+    "Address": "Bệnh viện Đa khoa Bình Chánh, Đường số 6, Ấp 58, Xã Tân Nhựt, Thành phố Hồ Chí Minh, 71959, Việt Nam",
     "Coordinates": {
       "Lat": 10.6912666,
       "Lng": 106.5862179
@@ -1011,6 +1095,7 @@
     "Id": 85,
     "Name": "CI Hospital",
     "ContactNumber": "",
+    "Address": "Bệnh viện Gia An 115, Đường 17A, Khu phố 26, Phường An Lạc, Thành phố Hồ Chí Minh, 71959, Việt Nam",
     "Coordinates": {
       "Lat": 10.7403535,
       "Lng": 106.6077583
@@ -1023,6 +1108,7 @@
     "Id": 86,
     "Name": "Bệnh viện Quốc tế Thành Đô",
     "ContactNumber": "",
+    "Address": "Bệnh Viện Quốc Tế City, 3, Đường số 17A, Khu phố 22, Phường An Lạc, Thành phố Hồ Chí Minh, 73118, Việt Nam",
     "Coordinates": {
       "Lat": 10.741251,
       "Lng": 106.6092346
@@ -1035,6 +1121,7 @@
     "Id": 87,
     "Name": "Bệnh viện Đa khoa Bình Dương",
     "ContactNumber": "02743822920",
+    "Address": "Bệnh viện Đa khoa Bình Dương, 5, Phạm Ngọc Thạch, Khu phố Hiệp Thành 7, Phường Phú Lợi, Thành phố Hồ Chí Minh, 75106, Việt Nam",
     "Coordinates": {
       "Lat": 10.9975187,
       "Lng": 106.6551913
@@ -1047,6 +1134,7 @@
     "Id": 88,
     "Name": "Bệnh viện Vạn Phúc 2",
     "ContactNumber": "",
+    "Address": "Bệnh viện Vạn Phúc 2, Đường tỉnh 747B, Khu phố Bình Phước B, Khánh Long, Phường An Phú, Thành phố Hồ Chí Minh, 75256, Việt Nam",
     "Coordinates": {
       "Lat": 10.9793138,
       "Lng": 106.7398569
@@ -1059,6 +1147,7 @@
     "Id": 89,
     "Name": "Bệnh viện Đa khoa Phú Nhuận",
     "ContactNumber": "02838443910",
+    "Address": "Bệnh viện Đa khoa Phú Nhuận, 250, Nguyễn Trọng Tuyển, Khu phố 1, Phường Phú Nhuận, Thủ Đức, Thành phố Hồ Chí Minh, 72217, Việt Nam",
     "Coordinates": {
       "Lat": 10.7982597,
       "Lng": 106.6718231
@@ -1071,6 +1160,7 @@
     "Id": 90,
     "Name": "Bệnh viện Nhi đồng Thành phố",
     "ContactNumber": "02822536688",
+    "Address": "Co.op Smile, 15, Đường Võ Trần Chí, Ấp 18, Xã Tân Nhựt, Thành phố Hồ Chí Minh, 71959, Việt Nam",
     "Coordinates": {
       "Lat": 10.7101346,
       "Lng": 106.5746124
@@ -1083,6 +1173,7 @@
     "Id": 91,
     "Name": "Bệnh viện Lê Văn Thịnh",
     "ContactNumber": "02837432072",
+    "Address": "Bệnh viện Lê Văn Thịnh, 130, Lê Văn Thịnh, Khu phố 38, Phường Bình Trưng, Thủ Đức, Thành phố Hồ Chí Minh, 08408, Việt Nam",
     "Coordinates": {
       "Lat": 10.7822228,
       "Lng": 106.7685006
@@ -1095,6 +1186,7 @@
     "Id": 92,
     "Name": "Bệnh viện Lê Văn Việt",
     "ContactNumber": "02838966673",
+    "Address": "387, Lê Văn Việt, Khu phố 43, Phường Tăng Nhơn Phú, Thủ Đức, Thành phố Hồ Chí Minh, 71300, Việt Nam",
     "Coordinates": {
       "Lat": 10.8449005,
       "Lng": 106.7902318
@@ -1107,6 +1199,7 @@
     "Id": 93,
     "Name": "Bệnh viện Đa khoa Trung Mỹ Tây",
     "ContactNumber": "02838443910",
+    "Address": "Bệnh viện Đa khoa Trung Mỹ Tây, 111, Dương Thị Mười, Khu phố 44, Phường Trung Mỹ Tây, Thuận An, Thành phố Hồ Chí Minh, 71507, Việt Nam",
     "Coordinates": {
       "Lat": 10.8608483,
       "Lng": 106.6307188
@@ -1119,6 +1212,7 @@
     "Id": 94,
     "Name": "Bệnh Viện Mắt Việt-Nga",
     "ContactNumber": "",
+    "Address": "Maximart, Đường 3 Tháng 2, Khu phố 33, Phường Vườn Lài, Thủ Đức, Thành phố Hồ Chí Minh, 70001, Việt Nam",
     "Coordinates": {
       "Lat": 10.7769291,
       "Lng": 106.6811338
@@ -1131,6 +1225,7 @@
     "Id": 95,
     "Name": "Bệnh viện Đa khoa khu vực Củ Chi",
     "ContactNumber": "02838920583",
+    "Address": "Bệnh viện Đa khoa khu vực Củ Chi, Hẻm 9 Đường Số 370, Xã Tân An Hội, Thành phố Hồ Chí Minh, 75500, Việt Nam",
     "Coordinates": {
       "Lat": 10.9755291,
       "Lng": 106.4769446
@@ -1143,6 +1238,7 @@
     "Id": 96,
     "Name": "Bệnh viện Đa khoa khu vực Hóc Môn",
     "ContactNumber": "02838914208",
+    "Address": "Bệnh viện Đa khoa khu vực Hóc Môn, Bà Triệu, Xã Hóc Môn, Thành phố Hồ Chí Minh, 71717, Việt Nam",
     "Coordinates": {
       "Lat": 10.8826218,
       "Lng": 106.5929391
@@ -1155,6 +1251,7 @@
     "Id": 97,
     "Name": "Bệnh viện Y học cổ truyền Bà Rịa-Vũng Tàu",
     "ContactNumber": "",
+    "Address": "Bệnh viện Y học cổ truyền Bà Rịa-Vũng Tàu, Phan Bội Châu, Khu phố 4, Phường Tam Long, Thành phố Hồ Chí Minh, 78106, Việt Nam",
     "Coordinates": {
       "Lat": 10.5130275,
       "Lng": 107.1954528
@@ -1167,6 +1264,7 @@
     "Id": 98,
     "Name": "Bệnh viện Mắt Bà Rịa - Vũng Tàu",
     "ContactNumber": "",
+    "Address": "Bệnh viện Mắt Bà Rịa - Vũng Tàu, Phạm Ngọc Thạch, Khu phố 3, Phường Bà Rịa, Thành phố Hồ Chí Minh, 78106, Việt Nam",
     "Coordinates": {
       "Lat": 10.5073775,
       "Lng": 107.1774461
@@ -1179,6 +1277,7 @@
     "Id": 99,
     "Name": "Trung tâm Y tế khu vực Long Đất",
     "ContactNumber": "",
+    "Address": "Trung tâm Y tế khu vực Long Đất, An Ngãi - Tam Phước, Phước Hưng, Xã Long Điền, Thành phố Hồ Chí Minh, Việt Nam",
     "Coordinates": {
       "Lat": 10.4641565,
       "Lng": 107.2159477
@@ -1191,6 +1290,7 @@
     "Id": 100,
     "Name": "Bệnh viện Đa Khoa Vạn Hạnh",
     "ContactNumber": "02838632553",
+    "Address": "Bệnh viện Đa Khoa Vạn Hạnh, Hẻm 702 Sư Vạn Hạnh, Khu phố 9, Phường Hòa Hưng, Thủ Đức, Thành phố Hồ Chí Minh, 72712, Việt Nam",
     "Coordinates": {
       "Lat": 10.7713531,
       "Lng": 106.670117
@@ -1203,6 +1303,7 @@
     "Id": 101,
     "Name": "Bệnh viện Ung bướu cơ sở 2",
     "ContactNumber": "02838412637",
+    "Address": "Bệnh viện Ung bướu cơ sở 2, Đường Số 400, Khu phố 1, Phường Tăng Nhơn Phú, Dĩ An, Thành phố Hồ Chí Minh, 00084, Việt Nam",
     "Coordinates": {
       "Lat": 10.8702234,
       "Lng": 106.8093249
@@ -1215,6 +1316,7 @@
     "Id": 102,
     "Name": "Bệnh viện Đa khoa Mỹ Phước",
     "ContactNumber": "02838920583",
+    "Address": "Bệnh Viện Đa Khoa Mỹ Phước, Đường NB16, An Phước, Bến Cát, Phường Bến Cát, Thành phố Hồ Chí Minh, 75911, Việt Nam",
     "Coordinates": {
       "Lat": 11.1415843,
       "Lng": 106.6070629
@@ -1227,6 +1329,7 @@
     "Id": 103,
     "Name": "Bệnh viện Phước An",
     "ContactNumber": "",
+    "Address": "Bệnh viện Phước An, Hẻm 209/4 Tôn Thất Thuyết, Phường Vĩnh Hội, Thành phố Hồ Chí Minh, 72800, Việt Nam",
     "Coordinates": {
       "Lat": 10.7532099,
       "Lng": 106.7000398
@@ -1239,6 +1342,7 @@
     "Id": 104,
     "Name": "Bệnh viện Đa khoa Vũng Tàu",
     "ContactNumber": "02543832667",
+    "Address": "Bệnh viện Đa khoa Vũng Tàu, Hàng Điều, Khu Phước Sơn, Phường Phước Thắng, Thành phố Hồ Chí Minh, 78000, Việt Nam",
     "Coordinates": {
       "Lat": 10.39195,
       "Lng": 107.1303463
@@ -1251,6 +1355,7 @@
     "Id": 105,
     "Name": "Trạm Y Tế phường Bình Hưng Hòa",
     "ContactNumber": "",
+    "Address": "Trạm Y Tế phường Bình Hưng Hòa, 716, Tân Kỳ Tân Quý, Phường Bình Hưng Hòa, Thuận An, Thành phố Hồ Chí Minh, 71913, Việt Nam",
     "Coordinates": {
       "Lat": 10.7916713,
       "Lng": 106.6047985
@@ -1263,6 +1368,7 @@
     "Id": 106,
     "Name": "Bệnh viện Đa khoa Củ Chi",
     "ContactNumber": "",
+    "Address": "Bệnh viện Đa khoa Củ Chi, Đường Trần Thị Thuận, Ấp Chợ Cũ, Xã An Nhơn Tây, Thành phố Hồ Chí Minh, Việt Nam",
     "Coordinates": {
       "Lat": 11.08545,
       "Lng": 106.5092674
@@ -1275,6 +1381,7 @@
     "Id": 107,
     "Name": "Trung tâm Y tế khu vực Châu Đức",
     "ContactNumber": "",
+    "Address": "Trung tâm Y tế khu vực Châu Đức, Lê Lợi, Trung tâm Thương mại Huyện Châu Đức, Xã Ngãi Giao, Thành phố Hồ Chí Minh, Việt Nam",
     "Coordinates": {
       "Lat": 10.6478083,
       "Lng": 107.2405804
@@ -1287,6 +1394,7 @@
     "Id": 108,
     "Name": "Bệnh viện Tâm thần Tỉnh Bà Rịa-Vũng Tàu",
     "ContactNumber": "02838960054",
+    "Address": "Bệnh viện Tâm thần Tỉnh Bà Rịa-Vũng Tàu, Đức Trung 7, Đức Trung, Xã Ngãi Giao, Thành phố Hồ Chí Minh, Việt Nam",
     "Coordinates": {
       "Lat": 10.6235086,
       "Lng": 107.2379831
@@ -1299,6 +1407,7 @@
     "Id": 109,
     "Name": "Bệnh viện Sức khỏe Tâm thần Bà Rịa - Vũng Tàu",
     "ContactNumber": "",
+    "Address": "Bệnh viện Sức khỏe Tâm thần Bà Rịa - Vũng Tàu, Suối Nghệ - Nghĩa Thành - Quảng Phú - Phước An, Xã Ngãi Giao, Thành phố Hồ Chí Minh, Việt Nam",
     "Coordinates": {
       "Lat": 10.5854118,
       "Lng": 107.2356645
@@ -1311,6 +1420,7 @@
     "Id": 110,
     "Name": "Bệnh viện Tâm Thần Bà Rịa",
     "ContactNumber": "",
+    "Address": "Bệnh viện Tâm Thần Bà Rịa, Phú Mỹ - Tóc Tiên, Xã Châu Pha, Thành phố Hồ Chí Minh, 78706, Việt Nam",
     "Coordinates": {
       "Lat": 10.6092916,
       "Lng": 107.0824568
@@ -1323,6 +1433,7 @@
     "Id": 111,
     "Name": "Trung tâm Quân dân y đặc khu Côn Đảo",
     "ContactNumber": "",
+    "Address": "Trung tâm Quân dân y đặc khu Côn Đảo, Lê Hồng Phong, Khu 6, Côn Sơn, Đặc khu Côn Đảo, Thành phố Hồ Chí Minh, 78400, Việt Nam",
     "Coordinates": {
       "Lat": 8.6853723,
       "Lng": 106.6046417
@@ -1335,6 +1446,7 @@
     "Id": 112,
     "Name": "Bệnh viện Từ Dũ - Cơ sở 2",
     "ContactNumber": "",
+    "Address": "Bệnh viện Từ Dũ - Cơ sở 2, Đường Lương Văn Nho, Xã Cần Giờ, Thành phố Hồ Chí Minh, Việt Nam",
     "Coordinates": {
       "Lat": 10.4043915,
       "Lng": 106.937643
@@ -1347,6 +1459,7 @@
     "Id": 113,
     "Name": "Trung tâm Y tế khu vực Bắc Tân Uyên",
     "ContactNumber": "02854042829",
+    "Address": "Trung tâm Y tế khu vực Bắc Tân Uyên, Đường tỉnh 746, Xã Bắc Tân Uyên, Thành phố Hồ Chí Minh, Việt Nam",
     "Coordinates": {
       "Lat": 11.1497513,
       "Lng": 106.8453889
@@ -1359,6 +1472,7 @@
     "Id": 114,
     "Name": "Bệnh viện Ung bướu",
     "ContactNumber": "02838412637",
+    "Address": "Bệnh viện Ung bướu, 3, Hẻm 5/45 Nơ Trang Long, Khu phố 1, Phường Gia Định, Thủ Đức, Thành phố Hồ Chí Minh, 72317, Việt Nam",
     "Coordinates": {
       "Lat": 10.8049698,
       "Lng": 106.6942613
@@ -1371,6 +1485,7 @@
     "Id": 115,
     "Name": "Bệnh viện Ung bướu",
     "ContactNumber": "02838412637",
+    "Address": "Nơ Trang Long, Khu phố 1, Phường Gia Định, Thủ Đức, Thành phố Hồ Chí Minh, 72317, Việt Nam",
     "Coordinates": {
       "Lat": 10.8051582,
       "Lng": 106.6956218
@@ -1383,6 +1498,7 @@
     "Id": 116,
     "Name": "Bệnh viện Đa khoa Cao su Dầu Tiếng",
     "ContactNumber": "02839571342",
+    "Address": "Bệnh viện Đa khoa Cao su Dầu Tiếng, Đường Hùng Vương, Khu phố 4A, Dầu Tiếng, Thành phố Hồ Chí Minh, Việt Nam",
     "Coordinates": {
       "Lat": 11.2821412,
       "Lng": 106.3634531
@@ -1395,6 +1511,7 @@
     "Id": 117,
     "Name": "Trung tâm Y tế khu vực Tân Uyên",
     "ContactNumber": "",
+    "Address": "Trung tâm Y tế khu vực Tân Uyên, Đường tỉnh 747, Phường Tân Uyên, Thành phố Hồ Chí Minh, Việt Nam",
     "Coordinates": {
       "Lat": 11.0856347,
       "Lng": 106.7808929
@@ -1407,6 +1524,7 @@
     "Id": 118,
     "Name": "Trung tâm Y tế khu vực Thủ Dầu Một",
     "ContactNumber": "",
+    "Address": "Trung tâm Y tế khu vực Thủ Dầu Một, Văn Công Khai, Phú Cường 9, Phường Thủ Dầu Một, Thành phố Hồ Chí Minh, 75106, Việt Nam",
     "Coordinates": {
       "Lat": 10.9781083,
       "Lng": 106.6542386
@@ -1419,6 +1537,7 @@
     "Id": 119,
     "Name": "Trung tâm Y tế khu vực Bến Cát",
     "ContactNumber": "",
+    "Address": "Trung tâm Y tế khu vực Bến Cát, Quốc lộ 13, Long Hưng, Bến Cát, Phường Bến Cát, Thành phố Hồ Chí Minh, Việt Nam",
     "Coordinates": {
       "Lat": 11.1614455,
       "Lng": 106.5947891
@@ -1431,6 +1550,7 @@
     "Id": 120,
     "Name": "Trung tâm Y tế khu vực Dầu Tiếng",
     "ContactNumber": "",
+    "Address": "Trung tâm Y tế khu vực Dầu Tiếng, Đường tỉnh 750, Ấp Hiệp Thọ, Khu phố 7, Xã Dầu Tiếng, Thành phố Hồ Chí Minh, Việt Nam",
     "Coordinates": {
       "Lat": 11.2875267,
       "Lng": 106.3929878
@@ -1443,6 +1563,7 @@
     "Id": 121,
     "Name": "Bệnh viện Truyền máu - Huyết học (cơ sở 2)",
     "ContactNumber": "",
+    "Address": "Bệnh viện Truyền máu - Huyết học (cơ sở 2), 1, Đường Trần Hữu Nghiệp, Ấp 18, Xã Tân Nhựt, Thành phố Hồ Chí Minh, 71959, Việt Nam",
     "Coordinates": {
       "Lat": 10.7093154,
       "Lng": 106.5760857
@@ -1455,6 +1576,7 @@
     "Id": 122,
     "Name": "BỆNH VIỆN ĐA KHOA TÂM TRÍ SÀI GÒN",
     "ContactNumber": "02862636969",
+    "Address": "Bệnh viện Đa khoa Tâm Trí Sài Gòn, Trường Chinh, Khu phố 27, Phường Đông Hưng Thuận, Thuận An, Thành phố Hồ Chí Minh, 71509, Việt Nam",
     "Coordinates": {
       "Lat": 10.8316195,
       "Lng": 106.6215219
@@ -1467,6 +1589,7 @@
     "Id": 123,
     "Name": "Bệnh viện Đa khoa Thủ Đức",
     "ContactNumber": "02838963194",
+    "Address": "Bệnh viện Đa khoa Thủ Đức, 29, Tam Châu, Khu phố 55, Phường Tam Bình, Thủ Đức, Thành phố Hồ Chí Minh, 75350, Việt Nam",
     "Coordinates": {
       "Lat": 10.8643971,
       "Lng": 106.7455723
@@ -1479,6 +1602,7 @@
     "Id": 124,
     "Name": "Bệnh viện Đa khoa Hoàn Hảo Kei Mei Kai",
     "ContactNumber": "02837602895",
+    "Address": "Bệnh viện Đa khoa Hoàn Hảo Kei Mei Kai, Dương Đình Nghệ, Khu phố Bình Đường 2, Phường Dĩ An, Thủ Đức, Thành phố Hồ Chí Minh, 75350, Việt Nam",
     "Coordinates": {
       "Lat": 10.8698098,
       "Lng": 106.7627408
@@ -1491,6 +1615,7 @@
     "Id": 125,
     "Name": "Bệnh viện Hoàn Mỹ Thủ Đức",
     "ContactNumber": "",
+    "Address": "Bệnh viện Hoàn Mỹ Thủ Đức, Đường Hoàng Cầm, Khu phố 8, Phường Linh Xuân, Dĩ An, Thành phố Hồ Chí Minh, 00084, Việt Nam",
     "Coordinates": {
       "Lat": 10.887672,
       "Lng": 106.7737207
@@ -1503,6 +1628,7 @@
     "Id": 126,
     "Name": "Bệnh viện Quân y 7A",
     "ContactNumber": "02839238816",
+    "Address": "Bệnh viện Quân y 7A, Nguyễn Trãi, Khu phố 22, Phường An Đông, Thành phố Hồ Chí Minh, 72712, Việt Nam",
     "Coordinates": {
       "Lat": 10.7557703,
       "Lng": 106.6707327
@@ -1515,6 +1641,7 @@
     "Id": 127,
     "Name": "Bệnh viện Tai Mũi Họng Thành phố Hồ Chí Minh",
     "ContactNumber": "02839317381",
+    "Address": "Bệnh viện Tai Mũi Họng Thành phố Hồ Chí Minh, 153-155-157, Hẻm 184 Đường Lý Chính Thắng, Khu phố 1, Phường Nhiêu Lộc, Thủ Đức, Thành phố Hồ Chí Minh, 70150, Việt Nam",
     "Coordinates": {
       "Lat": 10.7843261,
       "Lng": 106.683944
@@ -1527,6 +1654,7 @@
     "Id": 128,
     "Name": "Bệnh viện Từ Dũ (khu M)",
     "ContactNumber": "02854042829",
+    "Address": "Grove Fresh, Nguyễn Thị Minh Khai, Khu phố 5, Phường Cầu Ông Lãnh, Thủ Đức, Thành phố Hồ Chí Minh, 72406, Việt Nam",
     "Coordinates": {
       "Lat": 10.7678651,
       "Lng": 106.6847646
@@ -1539,6 +1667,7 @@
     "Id": 129,
     "Name": "Bệnh viện Y học cổ truyền Thành phố Hồ Chí Minh",
     "ContactNumber": "02839320875",
+    "Address": "Trường Tiểu học Nguyễn Thanh Tuyền, 183, Nam Kỳ Khởi Nghĩa, Khu phố 6, Phường Xuân Hòa, Thủ Đức, Thành phố Hồ Chí Minh, 70150, Việt Nam",
     "Coordinates": {
       "Lat": 10.7855497,
       "Lng": 106.6878673
@@ -1551,6 +1680,7 @@
     "Id": 130,
     "Name": "Bệnh viện Đa khoa Gò Vấp",
     "ContactNumber": "02838942641",
+    "Address": "Bệnh viện Đa khoa Gò Vấp, 641, Hẻm 641/2 Quang Trung, Khu phố 36, Phường Thông Tây Hội, Thuận An, Thành phố Hồ Chí Minh, 71427, Việt Nam",
     "Coordinates": {
       "Lat": 10.8345835,
       "Lng": 106.661529
@@ -1563,6 +1693,7 @@
     "Id": 131,
     "Name": "Bệnh viện Đa khoa Bình Thạnh",
     "ContactNumber": "02835511610",
+    "Address": "Bệnh viện Đa khoa Bình Thạnh, 132, Hẻm 128/3 Lê Văn Duyệt, Khu phố 28, Phường Gia Định, Thủ Đức, Thành phố Hồ Chí Minh, 72200, Việt Nam",
     "Coordinates": {
       "Lat": 10.7980558,
       "Lng": 106.6967399
@@ -1575,6 +1706,7 @@
     "Id": 132,
     "Name": "Bệnh viện Đa khoa Nhà Bè",
     "ContactNumber": "",
+    "Address": "Bệnh viện Đa khoa Nhà Bè, Hoa Lộc Vừng, Xã Nhà Bè, Thành phố Hồ Chí Minh, 72915, Việt Nam",
     "Coordinates": {
       "Lat": 10.7042622,
       "Lng": 106.7052895
@@ -1587,6 +1719,7 @@
     "Id": 133,
     "Name": "Bệnh viện Dã chiến Bình Chánh",
     "ContactNumber": "",
+    "Address": "Bệnh viện Dã chiến Bình Chánh, Nguyễn Văn Linh, Ấp 19, Xã Bình Hưng, Thành phố Hồ Chí Minh, 72400, Việt Nam",
     "Coordinates": {
       "Lat": 10.7200864,
       "Lng": 106.6598189
@@ -1599,6 +1732,7 @@
     "Id": 134,
     "Name": "Trạm y tế xã Tân Định",
     "ContactNumber": "",
+    "Address": "Trạm y tế xã Tân Định, Đường tỉnh 746, Xã Bắc Tân Uyên, Thành phố Hồ Chí Minh, Việt Nam",
     "Coordinates": {
       "Lat": 11.1738829,
       "Lng": 106.8652298
@@ -1611,6 +1745,7 @@
     "Id": 135,
     "Name": "Bệnh viên Quân y 4",
     "ContactNumber": "02837509999",
+    "Address": "Bệnh viên Quân y 4, Đường tỉnh 743B, Khu phố Thống Nhất 2, Phường Dĩ An, Dĩ An, Thành phố Hồ Chí Minh, 75207, Việt Nam",
     "Coordinates": {
       "Lat": 10.8895125,
       "Lng": 106.741575
@@ -1623,6 +1758,7 @@
     "Id": 136,
     "Name": "Bệnh Viện Đa Khoa Quốc Tế Nam Sài Gòn",
     "ContactNumber": "02838966673",
+    "Address": "Bệnh Viện Đa Khoa Quốc Tế Nam Sài Gòn, 88, Đường Số 8, Ấp 50, Xã Bình Hưng, Thành phố Hồ Chí Minh, 72900, Việt Nam",
     "Coordinates": {
       "Lat": 10.7361021,
       "Lng": 106.6908392
@@ -1635,6 +1771,7 @@
     "Id": 137,
     "Name": "Bệnh viện Phương Nam",
     "ContactNumber": "+84 91 169 33 99",
+    "Address": "Bệnh viện Phương Nam, 2, Nguyễn Lương Bằng, Phường Tân Mỹ, Thành phố Hồ Chí Minh, 72915, Việt Nam",
     "Coordinates": {
       "Lat": 10.7344138,
       "Lng": 106.7177492
@@ -1647,6 +1784,7 @@
     "Id": 138,
     "Name": "Bệnh viện Quốc tế Vinmec",
     "ContactNumber": "02839109999",
+    "Address": "Bệnh viện Quốc tế Vinmec, Đường V3, Vinhomes Grand Park, Phường Long Bình, Thành phố Hồ Chí Minh, 71216, Việt Nam",
     "Coordinates": {
       "Lat": 10.8360871,
       "Lng": 106.8456243
@@ -1659,6 +1797,7 @@
     "Id": 139,
     "Name": "Bệnh viện Tâm thần - Cơ sở Lê Minh Xuân",
     "ContactNumber": "02838963194",
+    "Address": "Bệnh viện Tâm thần - Cơ sở Lê Minh Xuân, F4/12, Đường D3C, Ấp 24, Xã Bình Lợi, Thành phố Hồ Chí Minh, Việt Nam",
     "Coordinates": {
       "Lat": 10.7693286,
       "Lng": 106.5458486
@@ -1671,6 +1810,7 @@
     "Id": 140,
     "Name": "Bệnh viện Đa khoa Tâm Anh",
     "ContactNumber": "02871026789",
+    "Address": "Đường Nội Khu Bệnh Viện Tâm Anh, Phường Tân Sơn Hòa, Thủ Đức, Thành phố Hồ Chí Minh, 72215, Việt Nam",
     "Coordinates": {
       "Lat": 10.8024122,
       "Lng": 106.6662942
@@ -1683,6 +1823,7 @@
     "Id": 141,
     "Name": "Bệnh viện Quốc tế Mỹ AIH",
     "ContactNumber": "02839109999",
+    "Address": "199, Nguyễn Hoàng, Khu phố 1, Phường Bình Trưng, Thủ Đức, Thành phố Hồ Chí Minh, 71108, Việt Nam",
     "Coordinates": {
       "Lat": 10.79377,
       "Lng": 106.7468051
@@ -1695,6 +1836,7 @@
     "Id": 142,
     "Name": "Trạm Y tế phường Bình Trưng Đông",
     "ContactNumber": "",
+    "Address": "Trạm Y tế phường Bình Trưng Đông, Đường Hồ Thị Nhung, Khu phố 43, Phường Bình Trưng, Thủ Đức, Thành phố Hồ Chí Minh, 08408, Việt Nam",
     "Coordinates": {
       "Lat": 10.7896008,
       "Lng": 106.7720079
@@ -1707,6 +1849,7 @@
     "Id": 143,
     "Name": "Bệnh viện Quân Dân y Miền Đông",
     "ContactNumber": "02838960054",
+    "Address": "Hồ Văn Huê, Lê Văn Việt, Khu phố 37, Phường Tăng Nhơn Phú, Thủ Đức, Thành phố Hồ Chí Minh, 00848, Việt Nam",
     "Coordinates": {
       "Lat": 10.8448592,
       "Lng": 106.7777477
@@ -1719,6 +1862,7 @@
     "Id": 144,
     "Name": "Bệnh Viện Đa Khoa Xuyên Á",
     "ContactNumber": "18009075",
+    "Address": "Bệnh Viện Đa Khoa Xuyên Á, Đường Phan Văn Khải, Xã Củ Chi, Thành phố Hồ Chí Minh, 71608, Việt Nam",
     "Coordinates": {
       "Lat": 10.9283804,
       "Lng": 106.5581117
@@ -1731,6 +1875,7 @@
     "Id": 145,
     "Name": "Bệnh viện Bến Sắn",
     "ContactNumber": "02837508225",
+    "Address": "Bệnh viện Bến Sắn, Đường tỉnh 746, Bến Sắn, Phường Tân Hiệp, Thành phố Hồ Chí Minh, Việt Nam",
     "Coordinates": {
       "Lat": 11.0454588,
       "Lng": 106.7449853
@@ -1743,6 +1888,7 @@
     "Id": 146,
     "Name": "Trung tâm Quân Dân Y Côn Đảo (mới)",
     "ContactNumber": "02838960054",
+    "Address": "Trung tâm Quân Dân Y Côn Đảo (mới), Huỳnh Thúc Kháng, Khu 3, Đặc khu Côn Đảo, Thành phố Hồ Chí Minh, 78400, Việt Nam",
     "Coordinates": {
       "Lat": 8.6932146,
       "Lng": 106.5996987
@@ -1755,6 +1901,7 @@
     "Id": 147,
     "Name": "Trung tâm Y tế khu vực Bàu Bàng",
     "ContactNumber": "02838914208",
+    "Address": "Trung tâm Y tế khu vực Bàu Bàng, Đường N9, Khu công nghiệp Bàu Bàng, Xã Bàu Bàng, Thành phố Hồ Chí Minh, 75751, Việt Nam",
     "Coordinates": {
       "Lat": 11.2578041,
       "Lng": 106.6096962
@@ -1767,6 +1914,7 @@
     "Id": 148,
     "Name": "Trung tâm Y tế Khu vực Chợ Lớn (Cơ sở 2)",
     "ContactNumber": "02838626978",
+    "Address": "Trung tâm Y tế Khu vực Chợ Lớn (Cơ sở 2), 591A, Đường Nguyễn Trãi, Khu phố 16, Phường An Đông, Thành phố Hồ Chí Minh, 73000, Việt Nam",
     "Coordinates": {
       "Lat": 10.7538853,
       "Lng": 106.6669045
@@ -1779,6 +1927,7 @@
     "Id": 149,
     "Name": "Bệnh viện Công an Thành phố Hồ Chí Minh",
     "ContactNumber": "02838362642",
+    "Address": "359, Trần Hưng Đạo, Khu phố 9, Phường Chợ Lớn, Thành phố Hồ Chí Minh, 73000, Việt Nam",
     "Coordinates": {
       "Lat": 10.7516111,
       "Lng": 106.6605225
@@ -1791,6 +1940,7 @@
     "Id": 150,
     "Name": "Bệnh viện Nguyễn Tri Phương",
     "ContactNumber": "02839234332",
+    "Address": "Tịnh Xá Quan Âm, Trần Phú, Khu phố 14, Phường An Đông, Thành phố Hồ Chí Minh, 73000, Việt Nam",
     "Coordinates": {
       "Lat": 10.7551268,
       "Lng": 106.670238
@@ -1803,6 +1953,7 @@
     "Id": 151,
     "Name": "Bệnh viện Nhân dân 115",
     "ContactNumber": "02838652368",
+    "Address": "Bệnh viện Nhân dân 115, 527, Sư Vạn Hạnh, Khu phố 15, Phường Hòa Hưng, Thủ Đức, Thành phố Hồ Chí Minh, 72117, Việt Nam",
     "Coordinates": {
       "Lat": 10.7745844,
       "Lng": 106.6665349
