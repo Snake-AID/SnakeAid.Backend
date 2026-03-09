@@ -36,9 +36,12 @@ namespace SnakeAid.Service.Extensions
                     predicate: m => m.ReferenceId.HasValue && entityIds.Contains(m.ReferenceId.Value) && m.ReferenceType == referenceType,
                     include: q => q
                         .Include(m => m.AIRecognitionResults)
+                            .ThenInclude(r => r.AIModel)
+                        .Include(m => m.AIRecognitionResults)
                             .ThenInclude(r => r.DetectedSpecies)
                                 .ThenInclude(s => s.SpeciesVenoms)
-                                    .ThenInclude(sv => sv.VenomType));
+                                    .ThenInclude(sv => sv.VenomType)
+                                        .ThenInclude(v => v.FirstAidGuideline));
 
             // Group media by ReferenceId for O(1) in-memory lookup
             var mediaByReferenceId = allMedia
