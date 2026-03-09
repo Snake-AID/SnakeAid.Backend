@@ -25,7 +25,7 @@ public class PayOsPaymentService : IPayOsPaymentService
     private const string LogPrefix = "[PayOS]";
     private readonly string systemId = "57288b98-5f91-4de8-b827-866e3df69587";
     private static readonly Regex OrderCodeRegex = new(@"^SNAKEAID-(\d+)", RegexOptions.Compiled);
-    private readonly int commissionFee = 20000;
+    private readonly int commissionFee = 200000;
 
     public PayOsPaymentService(
         IPayOsClient payOsClient,
@@ -613,6 +613,8 @@ public class PayOsPaymentService : IPayOsPaymentService
                     $"SnakeCatchingRequest {request.SnakeCatchingRequestId} has no assigned rescuer");
             }
 
+            catchingRequest.Status = RequestStatus.Completed; // Update status to Completed
+
             var rescuerId = catchingRequest.AssignedRescuerId.Value;
             var systemAccountId = Guid.Parse(systemId);
 
@@ -620,7 +622,11 @@ public class PayOsPaymentService : IPayOsPaymentService
             var paidTransactions = await _unitOfWork.GetRepository<Transaction>()
                 .GetListAsync(
                     predicate: t => t.ReferenceId == request.SnakeCatchingRequestId &&
-                                   t.ExternalTransactionId != null,  
+                                   t.ExternalTransactionId != null &&
+                                   (t.TransactionType == TransactionType.CatchingDeposit || 
+                                   t.TransactionType == TransactionType.CatchingPayment ||
+                                   t.TransactionType == TransactionType.ConsultationPayment || 
+                                   t.TransactionType == TransactionType.RescuerReward),  
                     asNoTracking: false,
                     cancellationToken: cancellationToken);
 
@@ -738,6 +744,8 @@ public class PayOsPaymentService : IPayOsPaymentService
             };
 
             await _unitOfWork.GetRepository<Transaction>().InsertAsync(transferTransaction);
+
+            
 
             await _unitOfWork.CommitAsync();
 
