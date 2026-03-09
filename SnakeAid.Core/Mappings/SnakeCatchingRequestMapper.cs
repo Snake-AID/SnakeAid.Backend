@@ -12,18 +12,20 @@ namespace SnakeAid.Core.Mappings
             TypeAdapterConfig<SnakeCatchingRequest, CreateSnakeCatchingRequestResponse>
                 .NewConfig()
                 .PreserveReference(true) // Enable circular reference handling
-                .MaxDepth(3) // Limit mapping depth to prevent infinite loops
+                .MaxDepth(5) // Increase depth to allow Media mapping
                 .Map(dest => dest.LocationCoordinates, src => src.LocationCoordinates)
                 .Map(dest => dest.Lng, src => src.LocationCoordinates.X)
-                .Map(dest => dest.Lat, src => src.LocationCoordinates.Y);
+                .Map(dest => dest.Lat, src => src.LocationCoordinates.Y)
+                .Map(dest => dest.Media, src => src.Media); // Explicitly map Media
 
             TypeAdapterConfig<SnakeCatchingRequest, DetailSnakeCatchingRequestResponse>
                 .NewConfig()
                 .PreserveReference(true) // Enable circular reference handling
-                .MaxDepth(3) // Limit mapping depth to prevent infinite loops
+                .MaxDepth(5) // Increase depth to allow Media mapping
                 .Map(dest => dest.LocationCoordinates, src => src.LocationCoordinates)
                 .Map(dest => dest.Lng, src => src.LocationCoordinates.X)
-                .Map(dest => dest.Lat, src => src.LocationCoordinates.Y);
+                .Map(dest => dest.Lat, src => src.LocationCoordinates.Y)
+                .Map(dest => dest.Media, src => src.Media); // Explicitly map Media
 
             // Configure MemberProfile mapping to ignore circular collections
             TypeAdapterConfig<MemberProfile, MemberProfile>
