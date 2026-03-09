@@ -6,6 +6,7 @@ using SnakeAid.Core.Domains;
 using SnakeAid.Core.Exceptions;
 using SnakeAid.Core.Requests.PayOs;
 using SnakeAid.Core.Requests.SnakeCatchingRequest;
+using SnakeAid.Core.Responses.Media;
 using SnakeAid.Core.Responses.SnakeCatchingRequest;
 using SnakeAid.Core.Responses.SnakeDetection;
 using SnakeAid.Core.Responses.UserFeedback;
@@ -123,8 +124,6 @@ namespace SnakeAid.Service.Implements
                         }
                     }
 
-                    var aiResults = new List<SnakeDetectionResponse>();
-
                     // Handle media if provided
                     if (request.MediaIdList != null && request.MediaIdList.Any())
                     {
@@ -139,37 +138,8 @@ namespace SnakeAid.Service.Implements
                             existingMedia.ReferenceId = newRequest.Id;
 
                             _unitOfWork.GetRepository<ReportMedia>().Update(existingMedia);
-
-                            if (existingMedia.Purpose == MediaPurpose.SnakeIdentification)
-                            {
-                                // If media is for snake identification, call SnakeAIService to identify species
-                                try
-                                {
-                                    var identifiedSpecies = await _snakeAIService.DetectFromReportMediaAsync(existingMedia.Id);
-                                    if (identifiedSpecies != null)
-                                    {
-                                        _logger.LogInformation(
-                                            "Snake species identified by AI for media {MediaId}: {SpeciesName}",
-                                            existingMedia.Id, identifiedSpecies.Results.First().Snake.CommonName);
-                                        aiResults.Add(identifiedSpecies);
-                                    }
-                                    else
-                                    {
-                                        _logger.LogWarning(
-                                            "Snake AI service could not identify species for media {MediaId}",
-                                            existingMedia.Id);
-                                    }
-                                }
-                                catch (Exception ex)
-                                {
-                                    // Log the error but don't fail the entire request creation if AI detection fails
-                                    _logger.LogError(ex, "Error calling Snake AI service for media {MediaId}: {Message}", existingMedia.Id, ex.Message);
-                                }
-                            }
                         }
                     }
-
-
 
                     // Save the request
                     await _unitOfWork.GetRepository<SnakeCatchingRequest>().InsertAsync(newRequest);
@@ -189,9 +159,131 @@ namespace SnakeAid.Service.Implements
                         throw new Exception("Failed to retrieve created request.");
                     }
 
+                    // Attach media using extension method (handles polymorphic relationship)
                     await createdRequest.AttachReportMediaAsync(_unitOfWork, MediaReferenceType.SnakeCatchingRequest);
 
+                    _logger.LogInformation(
+                        "After AttachReportMediaAsync: Media count = {Count}",
+                        createdRequest.Media?.Count ?? 0);
+
                     var response = createdRequest.Adapt<CreateSnakeCatchingRequestResponse>();
+
+                    // Ensure Media is properly mapped (explicit mapping for polymorphic relationship)
+                    if (createdRequest.Media != null && createdRequest.Media.Any())
+                    {
+                        response.Media = createdRequest.Media.Adapt<List<ReportMediaResponse>>();
+                    }
+
+                    // Load AI recognition results from media with SnakeIdentification purpose
+                    var aiResults = new List<SnakeDetectionResponse>();
+                    if (createdRequest.Media != null && createdRequest.Media.Any())
+                    {
+                        var identificationMedia = createdRequest.Media.Where(m => m.Purpose == MediaPurpose.SnakeIdentification).ToList();
+                        _logger.LogInformation(
+                            "Found {Count} media with SnakeIdentification purpose",
+                            identificationMedia.Count);
+
+                        foreach (var media in identificationMedia)
+                        {
+                            _logger.LogInformation(
+                                "Processing media {MediaId}, RequiresAI: {RequiresAI}, IsProcessed: {IsProcessed}, AIResults count: {Count}",
+                                media.Id, media.RequiresAIProcessing, media.IsProcessed, media.AIRecognitionResults?.Count ?? 0);
+
+                            // Check if this media has completed AI recognition results
+                            var completedResults = media.AIRecognitionResults
+                                ?.Where(r => r.Status == RecognitionStatus.Completed && r.DetectedSpecies != null)
+                                .ToList();
+
+                            if (completedResults != null && completedResults.Any())
+                            {
+                                _logger.LogInformation(
+                                    "Media {MediaId} has {Count} completed AI recognition results",
+                                    media.Id, completedResults.Count);
+
+                                foreach (var recognitionResult in completedResults)
+                                {
+                                    var detectionResponse = new SnakeDetectionResponse
+                                    {
+                                        Metadata = new AiMetadata
+                                        {
+                                            ModelVersion = recognitionResult.AIModel?.Version,
+                                            ImageWidth = 0,
+                                            ImageHeight = 0,
+                                            DetectionCount = 1,
+                                            Warnings = null
+                                        },
+                                        RecognitionResultId = recognitionResult.Id,
+                                        Results = new List<DetectionResult>
+                                        {
+                                            new DetectionResult
+                                            {
+                                                Ai = new AiDetection
+                                                {
+                                                    ClassId = 0,
+                                                    ClassName = recognitionResult.YoloClassName,
+                                                    Confidence = (float)recognitionResult.Confidence,
+                                                    BBox = new SnakeBBox()
+                                                },
+                                                Snake = recognitionResult.DetectedSpecies
+                                            }
+                                        }
+                                    };
+
+                                    aiResults.Add(detectionResponse);
+                                    _logger.LogInformation(
+                                        "Added AI recognition result for media {MediaId}: {SpeciesName}",
+                                        media.Id, recognitionResult.DetectedSpecies?.CommonName ?? "Unknown");
+                                }
+                            }
+                            else if (media.RequiresAIProcessing && !media.IsProcessed)
+                            {
+                                // Media requires AI processing and hasn't been processed yet
+                                // Call AI detection synchronously and wait for results
+                                try
+                                {
+                                    _logger.LogInformation(
+                                        "Media {MediaId} requires AI processing - calling detection API now",
+                                        media.Id);
+
+                                    var detectionResult = await _snakeAIService.DetectFromReportMediaAsync(media.Id);
+                                    
+                                    if (detectionResult != null && detectionResult.Results != null && detectionResult.Results.Any())
+                                    {
+                                        aiResults.Add(detectionResult);
+                                        _logger.LogInformation(
+                                            "AI detection completed for media {MediaId}: {SpeciesName}",
+                                            media.Id, detectionResult.Results.First().Snake?.CommonName ?? "Unknown");
+                                    }
+                                    else
+                                    {
+                                        _logger.LogWarning(
+                                            "AI detection returned no results for media {MediaId}",
+                                            media.Id);
+                                    }
+                                }
+                                catch (Exception ex)
+                                {
+                                    // Log the error but don't fail the entire request creation if AI detection fails
+                                    _logger.LogError(ex,
+                                        "AI detection failed for media {MediaId}: {Message}",
+                                        media.Id, ex.Message);
+                                }
+                            }
+                            else
+                            {
+                                _logger.LogWarning(
+                                    "Media {MediaId} has no completed AI results. Status of results: {Statuses}",
+                                    media.Id,
+                                    media.AIRecognitionResults != null
+                                        ? string.Join(", ", media.AIRecognitionResults.Select(r => $"{r.Status} (Species: {(r.DetectedSpecies != null ? "Yes" : "No")})"))
+                                        : "No results");
+                            }
+                        }
+                    }
+                    else
+                    {
+                        _logger.LogInformation("No media attached to this request");
+                    }
 
                     // Add AI detection results to response
                     response.AIResults = aiResults;
@@ -501,6 +593,13 @@ namespace SnakeAid.Service.Implements
                 }
 
                 var response = request.Adapt<DetailSnakeCatchingRequestResponse>();
+                
+                // Ensure Media is properly mapped (explicit mapping for polymorphic relationship)
+                if (request.Media != null && request.Media.Any())
+                {
+                    response.Media = request.Media.Adapt<List<ReportMediaResponse>>();
+                }
+                
                 response.AIResults = aiResults;
                 if (response.EstimatedPrice.HasValue)
                 {
@@ -519,11 +618,13 @@ namespace SnakeAid.Service.Implements
                     }
                 }
 
-                // Load feedbacks for assigned rescuer if exists
+                // Load feedbacks for this specific request
                 if (request.AssignedRescuerId.HasValue)
                 {
                     var feedbacks = await _unitOfWork.GetRepository<UserFeedback>().GetListAsync(
-                        predicate: f => f.TargetUserId == request.AssignedRescuerId.Value,
+                        predicate: f => f.TargetUserId == request.AssignedRescuerId.Value &&
+                                       f.ReferenceId == requestId &&
+                                       f.Type == FeedbackType.Catching,
                         include: query => query
                             .Include(f => f.Rater)
                             .Include(f => f.TargetUser),

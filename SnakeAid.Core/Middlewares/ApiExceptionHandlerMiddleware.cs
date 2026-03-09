@@ -64,6 +64,7 @@ public class ApiExceptionHandlerMiddleware
         }
         catch (Exception exception)
         {
+            exception = NormalizeException(exception);
             var errorId = Guid.NewGuid().ToString();
             _logger.LogError(
                 exception,
@@ -94,6 +95,7 @@ public class ApiExceptionHandlerMiddleware
             BusinessException => LogLevel.Warning,
             ValidationException => LogLevel.Warning,
             NotFoundException => LogLevel.Information,
+            DatabaseSchemaMismatchException => LogLevel.Error,
             _ => LogLevel.Error
         };
 
@@ -159,6 +161,11 @@ public class ApiExceptionHandlerMiddleware
                 "RATE_LIMIT_EXCEEDED",
                 null
             ),
+            DatabaseSchemaMismatchException schemaEx => (
+                schemaEx.Message,
+                "DATABASE_SCHEMA_MISMATCH",
+                null
+            ),
             UnauthorizedException => (
                 "Unauthorized access",
                 "UNAUTHORIZED",
@@ -216,6 +223,56 @@ public class ApiExceptionHandlerMiddleware
         context.Response.ContentType = "application/json";
         context.Response.StatusCode = statusCode;
         await context.Response.WriteAsJsonAsync(apiResponse);
+    }
+
+    private static Exception NormalizeException(Exception exception)
+    {
+        if (TryMapDatabaseSchemaMismatch(exception, out var mappedException))
+        {
+            return mappedException;
+        }
+
+        return exception;
+    }
+
+    private static bool TryMapDatabaseSchemaMismatch(Exception exception, out Exception mappedException)
+    {
+        mappedException = exception;
+
+        var postgresException = FindExceptionByTypeName(exception, "Npgsql.PostgresException");
+        if (postgresException == null)
+        {
+            return false;
+        }
+
+        var sqlState = postgresException.GetType().GetProperty("SqlState")?.GetValue(postgresException)?.ToString();
+        var messageText = postgresException.GetType().GetProperty("MessageText")?.GetValue(postgresException)?.ToString()
+            ?? postgresException.Message;
+
+        if (sqlState == "42703" && messageText.Contains("does not exist", StringComparison.OrdinalIgnoreCase))
+        {
+            mappedException = new DatabaseSchemaMismatchException(
+                "Database schema is out of date. A required migration has not been applied.");
+            return true;
+        }
+
+        return false;
+    }
+
+    private static Exception? FindExceptionByTypeName(Exception exception, string fullTypeName)
+    {
+        Exception? current = exception;
+        while (current != null)
+        {
+            if (string.Equals(current.GetType().FullName, fullTypeName, StringComparison.Ordinal))
+            {
+                return current;
+            }
+
+            current = current.InnerException;
+        }
+
+        return null;
     }
 }
 

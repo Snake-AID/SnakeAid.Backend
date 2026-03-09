@@ -48,5 +48,45 @@ namespace SnakeAid.Api.Controllers
             var result = await _catchingMissionDetailService.CreateCatchingMissionDetailAsync(request);
             return Ok(ApiResponseBuilder.BuildSuccessResponse(result, "Catching mission detail created successfully!"));
         }
+
+        /// <summary>
+        /// Update an existing catching mission detail
+        /// </summary>
+        /// <remarks>
+        /// Update the species or quantity of snakes caught in a mission detail record.
+        /// </remarks>
+        [HttpPut("{id}")]
+        [ValidateModel]
+        [SwaggerOperation(
+            Summary = "Update Catching Mission Detail",
+            Description = "Update an existing catching mission detail record")]
+        [SwaggerResponse(200, "Updated successfully", typeof(ApiResponse<CatchingMissionDetailResponse>))]
+        [SwaggerResponse(400, "Validation error or invalid data")]
+        [SwaggerResponse(401, "Unauthorized")]
+        [SwaggerResponse(404, "Mission detail or snake species not found")]
+        public async Task<IActionResult> UpdateCatchingMissionDetail(Guid id, [FromBody] UpdateCatchingMissionDetailRequest request)
+        {
+            var result = await _catchingMissionDetailService.UpdateCatchingMissionDetailAsync(id, request);
+            return Ok(ApiResponseBuilder.BuildSuccessResponse(result, "Catching mission detail updated successfully!"));
+        }
+
+        /// <summary>
+        /// Delete a catching mission detail
+        /// </summary>
+        /// <remarks>
+        /// Remove a catching mission detail record from the system.
+        /// </remarks>
+        [HttpDelete("{id}")]
+        [SwaggerOperation(
+            Summary = "Delete Catching Mission Detail",
+            Description = "Delete a catching mission detail record")]
+        [SwaggerResponse(200, "Deleted successfully", typeof(ApiResponse<object>))]
+        [SwaggerResponse(401, "Unauthorized")]
+        [SwaggerResponse(404, "Mission detail not found")]
+        public async Task<IActionResult> DeleteCatchingMissionDetail(Guid id)
+        {
+            await _catchingMissionDetailService.DeleteCatchingMissionDetailAsync(id);
+            return Ok(ApiResponseBuilder.BuildSuccessResponse<object>(null, "Catching mission detail deleted successfully!"));
+        }
     }
 }

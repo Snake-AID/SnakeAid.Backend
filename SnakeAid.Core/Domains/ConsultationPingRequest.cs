@@ -47,10 +47,11 @@ namespace SnakeAid.Core.Domains
 
     public enum ConsultationPingStatus
     {
-        PendingExpertResponse = 0,
-        AcceptedByExpert = 1,
-        DeclinedByExpert = 2,
-        RescuerCancelled = 3,
-        Expired = 4
+        PendingPayment = 0,
+        PendingExpertResponse = 1,
+        AcceptedByExpert = 2,
+        DeclinedByExpert = 3,
+        RescuerCancelled = 4,
+        Expired = 5
     }
 }

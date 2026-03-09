@@ -157,6 +157,10 @@ namespace SnakeAid.Api
                 builder.Services.AddSingleton<IHostedService>(provider =>
                     provider.GetRequiredService<SnakeAid.Service.Implements.SessionTimeoutBackgroundService>());
 
+                builder.Services.AddSingleton<SnakeAid.Service.Implements.ConsultationLifecycleBackgroundService>();
+                builder.Services.AddSingleton<IHostedService>(provider =>
+                    provider.GetRequiredService<SnakeAid.Service.Implements.ConsultationLifecycleBackgroundService>());
+
                 builder.Services.AddMemoryCache();
 
                 // Health checks endpoint
@@ -342,6 +346,7 @@ namespace SnakeAid.Api
                 app.MapHub<RescuerHub>("/rescuer-hub").RequireCors("SignalRCorsPolicy");
 
                 app.MapHub<MissionHub>("/mission-hub").RequireCors("SignalRCorsPolicy");
+                app.MapHub<ExpertHub>("/hubs/expert").RequireCors("SignalRCorsPolicy");
 
                 // Map Razor pages
                 app.MapRazorPages();

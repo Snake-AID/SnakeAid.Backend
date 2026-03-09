@@ -653,6 +653,10 @@ namespace SnakeAid.Repository.Migrations
                     b.Property<decimal>("Price")
                         .HasColumnType("numeric");
 
+                    b.Property<string>("ProblemDescription")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
                     b.Property<int>("Status")
                         .HasColumnType("integer");
 
@@ -804,6 +808,9 @@ namespace SnakeAid.Repository.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<decimal?>("EmergencyConsultationFee")
+                        .HasColumnType("numeric(18,2)");
+
                     b.Property<bool>("IsOnline")
                         .HasColumnType("boolean");
 
@@ -884,6 +891,10 @@ namespace SnakeAid.Repository.Migrations
 
                     b.HasIndex("ExpertId", "StartTime")
                         .HasDatabaseName("IX_ExpertTimeSlots_ExpertId_StartTime");
+
+                    b.HasIndex("ExpertId", "StartTime", "EndTime")
+                        .IsUnique()
+                        .HasDatabaseName("UX_ExpertTimeSlots_ExpertId_StartTime_EndTime");
 
                     b.ToTable("ExpertTimeSlots", "SnakeAid");
                 });

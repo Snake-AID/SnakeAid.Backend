@@ -26,6 +26,9 @@ namespace SnakeAid.Core.Domains
         [Required]
         public DateTime BookedAt { get; set; }
 
+        [MaxLength(2000)]
+        public string? ProblemDescription { get; set; }
+
         [Required]
         public DateTime? PaymentDeadline { get; set; }
 

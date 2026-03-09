@@ -15,6 +15,9 @@ namespace SnakeAid.Repository.Data.Configurations
                 .HasConversion<int>()
                 .IsRequired();
 
+            builder.Property(b => b.ProblemDescription)
+                .HasMaxLength(2000);
+
             // Relationship: Booking -> Account (User)
             builder.HasOne(b => b.User)
                 .WithMany()
