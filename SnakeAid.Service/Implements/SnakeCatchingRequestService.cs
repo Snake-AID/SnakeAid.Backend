@@ -618,11 +618,13 @@ namespace SnakeAid.Service.Implements
                     }
                 }
 
-                // Load feedbacks for assigned rescuer if exists
+                // Load feedbacks for this specific request
                 if (request.AssignedRescuerId.HasValue)
                 {
                     var feedbacks = await _unitOfWork.GetRepository<UserFeedback>().GetListAsync(
-                        predicate: f => f.TargetUserId == request.AssignedRescuerId.Value,
+                        predicate: f => f.TargetUserId == request.AssignedRescuerId.Value &&
+                                       f.ReferenceId == requestId &&
+                                       f.Type == FeedbackType.Catching,
                         include: query => query
                             .Include(f => f.Rater)
                             .Include(f => f.TargetUser),
