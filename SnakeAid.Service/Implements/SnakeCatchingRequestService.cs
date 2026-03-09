@@ -6,6 +6,7 @@ using SnakeAid.Core.Domains;
 using SnakeAid.Core.Exceptions;
 using SnakeAid.Core.Requests.PayOs;
 using SnakeAid.Core.Requests.SnakeCatchingRequest;
+using SnakeAid.Core.Responses.Media;
 using SnakeAid.Core.Responses.SnakeCatchingRequest;
 using SnakeAid.Core.Responses.SnakeDetection;
 using SnakeAid.Core.Responses.UserFeedback;
@@ -189,9 +190,16 @@ namespace SnakeAid.Service.Implements
                         throw new Exception("Failed to retrieve created request.");
                     }
 
+                    // Attach media using extension method (handles polymorphic relationship)
                     await createdRequest.AttachReportMediaAsync(_unitOfWork, MediaReferenceType.SnakeCatchingRequest);
 
                     var response = createdRequest.Adapt<CreateSnakeCatchingRequestResponse>();
+
+                    // Ensure Media is properly mapped (explicit mapping for polymorphic relationship)
+                    if (createdRequest.Media != null && createdRequest.Media.Any())
+                    {
+                        response.Media = createdRequest.Media.Adapt<List<ReportMediaResponse>>();
+                    }
 
                     // Add AI detection results to response
                     response.AIResults = aiResults;
@@ -501,6 +509,13 @@ namespace SnakeAid.Service.Implements
                 }
 
                 var response = request.Adapt<DetailSnakeCatchingRequestResponse>();
+                
+                // Ensure Media is properly mapped (explicit mapping for polymorphic relationship)
+                if (request.Media != null && request.Media.Any())
+                {
+                    response.Media = request.Media.Adapt<List<ReportMediaResponse>>();
+                }
+                
                 response.AIResults = aiResults;
                 if (response.EstimatedPrice.HasValue)
                 {
