@@ -297,5 +297,57 @@ namespace SnakeAid.Service.Implements
 
             return symptomConfigs.Adapt<List<SymptomConfigResponse>>();
         }
+
+        public async Task<List<GroupedSymptomConfigResponse>> GetGroupedSymptomConfigsForUIAsync()
+        {
+            // Get all active symptom configs with venom type
+            var symptomConfigs = await _unitOfWork.GetRepository<SymptomConfig>()
+                .GetListAsync(
+                    predicate: sc => sc.IsActive,
+                    orderBy: o => o.OrderBy(sc => sc.DisplayOrder).ThenBy(sc => sc.Id),
+                    include: q => q.Include(sc => sc.VenomType)
+                );
+
+            // Group by AttributeKey to create questions with multiple options
+            var grouped = symptomConfigs
+                .GroupBy(sc => new
+                {
+                    sc.AttributeKey,
+                    sc.AttributeLabel,
+                    sc.GroupName,
+                    sc.DisplayOrder
+                })
+                .OrderBy(g => g.Key.DisplayOrder)
+                .Select(g => new GroupedSymptomConfigResponse
+                {
+                    GroupName = g.Key.GroupName,
+                    AttributeKey = g.Key.AttributeKey,
+                    AttributeLabel = g.Key.AttributeLabel,
+                    DisplayOrder = g.Key.DisplayOrder,
+                    Options = g.Select(sc => new SymptomOptionResponse
+                    {
+                        Id = sc.Id,
+                        Name = sc.Name,
+                        Description = sc.Description,
+                        IsCritical = sc.IsCritical,
+                        AlertMessage = sc.AlertMessage,
+                        Category = sc.Category,
+                        CategoryDisplay = sc.Category.ToString(),
+                        TimeScoreList = sc.TimeScoreList,
+                        VenomTypeId = sc.VenomTypeId,
+                        VenomType = sc.VenomType != null
+                            ? new VenomTypeInfo
+                            {
+                                Id = sc.VenomType.Id,
+                                Name = sc.VenomType.Name
+                            }
+                            : null,
+                        IsActive = sc.IsActive
+                    }).ToList()
+                })
+                .ToList();
+
+            return grouped;
+        }
     }
 }

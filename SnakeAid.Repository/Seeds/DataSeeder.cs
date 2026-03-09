@@ -1,8 +1,10 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
+using NetTopologySuite.Geometries;
 using SnakeAid.Core.Domains;
 using SnakeAid.Repository.Data;
 
@@ -10,57 +12,32 @@ namespace SnakeAid.Repository.Seeds
 {
     public static class DataSeeder
     {
+        private static readonly GeometryFactory _geometryFactory = NetTopologySuite.NtsGeometryServices.Instance.CreateGeometryFactory(srid: 4326);
+
+        private class HospitalDto
+        {
+            public int Id { get; set; }
+            public string Name { get; set; }
+            public string ContactNumber { get; set; }
+            public CoordinatesDto Coordinates { get; set; }
+            public bool IsActive { get; set; }
+            public DateTime CreatedAt { get; set; }
+            public DateTime UpdatedAt { get; set; }
+        }
+
+        private class CoordinatesDto
+        {
+            public double Lat { get; set; }
+            public double Lng { get; set; }
+        }
         public static async Task SeedAsync(SnakeAidDbContext context)
         {
-            // Seed VenomTypes based on PrimaryVenomType enum
-            if (!context.VenomTypes.Any())
+            // ==================================================================================
+            // SEED FIRST AID GUIDELINES
+            // ==================================================================================
+            // No dependencies - seed first
+            if (!context.FirstAidGuidelines.Any())
             {
-                var venomTypes = new List<VenomType>
-                {
-                    new VenomType
-                    {
-                        Id = 1,
-                        Name = "Độc thần kinh",
-                        ScientificName = "Độc thần kinh",
-                        Description = "Nọc độc chủ yếu ảnh hưởng đến hệ thần kinh, gây tê liệt và suy hô hấp.",
-                        IsActive = true,
-                        SeverityIndex = 9,
-                        FirstAidGuidelineId = 2
-                    },
-                    new VenomType
-                    {
-                        Id = 2,
-                        Name = "Độc máu",
-                        ScientificName = "Độc máu",
-                        Description = "Nọc độc gây tổn thương mạch máu và mô, dẫn đến chảy máu và tổn thương cơ quan.",
-                        IsActive = true,
-                        SeverityIndex = 8,
-                        FirstAidGuidelineId = 3
-                    },
-                    new VenomType
-                    {
-                        Id = 3,
-                        Name = "Độc tế bào",
-                        ScientificName = "Độc tế bào",
-                        Description = "Nọc độc phá hủy tế bào và mô tại vị trí cắn, gây tổn thương nghiêm trọng tại chỗ.",
-                        IsActive = true,
-                        SeverityIndex = 7,
-                        FirstAidGuidelineId = 4
-                    },
-                    new VenomType
-                    {
-                        Id = 4,
-                        Name = "Độc cơ",
-                        ScientificName = "Độc cơ",
-                        Description = "Nọc độc gây tổn thương mô cơ, dẫn đến tiêu cơ.",
-                        IsActive = true,
-                        SeverityIndex = 6,
-                        FirstAidGuidelineId = 5
-                    }
-                };
-
-                context.VenomTypes.AddRange(venomTypes);
-
                 var guidelines = new List<FirstAidGuideline>
                 {
                     // 1. SƠ CỨU CHUNG
@@ -189,7 +166,68 @@ namespace SnakeAid.Repository.Seeds
                     }
                 };
                 context.FirstAidGuidelines.AddRange(guidelines);
+                await context.SaveChangesAsync();
+            }
 
+            // ==================================================================================
+            // SEED VENOM TYPES
+            // ==================================================================================
+            // Depends on: FirstAidGuidelines
+            if (!context.VenomTypes.Any())
+            {
+                var venomTypes = new List<VenomType>
+                {
+                    new VenomType
+                    {
+                        Id = 1,
+                        Name = "Độc thần kinh",
+                        ScientificName = "Độc thần kinh",
+                        Description = "Nọc độc chủ yếu ảnh hưởng đến hệ thần kinh, gây tê liệt và suy hô hấp.",
+                        IsActive = true,
+                        SeverityIndex = 9,
+                        FirstAidGuidelineId = 2
+                    },
+                    new VenomType
+                    {
+                        Id = 2,
+                        Name = "Độc máu",
+                        ScientificName = "Độc máu",
+                        Description = "Nọc độc gây tổn thương mạch máu và mô, dẫn đến chảy máu và tổn thương cơ quan.",
+                        IsActive = true,
+                        SeverityIndex = 8,
+                        FirstAidGuidelineId = 3
+                    },
+                    new VenomType
+                    {
+                        Id = 3,
+                        Name = "Độc tế bào",
+                        ScientificName = "Độc tế bào",
+                        Description = "Nọc độc phá hủy tế bào và mô tại vị trí cắn, gây tổn thương nghiêm trọng tại chỗ.",
+                        IsActive = true,
+                        SeverityIndex = 7,
+                        FirstAidGuidelineId = 4
+                    },
+                    new VenomType
+                    {
+                        Id = 4,
+                        Name = "Độc cơ",
+                        ScientificName = "Độc cơ",
+                        Description = "Nọc độc gây tổn thương mô cơ, dẫn đến tiêu cơ.",
+                        IsActive = true,
+                        SeverityIndex = 6,
+                        FirstAidGuidelineId = 5
+                    }
+                };
+                context.VenomTypes.AddRange(venomTypes);
+                await context.SaveChangesAsync();
+            }
+
+            // ==================================================================================
+            // SEED FILTER QUESTIONS
+            // ==================================================================================
+            // No dependencies
+            if (!context.FilterQuestions.Any())
+            {
                 var filterQuestions = new List<FilterQuestion>
                 {
                     new FilterQuestion { Id = 1, Question = "Bạn gặp rắn ở khu vực nào?", IsActive = true },
@@ -200,7 +238,15 @@ namespace SnakeAid.Repository.Seeds
                     new FilterQuestion { Id = 6, Question = "Đặc điểm nổi bật khác?", IsActive = true }
                 };
                 context.FilterQuestions.AddRange(filterQuestions);
+                await context.SaveChangesAsync();
+            }
 
+            // ==================================================================================
+            // SEED FILTER OPTIONS
+            // ==================================================================================
+            // Depends on: FilterQuestions
+            if (!context.FilterOptions.Any())
+            {
                 var filterOptions = new List<FilterOption>
                 {
                         // --- Câu hỏi 1: Vùng miền  ---
@@ -239,7 +285,15 @@ namespace SnakeAid.Repository.Seeds
                         new FilterOption { Id = 22, QuestionId = 6, OptionText = "Thân có vảy nhám / gồ ghề", OptionImageUrl = "https://khoahoc.tv/photos/image/022013/04/Trimeresuruscornutus.jpg" }
                 };
                 context.FilterOptions.AddRange(filterOptions);
+                await context.SaveChangesAsync();
+            }
 
+            // ==================================================================================
+            // SEED SNAKE SPECIES
+            // ==================================================================================
+            // No direct dependency
+            if (!context.SnakeSpecies.Any())
+            {
                 var snakes = new List<SnakeSpecies>
                 {
                     // 1. RẮN CẠP NIA BẮC (Bungarus multicinctus)
@@ -961,9 +1015,16 @@ namespace SnakeAid.Repository.Seeds
                         }
                     }
                 };
-
                 context.SnakeSpecies.AddRange(snakes);
+                await context.SaveChangesAsync();
+            }
 
+            // ==================================================================================
+            // SEED SPECIES VENOMS
+            // ==================================================================================
+            // Depends on: SnakeSpecies, VenomTypes
+            if (!context.SpeciesVenoms.Any())
+            {
                 var speciesVenoms = new List<SpeciesVenom>
                 {
                     // Rắn Cạp Nia Bắc (Độc thần kinh)
@@ -991,7 +1052,15 @@ namespace SnakeAid.Repository.Seeds
                     new SpeciesVenom { SnakeSpeciesId = 13, VenomTypeId = 2 }
                 };
                 context.SpeciesVenoms.AddRange(speciesVenoms);
+                await context.SaveChangesAsync();
+            }
 
+            // ==================================================================================
+            // SEED SNAKE SPECIES NAMES (Alternative names)
+            // ==================================================================================
+            // Depends on: SnakeSpecies
+            if (!context.SnakeSpeciesNames.Any())
+            {
                 var speciesNames = new List<SnakeSpeciesName>
                 {
                     // 1. Rắn Cạp Nia Bắc (ID: 1)
@@ -1061,7 +1130,15 @@ namespace SnakeAid.Repository.Seeds
                     new SnakeSpeciesName { Name = "Rắn Sãi Thường", Slug = "ran-sai-thuong", SnakeSpeciesId = 22 },
                 };
                 context.SnakeSpeciesNames.AddRange(speciesNames);
+                await context.SaveChangesAsync();
+            }
 
+            // ==================================================================================
+            // SEED FILTER SNAKE MAPPINGS
+            // ==================================================================================
+            // Depends on: SnakeSpecies, FilterOptions
+            if (!context.FilterSnakeMappings.Any())
+            {
                 var mappings = new List<FilterSnakeMapping>
                 {
                     // --- 1. RẮN CẠP NIA BẮC (SnakeId: 1) ---
@@ -1256,25 +1333,34 @@ namespace SnakeAid.Repository.Seeds
                     new FilterSnakeMapping { SnakeSpeciesId = 22, FilterOptionId = 17 }  // Sọc dọc
                 };
                 context.FilterSnakeMappings.AddRange(mappings);
+                await context.SaveChangesAsync();
+            }
 
-
+            // ==================================================================================
+            // SEED SYMPTOM CONFIGS
+            // ==================================================================================
+            // No direct dependency
+            if (!context.SymptomConfigs.Any())
+            {
                 var symptomConfigs = new List<SymptomConfig>
                 {
                     // ==================================================================================
-                    // NHÓM 1: BACKGROUND - THÔNG TIN TIỀN ĐỀ (ID: 1xx | DisplayOrder: 1-19)
-                    // =================================================================================
+                    // NHÓM 1: BACKGROUND - THÔNG TIN NẠN NHÂN (DisplayOrder: 1-3)
+                    // ==================================================================================
 
+                    // CÂU HỎI 1: Độ tuổi nạn nhân (DisplayOrder = 1)
                     new SymptomConfig
                     {
                         Id = 101,
                         GroupName = "BACKGROUND",
                         AttributeKey = "AGE_GROUP",
-                        AttributeLabel = "Thông tin nạn nhân",
-                        Name = "Trẻ em (< 12 tuổi)",
+                        AttributeLabel = "Độ tuổi của người bị cắn",
+                        Name = "Trẻ em (dưới 12 tuổi)",
                         DisplayOrder = 1,
                         Category = SymptomCategory.Modifier,
                         IsCritical = true,
-                        AlertMessage = "CẢNH BÁO: Trẻ em có diện tích cơ thể nhỏ, độc chất lan vào máu nhanh gấp nhiều lần người lớn.",
+                        AlertMessage = "⚠️ CẢNH BÁO: Trẻ em có cơ thể nhỏ, nọc độc lan nhanh và nguy hiểm gấp nhiều lần người lớn. Cần theo dõi sát!",
+                        Description = "Cơ thể trẻ nhỏ, tỷ lệ độc/cân nặng cao",
                         TimeScoresJson = JsonSerializer.Serialize(new List<TimeScorePoint> {
                             new TimeScorePoint { MinMinutes = 0, MaxMinutes = 1440, Score = 20 }
                         })
@@ -1285,10 +1371,11 @@ namespace SnakeAid.Repository.Seeds
                         Id = 102,
                         GroupName = "BACKGROUND",
                         AttributeKey = "AGE_GROUP",
-                        AttributeLabel = "Thông tin nạn nhân",
-                        Name = "Người cao tuổi (> 65 tuổi)",
-                        DisplayOrder = 2,
+                        AttributeLabel = "Độ tuổi của người bị cắn",
+                        Name = "Người cao tuổi (trên 65 tuổi)",
+                        DisplayOrder = 1,
                         Category = SymptomCategory.Modifier,
+                        Description = "Sức đề kháng yếu, nguy cơ biến chứng cao",
                         TimeScoresJson = JsonSerializer.Serialize(new List<TimeScorePoint> {
                             new TimeScorePoint { MinMinutes = 0, MaxMinutes = 1440, Score = 15 }
                         })
@@ -1298,12 +1385,28 @@ namespace SnakeAid.Repository.Seeds
                     {
                         Id = 103,
                         GroupName = "BACKGROUND",
-                        AttributeKey = "MEDICAL_HISTORY",
-                        AttributeLabel = "Tiền sử bệnh",
-                        Name = "Bệnh tim mạch / Tiểu đường / Suy thận",
-                        DisplayOrder = 3,
+                        AttributeKey = "AGE_GROUP",
+                        AttributeLabel = "Độ tuổi của người bị cắn",
+                        Name = "Người trưởng thành (12-65 tuổi)",
+                        DisplayOrder = 1,
                         Category = SymptomCategory.Modifier,
-                        Description = "Làm tăng nguy cơ sốc và biến chứng hoại tử.",
+                        Description = "Độ tuổi có sức đề kháng tốt nhất",
+                        TimeScoresJson = JsonSerializer.Serialize(new List<TimeScorePoint> {
+                            new TimeScorePoint { MinMinutes = 0, MaxMinutes = 1440, Score = 0 }
+                        })
+                    },
+
+                    // CÂU HỎI 2: Tiền sử bệnh (DisplayOrder = 2)
+                    new SymptomConfig
+                    {
+                        Id = 104,
+                        GroupName = "BACKGROUND",
+                        AttributeKey = "MEDICAL_HISTORY",
+                        AttributeLabel = "Bệnh nền của người bị cắn",
+                        Name = "Mắc bệnh tim mạch",
+                        DisplayOrder = 2,
+                        Category = SymptomCategory.Modifier,
+                        Description = "Tăng nguy cơ sốc tuần hoàn",
                         TimeScoresJson = JsonSerializer.Serialize(new List<TimeScorePoint> {
                             new TimeScorePoint { MinMinutes = 0, MaxMinutes = 1440, Score = 15 }
                         })
@@ -1311,15 +1414,62 @@ namespace SnakeAid.Repository.Seeds
 
                     new SymptomConfig
                     {
+                        Id = 105,
+                        GroupName = "BACKGROUND",
+                        AttributeKey = "MEDICAL_HISTORY",
+                        AttributeLabel = "Bệnh nền của người bị cắn",
+                        Name = "Mắc bệnh tiểu đường",
+                        DisplayOrder = 2,
+                        Category = SymptomCategory.Modifier,
+                        Description = "Vết thương lành chậm, dễ hoại tử",
+                        TimeScoresJson = JsonSerializer.Serialize(new List<TimeScorePoint> {
+                            new TimeScorePoint { MinMinutes = 0, MaxMinutes = 1440, Score = 15 }
+                        })
+                    },
+
+                    new SymptomConfig
+                    {
+                        Id = 106,
+                        GroupName = "BACKGROUND",
+                        AttributeKey = "MEDICAL_HISTORY",
+                        AttributeLabel = "Bệnh nền của người bị cắn",
+                        Name = "Mắc bệnh suy thận",
+                        DisplayOrder = 2,
+                        Category = SymptomCategory.Modifier,
+                        Description = "Thận yếu, khó thải độc tố",
+                        TimeScoresJson = JsonSerializer.Serialize(new List<TimeScorePoint> {
+                            new TimeScorePoint { MinMinutes = 0, MaxMinutes = 1440, Score = 15 }
+                        })
+                    },
+
+                    new SymptomConfig
+                    {
+                        Id = 107,
+                        GroupName = "BACKGROUND",
+                        AttributeKey = "MEDICAL_HISTORY",
+                        AttributeLabel = "Bệnh nền của người bị cắn",
+                        Name = "Không có bệnh nền",
+                        DisplayOrder = 2,
+                        Category = SymptomCategory.Modifier,
+                        Description = "Sức khỏe bình thường",
+                        TimeScoresJson = JsonSerializer.Serialize(new List<TimeScorePoint> {
+                            new TimeScorePoint { MinMinutes = 0, MaxMinutes = 1440, Score = 0 }
+                        })
+                    },
+
+                    // CÂU HỎI 3: Vị trí vết cắn (DisplayOrder = 3)
+                    new SymptomConfig
+                    {
                         Id = 110,
                         GroupName = "BACKGROUND",
                         AttributeKey = "BITE_LOCATION",
-                        AttributeLabel = "Vị trí vết cắn",
+                        AttributeLabel = "Rắn cắn vào vị trí nào trên cơ thể?",
                         Name = "Đầu, cổ, mặt",
-                        DisplayOrder = 4,
+                        DisplayOrder = 3,
                         Category = SymptomCategory.Modifier,
                         IsCritical = true,
-                        AlertMessage = "VỊ TRÍ NGUY HIỂM: Gần hệ thần kinh trung ương và dễ gây phù nề đường thở.",
+                        AlertMessage = "⚠️ VỊ TRÍ CỰC KỲ NGUY HIỂM! Gần não và đường thở. Có thể gây sưng phù nghẹt thở. Cần cấp cứu GẤP!",
+                        Description = "Vùng nguy hiểm nhất - gần hệ thần kinh trung ương",
                         TimeScoresJson = JsonSerializer.Serialize(new List<TimeScorePoint> {
                             new TimeScorePoint { MinMinutes = 0, MaxMinutes = 1440, Score = 30 }
                         })
@@ -1330,12 +1480,13 @@ namespace SnakeAid.Repository.Seeds
                         Id = 111,
                         GroupName = "BACKGROUND",
                         AttributeKey = "BITE_LOCATION",
-                        AttributeLabel = "Vị trí vết cắn",
+                        AttributeLabel = "Rắn cắn vào vị trí nào trên cơ thể?",
                         Name = "Ngực, bụng, nách, bẹn",
-                        DisplayOrder = 5,
+                        DisplayOrder = 3,
                         Category = SymptomCategory.Modifier,
+                        Description = "Gần cơ quan nội tạng - nguy hiểm cao",
                         TimeScoresJson = JsonSerializer.Serialize(new List<TimeScorePoint> {
-                            new TimeScorePoint { MinMinutes = 0, MaxMinutes = 1440, Score = 25 },
+                            new TimeScorePoint { MinMinutes = 0, MaxMinutes = 1440, Score = 25 }
                         })
                     },
 
@@ -1344,10 +1495,11 @@ namespace SnakeAid.Repository.Seeds
                         Id = 112,
                         GroupName = "BACKGROUND",
                         AttributeKey = "BITE_LOCATION",
-                        AttributeLabel = "Vị trí vết cắn",
+                        AttributeLabel = "Rắn cắn vào vị trí nào trên cơ thể?",
                         Name = "Bàn tay, ngón tay",
-                        DisplayOrder = 6,
+                        DisplayOrder = 3,
                         Category = SymptomCategory.Modifier,
+                        Description = "Nhiều mạch máu nhỏ - độc lan nhanh",
                         TimeScoresJson = JsonSerializer.Serialize(new List<TimeScorePoint> {
                             new TimeScorePoint { MinMinutes = 0, MaxMinutes = 1440, Score = 25 }
                         })
@@ -1358,45 +1510,49 @@ namespace SnakeAid.Repository.Seeds
                         Id = 113,
                         GroupName = "BACKGROUND",
                         AttributeKey = "BITE_LOCATION",
-                        AttributeLabel = "Vị trí vết cắn",
+                        AttributeLabel = "Rắn cắn vào vị trí nào trên cơ thể?",
                         Name = "Cánh tay, cẳng tay",
-                        DisplayOrder = 7,
+                        DisplayOrder = 3,
                         Category = SymptomCategory.Modifier,
+                        Description = "Vị trí thường gặp - nguy hiểm trung bình",
                         TimeScoresJson = JsonSerializer.Serialize(new List<TimeScorePoint> {
                             new TimeScorePoint { MinMinutes = 0, MaxMinutes = 1440, Score = 20 }
                         })
                     },
 
-                        new SymptomConfig
+                    new SymptomConfig
                     {
                         Id = 114,
                         GroupName = "BACKGROUND",
                         AttributeKey = "BITE_LOCATION",
-                        AttributeLabel = "Vị trí vết cắn",
+                        AttributeLabel = "Rắn cắn vào vị trí nào trên cơ thể?",
                         Name = "Bàn chân, cẳng chân",
-                        DisplayOrder = 8,
+                        DisplayOrder = 3,
                         Category = SymptomCategory.Modifier,
+                        Description = "Xa tim nhất - độc lan chậm hơn",
                         TimeScoresJson = JsonSerializer.Serialize(new List<TimeScorePoint> {
                             new TimeScorePoint { MinMinutes = 0, MaxMinutes = 1440, Score = 12 }
                         })
                     },
 
                     // ==================================================================================
-                    // NHÓM 2: LOCAL - TRIỆU CHỨNG TẠI CHỖ (ID: 2xx | DisplayOrder: 20-39)
+                    // NHÓM 2: LOCAL - TRIỆU CHỨNG TẠI CHỖ (DisplayOrder: 11)
                     // ==================================================================================
 
+                    // CÂU HỎI 4: Triệu chứng ở vết cắn (DisplayOrder = 11)
                     new SymptomConfig
                     {
                         Id = 201,
                         GroupName = "LOCAL",
                         AttributeKey = "SYMPTOM_LOCAL",
-                        AttributeLabel = "Dấu hiệu tại chỗ",
-                        Name = "Đau nhức dữ dội / Bỏng rát",
-                        DisplayOrder = 20,
+                        AttributeLabel = "Có triệu chứng gì ở vết cắn?",
+                        Name = "Đau nhức dữ dội hoặc cảm giác bỏng rát",
+                        DisplayOrder = 11,
                         Category = SymptomCategory.Modifier,
+                        Description = "Đau là phản ứng tự nhiên khi bị rắn cắn",
                         TimeScoresJson = JsonSerializer.Serialize(new List<TimeScorePoint> {
                             new TimeScorePoint { MinMinutes = 0, MaxMinutes = 30, Score = 30 },
-                            new TimeScorePoint { MinMinutes = 31, MaxMinutes = 1440, Score = 25 },
+                            new TimeScorePoint { MinMinutes = 31, MaxMinutes = 1440, Score = 25 }
                         })
                     },
 
@@ -1405,13 +1561,14 @@ namespace SnakeAid.Repository.Seeds
                         Id = 202,
                         GroupName = "LOCAL",
                         AttributeKey = "SYMPTOM_LOCAL",
-                        AttributeLabel = "Dấu hiệu tại chỗ",
-                        Name = "Sưng vù, lan nhanh (> 5cm/giờ)",
-                        DisplayOrder = 21,
+                        AttributeLabel = "Có triệu chứng gì ở vết cắn?",
+                        Name = "Sưng vù lan ra nhanh (> 5cm mỗi giờ)",
+                        DisplayOrder = 11,
                         Category = SymptomCategory.Core,
                         VenomTypeId = 2,
                         IsCritical = true,
-                        AlertMessage = "Nọc độc dòng Rắn Lục hoặc Hổ Mang đang phá hủy mô mạnh. Hạn chế vận động!",
+                        AlertMessage = "⚠️ CẢNH BÁO: Sưng lan nhanh! Có thể là Rắn Lục hoặc Hổ Mang đang phá hủy mô. KHÔNG vận động! Nằm yên chờ cứu hộ!",
+                        Description = "Dấu hiệu nọc độc máu/độc tế bào nghiêm trọng",
                         TimeScoresJson = JsonSerializer.Serialize(new List<TimeScorePoint> {
                             new TimeScorePoint { MinMinutes = 0, MaxMinutes = 180, Score = 60 },
                             new TimeScorePoint { MinMinutes = 181, MaxMinutes = 1440, Score = 40 }
@@ -1423,11 +1580,12 @@ namespace SnakeAid.Repository.Seeds
                         Id = 203,
                         GroupName = "LOCAL",
                         AttributeKey = "SYMPTOM_LOCAL",
-                        AttributeLabel = "Dấu hiệu tại chỗ",
+                        AttributeLabel = "Có triệu chứng gì ở vết cắn?",
                         Name = "Bầm tím, bóng nước, phồng rộp",
-                        DisplayOrder = 22,
+                        DisplayOrder = 11,
                         Category = SymptomCategory.Modifier,
                         VenomTypeId = 2,
+                        Description = "Da tổn thương do nọc độc phá hủy mô",
                         TimeScoresJson = JsonSerializer.Serialize(new List<TimeScorePoint> {
                             new TimeScorePoint { MinMinutes = 0, MaxMinutes = 1440, Score = 30 }
                         })
@@ -1438,12 +1596,14 @@ namespace SnakeAid.Repository.Seeds
                         Id = 204,
                         GroupName = "LOCAL",
                         AttributeKey = "SYMPTOM_LOCAL",
-                        AttributeLabel = "Dấu hiệu tại chỗ",
-                        Name = "Tê rần, tê lan từ vết cắn",
-                        DisplayOrder = 23,
+                        AttributeLabel = "Có triệu chứng gì ở vết cắn?",
+                        Name = "Cảm giác tê, tê lan dần từ vết cắn",
+                        DisplayOrder = 11,
                         Category = SymptomCategory.Modifier,
                         VenomTypeId = 1,
-                        Description = "Dấu hiệu sớm của độc tố thần kinh.",
+                        IsCritical = true,
+                        AlertMessage = "⚠️ Có thể là dấu hiệu nọc độc thần kinh! Theo dõi hô hấp sát!",
+                        Description = "Tê lan = độc tố thần kinh đang tấn công",
                         TimeScoresJson = JsonSerializer.Serialize(new List<TimeScorePoint> {
                             new TimeScorePoint { MinMinutes = 0, MaxMinutes = 60, Score = 30 },
                             new TimeScorePoint { MinMinutes = 61, MaxMinutes = 1440, Score = 50 }
@@ -1455,13 +1615,14 @@ namespace SnakeAid.Repository.Seeds
                         Id = 205,
                         GroupName = "LOCAL",
                         AttributeKey = "SYMPTOM_LOCAL",
-                        AttributeLabel = "Dấu hiệu tại chỗ",
-                        Name = "Không đau - Không sưng",
-                        DisplayOrder = 24,
+                        AttributeLabel = "Có triệu chứng gì ở vết cắn?",
+                        Name = "Gần như không đau, không sưng",
+                        DisplayOrder = 11,
                         Category = SymptomCategory.Modifier,
                         VenomTypeId = 1,
                         IsCritical = true,
-                        AlertMessage = "CẢNH BÁO: Rất giống vết cắn Rắn Cạp Nia. Triệu chứng liệt có thể đến muộn nhưng rất nặng!",
+                        AlertMessage = "⚠️ RẤT NGUY HIỂM! Đặc trưng của Rắn Cạp Nia. Vết cắn tưởng nhẹ nhưng độc thần kinh cực mạnh. Triệu chứng liệt có thể xuất hiện sau vài giờ!",
+                        Description = "Không đau ≠ không nguy hiểm! Có thể là Rắn Cạp Nia",
                         TimeScoresJson = JsonSerializer.Serialize(new List<TimeScorePoint> {
                             new TimeScorePoint { MinMinutes = 0, MaxMinutes = 1440, Score = 15 }
                         })
@@ -1472,13 +1633,14 @@ namespace SnakeAid.Repository.Seeds
                         Id = 206,
                         GroupName = "LOCAL",
                         AttributeKey = "SYMPTOM_LOCAL",
-                        AttributeLabel = "Dấu hiệu tại chỗ nặng",
-                        Name = "Mô đen, Hoại tử, Mùi hôi",
-                        DisplayOrder = 25,
+                        AttributeLabel = "Có triệu chứng gì ở vết cắn?",
+                        Name = "Da thịt chuyển đen, hoại tử, có mùi hôi",
+                        DisplayOrder = 11,
                         Category = SymptomCategory.Core,
                         VenomTypeId = 3,
                         IsCritical = true,
-                        AlertMessage = "Hoại tử tiến triển. Cần can thiệp để tránh nhiễm trùng máu và mất chi.",
+                        AlertMessage = "🚨 NGUY CẤP! Hoại tử mô đang tiến triển nhanh. Có thể dẫn đến nhiễm trùng máu và cắt cụt chi. Cấp cứu NGAY!",
+                        Description = "Mô đang chết - cần phẫu thuật khẩn cấp",
                         TimeScoresJson = JsonSerializer.Serialize(new List<TimeScorePoint> {
                             new TimeScorePoint { MinMinutes = 0, MaxMinutes = 1440, Score = 90 }
                         })
@@ -1489,32 +1651,37 @@ namespace SnakeAid.Repository.Seeds
                         Id = 207,
                         GroupName = "LOCAL",
                         AttributeKey = "SYMPTOM_LOCAL",
-                        AttributeLabel = "Dấu hiệu tại chỗ nặng",
-                        Name = "Máu chảy liên tục, rỉ máu không cầm",
-                        DisplayOrder = 26,
+                        AttributeLabel = "Có triệu chứng gì ở vết cắn?",
+                        Name = "Máu chảy liên tục, rỉ máu không ngừng",
+                        DisplayOrder = 11,
                         Category = SymptomCategory.Core,
                         VenomTypeId = 2,
+                        IsCritical = true,
+                        AlertMessage = "🚨 Rối loạn đông máu! Cần truyền huyết thanh kháng độc khẩn cấp!",
+                        Description = "Máu không đông - dấu hiệu nọc độc máu",
                         TimeScoresJson = JsonSerializer.Serialize(new List<TimeScorePoint> {
                             new TimeScorePoint { MinMinutes = 0, MaxMinutes = 1440, Score = 85 }
                         })
                     },
 
                     // ==================================================================================
-                    // NHÓM 3: CRITICAL - NGUY KỊCH TOÀN THÂN (ID: 3xx | DisplayOrder: 40-60)
+                    // NHÓM 3: CRITICAL - DẤU HIỆU NGUY KỊCH (DisplayOrder: 21)
                     // ==================================================================================
 
+                    // CÂU HỎI 5: Triệu chứng nguy hiểm toàn thân (DisplayOrder = 21)
                     new SymptomConfig
                     {
                         Id = 301,
                         GroupName = "CRITICAL",
                         AttributeKey = "CORE_SIGNS",
-                        AttributeLabel = "Dấu hiệu nguy kịch",
+                        AttributeLabel = "Có dấu hiệu nguy hiểm nào sau đây không?",
                         Name = "Khó thở, tức ngực, thở gấp",
-                        DisplayOrder = 40,
+                        DisplayOrder = 21,
                         Category = SymptomCategory.Core,
                         VenomTypeId = 1,
                         IsCritical = true,
-                        AlertMessage = "Dấu hiệu suy hô hấp sắp xảy ra. Cần hỗ trợ thở ngay lập tức!",
+                        AlertMessage = "🚨 NGUY CẤP TỐI ĐA! Suy hô hấp đang xảy ra! Gọi 115 NGAY! Chuẩn bị hỗ trợ thở nhân tạo!",
+                        Description = "Dấu hiệu cơ hô hấp bị liệt",
                         TimeScoresJson = JsonSerializer.Serialize(new List<TimeScorePoint> {
                             new TimeScorePoint { MinMinutes = 0, MaxMinutes = 1440, Score = 100 }
                         })
@@ -1525,13 +1692,14 @@ namespace SnakeAid.Repository.Seeds
                         Id = 302,
                         GroupName = "CRITICAL",
                         AttributeKey = "CORE_SIGNS",
-                        AttributeLabel = "Dấu hiệu nguy kịch",
-                        Name = "Sụp mí mắt, lờ đờ, khó mở mắt",
-                        DisplayOrder = 41,
+                        AttributeLabel = "Có dấu hiệu nguy hiểm nào sau đây không?",
+                        Name = "Sụp mí mắt, mở mắt khó khăn",
+                        DisplayOrder = 21,
                         Category = SymptomCategory.Core,
                         IsCritical = true,
-                        AlertMessage = "Dấu hiệu của độc tố thần kinh. Cần theo dõi sát và hỗ trợ thở kịp thời!",
+                        AlertMessage = "🚨 Độc tố thần kinh đang tấn công! Liệt cơ mắt = sắp liệt cơ hô hấp. Giám sát hô hấp liên tục!",
                         VenomTypeId = 1,
+                        Description = "Liệt cơ mắt - dấu hiệu độc thần kinh",
                         TimeScoresJson = JsonSerializer.Serialize(new List<TimeScorePoint> {
                             new TimeScorePoint { MinMinutes = 0, MaxMinutes = 60, Score = 90 },
                             new TimeScorePoint { MinMinutes = 61, MaxMinutes = 1440, Score = 80 }
@@ -1543,12 +1711,13 @@ namespace SnakeAid.Repository.Seeds
                         Id = 303,
                         GroupName = "CRITICAL",
                         AttributeKey = "CORE_SIGNS",
-                        AttributeLabel = "Dấu hiệu nguy kịch",
-                        Name = "Choáng váng, tụt huyết áp, ngất xỉu",
-                        DisplayOrder = 42,
+                        AttributeLabel = "Có dấu hiệu nguy hiểm nào sau đây không?",
+                        Name = "Chóng mặt, choáng váng, ngất xỉu",
+                        DisplayOrder = 21,
                         Category = SymptomCategory.Core,
                         IsCritical = true,
-                        AlertMessage = "Dấu hiệu Sốc. Đặt nạn nhân nằm thấp đầu, nâng cao chân.",
+                        AlertMessage = "🚨 Sốc tuần hoàn! Đặt nạn nhân nằm ngửa, nâng cao chân, giữ ấm cơ thể!",
+                        Description = "Huyết áp tụt - sốc",
                         TimeScoresJson = JsonSerializer.Serialize(new List<TimeScorePoint> {
                             new TimeScorePoint { MinMinutes = 0, MaxMinutes = 30, Score = 80 },
                             new TimeScorePoint { MinMinutes = 31, MaxMinutes = 1440, Score = 70 }
@@ -1560,13 +1729,14 @@ namespace SnakeAid.Repository.Seeds
                         Id = 304,
                         GroupName = "CRITICAL",
                         AttributeKey = "CORE_SIGNS",
-                        AttributeLabel = "Dấu hiệu nguy kịch",
-                        Name = "Chảy máu không cầm, nôn ra máu",
-                        DisplayOrder = 43,
+                        AttributeLabel = "Có dấu hiệu nguy hiểm nào sau đây không?",
+                        Name = "Chảy máu khắp cơ thể, nôn ra máu",
+                        DisplayOrder = 21,
                         Category = SymptomCategory.Core,
                         VenomTypeId = 2,
                         IsCritical = true,
-                        AlertMessage = "Dấu hiệu rối loạn đông máu toàn thân!",
+                        AlertMessage = "🚨 RỐI LOẠN ĐÔNG MÁU TOÀN THÂN! Nguy cơ xuất huyết nội! Cấp cứu GẤP!",
+                        Description = "Máu không đông - nguy cơ chết do mất máu",
                         TimeScoresJson = JsonSerializer.Serialize(new List<TimeScorePoint> {
                             new TimeScorePoint { MinMinutes = 0, MaxMinutes = 1440, Score = 90 }
                         })
@@ -1577,13 +1747,14 @@ namespace SnakeAid.Repository.Seeds
                         Id = 305,
                         GroupName = "CRITICAL",
                         AttributeKey = "CORE_SIGNS",
-                        AttributeLabel = "Dấu hiệu nguy kịch",
-                        Name = "Nước tiểu sẫm màu (như xá xị)",
-                        DisplayOrder = 44,
+                        AttributeLabel = "Có dấu hiệu nguy hiểm nào sau đây không?",
+                        Name = "Nước tiểu màu sẫm (màu nước trà hoặc coca)",
+                        DisplayOrder = 21,
                         IsCritical = true,
-                        AlertMessage = "CẢNH BÁO: dấu hiệu suy thận cấp do vỡ hồng cầu.",
+                        AlertMessage = "🚨 SUY THẬN CẤP! Hồng cầu đang bị phá hủy. Cần lọc máu khẩn cấp!",
                         Category = SymptomCategory.Core,
                         VenomTypeId = 4,
+                        Description = "Tiểu sẫm = hồng cầu vỡ - suy thận",
                         TimeScoresJson = JsonSerializer.Serialize(new List<TimeScorePoint> {
                             new TimeScorePoint { MinMinutes = 0, MaxMinutes = 1440, Score = 80 }
                         })
@@ -1594,10 +1765,11 @@ namespace SnakeAid.Repository.Seeds
                         Id = 306,
                         GroupName = "CRITICAL",
                         AttributeKey = "CORE_SIGNS",
-                        AttributeLabel = "Dấu hiệu nguy kịch",
-                        Name = "Buồn nôn, đau bụng cấp",
-                        DisplayOrder = 45,
+                        AttributeLabel = "Có dấu hiệu nguy hiểm nào sau đây không?",
+                        Name = "Buồn nôn, đau bụng dữ dội",
+                        DisplayOrder = 21,
                         Category = SymptomCategory.Core,
+                        Description = "Phản ứng của cơ thể với nọc độc",
                         TimeScoresJson = JsonSerializer.Serialize(new List<TimeScorePoint> {
                             new TimeScorePoint { MinMinutes = 0, MaxMinutes = 30, Score = 85 },
                             new TimeScorePoint { MinMinutes = 31, MaxMinutes = 120, Score = 70 },
@@ -1610,10 +1782,11 @@ namespace SnakeAid.Repository.Seeds
                         Id = 307,
                         GroupName = "CRITICAL",
                         AttributeKey = "CORE_SIGNS",
-                        AttributeLabel = "Dấu hiệu nguy kịch",
-                        Name = "Cơ yếu dần, cử động khó khăn",
-                        DisplayOrder = 46,
+                        AttributeLabel = "Có dấu hiệu nguy hiểm nào sau đây không?",
+                        Name = "Cơ bắp yếu dần, khó cử động",
+                        DisplayOrder = 21,
                         Category = SymptomCategory.Core,
+                        Description = "Liệt cơ đang tiến triển",
                         TimeScoresJson = JsonSerializer.Serialize(new List<TimeScorePoint> {
                             new TimeScorePoint { MinMinutes = 0, MaxMinutes = 60, Score = 55 },
                             new TimeScorePoint { MinMinutes = 60, MaxMinutes = 1440, Score = 45 }
@@ -1625,18 +1798,22 @@ namespace SnakeAid.Repository.Seeds
                         Id = 308,
                         GroupName = "CRITICAL",
                         AttributeKey = "CORE_SIGNS",
-                        AttributeLabel = "Dấu hiệu nguy kịch",
-                        Name = "Khó nói, khó nuốt, há miệng khó",
-                        DisplayOrder = 47,
+                        AttributeLabel = "Có dấu hiệu nguy hiểm nào sau đây không?",
+                        Name = "Khó nói, khó nuốt, khó há miệng",
+                        DisplayOrder = 21,
                         Category = SymptomCategory.Core,
                         VenomTypeId = 1,
+                        IsCritical = true,
+                        AlertMessage = "⚠️ Liệt cơ mặt! Sắp liệt hệ hô hấp. Giám sát thở liên tục!",
+                        Description = "Liệt cơ hầu họng - dấu hiệu nguy hiểm",
                         TimeScoresJson = JsonSerializer.Serialize(new List<TimeScorePoint> {
-                            new TimeScorePoint { MinMinutes = 0, MaxMinutes = 60, Score = 60 },  // Xuất hiện cực nhanh -> Rất nặng
-                                new TimeScorePoint { MinMinutes = 60, MaxMinutes = 180, Score = 50 },
-                                new TimeScorePoint { MinMinutes = 180, MaxMinutes = 1440, Score = 40 }
+                            new TimeScorePoint { MinMinutes = 0, MaxMinutes = 60, Score = 60 },
+                            new TimeScorePoint { MinMinutes = 60, MaxMinutes = 180, Score = 50 },
+                            new TimeScorePoint { MinMinutes = 180, MaxMinutes = 1440, Score = 40 }
                         })
                     },
                 };
+                context.SymptomConfigs.AddRange(symptomConfigs);
 
                 await context.SaveChangesAsync();
             }
@@ -1662,10 +1839,17 @@ namespace SnakeAid.Repository.Seeds
                     }
                 };
                 context.AIModels.AddRange(aiModels);
-                await context.SaveChangesAsync(); // Lưu AIModel trước khi tạo mapping
+                await context.SaveChangesAsync();
+            }
 
-                // YOLO Class Name -> SnakeSpecies ID mapping (based on Yolo_data.yaml)
-                // Index 1-22 tương ứng với 22 classes trong model YOLO v7
+            // ==================================================================================
+            // SEED AI SNAKE CLASS MAPPINGS
+            // ==================================================================================
+            // Depends on: AIModels, SnakeSpecies
+            // YOLO Class Name -> SnakeSpecies ID mapping (based on Yolo_data.yaml)
+            // Index 1-22 corresponds with 22 classes in YOLO v7 model
+            if (!context.AISnakeClassMappings.Any())
+            {
                 const int aiModelId = 1;
                 var aiSnakeClassMappings = new List<AISnakeClassMapping>
                 {
@@ -1716,6 +1900,33 @@ namespace SnakeAid.Repository.Seeds
                 };
 
                 context.AISnakeClassMappings.AddRange(aiSnakeClassMappings);
+                await context.SaveChangesAsync();
+            }
+
+            // ==================================================================================
+            // SEED TREATMENT FACILITIES (HOSPITALS)
+            // ==================================================================================
+            // No dependencies - seed independently
+            if (!context.TreatmentFacilities.Any())
+            {
+                var assemblyPath = System.Reflection.Assembly.GetExecutingAssembly().Location;
+                var assemblyDirectory = Path.GetDirectoryName(assemblyPath);
+                var projectRoot = Path.GetFullPath(Path.Combine(assemblyDirectory, "..", "..", "..", ".."));
+                var jsonPath = Path.Combine(projectRoot, "SnakeAid.Repository", "Seeds", "hcm_hospital_data.json");
+                var hospitalsJson = await File.ReadAllTextAsync(jsonPath);
+                var hospitals = JsonSerializer.Deserialize<List<HospitalDto>>(hospitalsJson);
+
+                var treatmentFacilities = hospitals.Select(h => new TreatmentFacility
+                {
+                    Id = h.Id,
+                    Name = h.Name,
+                    Address = h.Name, // Using name as address since JSON doesn't have address
+                    ContactNumber = h.ContactNumber,
+                    Location = _geometryFactory.CreatePoint(new Coordinate(h.Coordinates.Lng, h.Coordinates.Lat)),
+                    IsActive = h.IsActive
+                }).ToList();
+
+                context.TreatmentFacilities.AddRange(treatmentFacilities);
                 await context.SaveChangesAsync();
             }
         }

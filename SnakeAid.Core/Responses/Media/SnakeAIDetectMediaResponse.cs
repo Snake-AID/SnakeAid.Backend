@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using SnakeAid.Core.Domains;
-using SnakeAid.Core.Responses.SymptomConfig;
+using SnakeAid.Core.Responses.SnakeSpecies;
 
 namespace SnakeAid.Core.Responses.Media
 {

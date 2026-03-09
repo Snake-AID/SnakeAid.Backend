@@ -1,10 +1,12 @@
 using System;
 using System.Collections.Generic;
 using SnakeAid.Core.Domains;
+using SnakeAid.Core.Responses.FirstAid;
 using SnakeAid.Core.Responses.Media;
 using SnakeAid.Core.Responses.MemberProfile;
 using SnakeAid.Core.Responses.RescuerProfile;
 using SnakeAid.Core.Responses.SnakebiteIncident;
+using SnakeAid.Core.Responses.SnakeSpecies;
 
 namespace SnakeAid.Core.Responses.RescueMission
 {
@@ -48,12 +50,17 @@ namespace SnakeAid.Core.Responses.RescueMission
         public Guid Id { get; set; }
         public GeoPointResponse LocationCoordinates { get; set; } = null!;
         public SnakebiteIncidentStatus Status { get; set; }
-        public string? SymptomsReport { get; set; }
+        public List<ReportSymptom>? SymptomsReport { get; set; }
         public int? SeverityLevel { get; set; }
         public DateTime? IncidentOccurredAt { get; set; }
         public DateTime? AssignedAt { get; set; }
         public int CurrentSessionNumber { get; set; }
         public int CurrentRadiusKm { get; set; }
+
+        public SnakeSpeciesResponse? IdentifiedSnake { get; set; }
+
+        /// Context về cách xác định loài rắn (nếu có)
+        public SnakeIdentificationContext? IdentificationContext { get; set; }
 
         public List<SnakeAIDetectMediaResponse> Media { get; set; } = new List<SnakeAIDetectMediaResponse>();
     }

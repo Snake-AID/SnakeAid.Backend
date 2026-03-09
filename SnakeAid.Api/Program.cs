@@ -304,11 +304,11 @@ namespace SnakeAid.Api
                     }
 
                     // // Seed data (mở ra nếu seed lại dữ liệu)
-                    // using (var scope = app.Services.CreateScope())
-                    // {
-                    //     var context = scope.ServiceProvider.GetRequiredService<SnakeAidDbContext>();
-                    //     await DataSeeder.SeedAsync(context);
-                    // }
+                    using (var scope = app.Services.CreateScope())
+                    {
+                        var context = scope.ServiceProvider.GetRequiredService<SnakeAidDbContext>();
+                        await DataSeeder.SeedAsync(context);
+                    }
                 }
                 app.UseSwagger();
                 app.UseSwaggerUI(c =>
@@ -339,8 +339,6 @@ namespace SnakeAid.Api
                 app.UseSerilogUi(options => options.WithRoutePrefix("logs"));
 
                 // Map SignalR Hub with specific CORS policy
-                app.MapHub<TestChatHub>("/chat-hub").RequireCors("SignalRCorsPolicy");
-
                 app.MapHub<RescuerHub>("/rescuer-hub").RequireCors("SignalRCorsPolicy");
 
                 app.MapHub<MissionHub>("/mission-hub").RequireCors("SignalRCorsPolicy");

@@ -13,7 +13,7 @@ using SnakeAid.Repository.Data;
 using SnakeAid.Repository.Interfaces;
 using SnakeAid.Service.Interfaces;
 using SnakeAid.Service.Extensions;
-using SnakeAid.Core.Responses.SymptomConfig;
+using SnakeAid.Core.Responses.SnakeSpecies;
 
 namespace SnakeAid.Service.Implements
 {
@@ -306,14 +306,13 @@ namespace SnakeAid.Service.Implements
                         throw new NotFoundException("Snakebite incident not found.");
                     }
 
-                    // Calculate elapsed time from incident occurrence
-                    var currentTime = DateTime.UtcNow;
-                    var elapsedMinutes = existingIncident.IncidentOccurredAt.HasValue
-                        ? (int)(currentTime - existingIncident.IncidentOccurredAt.Value).TotalMinutes
-                        : 0;
+                    // using the time by miniute in request if provided, otherwise caculate from time provided in Incident
+                    var elapsedMinutes = request.TimeSinceBiteMinutes ?? (existingIncident.IncidentOccurredAt.HasValue
+                        ? (int)(DateTime.UtcNow - existingIncident.IncidentOccurredAt.Value).TotalMinutes
+                        : 0);
 
                     // Collect symptom descriptions and calculate severity
-                    var symptomDescriptions = new List<string>();
+                    var reportedSymptoms = new List<ReportSymptom>();
                     var coreSymptomScores = new List<int>();
                     var modifierSymptomScores = new List<int>();
 
@@ -328,7 +327,12 @@ namespace SnakeAid.Service.Implements
                             // Add symptom description
                             if (!string.IsNullOrEmpty(symptom.Description))
                             {
-                                symptomDescriptions.Add(symptom.Description);
+                                reportedSymptoms.Add(new ReportSymptom
+                                {
+                                    SymptomId = symptom.Id,
+                                    SymptomName = symptom.Name,
+                                    SymptomDescription = symptom.Description
+                                });
                             }
 
                             // Calculate score based on TimeScoreList
@@ -364,12 +368,12 @@ namespace SnakeAid.Service.Implements
                         severityLevel = 100;
 
                     // Update symptom report and severity level
-                    var jsonOptions = new System.Text.Json.JsonSerializerOptions
+                    var jsonOptions = new System.Text.Json.JsonSerializerOptions()
                     {
                         Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
                         WriteIndented = false
                     };
-                    existingIncident.SymptomsReport = System.Text.Json.JsonSerializer.Serialize(symptomDescriptions, jsonOptions);
+                    existingIncident.SymptomsReport = reportedSymptoms;
                     existingIncident.SeverityLevel = severityLevel;
                     _unitOfWork.GetRepository<SnakebiteIncident>().Update(existingIncident);
                     await _unitOfWork.CommitAsync();
@@ -612,15 +616,26 @@ namespace SnakeAid.Service.Implements
                     var recognitionResult = await _unitOfWork.GetRepository<SnakeAIRecognitionResult>()
                         .FirstOrDefaultAsync(
                             predicate: r => r.Id == recognitionResultId,
-                            include: query => query
-                                .Include(r => r.ReportMedia)
-                                .Include(r => r.DetectedSpecies)
+                            asNoTracking: false,
+                            cancellationToken: default
                         );
 
                     if (recognitionResult == null)
                     {
                         _logger.LogWarning("Recognition result not found: {ResultId}", recognitionResultId);
                         throw new NotFoundException("Recognition result not found.");
+                    }
+
+                    // Explicitly load related entities
+                    await _unitOfWork.Context.Entry(recognitionResult)
+                        .Reference(r => r.ReportMedia)
+                        .LoadAsync();
+
+                    if (recognitionResult.DetectedSpeciesId.HasValue)
+                    {
+                        await _unitOfWork.Context.Entry(recognitionResult)
+                            .Reference(r => r.DetectedSpecies)
+                            .LoadAsync();
                     }
 
                     // Verify the recognition result's media belongs to this incident

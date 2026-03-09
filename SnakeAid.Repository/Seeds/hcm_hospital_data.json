@@ -1,0 +1,1814 @@
+[
+  {
+    "Id": 1,
+    "Name": "Bệnh viện Phụ sản Mekong",
+    "ContactNumber": "19006113",
+    "Coordinates": {
+      "Lat": 10.7998479,
+      "Lng": 106.6675233
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 2,
+    "Name": "Trung Tâm Chẩn Đoán Y Khoa Medic - BV Hòa Hảo",
+    "ContactNumber": "02839270284",
+    "Coordinates": {
+      "Lat": 10.762528,
+      "Lng": 106.6701859
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 3,
+    "Name": "Bệnh viện Đa khoa Quốc Tế Miền Đông",
+    "ContactNumber": "02837307125",
+    "Coordinates": {
+      "Lat": 10.9034999,
+      "Lng": 106.7102737
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 4,
+    "Name": "Bệnh Viện Quốc Tế Minh Anh",
+    "ContactNumber": "02862600818",
+    "Coordinates": {
+      "Lat": 10.747644,
+      "Lng": 106.6143869
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 5,
+    "Name": "Bệnh Viện Mắt Sài Gòn",
+    "ContactNumber": "1900555553",
+    "Coordinates": {
+      "Lat": 10.7713711,
+      "Lng": 106.6909391
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 6,
+    "Name": "Bệnh Viện Đa Khoa Mỹ Đức",
+    "ContactNumber": "0838100290",
+    "Coordinates": {
+      "Lat": 10.7999684,
+      "Lng": 106.6415956
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 7,
+    "Name": "Trung Tâm Hiến Máu Nhân Đạo",
+    "ContactNumber": "38658509",
+    "Coordinates": {
+      "Lat": 10.7756389,
+      "Lng": 106.6557898
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 8,
+    "Name": "Bệnh Viện Hòa Hảo",
+    "ContactNumber": "02839270284",
+    "Coordinates": {
+      "Lat": 10.7626193,
+      "Lng": 106.6702604
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 9,
+    "Name": "Bệnh Viện Sài Gòn ITO",
+    "ContactNumber": "02839912030",
+    "Coordinates": {
+      "Lat": 10.7950017,
+      "Lng": 106.6672345
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 10,
+    "Name": "Trạm Y Tế Phường 7 Quận Phú Nhuận",
+    "ContactNumber": "02839955482",
+    "Coordinates": {
+      "Lat": 10.8037745,
+      "Lng": 106.6866028
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 11,
+    "Name": "Bệnh viện Đa khoa Tân Hưng",
+    "ContactNumber": "02837760648",
+    "Coordinates": {
+      "Lat": 10.7515951,
+      "Lng": 106.696342
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 12,
+    "Name": "Bệnh Viện Hoà Hảo",
+    "ContactNumber": "02839270284",
+    "Coordinates": {
+      "Lat": 10.8699419,
+      "Lng": 106.7631673
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 13,
+    "Name": "Bệnh viện Đa khoa Tâm Trí Sài Gòn",
+    "ContactNumber": "02862636969",
+    "Coordinates": {
+      "Lat": 10.8317212,
+      "Lng": 106.6218645
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 14,
+    "Name": "Bệnh Viện Đa khoa An Phú",
+    "ContactNumber": "",
+    "Coordinates": {
+      "Lat": 10.9475149,
+      "Lng": 106.7371674
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 15,
+    "Name": "Bệnh Viện Hoàn Hảo 2",
+    "ContactNumber": "",
+    "Coordinates": {
+      "Lat": 10.8910082,
+      "Lng": 106.7273892
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 16,
+    "Name": "Bệnh viện Gia An 115",
+    "ContactNumber": "02862885886",
+    "Coordinates": {
+      "Lat": 10.7405442,
+      "Lng": 106.607722
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 17,
+    "Name": "Bệnh viện Quận 1 (cơ sở 2)",
+    "ContactNumber": "02838206746",
+    "Coordinates": {
+      "Lat": 10.7651115,
+      "Lng": 106.6932273
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 18,
+    "Name": "BỆNH VIỆN MẮT",
+    "ContactNumber": "",
+    "Coordinates": {
+      "Lat": 10.7441887,
+      "Lng": 106.7275329
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 19,
+    "Name": "Trạm y tế xã An Linh",
+    "ContactNumber": "",
+    "Coordinates": {
+      "Lat": 11.3590399,
+      "Lng": 106.7256654
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 20,
+    "Name": "Bệnh Viện Thuận An",
+    "ContactNumber": "",
+    "Coordinates": {
+      "Lat": 10.9090145,
+      "Lng": 106.7019094
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 21,
+    "Name": "Nam tân Uyên",
+    "ContactNumber": "",
+    "Coordinates": {
+      "Lat": 11.0444737,
+      "Lng": 106.7312059
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 22,
+    "Name": "Bệnh viện Quân y 175",
+    "ContactNumber": "19001175",
+    "Coordinates": {
+      "Lat": 10.8184252,
+      "Lng": 106.6808112
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 23,
+    "Name": "Bệnh viện Nhân dân Gia Định",
+    "ContactNumber": "02838412692",
+    "Coordinates": {
+      "Lat": 10.8039083,
+      "Lng": 106.6941137
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 24,
+    "Name": "Bệnh viện Pháp Việt",
+    "ContactNumber": "02854113333",
+    "Coordinates": {
+      "Lat": 10.7323638,
+      "Lng": 106.7179388
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 25,
+    "Name": "Bệnh viện Tim Tâm Đức",
+    "ContactNumber": "02854110026",
+    "Coordinates": {
+      "Lat": 10.7334899,
+      "Lng": 106.7177983
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 26,
+    "Name": "Bệnh viện Nhi đồng 2",
+    "ContactNumber": "02838295723",
+    "Coordinates": {
+      "Lat": 10.7814535,
+      "Lng": 106.7028174
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 27,
+    "Name": "Bệnh viện Nhân dân Gia Định - cơ sở 2",
+    "ContactNumber": "02838412692",
+    "Coordinates": {
+      "Lat": 10.7720169,
+      "Lng": 106.6994936
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 28,
+    "Name": "Bệnh viện Đa khoa Khánh Hội",
+    "ContactNumber": "",
+    "Coordinates": {
+      "Lat": 10.7652457,
+      "Lng": 106.7021855
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 29,
+    "Name": "Bệnh viện Hùng Vương",
+    "ContactNumber": "02838558532",
+    "Coordinates": {
+      "Lat": 10.7562251,
+      "Lng": 106.6616571
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 30,
+    "Name": "Bệnh viện 30 Tháng 4",
+    "ContactNumber": "02838381568",
+    "Coordinates": {
+      "Lat": 10.7590776,
+      "Lng": 106.6730558
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 31,
+    "Name": "Bệnh viện An Bình",
+    "ContactNumber": "02839234359",
+    "Coordinates": {
+      "Lat": 10.7541327,
+      "Lng": 106.6722008
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 32,
+    "Name": "Bệnh viện Truyền máu Huyết học",
+    "ContactNumber": "02839571342",
+    "Coordinates": {
+      "Lat": 10.7565034,
+      "Lng": 106.6658762
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 33,
+    "Name": "Bệnh viện Bệnh Nhiệt đới",
+    "ContactNumber": "02839239004",
+    "Coordinates": {
+      "Lat": 10.7531975,
+      "Lng": 106.6783574
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 34,
+    "Name": "Bệnh viện Phạm Ngọc Thạch",
+    "ContactNumber": "02838550207",
+    "Coordinates": {
+      "Lat": 10.7572199,
+      "Lng": 106.6650519
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 35,
+    "Name": "Bệnh viện Đại học Y Dược Thành phố Hồ Chí Minh",
+    "ContactNumber": "02838554269",
+    "Coordinates": {
+      "Lat": 10.7552707,
+      "Lng": 106.6645719
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 36,
+    "Name": "Bệnh viện Nguyễn Trãi",
+    "ContactNumber": "02839235020",
+    "Coordinates": {
+      "Lat": 10.7568408,
+      "Lng": 106.6750363
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 37,
+    "Name": "Viện Pasteur Thành phố Hồ Chí Minh",
+    "ContactNumber": "02838230352",
+    "Coordinates": {
+      "Lat": 10.786266,
+      "Lng": 106.688855
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 38,
+    "Name": "Bệnh viện Thống Nhất",
+    "ContactNumber": "02838690277",
+    "Coordinates": {
+      "Lat": 10.7910792,
+      "Lng": 106.6535424
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 39,
+    "Name": "Trung tâm y tế Vietsovpetro",
+    "ContactNumber": "",
+    "Coordinates": {
+      "Lat": 10.3602708,
+      "Lng": 107.0838967
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 40,
+    "Name": "Bệnh viện Quốc tế Hạnh Phúc",
+    "ContactNumber": "19006765",
+    "Coordinates": {
+      "Lat": 10.8678097,
+      "Lng": 106.7142927
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 41,
+    "Name": "Bệnh viện Mắt Thành phố Hồ Chí Minh",
+    "ContactNumber": "02839325713",
+    "Coordinates": {
+      "Lat": 10.7787242,
+      "Lng": 106.6849361
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 42,
+    "Name": "Bệnh viện Đa khoa Nguyễn Thị Thập",
+    "ContactNumber": "",
+    "Coordinates": {
+      "Lat": 10.737275,
+      "Lng": 106.7240834
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 43,
+    "Name": "Bệnh viện Trưng Vương",
+    "ContactNumber": "02838656744",
+    "Coordinates": {
+      "Lat": 10.7708709,
+      "Lng": 106.6595573
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 44,
+    "Name": "Bệnh viện Nhi đồng 1",
+    "ContactNumber": "02839271119",
+    "Coordinates": {
+      "Lat": 10.7688069,
+      "Lng": 106.6699394
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 45,
+    "Name": "Bệnh viện Da liễu",
+    "ContactNumber": "02839308131",
+    "Coordinates": {
+      "Lat": 10.7767949,
+      "Lng": 106.6868606
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 46,
+    "Name": "Bệnh viện Đa khoa Bà Rịa",
+    "ContactNumber": "02543731115",
+    "Coordinates": {
+      "Lat": 10.5094268,
+      "Lng": 107.1969894
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 47,
+    "Name": "Trung tâm Y tế Phường Kim Dinh",
+    "ContactNumber": "",
+    "Coordinates": {
+      "Lat": 10.5056194,
+      "Lng": 107.1306361
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 48,
+    "Name": "Bệnh viện Quân Dân Y",
+    "ContactNumber": "",
+    "Coordinates": {
+      "Lat": 10.5080898,
+      "Lng": 107.1941958
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 49,
+    "Name": "Bệnh viện Phổi Phạm Hữu Chí",
+    "ContactNumber": "",
+    "Coordinates": {
+      "Lat": 10.4829757,
+      "Lng": 107.2418046
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 50,
+    "Name": "Bệnh viện Vạn Hạnh",
+    "ContactNumber": "02838632553",
+    "Coordinates": {
+      "Lat": 10.7718189,
+      "Lng": 106.6713752
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 51,
+    "Name": "Bệnh viện Đa khoa Tân Định",
+    "ContactNumber": "",
+    "Coordinates": {
+      "Lat": 10.7902069,
+      "Lng": 106.6896592
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 52,
+    "Name": "Bệnh viện Từ Dũ",
+    "ContactNumber": "02854042829",
+    "Coordinates": {
+      "Lat": 10.7688942,
+      "Lng": 106.6860103
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 53,
+    "Name": "Bệnh viện Y học cổ truyền Bình Dương",
+    "ContactNumber": "",
+    "Coordinates": {
+      "Lat": 10.980771,
+      "Lng": 106.6577829
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 54,
+    "Name": "Trung tâm Y tế khu vực Phú Mỹ",
+    "ContactNumber": "",
+    "Coordinates": {
+      "Lat": 10.5963299,
+      "Lng": 107.0593865
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 55,
+    "Name": "Bệnh viện 1A",
+    "ContactNumber": "02838631251",
+    "Coordinates": {
+      "Lat": 10.7889136,
+      "Lng": 106.6537197
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 56,
+    "Name": "Trung tâm Y tế khu vực Dĩ An",
+    "ContactNumber": "",
+    "Coordinates": {
+      "Lat": 10.9101691,
+      "Lng": 106.7816616
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 57,
+    "Name": "Trung tâm Điều dưỡng Người bệnh Tâm Thần Thủ Đức",
+    "ContactNumber": "",
+    "Coordinates": {
+      "Lat": 10.8671055,
+      "Lng": 106.7463839
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 58,
+    "Name": "Trạm y tế Phước Bình",
+    "ContactNumber": "",
+    "Coordinates": {
+      "Lat": 10.8158227,
+      "Lng": 106.7731278
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 59,
+    "Name": "Trung tâm Y tế khu vực Thuận An",
+    "ContactNumber": "",
+    "Coordinates": {
+      "Lat": 10.9084931,
+      "Lng": 106.7025838
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 60,
+    "Name": "Bệnh viện Bình Dân",
+    "ContactNumber": "02838394747",
+    "Coordinates": {
+      "Lat": 10.7741311,
+      "Lng": 106.6813679
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 61,
+    "Name": "Bệnh viện Đa khoa khu vực Thủ Đức",
+    "ContactNumber": "02838963194",
+    "Coordinates": {
+      "Lat": 10.8622334,
+      "Lng": 106.7805429
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 62,
+    "Name": "Trung tâm Y tế khu vực Phú Giáo",
+    "ContactNumber": "",
+    "Coordinates": {
+      "Lat": 11.2892008,
+      "Lng": 106.7973809
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 63,
+    "Name": "Viện Y Dược học Dân tộc",
+    "ContactNumber": "02838443047",
+    "Coordinates": {
+      "Lat": 10.797087,
+      "Lng": 106.6712263
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 64,
+    "Name": "Trung tâm Y tế khu vực Hồ Tràm",
+    "ContactNumber": "",
+    "Coordinates": {
+      "Lat": 10.5384993,
+      "Lng": 107.4129397
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 65,
+    "Name": "Bệnh viện Đa khoa Tân Bình",
+    "ContactNumber": "02838652588",
+    "Coordinates": {
+      "Lat": 10.7944261,
+      "Lng": 106.6554163
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 66,
+    "Name": "Viện Tim Thành phố Hồ Chí Minh",
+    "ContactNumber": "02838651586",
+    "Coordinates": {
+      "Lat": 10.7732058,
+      "Lng": 106.666965
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 67,
+    "Name": "Bệnh viện Đa khoa Tân Phú",
+    "ContactNumber": "02838650258",
+    "Coordinates": {
+      "Lat": 10.7835098,
+      "Lng": 106.6419173
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 68,
+    "Name": "Bệnh viện An Sinh",
+    "ContactNumber": "028 3845 7777",
+    "Coordinates": {
+      "Lat": 10.7913163,
+      "Lng": 106.6785309
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 69,
+    "Name": "Bệnh viện Đa khoa Bình Phú",
+    "ContactNumber": "",
+    "Coordinates": {
+      "Lat": 10.7465336,
+      "Lng": 106.6345704
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 70,
+    "Name": "Bệnh viện Ngọc Phú",
+    "ContactNumber": "",
+    "Coordinates": {
+      "Lat": 10.7394843,
+      "Lng": 106.6691079
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 71,
+    "Name": "Bệnh viện Đa khoa Chánh Hưng",
+    "ContactNumber": "02838554269",
+    "Coordinates": {
+      "Lat": 10.7416982,
+      "Lng": 106.6764696
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 72,
+    "Name": "Trung tâm Y tế Dự phòng Quận 8",
+    "ContactNumber": "",
+    "Coordinates": {
+      "Lat": 10.7480741,
+      "Lng": 106.6633623
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 73,
+    "Name": "Trạm y tế phường 9 quận 8",
+    "ContactNumber": "",
+    "Coordinates": {
+      "Lat": 10.745995,
+      "Lng": 106.6701652
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 74,
+    "Name": "Bệnh viện Chấn thương Chỉnh hình",
+    "ContactNumber": "02839237007",
+    "Coordinates": {
+      "Lat": 10.7541795,
+      "Lng": 106.6779595
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 75,
+    "Name": "Bệnh viện Đa khoa Lãnh Binh Thăng",
+    "ContactNumber": "",
+    "Coordinates": {
+      "Lat": 10.7606826,
+      "Lng": 106.6479151
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 76,
+    "Name": "Bệnh viện Đa khoa Bình Tân",
+    "ContactNumber": "02837508225",
+    "Coordinates": {
+      "Lat": 10.7644533,
+      "Lng": 106.6032245
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 77,
+    "Name": "Bệnh viện Triều An",
+    "ContactNumber": "02837509999",
+    "Coordinates": {
+      "Lat": 10.7391983,
+      "Lng": 106.6171202
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 78,
+    "Name": "Bệnh viện Quận 10",
+    "ContactNumber": "02838626978",
+    "Coordinates": {
+      "Lat": 10.7760365,
+      "Lng": 106.6664866
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 79,
+    "Name": "Bệnh viện Răng Hàm Mặt Trung ương Thành phố Hồ Chí Minh",
+    "ContactNumber": "02838556732",
+    "Coordinates": {
+      "Lat": 10.7578104,
+      "Lng": 106.6606503
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 80,
+    "Name": "Bệnh viện Đại học Y Dược - Cơ sở 2",
+    "ContactNumber": "",
+    "Coordinates": {
+      "Lat": 10.7579293,
+      "Lng": 106.6612354
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 81,
+    "Name": "Bệnh viện Chợ Rẫy",
+    "ContactNumber": "02838554137",
+    "Coordinates": {
+      "Lat": 10.75695,
+      "Lng": 106.6597328
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 82,
+    "Name": "Bệnh viện Răng Hàm Mặt Thành phố Hồ Chí Minh",
+    "ContactNumber": "02838360191",
+    "Coordinates": {
+      "Lat": 10.763482,
+      "Lng": 106.691909
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 83,
+    "Name": "Bệnh viện Phục hồi chức năng - Điều trị bệnh nghề nghiệp",
+    "ContactNumber": "02838581441",
+    "Coordinates": {
+      "Lat": 10.7414789,
+      "Lng": 106.6863883
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 84,
+    "Name": "Bệnh viện Đa khoa Bình Chánh",
+    "ContactNumber": "02837602895",
+    "Coordinates": {
+      "Lat": 10.6912666,
+      "Lng": 106.5862179
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 85,
+    "Name": "CI Hospital",
+    "ContactNumber": "",
+    "Coordinates": {
+      "Lat": 10.7403535,
+      "Lng": 106.6077583
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 86,
+    "Name": "Bệnh viện Quốc tế Thành Đô",
+    "ContactNumber": "",
+    "Coordinates": {
+      "Lat": 10.741251,
+      "Lng": 106.6092346
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 87,
+    "Name": "Bệnh viện Đa khoa Bình Dương",
+    "ContactNumber": "02743822920",
+    "Coordinates": {
+      "Lat": 10.9975187,
+      "Lng": 106.6551913
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 88,
+    "Name": "Bệnh viện Vạn Phúc 2",
+    "ContactNumber": "",
+    "Coordinates": {
+      "Lat": 10.9793138,
+      "Lng": 106.7398569
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 89,
+    "Name": "Bệnh viện Đa khoa Phú Nhuận",
+    "ContactNumber": "02838443910",
+    "Coordinates": {
+      "Lat": 10.7982597,
+      "Lng": 106.6718231
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 90,
+    "Name": "Bệnh viện Nhi đồng Thành phố",
+    "ContactNumber": "02822536688",
+    "Coordinates": {
+      "Lat": 10.7101346,
+      "Lng": 106.5746124
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 91,
+    "Name": "Bệnh viện Lê Văn Thịnh",
+    "ContactNumber": "02837432072",
+    "Coordinates": {
+      "Lat": 10.7822228,
+      "Lng": 106.7685006
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 92,
+    "Name": "Bệnh viện Lê Văn Việt",
+    "ContactNumber": "02838966673",
+    "Coordinates": {
+      "Lat": 10.8449005,
+      "Lng": 106.7902318
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 93,
+    "Name": "Bệnh viện Đa khoa Trung Mỹ Tây",
+    "ContactNumber": "02838443910",
+    "Coordinates": {
+      "Lat": 10.8608483,
+      "Lng": 106.6307188
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 94,
+    "Name": "Bệnh Viện Mắt Việt-Nga",
+    "ContactNumber": "",
+    "Coordinates": {
+      "Lat": 10.7769291,
+      "Lng": 106.6811338
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 95,
+    "Name": "Bệnh viện Đa khoa khu vực Củ Chi",
+    "ContactNumber": "02838920583",
+    "Coordinates": {
+      "Lat": 10.9755291,
+      "Lng": 106.4769446
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 96,
+    "Name": "Bệnh viện Đa khoa khu vực Hóc Môn",
+    "ContactNumber": "02838914208",
+    "Coordinates": {
+      "Lat": 10.8826218,
+      "Lng": 106.5929391
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 97,
+    "Name": "Bệnh viện Y học cổ truyền Bà Rịa-Vũng Tàu",
+    "ContactNumber": "",
+    "Coordinates": {
+      "Lat": 10.5130275,
+      "Lng": 107.1954528
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 98,
+    "Name": "Bệnh viện Mắt Bà Rịa - Vũng Tàu",
+    "ContactNumber": "",
+    "Coordinates": {
+      "Lat": 10.5073775,
+      "Lng": 107.1774461
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 99,
+    "Name": "Trung tâm Y tế khu vực Long Đất",
+    "ContactNumber": "",
+    "Coordinates": {
+      "Lat": 10.4641565,
+      "Lng": 107.2159477
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 100,
+    "Name": "Bệnh viện Đa Khoa Vạn Hạnh",
+    "ContactNumber": "02838632553",
+    "Coordinates": {
+      "Lat": 10.7713531,
+      "Lng": 106.670117
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 101,
+    "Name": "Bệnh viện Ung bướu cơ sở 2",
+    "ContactNumber": "02838412637",
+    "Coordinates": {
+      "Lat": 10.8702234,
+      "Lng": 106.8093249
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 102,
+    "Name": "Bệnh viện Đa khoa Mỹ Phước",
+    "ContactNumber": "02838920583",
+    "Coordinates": {
+      "Lat": 11.1415843,
+      "Lng": 106.6070629
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 103,
+    "Name": "Bệnh viện Phước An",
+    "ContactNumber": "",
+    "Coordinates": {
+      "Lat": 10.7532099,
+      "Lng": 106.7000398
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 104,
+    "Name": "Bệnh viện Đa khoa Vũng Tàu",
+    "ContactNumber": "02543832667",
+    "Coordinates": {
+      "Lat": 10.39195,
+      "Lng": 107.1303463
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 105,
+    "Name": "Trạm Y Tế phường Bình Hưng Hòa",
+    "ContactNumber": "",
+    "Coordinates": {
+      "Lat": 10.7916713,
+      "Lng": 106.6047985
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 106,
+    "Name": "Bệnh viện Đa khoa Củ Chi",
+    "ContactNumber": "",
+    "Coordinates": {
+      "Lat": 11.08545,
+      "Lng": 106.5092674
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 107,
+    "Name": "Trung tâm Y tế khu vực Châu Đức",
+    "ContactNumber": "",
+    "Coordinates": {
+      "Lat": 10.6478083,
+      "Lng": 107.2405804
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 108,
+    "Name": "Bệnh viện Tâm thần Tỉnh Bà Rịa-Vũng Tàu",
+    "ContactNumber": "02838960054",
+    "Coordinates": {
+      "Lat": 10.6235086,
+      "Lng": 107.2379831
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 109,
+    "Name": "Bệnh viện Sức khỏe Tâm thần Bà Rịa - Vũng Tàu",
+    "ContactNumber": "",
+    "Coordinates": {
+      "Lat": 10.5854118,
+      "Lng": 107.2356645
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 110,
+    "Name": "Bệnh viện Tâm Thần Bà Rịa",
+    "ContactNumber": "",
+    "Coordinates": {
+      "Lat": 10.6092916,
+      "Lng": 107.0824568
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 111,
+    "Name": "Trung tâm Quân dân y đặc khu Côn Đảo",
+    "ContactNumber": "",
+    "Coordinates": {
+      "Lat": 8.6853723,
+      "Lng": 106.6046417
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 112,
+    "Name": "Bệnh viện Từ Dũ - Cơ sở 2",
+    "ContactNumber": "",
+    "Coordinates": {
+      "Lat": 10.4043915,
+      "Lng": 106.937643
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 113,
+    "Name": "Trung tâm Y tế khu vực Bắc Tân Uyên",
+    "ContactNumber": "02854042829",
+    "Coordinates": {
+      "Lat": 11.1497513,
+      "Lng": 106.8453889
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 114,
+    "Name": "Bệnh viện Ung bướu",
+    "ContactNumber": "02838412637",
+    "Coordinates": {
+      "Lat": 10.8049698,
+      "Lng": 106.6942613
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 115,
+    "Name": "Bệnh viện Ung bướu",
+    "ContactNumber": "02838412637",
+    "Coordinates": {
+      "Lat": 10.8051582,
+      "Lng": 106.6956218
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 116,
+    "Name": "Bệnh viện Đa khoa Cao su Dầu Tiếng",
+    "ContactNumber": "02839571342",
+    "Coordinates": {
+      "Lat": 11.2821412,
+      "Lng": 106.3634531
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 117,
+    "Name": "Trung tâm Y tế khu vực Tân Uyên",
+    "ContactNumber": "",
+    "Coordinates": {
+      "Lat": 11.0856347,
+      "Lng": 106.7808929
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 118,
+    "Name": "Trung tâm Y tế khu vực Thủ Dầu Một",
+    "ContactNumber": "",
+    "Coordinates": {
+      "Lat": 10.9781083,
+      "Lng": 106.6542386
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 119,
+    "Name": "Trung tâm Y tế khu vực Bến Cát",
+    "ContactNumber": "",
+    "Coordinates": {
+      "Lat": 11.1614455,
+      "Lng": 106.5947891
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 120,
+    "Name": "Trung tâm Y tế khu vực Dầu Tiếng",
+    "ContactNumber": "",
+    "Coordinates": {
+      "Lat": 11.2875267,
+      "Lng": 106.3929878
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 121,
+    "Name": "Bệnh viện Truyền máu - Huyết học (cơ sở 2)",
+    "ContactNumber": "",
+    "Coordinates": {
+      "Lat": 10.7093154,
+      "Lng": 106.5760857
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 122,
+    "Name": "BỆNH VIỆN ĐA KHOA TÂM TRÍ SÀI GÒN",
+    "ContactNumber": "02862636969",
+    "Coordinates": {
+      "Lat": 10.8316195,
+      "Lng": 106.6215219
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 123,
+    "Name": "Bệnh viện Đa khoa Thủ Đức",
+    "ContactNumber": "02838963194",
+    "Coordinates": {
+      "Lat": 10.8643971,
+      "Lng": 106.7455723
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 124,
+    "Name": "Bệnh viện Đa khoa Hoàn Hảo Kei Mei Kai",
+    "ContactNumber": "02837602895",
+    "Coordinates": {
+      "Lat": 10.8698098,
+      "Lng": 106.7627408
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 125,
+    "Name": "Bệnh viện Hoàn Mỹ Thủ Đức",
+    "ContactNumber": "",
+    "Coordinates": {
+      "Lat": 10.887672,
+      "Lng": 106.7737207
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 126,
+    "Name": "Bệnh viện Quân y 7A",
+    "ContactNumber": "02839238816",
+    "Coordinates": {
+      "Lat": 10.7557703,
+      "Lng": 106.6707327
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 127,
+    "Name": "Bệnh viện Tai Mũi Họng Thành phố Hồ Chí Minh",
+    "ContactNumber": "02839317381",
+    "Coordinates": {
+      "Lat": 10.7843261,
+      "Lng": 106.683944
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 128,
+    "Name": "Bệnh viện Từ Dũ (khu M)",
+    "ContactNumber": "02854042829",
+    "Coordinates": {
+      "Lat": 10.7678651,
+      "Lng": 106.6847646
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 129,
+    "Name": "Bệnh viện Y học cổ truyền Thành phố Hồ Chí Minh",
+    "ContactNumber": "02839320875",
+    "Coordinates": {
+      "Lat": 10.7855497,
+      "Lng": 106.6878673
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 130,
+    "Name": "Bệnh viện Đa khoa Gò Vấp",
+    "ContactNumber": "02838942641",
+    "Coordinates": {
+      "Lat": 10.8345835,
+      "Lng": 106.661529
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 131,
+    "Name": "Bệnh viện Đa khoa Bình Thạnh",
+    "ContactNumber": "02835511610",
+    "Coordinates": {
+      "Lat": 10.7980558,
+      "Lng": 106.6967399
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 132,
+    "Name": "Bệnh viện Đa khoa Nhà Bè",
+    "ContactNumber": "",
+    "Coordinates": {
+      "Lat": 10.7042622,
+      "Lng": 106.7052895
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 133,
+    "Name": "Bệnh viện Dã chiến Bình Chánh",
+    "ContactNumber": "",
+    "Coordinates": {
+      "Lat": 10.7200864,
+      "Lng": 106.6598189
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 134,
+    "Name": "Trạm y tế xã Tân Định",
+    "ContactNumber": "",
+    "Coordinates": {
+      "Lat": 11.1738829,
+      "Lng": 106.8652298
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 135,
+    "Name": "Bệnh viên Quân y 4",
+    "ContactNumber": "02837509999",
+    "Coordinates": {
+      "Lat": 10.8895125,
+      "Lng": 106.741575
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 136,
+    "Name": "Bệnh Viện Đa Khoa Quốc Tế Nam Sài Gòn",
+    "ContactNumber": "02838966673",
+    "Coordinates": {
+      "Lat": 10.7361021,
+      "Lng": 106.6908392
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 137,
+    "Name": "Bệnh viện Phương Nam",
+    "ContactNumber": "+84 91 169 33 99",
+    "Coordinates": {
+      "Lat": 10.7344138,
+      "Lng": 106.7177492
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 138,
+    "Name": "Bệnh viện Quốc tế Vinmec",
+    "ContactNumber": "02839109999",
+    "Coordinates": {
+      "Lat": 10.8360871,
+      "Lng": 106.8456243
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 139,
+    "Name": "Bệnh viện Tâm thần - Cơ sở Lê Minh Xuân",
+    "ContactNumber": "02838963194",
+    "Coordinates": {
+      "Lat": 10.7693286,
+      "Lng": 106.5458486
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 140,
+    "Name": "Bệnh viện Đa khoa Tâm Anh",
+    "ContactNumber": "02871026789",
+    "Coordinates": {
+      "Lat": 10.8024122,
+      "Lng": 106.6662942
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 141,
+    "Name": "Bệnh viện Quốc tế Mỹ AIH",
+    "ContactNumber": "02839109999",
+    "Coordinates": {
+      "Lat": 10.79377,
+      "Lng": 106.7468051
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 142,
+    "Name": "Trạm Y tế phường Bình Trưng Đông",
+    "ContactNumber": "",
+    "Coordinates": {
+      "Lat": 10.7896008,
+      "Lng": 106.7720079
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 143,
+    "Name": "Bệnh viện Quân Dân y Miền Đông",
+    "ContactNumber": "02838960054",
+    "Coordinates": {
+      "Lat": 10.8448592,
+      "Lng": 106.7777477
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 144,
+    "Name": "Bệnh Viện Đa Khoa Xuyên Á",
+    "ContactNumber": "18009075",
+    "Coordinates": {
+      "Lat": 10.9283804,
+      "Lng": 106.5581117
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 145,
+    "Name": "Bệnh viện Bến Sắn",
+    "ContactNumber": "02837508225",
+    "Coordinates": {
+      "Lat": 11.0454588,
+      "Lng": 106.7449853
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 146,
+    "Name": "Trung tâm Quân Dân Y Côn Đảo (mới)",
+    "ContactNumber": "02838960054",
+    "Coordinates": {
+      "Lat": 8.6932146,
+      "Lng": 106.5996987
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 147,
+    "Name": "Trung tâm Y tế khu vực Bàu Bàng",
+    "ContactNumber": "02838914208",
+    "Coordinates": {
+      "Lat": 11.2578041,
+      "Lng": 106.6096962
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 148,
+    "Name": "Trung tâm Y tế Khu vực Chợ Lớn (Cơ sở 2)",
+    "ContactNumber": "02838626978",
+    "Coordinates": {
+      "Lat": 10.7538853,
+      "Lng": 106.6669045
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 149,
+    "Name": "Bệnh viện Công an Thành phố Hồ Chí Minh",
+    "ContactNumber": "02838362642",
+    "Coordinates": {
+      "Lat": 10.7516111,
+      "Lng": 106.6605225
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 150,
+    "Name": "Bệnh viện Nguyễn Tri Phương",
+    "ContactNumber": "02839234332",
+    "Coordinates": {
+      "Lat": 10.7551268,
+      "Lng": 106.670238
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  },
+  {
+    "Id": 151,
+    "Name": "Bệnh viện Nhân dân 115",
+    "ContactNumber": "02838652368",
+    "Coordinates": {
+      "Lat": 10.7745844,
+      "Lng": 106.6665349
+    },
+    "IsActive": true,
+    "CreatedAt": "2026-03-08T09:53:42Z",
+    "UpdatedAt": "2026-03-08T09:53:42Z"
+  }
+]

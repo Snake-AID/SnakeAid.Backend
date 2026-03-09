@@ -14,7 +14,8 @@ namespace SnakeAid.Core.Mappings
 
             // Map SnakebiteIncident → BriefIncidentResponse
             config.NewConfig<SnakebiteIncident, BriefIncidentResponse>()
-                .Map(dest => dest.Media, src => src.Media);
+                .Map(dest => dest.Media, src => src.Media)
+                .Map(dest => dest.IdentifiedSnake, src => src.IdentifiedSnakeSpecies);
 
             // Map RescueMission → CreateRescueMissionResponse
             config.NewConfig<RescueMission, CreateRescueMissionResponse>();

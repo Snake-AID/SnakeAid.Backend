@@ -1,5 +1,5 @@
 using SnakeAid.Core.Domains;
-using SnakeAid.Core.Responses.SymptomConfig;
+using SnakeAid.Core.Responses.SnakeSpecies;
 
 namespace SnakeAid.Core.Responses.FirstAid;
 
@@ -12,17 +12,17 @@ public class FirstAidRecommendationResponse
     public string GuidelineName { get; set; } = string.Empty;
     public FirstAidContent Content { get; set; } = new();
     public GuidelineSource Source { get; set; }
-    
+
     /// <summary>
     /// Thông tin loài rắn đã được xác định (nếu có)
     /// </summary>
     public SnakeSpeciesResponse? IdentifiedSnake { get; set; }
-    
+
     /// <summary>
     /// Context về cách xác định loài rắn (nếu có)
     /// </summary>
     public SnakeIdentificationContext? IdentificationContext { get; set; }
-    
+
     public List<string> Warnings { get; set; } = new();
 }
 

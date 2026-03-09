@@ -32,6 +32,10 @@ namespace SnakeAid.Service.Implements
         private static readonly TimeSpan MAX_DELAY = TimeSpan.FromMinutes(5);
         private static readonly TimeSpan DEFAULT_DELAY = TimeSpan.FromSeconds(30);
 
+        // Max capacity to prevent unbounded growth
+        private const int MAX_SESSIONS = 1000;
+        private const int STALE_SESSION_HOURS = 24;  // Auto-cleanup sessions older than 24h
+
         public SessionTimeoutBackgroundService(
             ILogger<SessionTimeoutBackgroundService> logger,
             IServiceScopeFactory serviceScopeFactory)
@@ -58,6 +62,10 @@ namespace SnakeAid.Service.Implements
                         Math.Round(nextDelay.TotalSeconds, 2), nextDelay.TotalMilliseconds, _sessionTimeouts.Count);
 
                     // Wait until next scheduled timeout or cancellation
+                    // Dispose old CancellationTokenSource to prevent memory leak
+                    var oldCts = Interlocked.Exchange(ref _currentTimerCancellation, null);
+                    oldCts?.Dispose();
+
                     using var timerCts = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
                     _currentTimerCancellation = timerCts;
 
@@ -99,6 +107,19 @@ namespace SnakeAid.Service.Implements
 
             lock (_scheduleLock)
             {
+                // Check capacity to prevent unbounded growth
+                if (_sessionTimeouts.Count >= MAX_SESSIONS && !_sessionTimeouts.ContainsKey(sessionId))
+                {
+                    _logger.LogError("[SessionTimeout] ❌ Max capacity reached ({Max} sessions). Cannot schedule session {SessionId}. Consider cleanup.",
+                        MAX_SESSIONS, sessionId);
+                    // Trigger emergency cleanup of stale sessions
+                    CleanupStaleSessions();
+
+                    if (_sessionTimeouts.Count >= MAX_SESSIONS)
+                    {
+                        throw new InvalidOperationException($"Session timeout queue is full ({MAX_SESSIONS} sessions). Cannot add more.");
+                    }
+                }
                 // Remove existing if present
                 if (_sessionTimeouts.TryGetValue(sessionId, out var existingTimeout))
                 {
@@ -184,11 +205,7 @@ namespace SnakeAid.Service.Implements
                     _timeoutSchedule.Remove(timeSlot);
                 }
 
-                // Remove from session tracking
-                foreach (var sessionId in expiredSessions)
-                {
-                    _sessionTimeouts.TryRemove(sessionId, out _);
-                }
+                // DO NOT remove from _sessionTimeouts yet - keep them for safety until processing completes
             }
 
             if (!expiredSessions.Any())
@@ -207,6 +224,7 @@ namespace SnakeAid.Service.Implements
             var successCount = 0;
             var errorCount = 0;
             var skippedCount = 0;
+            var processedSessions = new List<Guid>();  // Track successfully processed sessions
 
             foreach (var sessionId in expiredSessions)
             {
@@ -231,13 +249,30 @@ namespace SnakeAid.Service.Implements
                     await sessionService.HandleSessionTimeoutAsync(sessionId);
 
                     _logger.LogInformation("[SessionTimeout] ✅ Successfully processed timeout for session {SessionId}", sessionId);
+                    processedSessions.Add(sessionId);  // Mark for cleanup
                     successCount++;
                 }
                 catch (Exception ex)
                 {
                     _logger.LogError(ex, "[SessionTimeout] ❌ Error handling timeout for session {SessionId}: {Message}", sessionId, ex.Message);
                     errorCount++;
+                    // DO NOT add to processedSessions - keep in monitoring for potential retry
                     // Continue processing other sessions even if one fails
+                }
+            }
+
+            // Cleanup successfully processed sessions AFTER processing completes
+            lock (_scheduleLock)
+            {
+                foreach (var sessionId in processedSessions)
+                {
+                    _sessionTimeouts.TryRemove(sessionId, out _);
+                }
+
+                if (processedSessions.Any())
+                {
+                    _logger.LogInformation("[SessionTimeout] 🧹 Cleaned up {Count} successfully processed sessions from monitoring",
+                        processedSessions.Count);
                 }
             }
 
@@ -311,13 +346,47 @@ namespace SnakeAid.Service.Implements
             try
             {
                 _logger.LogDebug("[SessionTimeout] 🔄 Rescheduling timer due to schedule change");
-                // Cancel current timer to trigger reschedule
+                // Cancel current timer to trigger reschedule (it will be disposed in next iteration)
                 _currentTimerCancellation?.Cancel();
             }
             catch (ObjectDisposedException)
             {
                 _logger.LogDebug("[SessionTimeout] Timer cancellation already disposed, ignoring");
                 // Ignore if already disposed
+            }
+        }
+
+        /// <summary>
+        /// Cleanup stale sessions that are too old (likely abandoned)
+        /// Called when capacity is reached or periodically
+        /// </summary>
+        private void CleanupStaleSessions()
+        {
+            var cutoffTime = DateTime.UtcNow.AddHours(-STALE_SESSION_HOURS);
+            var staleSessions = new List<(Guid sessionId, DateTime timeoutAt)>();
+
+            // Find stale sessions (must be called within lock)
+            foreach (var kvp in _sessionTimeouts)
+            {
+                if (kvp.Value < cutoffTime)
+                {
+                    staleSessions.Add((kvp.Key, kvp.Value));
+                }
+            }
+
+            if (staleSessions.Any())
+            {
+                _logger.LogWarning("[SessionTimeout] 🧹 Cleaning up {Count} stale sessions (older than {Hours}h)",
+                    staleSessions.Count, STALE_SESSION_HOURS);
+
+                foreach (var (sessionId, timeoutAt) in staleSessions)
+                {
+                    _sessionTimeouts.TryRemove(sessionId, out _);
+                    RemoveFromSchedule(sessionId, timeoutAt);
+                }
+
+                _logger.LogInformation("[SessionTimeout] ✅ Cleaned up {Count} stale sessions. Remaining: {Remaining}",
+                    staleSessions.Count, _sessionTimeouts.Count);
             }
         }
 
@@ -382,7 +451,22 @@ namespace SnakeAid.Service.Implements
         public override async Task StopAsync(CancellationToken cancellationToken)
         {
             _logger.LogInformation("SessionTimeoutBackgroundService is stopping...");
+
+            // Dispose CancellationTokenSource to prevent memory leak
+            try
+            {
+                _currentTimerCancellation?.Dispose();
+                _currentTimerCancellation = null;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Error disposing CancellationTokenSource during shutdown");
+            }
+
             await base.StopAsync(cancellationToken);
+
+            _logger.LogInformation("SessionTimeoutBackgroundService stopped. Final session count: {Count}",
+                _sessionTimeouts.Count);
         }
     }
 }
