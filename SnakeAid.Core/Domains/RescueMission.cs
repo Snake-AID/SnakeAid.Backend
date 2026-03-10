@@ -48,9 +48,20 @@ namespace SnakeAid.Core.Domains
         [Range(0, double.MaxValue)]
         public decimal? ActualCost { get; set; }
 
+        // Hospital Transfer Information
+        public bool RequiresHospitalization { get; set; } = false;
+
+        [ForeignKey(nameof(Hospital))]
+        public int? HospitalId { get; set; }
+
+        [Column(TypeName = "numeric(10,2)")]
+        [Range(0, 9999.99)]
+        public decimal? DistanceToHospitalKm { get; set; }
+
         // Navigation properties
         public SnakebiteIncident Incident { get; set; }
         public RescuerProfile Rescuer { get; set; }
+        public TreatmentFacility? Hospital { get; set; }
     }
 
     public enum RescueMissionStatus

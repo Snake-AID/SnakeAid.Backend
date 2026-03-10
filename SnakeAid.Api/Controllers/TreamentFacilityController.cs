@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using MapsterMapper;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SnakeAid.Core.Meta;
 using SnakeAid.Core.Requests.TreatmentFacility;
@@ -12,14 +13,15 @@ using Swashbuckle.AspNetCore.Annotations;
 
 namespace SnakeAid.Api.Controllers
 {
+    [Route("api/treatment-facilities")]
     public class TreamentFacilityController : BaseController<TreamentFacilityController>
     {
         private readonly ITreatmentFacilityService _treatmentFacilityService;
         public TreamentFacilityController(
-            ILogger<TreamentFacilityController> logger, 
-            IHttpContextAccessor httpContextAccessor, 
-            IMapper mapper, 
-            ITreatmentFacilityService treatmentFacilityService) : 
+            ILogger<TreamentFacilityController> logger,
+            IHttpContextAccessor httpContextAccessor,
+            IMapper mapper,
+            ITreatmentFacilityService treatmentFacilityService) :
             base(logger, httpContextAccessor, mapper)
         {
             _treatmentFacilityService = treatmentFacilityService;
@@ -48,6 +50,7 @@ namespace SnakeAid.Api.Controllers
         [SwaggerOperation(Summary = "Create Treatment Facility.", Description = "Create Treatment Facility.")]
         [SwaggerResponse(200, "Success", typeof(ApiResponse<IEnumerable<TreatmentFacilityResponse>>))]
         [SwaggerResponse(404, "Treatment facility not found")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> CreateTreatmentFacility([FromBody] CreateTreatmentFacilityRequest request)
         {
             var result = await _treatmentFacilityService.CreateTreatmentFacilityAsync(request);
@@ -58,6 +61,7 @@ namespace SnakeAid.Api.Controllers
         [SwaggerOperation(Summary = "Update Treatment Facility.", Description = "Update Treatment Facility.")]
         [SwaggerResponse(200, "Success", typeof(ApiResponse<IEnumerable<TreatmentFacilityResponse>>))]
         [SwaggerResponse(404, "Treatment facility not found")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> UpdateTreatmentFacility([FromBody] UpdateTreatmentFacilityRequest request)
         {
             var result = await _treatmentFacilityService.UpdateTreatmentFacilityAsync(request);
@@ -68,6 +72,7 @@ namespace SnakeAid.Api.Controllers
         [SwaggerOperation(Summary = "Delete Treatment Facility.", Description = "Delete Treatment Facility.")]
         [SwaggerResponse(200, "Success", typeof(ApiResponse<IEnumerable<TreatmentFacilityResponse>>))]
         [SwaggerResponse(404, "Treatment facility not found")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> DeleteTreatmentFacility([FromRoute] int id)
         {
             var result = await _treatmentFacilityService.DeleteTreatmentFacilityAsync(id);
