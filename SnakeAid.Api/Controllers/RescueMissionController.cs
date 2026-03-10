@@ -163,5 +163,22 @@ namespace SnakeAid.Api.Controllers
             await _missionService.UserCancelMissionAsync(missionId, request.CancellationReason ?? "No reason provided");
             return Ok(ApiResponseBuilder.BuildSuccessResponse<object>(null, "Mission cancelled by user."));
         }
+
+        [HttpPatch("{missionId}/hospital-transfer")]
+        [SwaggerOperation(
+            Summary = "Transfer Mission to Hospital (User)",
+            Description = "User transfers the mission to a hospital before rescuer goes en route (Preparing → HospitalTransfer). Incident is set to HospitalTransfer. No new session is created.")]
+        [SwaggerResponse(200, "Mission transferred to hospital", typeof(ApiResponse<HospitalTransferPricingResponse>))]
+        [SwaggerResponse(400, "Invalid status transition - can only transfer during Preparing phase", typeof(ApiResponse<object>))]
+        [SwaggerResponse(404, "Mission not found")]
+        [Authorize]
+        public async Task<IActionResult> TransferToHospital(
+            Guid missionId,
+            [FromBody] ReportHospitalTransferRequest request)
+        {
+            var userId = GetCurrentUserId();
+            var result = await _missionService.ReportHospitalTransferAsync(missionId, userId, request);
+            return Ok(ApiResponseBuilder.BuildSuccessResponse<HospitalTransferPricingResponse>(result, "Mission transferred to hospital."));
+        }
     }
 }

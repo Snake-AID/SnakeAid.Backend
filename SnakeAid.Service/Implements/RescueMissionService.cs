@@ -7,6 +7,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using SnakeAid.Core.Domains;
 using SnakeAid.Core.Exceptions;
+using SnakeAid.Core.Requests.RescueMission;
 using SnakeAid.Core.Responses.Media;
 using SnakeAid.Core.Responses.RescueMission;
 using SnakeAid.Core.Responses.SnakeSpecies;
@@ -26,6 +27,7 @@ namespace SnakeAid.Service.Implements
 
         // Default price for rescue mission (có thể lấy từ SystemSetting sau)
         private const decimal DEFAULT_RESCUE_PRICE = 500000m;
+        private const decimal PRICE_PER_KM_DEFAULT = 5000m; // VND per km (fallback if config missing)
 
 
         private readonly IMissionNotificationService _notificationService;
@@ -106,6 +108,10 @@ namespace SnakeAid.Service.Implements
                     incident.Status = SnakebiteIncidentStatus.Assigned;
                     incident.AssignedRescuerId = rescuerId;
                     incident.AssignedAt = DateTime.UtcNow;
+
+                    // Mark rescuer as unavailable (on mission)
+                    rescuer.IsAvailable = false;
+                    _unitOfWork.GetRepository<RescuerProfile>().Update(rescuer);
 
                     await _unitOfWork.GetRepository<RescueMission>().InsertAsync(mission);
                     _unitOfWork.GetRepository<SnakebiteIncident>().Update(incident);
@@ -611,6 +617,84 @@ namespace SnakeAid.Service.Implements
         private double ToRadians(double degrees)
         {
             return degrees * Math.PI / 180.0;
+        }
+
+        public async Task<HospitalTransferPricingResponse> ReportHospitalTransferAsync(
+            Guid missionId,
+            Guid rescuerId,
+            ReportHospitalTransferRequest request)
+        {
+            try
+            {
+                // Step 1: Validate mission and rescuer
+                var mission = await _unitOfWork.GetRepository<RescueMission>()
+                    .FirstOrDefaultAsync(
+                        predicate: m => m.Id == missionId && m.RescuerId == rescuerId,
+                        include: q => q.Include(m => m.Incident)
+                    );
+
+                if (mission == null)
+                    throw new NotFoundException("Mission not found or you are not assigned to this mission");
+
+                if (mission.Status != RescueMissionStatus.RescuerArrived)
+                    throw new BadRequestException("Can only report hospital transfer after arriving at incident location");
+
+                // Step 2: Get hospital info
+                var hospital = await _unitOfWork.GetRepository<TreatmentFacility>()
+                    .FirstOrDefaultAsync(predicate: h => h.Id == request.HospitalId && h.IsActive);
+
+                if (hospital == null)
+                    throw new NotFoundException("Hospital not found or inactive");
+
+                // Step 3: Get pricing config (from SystemSettings or Configuration)
+                var pricePerKm = _configuration.GetValue<decimal>("Pricing:HospitalTransferPerKm", PRICE_PER_KM_DEFAULT);
+
+                // Step 4: Calculate price (simple multiplication)
+                var transferPrice = request.DistanceToHospitalKm * pricePerKm;
+                var totalPrice = mission.Price + transferPrice;
+
+                // Step 5: Update mission with hospital transfer info
+                return await _unitOfWork.ExecuteInTransactionAsync(async () =>
+                {
+                    mission.RequiresHospitalization = true;
+                    mission.HospitalId = request.HospitalId;
+                    mission.DistanceToHospitalKm = request.DistanceToHospitalKm;
+                    mission.HospitalTransferPrice = transferPrice;
+
+                    if (!string.IsNullOrWhiteSpace(request.Notes))
+                    {
+                        mission.Notes = string.IsNullOrWhiteSpace(mission.Notes)
+                            ? $"[Hospital Transfer] {request.Notes}"
+                            : $"{mission.Notes}\n[Hospital Transfer] {request.Notes}";
+                    }
+
+                    _unitOfWork.GetRepository<RescueMission>().Update(mission);
+                    await _unitOfWork.CommitAsync();
+
+                    _logger.LogInformation(
+                        "✅ Hospital transfer reported - MissionId: {MissionId}, HospitalId: {HospitalId}, " +
+                        "Distance: {DistanceKm}km, TransferPrice: {TransferPrice} VND, TotalPrice: {TotalPrice} VND",
+                        missionId, request.HospitalId, request.DistanceToHospitalKm, transferPrice, totalPrice);
+
+                    return new HospitalTransferPricingResponse
+                    {
+                        HospitalId = hospital.Id,
+                        HospitalName = hospital.Name,
+                        DistanceKm = request.DistanceToHospitalKm,
+                        PricePerKm = pricePerKm,
+                        HospitalTransferPrice = transferPrice,
+                        BaseMissionPrice = mission.Price,
+                        TotalPrice = totalPrice,
+                        CalculatedAt = DateTime.UtcNow
+                    };
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error reporting hospital transfer for mission {MissionId}: {Message}",
+                    missionId, ex.Message);
+                throw;
+            }
         }
     }
 }
