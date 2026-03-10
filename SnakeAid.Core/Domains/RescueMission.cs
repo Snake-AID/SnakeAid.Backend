@@ -58,6 +58,10 @@ namespace SnakeAid.Core.Domains
         [Range(0, 9999.99)]
         public decimal? DistanceToHospitalKm { get; set; }
 
+        [Column(TypeName = "numeric(18,2)")]
+        [Range(0, double.MaxValue)]
+        public decimal? HospitalTransferPrice { get; set; }
+
         // Navigation properties
         public SnakebiteIncident Incident { get; set; }
         public RescuerProfile Rescuer { get; set; }

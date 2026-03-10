@@ -42,6 +42,14 @@ namespace SnakeAid.Repository.Data.Configurations
 
             builder.HasIndex(rp => rp.Type)
                 .HasDatabaseName("IX_RescuerProfiles_Type");
+
+            // PostGIS Spatial Index for location-based queries
+            builder.HasIndex(rp => rp.LastLocation)
+                .HasMethod("GIST")
+                .HasDatabaseName("IX_RescuerProfiles_LastLocation");
+
+            builder.HasIndex(rp => rp.IsAvailable)
+                .HasDatabaseName("IX_RescuerProfiles_IsAvailable");
         }
     }
 }

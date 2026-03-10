@@ -1905,29 +1905,24 @@ namespace SnakeAid.Repository.Seeds
             }
 
             // ==================================================================================
-            // SEED TREATMENT FACILITIES (HOSPITALS)
+            // SEED SYSTEM SETTINGS
             // ==================================================================================
             // No dependencies - seed independently
-            if (!context.TreatmentFacilities.Any())
+            if (!context.SystemSettings.Any())
             {
-                var assemblyPath = System.Reflection.Assembly.GetExecutingAssembly().Location;
-                var assemblyDirectory = Path.GetDirectoryName(assemblyPath);
-                var projectRoot = Path.GetFullPath(Path.Combine(assemblyDirectory, "..", "..", "..", ".."));
-                var jsonPath = Path.Combine(projectRoot, "SnakeAid.Repository", "Seeds", "hcm_hospital_master_data.json");
-                var hospitalsJson = await File.ReadAllTextAsync(jsonPath);
-                var hospitals = JsonSerializer.Deserialize<List<HospitalDto>>(hospitalsJson);
-
-                var treatmentFacilities = hospitals.Select(h => new TreatmentFacility
+                var systemSettings = new List<SystemSetting>
                 {
-                    Id = h.Id,
-                    Name = h.Name,
-                    Address = h.Address,
-                    ContactNumber = h.ContactNumber,
-                    Location = _geometryFactory.CreatePoint(new Coordinate(h.Coordinates.Lng, h.Coordinates.Lat)),
-                    IsActive = h.IsActive
-                }).ToList();
+                    // Rescue request session defaults (RescueRequestSessionService.cs)
+                    new SystemSetting { SettingKey = "Rescue:MaxSessions", Value = "3" },
+                    new SystemSetting { SettingKey = "Rescue:RequestTimeoutSeconds", Value = "60" },
+                    new SystemSetting { SettingKey = "Rescue:BackgroundTimeoutBufferSeconds", Value = "5" },
+                    new SystemSetting { SettingKey = "Rescue:DefaultPrice", Value = "500000" },
+                    new SystemSetting { SettingKey = "Rescue:PricePerKmDefault", Value = "5000" },
+                    new SystemSetting { SettingKey = "Rescue:RadiusProgressionKm", Value = "10,20,30" },
 
-                context.TreatmentFacilities.AddRange(treatmentFacilities);
+                };
+
+                context.SystemSettings.AddRange(systemSettings);
                 await context.SaveChangesAsync();
             }
         }

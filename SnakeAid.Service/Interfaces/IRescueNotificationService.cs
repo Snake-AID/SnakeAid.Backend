@@ -15,5 +15,7 @@ namespace SnakeAid.Service.Interfaces
         Task NotifyRequestCancelledAsync(string rescuerId, Guid requestId);
 
         Task NotifyRequestExpiredAsync(string rescuerId, Guid requestId);
+
+        Task ForceDisconnectRescuerAsync(string rescuerId, string reason);
     }
 }
