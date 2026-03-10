@@ -4,7 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Mapster;
 using SnakeAid.Core.Domains;
-using SnakeAid.Core.Responses.SymptomConfig;
+using SnakeAid.Core.Responses.SnakeSpecies;
 
 namespace SnakeAid.Core.Mappings
 {

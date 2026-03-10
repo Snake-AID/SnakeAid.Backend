@@ -7,9 +7,10 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using SnakeAid.Core.Domains;
 using SnakeAid.Core.Exceptions;
+using SnakeAid.Core.Requests.RescueMission;
 using SnakeAid.Core.Responses.Media;
 using SnakeAid.Core.Responses.RescueMission;
-using SnakeAid.Core.Responses.SymptomConfig;
+using SnakeAid.Core.Responses.SnakeSpecies;
 using SnakeAid.Repository.Data;
 using SnakeAid.Repository.Interfaces;
 using SnakeAid.Service.Extensions;
@@ -26,6 +27,7 @@ namespace SnakeAid.Service.Implements
 
         // Default price for rescue mission (có thể lấy từ SystemSetting sau)
         private const decimal DEFAULT_RESCUE_PRICE = 500000m;
+        private const decimal PRICE_PER_KM_DEFAULT = 5000m; // VND per km (fallback if config missing)
 
 
         private readonly IMissionNotificationService _notificationService;
@@ -106,6 +108,10 @@ namespace SnakeAid.Service.Implements
                     incident.Status = SnakebiteIncidentStatus.Assigned;
                     incident.AssignedRescuerId = rescuerId;
                     incident.AssignedAt = DateTime.UtcNow;
+
+                    // Mark rescuer as unavailable (on mission)
+                    rescuer.IsAvailable = false;
+                    _unitOfWork.GetRepository<RescuerProfile>().Update(rescuer);
 
                     await _unitOfWork.GetRepository<RescueMission>().InsertAsync(mission);
                     _unitOfWork.GetRepository<SnakebiteIncident>().Update(incident);
@@ -492,6 +498,9 @@ namespace SnakeAid.Service.Implements
                             .ThenInclude(i => i.User)
                                 .ThenInclude(u => u.Account)
                         .Include(m => m.Incident)
+                            .ThenInclude(i => i.IdentifiedSnakeSpecies)
+                        .Include(m => m.Incident)
+                            .ThenInclude(i => i.AIRecognitionResult)
                         .Include(m => m.Rescuer)
                             .ThenInclude(r => r.Account)
                 );
@@ -507,31 +516,33 @@ namespace SnakeAid.Service.Implements
                 _logger.LogInformation("Mission {MissionId}: Loaded {MediaCount} media items",
                     missionId, mission.Incident.Media?.Count ?? 0);
 
-                foreach (var media in mission.Incident.Media ?? Enumerable.Empty<ReportMedia>())
-                {
-                    _logger.LogInformation(
-                        "Media {MediaId}: Processed={IsProcessed}, AIResults={ResultCount}, HasSpecies={HasSpecies}",
-                        media.Id,
-                        media.IsProcessed,
-                        media.AIRecognitionResults?.Count ?? 0,
-                        media.AIRecognitionResults?.Any(r => r.DetectedSpecies != null) ?? false);
+                var response = mission.Adapt<DetailRescueMissionResponse>();
 
-                    foreach (var result in media.AIRecognitionResults ?? Enumerable.Empty<SnakeAIRecognitionResult>())
+                // Manually map identified snake and identification context if available
+                if (mission.Incident.IdentifiedSnakeSpecies != null && response.Incident != null)
+                {
+                    response.Incident.IdentifiedSnake = mission.Incident.IdentifiedSnakeSpecies.Adapt<SnakeSpeciesResponse>();
+
+                    response.Incident.IdentificationContext = new Core.Responses.FirstAid.SnakeIdentificationContext
                     {
-                        _logger.LogInformation(
-                            "  - Result {ResultId}: Status={Status}, IsMapped={IsMapped}, Confidence={Confidence}, SpeciesId={SpeciesId}",
-                            result.Id, result.Status, result.IsMapped, result.Confidence, result.DetectedSpeciesId);
+                        Method = mission.Incident.IdentificationMethod,
+                        IdentifiedAt = mission.Incident.IdentifiedAt ?? DateTime.UtcNow
+                    };
+
+                    // Add AI confidence if applicable
+                    if (mission.Incident.IdentificationMethod == SnakeIdentificationMethod.AIDetection
+                        && mission.Incident.AIRecognitionResult != null)
+                    {
+                        response.Incident.IdentificationContext.AIConfidence = (float)mission.Incident.AIRecognitionResult.Confidence;
                     }
                 }
 
-                var response = mission.Adapt<DetailRescueMissionResponse>();
-
-                // Manual map Media to ensure DetectedSpecies are properly mapped
-                // Mapster có thể không handle đúng complex LINQ trong nested mapping
-                if (mission.Incident.Media != null && mission.Incident.Media.Any() && response.Incident != null)
-                {
-                    response.Incident.Media = mission.Incident.Media.Adapt<List<SnakeAIDetectMediaResponse>>();
-                }
+                // // Manual map Media to ensure DetectedSpecies are properly mapped
+                // // Mapster có thể không handle đúng complex LINQ trong nested mapping
+                // if (mission.Incident.Media != null && mission.Incident.Media.Any() && response.Incident != null)
+                // {
+                //     response.Incident.Media = mission.Incident.Media.Adapt<List<SnakeAIDetectMediaResponse>>();
+                // }
 
                 _logger.LogInformation("Mapped response: Incident Media Count = {MediaCount}",
                     response.Incident?.Media?.Count ?? 0);
@@ -606,6 +617,84 @@ namespace SnakeAid.Service.Implements
         private double ToRadians(double degrees)
         {
             return degrees * Math.PI / 180.0;
+        }
+
+        public async Task<HospitalTransferPricingResponse> ReportHospitalTransferAsync(
+            Guid missionId,
+            Guid rescuerId,
+            ReportHospitalTransferRequest request)
+        {
+            try
+            {
+                // Step 1: Validate mission and rescuer
+                var mission = await _unitOfWork.GetRepository<RescueMission>()
+                    .FirstOrDefaultAsync(
+                        predicate: m => m.Id == missionId && m.RescuerId == rescuerId,
+                        include: q => q.Include(m => m.Incident)
+                    );
+
+                if (mission == null)
+                    throw new NotFoundException("Mission not found or you are not assigned to this mission");
+
+                if (mission.Status != RescueMissionStatus.RescuerArrived)
+                    throw new BadRequestException("Can only report hospital transfer after arriving at incident location");
+
+                // Step 2: Get hospital info
+                var hospital = await _unitOfWork.GetRepository<TreatmentFacility>()
+                    .FirstOrDefaultAsync(predicate: h => h.Id == request.HospitalId && h.IsActive);
+
+                if (hospital == null)
+                    throw new NotFoundException("Hospital not found or inactive");
+
+                // Step 3: Get pricing config (from SystemSettings or Configuration)
+                var pricePerKm = _configuration.GetValue<decimal>("Pricing:HospitalTransferPerKm", PRICE_PER_KM_DEFAULT);
+
+                // Step 4: Calculate price (simple multiplication)
+                var transferPrice = request.DistanceToHospitalKm * pricePerKm;
+                var totalPrice = mission.Price + transferPrice;
+
+                // Step 5: Update mission with hospital transfer info
+                return await _unitOfWork.ExecuteInTransactionAsync(async () =>
+                {
+                    mission.RequiresHospitalization = true;
+                    mission.HospitalId = request.HospitalId;
+                    mission.DistanceToHospitalKm = request.DistanceToHospitalKm;
+                    mission.HospitalTransferPrice = transferPrice;
+
+                    if (!string.IsNullOrWhiteSpace(request.Notes))
+                    {
+                        mission.Notes = string.IsNullOrWhiteSpace(mission.Notes)
+                            ? $"[Hospital Transfer] {request.Notes}"
+                            : $"{mission.Notes}\n[Hospital Transfer] {request.Notes}";
+                    }
+
+                    _unitOfWork.GetRepository<RescueMission>().Update(mission);
+                    await _unitOfWork.CommitAsync();
+
+                    _logger.LogInformation(
+                        "✅ Hospital transfer reported - MissionId: {MissionId}, HospitalId: {HospitalId}, " +
+                        "Distance: {DistanceKm}km, TransferPrice: {TransferPrice} VND, TotalPrice: {TotalPrice} VND",
+                        missionId, request.HospitalId, request.DistanceToHospitalKm, transferPrice, totalPrice);
+
+                    return new HospitalTransferPricingResponse
+                    {
+                        HospitalId = hospital.Id,
+                        HospitalName = hospital.Name,
+                        DistanceKm = request.DistanceToHospitalKm,
+                        PricePerKm = pricePerKm,
+                        HospitalTransferPrice = transferPrice,
+                        BaseMissionPrice = mission.Price,
+                        TotalPrice = totalPrice,
+                        CalculatedAt = DateTime.UtcNow
+                    };
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error reporting hospital transfer for mission {MissionId}: {Message}",
+                    missionId, ex.Message);
+                throw;
+            }
         }
     }
 }

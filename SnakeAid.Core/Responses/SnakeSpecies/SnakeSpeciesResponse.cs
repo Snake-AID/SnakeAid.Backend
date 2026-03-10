@@ -4,7 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using SnakeAid.Core.Domains;
 
-namespace SnakeAid.Core.Responses.SymptomConfig
+namespace SnakeAid.Core.Responses.SnakeSpecies
 {
     public class SnakeSpeciesResponse
     {

@@ -14,6 +14,24 @@ using SnakeAid.Repository.Data;
 
 namespace SnakeAid.Api.Hubs
 {
+    /// <summary>
+    /// Hub for rescuers to receive rescue requests and respond.
+    /// 
+    /// Server-side disconnect flow:
+    /// When a rescuer accepts a mission, the server sends a "ForceDisconnect" signal
+    /// to the client. The client should:
+    /// 1. Listen for "ForceDisconnect" event
+    /// 2. Disconnect from RescuerHub gracefully
+    /// 3. Join MissionHub for live mission tracking
+    /// 
+    /// Example client handler (TypeScript):
+    /// rescuerHub.on("ForceDisconnect", (data) => {
+    ///     console.log(`Disconnected: ${data.Reason}`);
+    ///     rescuerHub.stop();
+    ///     // Join MissionHub for mission tracking
+    ///     missionHub.start();
+    /// });
+    /// </summary>
     public class RescuerHub : Hub
     {
         private readonly IRescueRequestSessionService _sessionService;

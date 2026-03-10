@@ -22,7 +22,7 @@ namespace SnakeAid.Core.Domains
         public Point LocationCoordinates { get; set; }
 
         [Column(TypeName = "jsonb")]
-        public string? SymptomsReport { get; set; }
+        public ICollection<ReportSymptom>? SymptomsReport { get; set; } = new List<ReportSymptom>();
 
         [Required]
         public SnakebiteIncidentStatus Status { get; set; } = SnakebiteIncidentStatus.Pending;
@@ -46,7 +46,7 @@ namespace SnakeAid.Core.Domains
         [MaxLength(500)]
         public string? CancellationReason { get; set; }
 
-        public int? SeverityLevel { get; set; } = 1;  // 1-5 emergency level
+        public int? SeverityLevel { get; set; } = 0;  // Tính toán dựa trên symptoms + time
 
         public DateTime? IncidentOccurredAt { get; set; }  // Khi nào bị cắn
 
@@ -131,5 +131,13 @@ namespace SnakeAid.Core.Domains
 
         [Required]
         public string SelectedOptionText { get; set; } = string.Empty;
+    }
+
+    public class ReportSymptom
+    {
+        public int SymptomId { get; set; }
+        public string SymptomName { get; set; } = string.Empty;
+
+        public string SymptomDescription { get; set; } = string.Empty;
     }
 }

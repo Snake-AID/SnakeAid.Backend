@@ -62,6 +62,44 @@ namespace SnakeAid.Api.Services
                 connId => _hubContext.Clients.Client(connId).SendAsync("RequestExpired", new { RequestId = requestId, Message = "This request has expired." }),
                 new { RequestId = requestId, TargetRescuerId = rescuerId });
 
+        /// <summary>
+        /// Force disconnect a rescuer from RescuerHub.
+        /// Sends a "ForceDisconnect" signal to client; client should disconnect gracefully.
+        /// </summary>
+        public async Task ForceDisconnectRescuerAsync(string rescuerId, string reason)
+        {
+            if (ConnectedRescuers.TryGetValue(rescuerId, out var connectionId))
+            {
+                await SafeExecuteAsync(async () =>
+                {
+                    // Send disconnect signal to client
+                    await _hubContext.Clients.Client(connectionId).SendAsync("ForceDisconnect", new
+                    {
+                        Reason = reason,
+                        Message = $"You have been disconnected from RescuerHub: {reason}",
+                        Timestamp = DateTime.UtcNow
+                    });
+
+                    _logger.LogInformation("Sent ForceDisconnect signal to rescuer {RescuerId} (ConnectionId: {ConnectionId}), reason: {Reason}",
+                        rescuerId, connectionId, reason);
+                }, "ForceDisconnect", rescuerId);
+
+                // Notify monitors
+                await _hubContext.Clients.Group("Monitors").SendAsync("AdminLog", new
+                {
+                    Type = "RescuerForceDisconnected",
+                    UserId = rescuerId,
+                    Reason = reason,
+                    Message = $"Rescuer {rescuerId} force-disconnected: {reason}",
+                    Timestamp = DateTime.UtcNow
+                });
+            }
+            else
+            {
+                _logger.LogWarning("Cannot force disconnect rescuer {RescuerId} - not connected", rescuerId);
+            }
+        }
+
         #region Helper methods
         private async Task NotifyRescuerAndMonitorsAsync(string rescuerId, string actionName, Func<string, Task> rescuerAction, object monitorData)
         {

@@ -4,9 +4,10 @@ using SnakeAid.Core.Domains;
 using SnakeAid.Core.Enums;
 using SnakeAid.Core.Exceptions;
 using SnakeAid.Core.Responses.FirstAid;
-using SnakeAid.Core.Responses.SymptomConfig;
+using SnakeAid.Core.Responses.SnakeSpecies;
 using SnakeAid.Repository.Data;
 using SnakeAid.Repository.Interfaces;
+using SnakeAid.Service.Extensions;
 using SnakeAid.Service.Interfaces;
 
 namespace SnakeAid.Service.Implements;
@@ -102,21 +103,47 @@ public class FirstAidRecommendationService : IFirstAidRecommendationService
             throw new NotFoundException("Snake species not found.");
         }
 
+        // Use extension method to get merged content (handles Append/Replace modes)
+        var mergedContent = species.GetMergedFirstAidContent();
+
         FirstAidContent content;
         GuidelineSource source;
         int? guidelineId = null;
         string guidelineName;
 
-        // Priority 1: Species-specific override
-        if (species.FirstAidGuidelineOverride != null)
+        // If we got merged content, use it
+        if (mergedContent != null)
         {
-            content = species.FirstAidGuidelineOverride.Content;
-            source = GuidelineSource.SpeciesOverride;
-            guidelineName = $"Species-specific guideline for {species.CommonName ?? species.ScientificName}";
+            content = mergedContent;
 
-            _logger.LogInformation("Using species override guideline for {SpeciesId}", snakeSpeciesId);
+            // Determine source based on what was used
+            if (species.FirstAidGuidelineOverride != null)
+            {
+                source = GuidelineSource.SpeciesOverride;
+                guidelineName = $"Species-specific guideline for {species.CommonName ?? species.ScientificName}";
+
+                var mode = species.FirstAidGuidelineOverride.Mode == OverrideMode.Replace ? "Replace" : "Append";
+                _logger.LogInformation("Using merged guideline ({Mode} mode) for species {SpeciesId}",
+                    mode, snakeSpeciesId);
+            }
+            else if (species.PrimaryVenomType.HasValue)
+            {
+                // Fallback used PrimaryVenomType
+                source = GuidelineSource.VenomType;
+                guidelineId = (int)species.PrimaryVenomType.Value + 1; // VenomType.Id = enum + 1
+                guidelineName = $"Guideline for {species.PrimaryVenomType.Value} venom";
+
+                _logger.LogInformation("Using PrimaryVenomType-based guideline for species {SpeciesId}",
+                    snakeSpeciesId);
+            }
+            else
+            {
+                // Shouldn't happen, but fallback to general
+                _logger.LogWarning("Unexpected: GetMergedFirstAidContent returned content but no clear source");
+                return await GetGeneralRecommendationAsync(ct);
+            }
         }
-        // Priority 2: VenomType guideline
+        // No merged content available → try SpeciesVenoms as final fallback
         else if (species.SpeciesVenoms.Any())
         {
             var venomWithGuideline = species.SpeciesVenoms
@@ -130,7 +157,7 @@ public class FirstAidRecommendationService : IFirstAidRecommendationService
                 guidelineId = venomWithGuideline.FirstAidGuideline.Id;
                 guidelineName = venomWithGuideline.FirstAidGuideline.Name;
 
-                _logger.LogInformation("Using venom type guideline {GuidelineId} for species {SpeciesId}",
+                _logger.LogInformation("Using SpeciesVenoms guideline {GuidelineId} for species {SpeciesId}",
                     guidelineId, snakeSpeciesId);
             }
             else
@@ -141,7 +168,7 @@ public class FirstAidRecommendationService : IFirstAidRecommendationService
                 return await GetGeneralRecommendationAsync(ct);
             }
         }
-        // Priority 3: General guideline (nếu không có gì)
+        // No guideline available at all
         else
         {
             _logger.LogInformation("No specific guideline for species {SpeciesId}, using general", snakeSpeciesId);

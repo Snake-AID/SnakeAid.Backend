@@ -14,7 +14,7 @@ public static class MapsterConfig
         // Configure global settings to handle circular references
         TypeAdapterConfig.GlobalSettings.Default
             .PreserveReference(true) // Enable reference tracking globally
-            .MaxDepth(3); // Limit mapping depth to prevent stack overflow
+            .MaxDepth(5); // Limit mapping depth to prevent stack overflow
 
         // Scan and register all mapping configurations in the assembly
         // This will automatically find all classes implementing IRegister

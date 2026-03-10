@@ -204,6 +204,9 @@ namespace SnakeAid.Service.Implements
             _logger.LogInformation("Checking for existing pending requests (excluding current incident {IncidentId}) for {Count} rescuers",
                 session.IncidentId, rescuerIds.Count);
 
+            // IMPORTANT: rescuersInRadius already filtered by IsAvailable in GetRescuersInRadiusAsync
+            // This ensures rescuers on active missions are excluded at DB level (more reliable than SignalR)
+
             // Query existing pending requests for these rescuers to avoid double-ping
             // IMPORTANT: Exclude pending requests for the CURRENT incident (allow re-ping in new session)
             // Only skip rescuers who have pending requests for OTHER incidents
@@ -400,11 +403,12 @@ namespace SnakeAid.Service.Implements
             // ============================================================
             var rescuersInRadius = await _unitOfWork.GetRepository<RescuerProfile>()
                 .CreateBaseQuery(asNoTracking: true)
-                .Where(r => r.IsOnline)  // Filter 1: Online status
-                .Where(r => r.Type == RescuerType.Emergency || r.Type == RescuerType.Both)  // Filter 2: Type
-                .Where(r => r.LastLocation != null)  // Filter 3: Has location
-                .Where(r => r.LastLocation!.Distance(incidentLocation) <= radiusMeters)  // Filter 4: Distance (uses GIST index)
-                .OrderBy(r => r.LastLocation!.Distance(incidentLocation))  // Sort by distance
+                .Where(r => r.IsOnline)  // Filter 1: Online status (SignalR connected)
+                .Where(r => r.IsAvailable)  // Filter 2: Available for new missions (NOT on active mission)
+                .Where(r => r.Type == RescuerType.Emergency || r.Type == RescuerType.Both)  // Filter 3: Type
+                .Where(r => r.LastLocation != null)  // Filter 4: Has location
+                .Where(r => EF.Functions.IsWithinDistance(r.LastLocation!, incidentLocation, radiusMeters, true))  // Filter 5: ST_DWithin with spatial index
+                .OrderBy(r => r.LastLocation!.Distance(incidentLocation))
                 .ToListAsync();
 
             _logger.LogWarning("✅ [QUERY RESULT] PostGIS query found {Count} rescuers (IsOnline=true, HasLocation=true, within {RadiusKm}km)",
@@ -707,6 +711,10 @@ namespace SnakeAid.Service.Implements
                         throw new NotFoundException("Rescuer not found.");
                     }
 
+                    // Mark rescuer as unavailable (on mission) - more reliable than SignalR disconnect
+                    rescuer.IsAvailable = false;
+                    _unitOfWork.GetRepository<RescuerProfile>().Update(rescuer);
+
                     // Check for existing active missions only (allow multiple missions per incident for retry scenarios)
                     var existingActiveMission = await _unitOfWork.GetRepository<RescueMission>().FirstOrDefaultAsync(
                         predicate: m => m.IncidentId == request.IncidentId &&
@@ -774,7 +782,16 @@ namespace SnakeAid.Service.Implements
                 _logger.LogInformation("Sent 'RescuerAccepted' notification to member via MissionHub for incident {IncidentId}",
                     acceptResponse.IncidentId);
 
-                // 2b. Notify other rescuers that request was taken (parallel, best-effort)
+                // 2b. Force disconnect accepting rescuer from RescuerHub (they should join MissionHub now)
+                await SafeExecuteAsync(
+                    () => _notificationService.ForceDisconnectRescuerAsync(
+                        acceptResponse.RescuerId.ToString(),
+                        "Mission started - please join MissionHub for live tracking"
+                    ),
+                    "ForceDisconnectAcceptingRescuer"
+                );
+
+                // 2c. Notify other rescuers that request was taken (parallel, best-effort)
                 if (otherRequestsToNotify != null && otherRequestsToNotify.Any())
                 {
                     var operations = otherRequestsToNotify.Select(otherRequest => (

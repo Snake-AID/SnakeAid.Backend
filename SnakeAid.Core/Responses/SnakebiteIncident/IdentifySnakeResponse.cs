@@ -1,5 +1,5 @@
 using SnakeAid.Core.Domains;
-using SnakeAid.Core.Responses.SymptomConfig;
+using SnakeAid.Core.Responses.SnakeSpecies;
 
 namespace SnakeAid.Core.Responses.SnakebiteIncident;
 

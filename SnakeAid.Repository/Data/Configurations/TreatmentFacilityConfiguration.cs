@@ -16,6 +16,10 @@ namespace SnakeAid.Repository.Data.Configurations
 
             builder.HasIndex(f => f.IsActive)
                 .HasDatabaseName("IX_TreatmentFacilities_IsActive");
+
+            builder.HasIndex(f => f.Location)
+                .HasMethod("GIST")
+                .HasDatabaseName("IX_TreatmentFacilities_Location");
         }
     }
 }
