@@ -56,17 +56,17 @@ namespace SnakeAid.Repository.Data.Configurations
                 .HasForeignKey(m => m.IncidentId)
                 .OnDelete(DeleteBehavior.Cascade);
 
-            // Relationship: Incident -> Sessions (1-N)
-            builder.HasMany(i => i.Sessions)
-                .WithOne(s => s.Incident)
-                .HasForeignKey(s => s.IncidentId)
-                .OnDelete(DeleteBehavior.Cascade);
-
-            // Relationship: Incident -> AllRequests (1-N)
-            builder.HasMany(i => i.AllRequests)
+            // Relationship: Incident -> DispatchRequests (1-N)
+            builder.HasMany(i => i.DispatchRequests)
                 .WithOne(r => r.Incident)
                 .HasForeignKey(r => r.IncidentId)
                 .OnDelete(DeleteBehavior.Cascade);
+
+            // Relationship: Incident -> HandlingOperator (operator account)
+            builder.HasOne(i => i.HandlingOperator)
+                .WithMany()
+                .HasForeignKey(i => i.HandlingOperatorId)
+                .OnDelete(DeleteBehavior.SetNull);
 
             // Indexes
             builder.HasIndex(i => i.Status)
@@ -77,6 +77,9 @@ namespace SnakeAid.Repository.Data.Configurations
 
             builder.HasIndex(i => i.AssignedRescuerId)
                 .HasDatabaseName("IX_SnakebiteIncidents_AssignedRescuerId");
+
+            builder.HasIndex(i => i.HandlingOperatorId)
+                .HasDatabaseName("IX_SnakebiteIncidents_HandlingOperatorId");
 
             // Ignore polymorphic collection so EF core doesn't create Shadow Foreign Keys
             builder.Ignore(i => i.Media);
