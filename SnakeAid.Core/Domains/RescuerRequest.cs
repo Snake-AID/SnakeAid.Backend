@@ -13,10 +13,6 @@ namespace SnakeAid.Core.Domains
         public Guid Id { get; set; }
 
         [Required]
-        [ForeignKey(nameof(Session))]
-        public Guid SessionId { get; set; }  // FK to RescueRequestSession (quan trọng!)
-
-        [Required]
         [ForeignKey(nameof(Incident))]
         public Guid IncidentId { get; set; }  // FK to SnakebiteIncident
 
@@ -24,31 +20,32 @@ namespace SnakeAid.Core.Domains
         [ForeignKey(nameof(Rescuer))]
         public Guid RescuerId { get; set; }   // FK to RescuerProfile
 
+        [ForeignKey(nameof(Operator))]
+        public Guid? OperatorId { get; set; }  // Operator who dispatched this request
+
         [Required]
         public RescueRequestStatus Status { get; set; } = RescueRequestStatus.Pending;
 
         [Required]
-        public DateTime RequestSentAt { get; set; } = DateTime.UtcNow;
+        public DateTime DispatchedAt { get; set; } = DateTime.UtcNow;  // Khi operator điều phối
 
-        public DateTime? ResponseAt { get; set; }  // Khi rescuer accept/reject
+        public DateTime? ResponseAt { get; set; }  // Khi rescuer acknowledge/decline
 
-        [Required]
-        public DateTime ExpiredAt { get; set; }   // Auto-expire after X minutes
+        [MaxLength(500)]
+        public string? DeclineReason { get; set; }  // Lý do từ chối (nullable)
 
 
         // Navigation properties
-        public RescueRequestSession Session { get; set; }
         public SnakebiteIncident Incident { get; set; }
         public RescuerProfile Rescuer { get; set; }
+        public Account? Operator { get; set; }
     }
 
     public enum RescueRequestStatus
     {
-        Pending = 0,    // Đang chờ rescuer phản hồi
-        Accepted = 1,   // Rescuer đồng ý giúp
-        Rejected = 2,   // Rescuer từ chối
-        Taken = 3,      // Bị lụm bởi rescuer khác
-        Cancelled = 4,  // Bị user cancel
-        Expired = 5     // Hết hạn chờ phản hồi
+        Pending = 0,    // Đang chờ rescuer xác nhận
+        Accepted = 1,   // Rescuer đã acknowledge, đang chuẩn bị
+        Declined = 2,   // Rescuer từ chối (kèm lý do)
+        Cancelled = 3   // Đã hủy (do operator redispatch hoặc incident cancelled)
     }
 }

@@ -27,15 +27,19 @@ namespace SnakeAid.Core.Domains
         [Required]
         public SnakebiteIncidentStatus Status { get; set; } = SnakebiteIncidentStatus.Pending;
 
-        // Session ping info
-        [Required]
-        public int CurrentSessionNumber { get; set; } = 0;   // Track session hiện tại
+        [Timestamp]
+        public uint Version { get; set; }
 
-        [Required]
-        [Range(0, 50)]
-        public int CurrentRadiusKm { get; set; } = 5;        // Radius hiện tại
+        // --- Operator fields ---
+        [ForeignKey(nameof(HandlingOperator))]
+        public Guid? HandlingOperatorId { get; set; }  // Operator đang xử lý incident này
 
-        public DateTime? LastSessionAt { get; set; }         // Tránh spam sessions
+        [MaxLength(1000)]
+        public string? OperatorNotes { get; set; }  // Ghi chú của operator
+
+        public DateTime? DispatchedAt { get; set; }   // Khi operator đã điều phối rescuer
+
+        public DateTime? ConfirmedAt { get; set; }    // Khi xác nhận thật (không phải báo động giả)
 
         // Assigned rescuer info
         public DateTime? AssignedAt { get; set; }
@@ -69,34 +73,26 @@ namespace SnakeAid.Core.Domains
         public SnakeSpecies? IdentifiedSnakeSpecies { get; set; }
         public SnakeAIRecognitionResult? AIRecognitionResult { get; set; }
         public RescuerProfile? AssignedRescuer { get; set; }
-        public ICollection<RescueRequestSession> Sessions { get; set; } = new List<RescueRequestSession>();
-        public ICollection<RescuerRequest> AllRequests { get; set; } = new List<RescuerRequest>(); // Denormalized for easy query
+        public Account? HandlingOperator { get; set; }
+        public ICollection<RescuerRequest> DispatchRequests { get; set; } = new List<RescuerRequest>();
         public ICollection<RescueMission> Missions { get; set; } = new List<RescueMission>();
         public ICollection<ReportMedia> Media { get; set; } = new List<ReportMedia>();
     }
 
     public enum SnakebiteIncidentStatus
     {
-        Pending = 0,
-        Assigned = 1,
-        Finished = 2,
-        Cancelled = 3,
-        NoRescuerFound = 4,
-        Paid = 5,
-        Disputed = 6,
-        Completed = 7
-    }
-
-    public enum SnakebiteIncidentTrigger
-    {
-        Pending = 0,
-        Assigned = 1,
-        Finished = 2,
-        Cancelled = 3,
-        NoRescuerFound = 4,
-        Paid = 5,
-        Disputed = 6,
-        Completed = 7
+        Pending = 0,              // Chờ Operator nhận
+        OperatorContacting = 1,   // Operator đang gọi xác nhận
+        Verified = 2,            // Xác nhận thật, chờ điều phối
+        Assigned = 3,             // Rescuer đã acknowledge, đang chuẩn bị
+        EnRoute = 4,              // Rescuer đang trên đường
+        FalseAlarm = 5,           // Báo động giả
+        Finished = 6,
+        Cancelled = 7,
+        NoRescuerFound = 8,
+        Paid = 9,
+        Disputed = 10,
+        Completed = 11
     }
 
     public enum SnakeIdentificationMethod
