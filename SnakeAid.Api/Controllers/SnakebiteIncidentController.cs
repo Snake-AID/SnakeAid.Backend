@@ -2,9 +2,9 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using SnakeAid.Core.Domains;
 using SnakeAid.Core.Meta;
 using SnakeAid.Core.Requests;
-using SnakeAid.Core.Requests.RescueRequestSession;
 using SnakeAid.Core.Requests.SnakebiteIncident;
 using SnakeAid.Core.Responses.SnakebiteIncident;
 using SnakeAid.Core.Validators;
@@ -19,69 +19,39 @@ namespace SnakeAid.Api.Controllers
     public class SnakebiteIncidentController : BaseController<SnakebiteIncidentController>
     {
         private readonly ISnakebiteIncidentService _incidentService;
-        private readonly IRescueRequestSessionService _sessionService;
 
         public SnakebiteIncidentController(
             ILogger<SnakebiteIncidentController> logger,
             IHttpContextAccessor httpContextAccessor,
             IMapper mapper,
-            ISnakebiteIncidentService incidentService,
-            IRescueRequestSessionService sessionService)
+            ISnakebiteIncidentService incidentService)
             : base(logger, httpContextAccessor, mapper)
         {
             _incidentService = incidentService;
-            _sessionService = sessionService;
         }
 
         /// <summary>
-        /// Create first snakebite incident report and first rescue request session before dispatching rescuers
+        /// Create snakebite incident SOS report — Operator will be notified and handle dispatch
         /// </summary>
         [HttpPost("sos")]
-        [SwaggerOperation(Summary = "Create Snakebite Incident", Description = "Report Snakebite Incident Emergency Rescue")]
+        [SwaggerOperation(Summary = "Create Snakebite Incident", Description = "Report Snakebite Incident Emergency Rescue. Incident enters Pending state and is broadcast to on-duty Operators.")]
         [SwaggerResponse(200, "Create successful", typeof(ApiResponse<CreateIncidentResponse>))]
         [SwaggerResponse(400, "Member profile not found")]
         [SwaggerResponse(422, "Validation error")]
         public async Task<IActionResult> CreateSnakebiteIncident([FromBody] CreateIncidentRequest request)
         {
             var userId = GetCurrentUserId();
-
-            // Step 1: Create incident first
             var result = await _incidentService.CreateIncidentAsync(request, userId);
-
-            // Step 2: Start rescue session and broadcast to rescuers
-            var rescueResult = await _incidentService.StartRescueAsync(result.Id);
-
-            // Combine response data
-            result.SessionId = rescueResult.SessionId;
-            result.SessionNumber = rescueResult.SessionNumber;
-            result.RadiusKm = rescueResult.RadiusKm;
-            result.RescuersPinged = rescueResult.RescuersPinged;
-
             var response = ApiResponseBuilder.BuildSuccessResponse(result,
-                "Snakebite Incident created and rescue session started! Broadcasting to nearby rescuers.");
+                "Snakebite incident created. An operator will contact you shortly.");
             return StatusCode(response.StatusCode, response);
-        }
-
-        /// <summary>
-        /// Raise/expand the search range by creating a new rescue request session with larger radius
-        /// </summary>
-        [HttpPost("{incidentId}/raise-range")]
-        [SwaggerOperation(Summary = "Raise Session Range", Description = "Expand search radius when no rescuers accept current session")]
-        [SwaggerResponse(200, "Range expanded successfully", typeof(ApiResponse<CreateIncidentResponse>))]
-        [SwaggerResponse(400, "Maximum sessions reached or invalid status")]
-        [SwaggerResponse(404, "Incident not found")]
-        public async Task<IActionResult> RaiseSessionRange(Guid incidentId)
-        {
-            var request = new RaiseSessionRangeRequest { IncidentId = incidentId };
-            var result = await _incidentService.RaiseSessionRangeAsync(request);
-            return Ok(ApiResponseBuilder.BuildSuccessResponse(result, $"Session range expanded successfully. New radius: {result.CurrentRadiusKm}km"));
         }
 
         /// <summary>
         /// Get detailed information about a specific snakebite incident
         /// </summary>
         [HttpGet("{incidentId}")]
-        [SwaggerOperation(Summary = "Get Incident Detail", Description = "Retrieve detailed information about a snakebite incident including user, rescuer, sessions, and media")]
+        [SwaggerOperation(Summary = "Get Incident Detail", Description = "Retrieve detailed information about a snakebite incident including user, rescuer, and media")]
         [SwaggerResponse(200, "Incident details retrieved successfully", typeof(ApiResponse<DetailSnakebiteIncidentResponse>))]
         [SwaggerResponse(404, "Incident not found")]
         public async Task<IActionResult> GetIncidentDetail(Guid incidentId)
@@ -106,7 +76,7 @@ namespace SnakeAid.Api.Controllers
         }
 
         [HttpPut("{incidentId}/cancel")]
-        [SwaggerOperation(Summary = "Cancel Incident", Description = "Cancel a snakebite incident if it is in Pending or Assigned status")]
+        [SwaggerOperation(Summary = "Cancel Incident", Description = "Cancel a snakebite incident if it is in Pending status")]
         [SwaggerResponse(200, "Incident cancelled successfully", typeof(ApiResponse<CreateIncidentResponse>))]
         [SwaggerResponse(404, "Incident not found")]
         [SwaggerResponse(422, "Validation error")]
@@ -153,6 +123,57 @@ namespace SnakeAid.Api.Controllers
         {
             var result = await _incidentService.GetMediaDebugInfoAsync(incidentId);
             return Ok(ApiResponseBuilder.BuildSuccessResponse(result, "Debug info retrieved"));
+        }
+
+        [HttpGet("user/{userId}")]
+        [SwaggerOperation(Summary = "Get User Incidents", Description = "Retrieve all incidents associated with a specific user (status filter is optional)")]
+        public async Task<IActionResult> GetUserIncidents([FromQuery] SnakebiteIncidentStatus? status, [FromQuery] int page = 1, [FromQuery] int pageSize = 10)
+        {
+            var userId = GetCurrentUserId();
+            var result = await _incidentService.GetUserIncidentsAsync(userId, status, page, pageSize);
+            return Ok(ApiResponseBuilder.BuildSuccessResponse(result, "User incidents retrieved"));
+        }
+
+        /// <summary>
+        /// Operator claims an incident for handling
+        /// </summary>
+        [HttpPost("{incidentId}/claim")]
+        [SwaggerOperation(Summary = "Claim Incident", Description = "Claim a pending incident. Returns 409 if another operator claimed first.")]
+        [SwaggerResponse(200, "Incident claimed successfully", typeof(ApiResponse<CreateIncidentResponse>))]
+        [SwaggerResponse(409, "Incident already claimed")]
+        public async Task<IActionResult> ClaimIncident(Guid incidentId)
+        {
+            var operatorId = GetCurrentUserId();
+            var result = await _incidentService.ClaimIncidentAsync(incidentId, operatorId);
+            return Ok(ApiResponseBuilder.BuildSuccessResponse(result, "Incident claimed successfully."));
+        }
+
+        /// <summary>
+        /// Operator confirms incident is real after contact
+        /// </summary>
+        [HttpPost("{incidentId}/confirm")]
+        [SwaggerOperation(Summary = "Confirm Incident", Description = "Confirm incident after operator contact. Returns 409 on concurrency conflict.")]
+        [SwaggerResponse(200, "Incident confirmed", typeof(ApiResponse<CreateIncidentResponse>))]
+        [SwaggerResponse(409, "Incident updated by another operator")]
+        public async Task<IActionResult> ConfirmIncident(Guid incidentId)
+        {
+            var operatorId = GetCurrentUserId();
+            var result = await _incidentService.ConfirmIncidentAsync(incidentId, operatorId);
+            return Ok(ApiResponseBuilder.BuildSuccessResponse(result, "Incident confirmed."));
+        }
+
+        /// <summary>
+        /// Operator dispatches an incident to a rescuer
+        /// </summary>
+        [HttpPost("{incidentId}/dispatch")]
+        [SwaggerOperation(Summary = "Dispatch Incident", Description = "Dispatch incident to a rescuer. Returns 409 on concurrency conflict.")]
+        [SwaggerResponse(200, "Incident dispatched", typeof(ApiResponse<CreateIncidentResponse>))]
+        [SwaggerResponse(409, "Incident updated by another operator")]
+        public async Task<IActionResult> DispatchIncident(Guid incidentId, [FromBody] DispatchIncidentRequest request)
+        {
+            var operatorId = GetCurrentUserId();
+            var result = await _incidentService.DispatchIncidentAsync(incidentId, request.RescuerId, operatorId);
+            return Ok(ApiResponseBuilder.BuildSuccessResponse(result, "Incident dispatched."));
         }
     }
 }
