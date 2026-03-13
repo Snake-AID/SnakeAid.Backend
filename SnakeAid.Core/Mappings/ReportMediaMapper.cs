@@ -37,6 +37,9 @@ namespace SnakeAid.Core.Mappings
             // SnakeAIRecognitionResult → SnakeAIRecognitionResultResponse (for Admin/Expert)
             config.NewConfig<SnakeAIRecognitionResult, SnakeAIRecognitionResultResponse>()
                 .Map(dest => dest.DetectedSpecies, src => src.DetectedSpecies);
+
+            // Media mappings
+            config.NewConfig<ReportMedia, ReportMediaResponse>();
         }
     }
 }

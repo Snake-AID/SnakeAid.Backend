@@ -15,14 +15,9 @@ namespace SnakeAid.Repository.Data.Configurations
                 .HasConversion<int>()
                 .IsRequired();
 
-            // Relationship với RescuerProfile đã config tại RescuerProfileConfiguration
-
             // Indexes
             builder.HasIndex(r => r.Status)
                 .HasDatabaseName("IX_RescuerRequests_Status");
-
-            builder.HasIndex(r => r.SessionId)
-                .HasDatabaseName("IX_RescuerRequests_SessionId");
 
             builder.HasIndex(r => r.IncidentId)
                 .HasDatabaseName("IX_RescuerRequests_IncidentId");
@@ -30,8 +25,11 @@ namespace SnakeAid.Repository.Data.Configurations
             builder.HasIndex(r => r.RescuerId)
                 .HasDatabaseName("IX_RescuerRequests_RescuerId");
 
-            builder.HasIndex(r => r.ExpiredAt)
-                .HasDatabaseName("IX_RescuerRequests_ExpiredAt");
+            builder.HasIndex(r => r.OperatorId)
+                .HasDatabaseName("IX_RescuerRequests_OperatorId");
+
+            builder.HasIndex(r => r.DispatchedAt)
+                .HasDatabaseName("IX_RescuerRequests_DispatchedAt");
         }
     }
 }

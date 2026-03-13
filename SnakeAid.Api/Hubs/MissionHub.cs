@@ -12,18 +12,22 @@ namespace SnakeAid.Api.Hubs
 {
     public class MissionHub : Hub
     {
+        private const string OperatorGroup = "Operators";
         private readonly IUnitOfWork<SnakeAidDbContext> _unitOfWork;
         private readonly ILogger<MissionHub> _logger;
         private readonly IRescuerLocationService _rescuerLocationService;
+        private readonly IHubContext<RescuerHub> _rescuerHubContext;
 
         public MissionHub(
             IUnitOfWork<SnakeAidDbContext> unitOfWork,
             ILogger<MissionHub> logger,
-            IRescuerLocationService rescuerLocationService)
+            IRescuerLocationService rescuerLocationService,
+            IHubContext<RescuerHub> rescuerHubContext)
         {
             _unitOfWork = unitOfWork;
             _logger = logger;
             _rescuerLocationService = rescuerLocationService;
+            _rescuerHubContext = rescuerHubContext;
         }
 
         public override async Task OnConnectedAsync()
@@ -169,6 +173,20 @@ namespace SnakeAid.Api.Hubs
                 Longitude = longitude,
                 UpdatedAt = DateTime.UtcNow
             });
+
+            // Broadcast member incident location ping to operator dashboard map.
+            if (isMember)
+            {
+                await _rescuerHubContext.Clients.Group(OperatorGroup).SendAsync("IncidentLocationUpdated", new
+                {
+                    IncidentId = incidentId,
+                    MemberId = userId,
+                    Latitude = latitude,
+                    Longitude = longitude,
+                    IsNewIncident = false,
+                    UpdatedAt = DateTime.UtcNow
+                });
+            }
 
             _logger.LogInformation("{Role} {UserId} location updated in Incident {IncidentId}: ({Lat}, {Lng})",
                 senderRole, userId, incidentId, latitude, longitude);

@@ -23,6 +23,8 @@ namespace SnakeAid.Core.Mappings
                 .Map(dest => dest.Latitude, src => src.Y)
                 .Map(dest => dest.Longitude, src => src.X);
 
+            config.NewConfig<SnakebiteIncident, UpdateSymptomReportResponse>();
+
             // Map Incident → Response
             config.NewConfig<SnakebiteIncident, CreateIncidentResponse>()
                 .Map(dest => dest.LocationCoordinates, src => src.LocationCoordinates);

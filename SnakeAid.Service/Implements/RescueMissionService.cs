@@ -23,7 +23,6 @@ namespace SnakeAid.Service.Implements
         private readonly IUnitOfWork<SnakeAidDbContext> _unitOfWork;
         private readonly ILogger<RescueMissionService> _logger;
         private readonly IConfiguration _configuration;
-        private readonly IRescueRequestSessionService _sessionService;
 
         // Default price for rescue mission (có thể lấy từ SystemSetting sau)
         private const decimal DEFAULT_RESCUE_PRICE = 500000m;
@@ -36,13 +35,11 @@ namespace SnakeAid.Service.Implements
             IUnitOfWork<SnakeAidDbContext> unitOfWork,
             ILogger<RescueMissionService> logger,
             IConfiguration configuration,
-            IRescueRequestSessionService sessionService,
             IMissionNotificationService notificationService)
         {
             _unitOfWork = unitOfWork;
             _logger = logger;
             _configuration = configuration;
-            _sessionService = sessionService;
             _notificationService = notificationService;
         }
 
@@ -400,15 +397,16 @@ namespace SnakeAid.Service.Implements
                     mission.CancellationReason = reason;
                     mission.UpdatedAt = DateTime.UtcNow;
 
-                    // Reset incident to Pending for retry with increased radius
-                    incident.Status = SnakebiteIncidentStatus.Pending;
+                    // Reset incident to Verified so Operator can re-dispatch
+                    incident.Status = SnakebiteIncidentStatus.Verified;
                     incident.AssignedRescuerId = null;
                     incident.AssignedAt = null;
+                    incident.DispatchedAt = null;
 
                     _unitOfWork.GetRepository<RescueMission>().Update(mission);
                     _unitOfWork.GetRepository<SnakebiteIncident>().Update(incident);
 
-                    _logger.LogInformation("Updated incident {IncidentId} to Pending status in transaction", incident.Id);
+                    _logger.LogInformation("Updated incident {IncidentId} to Verified status in transaction", incident.Id);
 
                     return mission.IncidentId;
                 });
@@ -421,18 +419,9 @@ namespace SnakeAid.Service.Implements
                 // PUSH NOTIFICATION: Notify Member about rescuer abort AFTER transaction committed
                 await _notificationService.NotifyMissionCancelledAsync(incidentId, reason);
 
-                // Step 2: Create new session AFTER transaction committed
-                try
-                {
-                    await _sessionService.HandleMissionAbortAsync(incidentId);
-                    _logger.LogInformation("Created new rescue session after rescuer abort for incident {IncidentId}", incidentId);
-                }
-                catch (Exception sessionEx)
-                {
-                    _logger.LogError(sessionEx, "Failed to create new session after rescuer abort for incident {IncidentId}: {Message}",
-                        incidentId, sessionEx.Message);
-                    throw;
-                }
+                // NOTE: In new operator-dispatch flow, re-dispatching is handled manually by operator.
+                // Operator will be notified via SignalR that the incident is back in Verified state.
+                _logger.LogInformation("Rescuer aborted mission for incident {IncidentId}. Incident reset to Verified for operator re-dispatch.", incidentId);
             }
             catch (Exception ex)
             {
@@ -660,6 +649,7 @@ namespace SnakeAid.Service.Implements
                     mission.HospitalId = request.HospitalId;
                     mission.DistanceToHospitalKm = request.DistanceToHospitalKm;
                     mission.HospitalTransferPrice = transferPrice;
+                    mission.ActualCost = totalPrice;
 
                     if (!string.IsNullOrWhiteSpace(request.Notes))
                     {
@@ -684,7 +674,7 @@ namespace SnakeAid.Service.Implements
                         PricePerKm = pricePerKm,
                         HospitalTransferPrice = transferPrice,
                         BaseMissionPrice = mission.Price,
-                        TotalPrice = totalPrice,
+                        TotalPrice = mission.ActualCost ?? totalPrice,
                         CalculatedAt = DateTime.UtcNow
                     };
                 });

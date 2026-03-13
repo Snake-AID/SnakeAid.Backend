@@ -34,7 +34,7 @@ namespace SnakeAid.Api.Hubs
     /// </summary>
     public class RescuerHub : Hub
     {
-        private readonly IRescueRequestSessionService _sessionService;
+        private const string OperatorGroup = "Operators";
         private readonly IUnitOfWork<SnakeAidDbContext> _unitOfWork;
         private readonly ILogger<RescuerHub> _logger;
         private readonly IRescuerLocationService _rescuerLocationService;
@@ -44,13 +44,11 @@ namespace SnakeAid.Api.Hubs
         public static ConcurrentDictionary<string, string> ConnectedRescuers => SignalRRescueNotificationService.ConnectedRescuers;
 
         public RescuerHub(
-            IRescueRequestSessionService sessionService,
             IUnitOfWork<SnakeAidDbContext> unitOfWork,
             ILogger<RescuerHub> logger,
             IRescuerLocationService rescuerLocationService,
             IRescuerOnlineStatusService onlineStatusService)
         {
-            _sessionService = sessionService;
             _unitOfWork = unitOfWork;
             _logger = logger;
             _rescuerLocationService = rescuerLocationService;
@@ -86,6 +84,14 @@ namespace SnakeAid.Api.Hubs
             // Update RescuerProfile IsOnline status in database
             await _onlineStatusService.SetOnlineAsync(userId);
 
+            await Clients.Group(OperatorGroup).SendAsync("RescuerOnlineStatus", new
+            {
+                RescuerId = userId,
+                IsOnline = true,
+                IsAvailable = true,
+                UpdatedAt = DateTime.UtcNow
+            });
+
             _logger.LogInformation("Rescuer {UserId} joined with connectionId {ConnectionId}", userId, Context.ConnectionId);
             await Clients.Caller.SendAsync("Joined", new
             {
@@ -93,40 +99,6 @@ namespace SnakeAid.Api.Hubs
                 ConnectionId = Context.ConnectionId,
                 Message = $"Rescuer {userId} joined successfully. Waiting for rescue requests..."
             });
-        }
-
-        /// Rescuer accept request - Ai accept nhanh nhất sẽ nhận mission
-        public async Task AcceptRequest(Guid requestId, Guid rescuerId)
-        {
-            try
-            {
-                var result = await _sessionService.AcceptRequestAsync(requestId, rescuerId);
-
-                var response = new
-                {
-                    RequestId = result.RequestId,
-                    IncidentId = result.IncidentId,
-                    MissionId = result.MissionId,
-                    AcceptedAt = result.AcceptedAt,
-                    Message = result.Message
-                };
-
-                // Send mission info back to client for navigation to mission detail screen
-                await Clients.Caller.SendAsync("RequestAccepted", response);
-
-                _logger.LogInformation("Rescuer {RescuerId} accepted request {RequestId}, mission {MissionId} created",
-                    rescuerId, requestId, result.MissionId);
-                _logger.LogInformation("Response sent to client: {Response}", response);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error accepting request {RequestId}: {Message}", requestId, ex.Message);
-                await Clients.Caller.SendAsync("RequestError", new
-                {
-                    RequestId = requestId,
-                    Error = ex.Message
-                });
-            }
         }
 
         // The method for rescuer to update location when they are idle and wait for the mission request from server.
@@ -143,6 +115,14 @@ namespace SnakeAid.Api.Hubs
             {
                 // Update location in database (used for radius search in rescue requests)
                 await _rescuerLocationService.UpdateLocationAsync(userId, latitude, longitude, null, null, null);
+
+                await Clients.Group(OperatorGroup).SendAsync("RescuerIdleLocationUpdated", new
+                {
+                    RescuerId = userId,
+                    Latitude = latitude,
+                    Longitude = longitude,
+                    UpdatedAt = DateTime.UtcNow
+                });
 
                 _logger.LogDebug("Idle location updated for rescuer {UserId}: ({Lat}, {Lng})",
                     userId, latitude, longitude);
@@ -199,6 +179,14 @@ namespace SnakeAid.Api.Hubs
 
                 // Update RescuerProfile IsOnline status in database
                 await _onlineStatusService.SetOfflineAsync(userId);
+
+                await Clients.Group(OperatorGroup).SendAsync("RescuerOnlineStatus", new
+                {
+                    RescuerId = userId,
+                    IsOnline = false,
+                    IsAvailable = false,
+                    UpdatedAt = DateTime.UtcNow
+                });
             }
             else
             {
@@ -245,6 +233,35 @@ namespace SnakeAid.Api.Hubs
             });
 
             await GetConnectedRescuers();
+        }
+
+        /// <summary>
+        /// Operator joins this hub group to receive real-time rescuer idle locations and incident map events.
+        /// </summary>
+        public async Task JoinAsOperator()
+        {
+            var role = Context.User?.Claims.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.Role)?.Value;
+            var allowed = string.Equals(role, nameof(AccountRole.Operator), StringComparison.OrdinalIgnoreCase)
+                || string.Equals(role, nameof(AccountRole.Admin), StringComparison.OrdinalIgnoreCase);
+
+            if (!allowed)
+            {
+                _logger.LogWarning("JoinAsOperator rejected for connection {ConnectionId}. Role={Role}", Context.ConnectionId, role ?? "null");
+                await Clients.Caller.SendAsync("OperatorJoinRejected", new
+                {
+                    Message = "Only Operator/Admin can join operator realtime group."
+                });
+                return;
+            }
+
+            await Groups.AddToGroupAsync(Context.ConnectionId, OperatorGroup);
+            _logger.LogInformation("Operator joined realtime group. ConnectionId={ConnectionId}", Context.ConnectionId);
+
+            await Clients.Caller.SendAsync("OperatorJoined", new
+            {
+                Message = "Joined operator realtime group successfully.",
+                Timestamp = DateTime.UtcNow
+            });
         }
 
         private async Task<object> GetRescuerBriefInfoAsync(string userId)

@@ -24,6 +24,10 @@ namespace SnakeAid.Api.Services
         public static readonly Guid DEMO_RESCUER_C_ID = Guid.Parse("22222222-2222-2222-2222-222222222223");
         public static readonly Guid DEMO_RESCUER_D_ID = Guid.Parse("22222222-2222-2222-2222-222222222224");
 
+        public static readonly Guid DEMO_OPERATOR_A_ID = Guid.Parse("33333333-3333-3333-3333-333333333331");
+
+        public static readonly Guid DEMO_OPERATOR_B_ID = Guid.Parse("33333333-3333-3333-3333-333333333332");
+
         // Demo locations (HCMC area)
         private static readonly GeometryFactory _geometryFactory = NetTopologySuite.NtsGeometryServices.Instance.CreateGeometryFactory(srid: 4326);
 
@@ -103,16 +107,16 @@ namespace SnakeAid.Api.Services
                 // Create demo rescuers with locations
                 var rescuers = new[]
                 {
-                    // new { Id = DEMO_RESCUER_A_ID, Name = "Rescuer A - Quận 1", Phone = "0902222221", Lng = 106.699800, Lat = 10.775400 }, // Bến Thành
-                    // new { Id = DEMO_RESCUER_B_ID, Name = "Rescuer B - Quận 3", Phone = "0902222222", Lng = 106.682166, Lat = 10.776889 }, // Lý Thái Tổ
-                    // new { Id = DEMO_RESCUER_C_ID, Name = "Rescuer C - Quận 7", Phone = "0902222223", Lng = 106.722550, Lat = 10.733200 }, // Phú Mỹ Hưng
-                    // new { Id = DEMO_RESCUER_D_ID, Name = "Rescuer D - Tân Bình", Phone = "0902222224", Lng = 106.652344, Lat = 10.799862 } // Sân bay TSN
+                    new { Id = DEMO_RESCUER_A_ID, Name = "Rescuer A - Quận 1", Phone = "0902222221", Lng = 106.699800, Lat = 10.775400 }, // Bến Thành
+                    new { Id = DEMO_RESCUER_B_ID, Name = "Rescuer B - Quận 3", Phone = "0902222222", Lng = 106.682166, Lat = 10.776889 }, // Lý Thái Tổ
+                    new { Id = DEMO_RESCUER_C_ID, Name = "Rescuer C - Quận 7", Phone = "0902222223", Lng = 106.722550, Lat = 10.733200 }, // Phú Mỹ Hưng
+                    new { Id = DEMO_RESCUER_D_ID, Name = "Rescuer D - Tân Bình", Phone = "0902222224", Lng = 106.652344, Lat = 10.799862 } // Sân bay TSN
 
-                    // approximate positions around Tam Kỳ (15.5741,108.4796)
-                    new { Id = DEMO_RESCUER_A_ID, Name = "Rescuer A - Tam Kỳ Ward 1", Phone = "0902222221", Lng = 108.4796, Lat = 15.6191 }, // ~5km north
-                    new { Id = DEMO_RESCUER_B_ID, Name = "Rescuer B - Tam Kỳ Ward 2", Phone = "0902222222", Lng = 108.4796, Lat = 15.6371 }, // ~7km north
-                    new { Id = DEMO_RESCUER_C_ID, Name = "Rescuer C - Tam Kỳ Ward 3", Phone = "0902222223", Lng = 108.5876, Lat = 15.5741 }, // ~12km east
-                    new { Id = DEMO_RESCUER_D_ID, Name = "Rescuer D - Tam Kỳ Ward 4", Phone = "0902222224", Lng = 108.4796, Lat = 15.4391 } // ~15km south
+                    // // approximate positions around Tam Kỳ (15.5741,108.4796)
+                    // new { Id = DEMO_RESCUER_A_ID, Name = "Rescuer A - Tam Kỳ Ward 1", Phone = "0902222221", Lng = 108.4796, Lat = 15.6191 }, // ~5km north
+                    // new { Id = DEMO_RESCUER_B_ID, Name = "Rescuer B - Tam Kỳ Ward 2", Phone = "0902222222", Lng = 108.4796, Lat = 15.6371 }, // ~7km north
+                    // new { Id = DEMO_RESCUER_C_ID, Name = "Rescuer C - Tam Kỳ Ward 3", Phone = "0902222223", Lng = 108.5876, Lat = 15.5741 }, // ~12km east
+                    // new { Id = DEMO_RESCUER_D_ID, Name = "Rescuer D - Tam Kỳ Ward 4", Phone = "0902222224", Lng = 108.4796, Lat = 15.4391 } // ~15km south
                 };
 
                 foreach (var r in rescuers)
@@ -169,6 +173,49 @@ namespace SnakeAid.Api.Services
 
                 await _dbContext.SaveChangesAsync();
 
+                var operators = new[]
+                {
+                    new { Id = DEMO_OPERATOR_A_ID, Name = "Demo Operator A", Phone = "0903333331" },
+                    new { Id = DEMO_OPERATOR_B_ID, Name = "Demo Operator B", Phone = "0903333332" }
+                };
+
+                foreach (var o in operators)
+                {
+                    var operatorAccount = new Account
+                    {
+                        Id = o.Id,
+                        UserName = o.Phone,
+                        Email = $"{o.Phone}@snakeaid.test",
+                        FullName = o.Name,
+                        PhoneNumber = o.Phone,
+                        Role = AccountRole.Operator,
+                        IsActive = true,
+                        EmailConfirmed = true,
+                        PhoneNumberConfirmed = true,
+                        CreatedAt = DateTime.UtcNow,
+                        UpdatedAt = DateTime.UtcNow
+                    };
+
+                    var operatorResult = await _userManager.CreateAsync(operatorAccount, "Demo@123");
+                    if (!operatorResult.Succeeded)
+                    {
+                        _logger.LogError("Failed to create {Name}: {Errors}", o.Name, string.Join(", ", operatorResult.Errors.Select(e => e.Description)));
+                        continue;
+                    }
+
+                    // Create OperatorProfile with location
+                    var operatorProfile = new OperatorProfile
+                    {
+                        AccountId = o.Id,
+                        CreatedAt = DateTime.UtcNow,
+                        UpdatedAt = DateTime.UtcNow
+                    };
+
+                    await _dbContext.OperatorProfiles.AddAsync(operatorProfile);
+                }
+
+                await _dbContext.SaveChangesAsync();
+
                 _logger.LogInformation("Demo data seeded successfully: 1 user + 4 rescuers with profiles");
                 return true;
             }
@@ -205,14 +252,7 @@ namespace SnakeAid.Api.Services
                 _dbContext.RescuerRequests.RemoveRange(rescuerRequests);
                 _logger.LogInformation("Removing {Count} rescuer requests", rescuerRequests.Count);
 
-                // 3. Delete RescueRequestSessions (child of SnakebiteIncident)
-                var sessions = await _dbContext.RescueRequestSessions
-                    .Where(s => demoIncidentIds.Contains(s.IncidentId))
-                    .ToListAsync();
-                _dbContext.RescueRequestSessions.RemoveRange(sessions);
-                _logger.LogInformation("Removing {Count} rescue sessions", sessions.Count);
-
-                // 4. Delete ConsultationPingRequests (if any related to rescue missions)
+                // 3. Delete ConsultationPingRequests (if any related to rescue missions)
                 var missionIds = await _dbContext.RescueMissions
                     .Where(m => demoUserIds.Contains(m.RescuerId) || demoIncidentIds.Contains(m.IncidentId))
                     .Select(m => m.Id)
@@ -264,6 +304,12 @@ namespace SnakeAid.Api.Services
                     .ToListAsync();
                 _dbContext.RescuerProfiles.RemoveRange(rescuerProfiles);
                 _logger.LogInformation("Removing {Count} rescuer profiles", rescuerProfiles.Count);
+
+                var operatorProfiles = await _dbContext.OperatorProfiles
+                    .Where(o => demoUserIds.Contains(o.AccountId))
+                    .ToListAsync();
+                _dbContext.OperatorProfiles.RemoveRange(operatorProfiles);
+                _logger.LogInformation("Removing {Count} operator profiles", operatorProfiles.Count);
 
                 // Save all deletions
                 await _dbContext.SaveChangesAsync();

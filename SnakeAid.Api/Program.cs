@@ -149,14 +149,6 @@ namespace SnakeAid.Api
                     .AsImplementedInterfaces()
                     .WithScopedLifetime());
 
-                // Register SessionTimeoutBackgroundService as singleton
-                // It implements both IHostedService and ISessionTimeoutService
-                builder.Services.AddSingleton<SnakeAid.Service.Implements.SessionTimeoutBackgroundService>();
-                builder.Services.AddSingleton<SnakeAid.Service.Interfaces.ISessionTimeoutService>(provider =>
-                    provider.GetRequiredService<SnakeAid.Service.Implements.SessionTimeoutBackgroundService>());
-                builder.Services.AddSingleton<IHostedService>(provider =>
-                    provider.GetRequiredService<SnakeAid.Service.Implements.SessionTimeoutBackgroundService>());
-
                 builder.Services.AddSingleton<SnakeAid.Service.Implements.ConsultationLifecycleBackgroundService>();
                 builder.Services.AddSingleton<IHostedService>(provider =>
                     provider.GetRequiredService<SnakeAid.Service.Implements.ConsultationLifecycleBackgroundService>());

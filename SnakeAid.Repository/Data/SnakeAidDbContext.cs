@@ -21,6 +21,7 @@ namespace SnakeAid.Repository.Data
         public DbSet<MemberProfile> MemberProfiles { get; set; }
         public DbSet<ExpertProfile> ExpertProfiles { get; set; }
         public DbSet<RescuerProfile> RescuerProfiles { get; set; }
+        public DbSet<OperatorProfile> OperatorProfiles { get; set; }
         public DbSet<Specialization> Specializations { get; set; }
         public DbSet<AIModel> AIModels { get; set; }
         public DbSet<AISnakeClassMapping> AISnakeClassMappings { get; set; }
@@ -51,8 +52,9 @@ namespace SnakeAid.Repository.Data
         public DbSet<ReputationRule> ReputationRules { get; set; }
         public DbSet<ReputationTransaction> ReputationTransactions { get; set; }
         public DbSet<RescueMission> RescueMissions { get; set; }
-        public DbSet<RescueRequestSession> RescueRequestSessions { get; set; }
         public DbSet<RescuerRequest> RescuerRequests { get; set; }
+        public DbSet<IncidentCallLog> IncidentCallLogs { get; set; }
+        public DbSet<ShiftAssignment> ShiftAssignments { get; set; }
         public DbSet<SnakeAIRecognitionResult> SnakeAIRecognitionResults { get; set; }
         public DbSet<SnakebiteIncident> SnakebiteIncidents { get; set; }
         public DbSet<SnakeCatchingMission> SnakeCatchingMissions { get; set; }
@@ -71,6 +73,7 @@ namespace SnakeAid.Repository.Data
         public DbSet<VenomType> VenomTypes { get; set; }
         public DbSet<Wallet> Wallets { get; set; }
         public DbSet<WalletWithdraw> WalletWithdraws { get; set; }
+        public DbSet<WorkShift> WorkShifts { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

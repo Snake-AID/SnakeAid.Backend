@@ -51,6 +51,7 @@ namespace SnakeAid.Core.Domains
         Admin = 1,
         Expert = 2,
         Rescuer = 3,
+        Operator = 4
     }
 
     public enum ReputationStatus
