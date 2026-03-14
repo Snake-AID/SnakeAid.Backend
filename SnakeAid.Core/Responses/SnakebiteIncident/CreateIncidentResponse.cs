@@ -21,6 +21,10 @@ namespace SnakeAid.Core.Responses.SnakebiteIncident
         public SnakebiteIncidentStatus Status { get; set; } = SnakebiteIncidentStatus.Pending;
 
         public DateTime? IncidentOccurredAt { get; set; }  // Khi nào bị cắn
+
+        // Dispatch metadata (optional)
+        public Guid? DispatchRequestId { get; set; }
+        public Guid? DispatchedRescuerId { get; set; }
     }
 
     public class GeoPointResponse

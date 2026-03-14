@@ -196,11 +196,61 @@ public class AuthService : IAuthService
 
     public async Task<AuthResponse> LoginAsync(LoginRequest request)
     {
+        if (request == null)
+        {
+            throw new BadRequestException("Login request body is required.");
+        }
+
         // Find user by email
         var user = await _userManager.FindByEmailAsync(request.Email);
         if (user == null)
         {
             throw new UnauthorizedException("Invalid email or password.");
+        }
+
+        // Check if account is active
+        if (!user.IsActive)
+        {
+            throw new ForbiddenException("Account is inactive.");
+        }
+
+        // Check password with lockout
+        var result = await _signInManager.CheckPasswordSignInAsync(user, request.Password, lockoutOnFailure: true);
+
+        if (result.IsLockedOut)
+        {
+            _logger.LogWarning("Account locked out: {Email}", request.Email);
+            throw new ForbiddenException("Account is locked. Please try again later.");
+        }
+
+        if (!result.Succeeded)
+        {
+            throw new UnauthorizedException("Invalid email or password.");
+        }
+
+        _logger.LogInformation("User logged in: {Email}", request.Email);
+
+        // Generate tokens
+        return await GenerateTokensAsync(user);
+    }
+
+    public async Task<AuthResponse> LoginV2Async(LoginRequestV2 request)
+    {
+        if (request == null)
+        {
+            throw new BadRequestException("Login request body is required.");
+        }
+
+        // Find user by email
+        var user = await _userManager.FindByEmailAsync(request.Email);
+        if (user == null)
+        {
+            throw new UnauthorizedException("Invalid email or password.");
+        }
+
+        if (request.Role != null && user.Role != request.Role)
+        {
+            throw new UnauthorizedException("Invalid role for this account.");
         }
 
         // Check if account is active

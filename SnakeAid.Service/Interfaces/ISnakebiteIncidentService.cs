@@ -22,6 +22,10 @@ namespace SnakeAid.Service.Interfaces
 
         Task<CreateIncidentResponse> DispatchIncidentAsync(Guid incidentId, Guid rescuerId, Guid operatorId);
 
+        Task<AcceptRescueResponse> AcceptDispatchRequestAsync(Guid requestId, Guid rescuerId);
+
+        Task<RejectRescueResponse> DeclineDispatchRequestAsync(Guid requestId, Guid rescuerId, string? reason);
+
         // Debug: Get media info
         Task<object> GetMediaDebugInfoAsync(Guid incidentId);
 

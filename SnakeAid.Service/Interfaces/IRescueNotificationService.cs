@@ -12,7 +12,9 @@ namespace SnakeAid.Service.Interfaces
 
         Task NotifyDispatchRequestedAsync(string rescuerId, object requestData);
 
-        Task NotifyRequestTakenAsync(string rescuerId, Guid requestId);
+        Task NotifyRescuerAcceptedAsync(string rescuerId, object acceptedData);
+
+        Task NotifyRescuerDeclinedAsync(string rescuerId, object declinedData);
 
         Task NotifyRequestCancelledAsync(string rescuerId, Guid requestId);
 

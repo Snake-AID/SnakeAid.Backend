@@ -42,10 +42,9 @@ namespace SnakeAid.Api.Hubs
                 return;
             }
 
-            var userIdString = Context.UserIdentifier;
-            if (string.IsNullOrEmpty(userIdString) || !Guid.TryParse(userIdString, out var userId))
+            if (!TryResolveUserId(out var userId))
             {
-                _logger.LogWarning("Connection rejected: Unauthenticated user or invalid UserIdentifier. Value: '{UserIdentifier}'", userIdString ?? "NULL");
+                _logger.LogWarning("Connection rejected: Unauthenticated user or invalid UserIdentifier. Value: '{UserIdentifier}'", Context.UserIdentifier ?? "NULL");
                 Context.Abort();
                 return;
             }
@@ -84,7 +83,7 @@ namespace SnakeAid.Api.Hubs
             await Clients.Caller.SendAsync("JoinedMissionHub", new
             {
                 IncidentId = incidentId,
-                UserId = userIdString,
+                UserId = userId.ToString(),
                 Role = userRole,
                 Message = $"Successfully joined mission tracking for incident {incidentId}",
                 Timestamp = DateTime.UtcNow
@@ -111,8 +110,7 @@ namespace SnakeAid.Api.Hubs
                 return;
             }
 
-            var userIdString = Context.UserIdentifier;
-            if (string.IsNullOrEmpty(userIdString) || !Guid.TryParse(userIdString, out var userId))
+            if (!TryResolveUserId(out var userId))
             {
                 _logger.LogWarning("UpdateLocation rejected: Invalid user identifier");
                 return;
@@ -167,7 +165,7 @@ namespace SnakeAid.Api.Hubs
             // Broadcast to Group (Member and Rescuer can see each other)
             await Clients.Group(incidentId.ToString()).SendAsync(eventName, new
             {
-                UserId = userIdString,
+                UserId = userId.ToString(),
                 Role = senderRole,
                 Latitude = latitude,
                 Longitude = longitude,
@@ -190,6 +188,27 @@ namespace SnakeAid.Api.Hubs
 
             _logger.LogInformation("{Role} {UserId} location updated in Incident {IncidentId}: ({Lat}, {Lng})",
                 senderRole, userId, incidentId, latitude, longitude);
+        }
+
+        private bool TryResolveUserId(out Guid userId)
+        {
+            userId = Guid.Empty;
+
+            var candidateIds = new[]
+            {
+                Context.UserIdentifier,
+                Context.User?.Claims.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
+            };
+
+            foreach (var candidate in candidateIds)
+            {
+                if (!string.IsNullOrWhiteSpace(candidate) && Guid.TryParse(candidate, out userId))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
     }
 }

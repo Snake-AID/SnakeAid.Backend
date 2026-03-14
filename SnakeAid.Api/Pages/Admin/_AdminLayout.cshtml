@@ -254,6 +254,14 @@
                    class="nav-link @(Context.Request.Path.StartsWithSegments("/admin/simulator") ? "active" : "")">
                 <i class="bi bi-terminal"></i> Simulator
             </a>
+            <a href="/admin/dispatch-operator"
+                   class="nav-link @(Context.Request.Path.StartsWithSegments("/admin/dispatch-operator") ? "active" : "")">
+                <i class="bi bi-broadcast-pin"></i> Operator
+            </a>
+            <a href="/admin/dispatch-rescuers"
+                   class="nav-link @(Context.Request.Path.StartsWithSegments("/admin/dispatch-rescuers") ? "active" : "")">
+                <i class="bi bi-people"></i> Rescuers
+            </a>
             <a href="/admin/otps"
                    class="nav-link @(Context.Request.Path.StartsWithSegments("/admin/otps") ? "active" : "")">
                 <i class="bi bi-key-fill"></i> OTP Control

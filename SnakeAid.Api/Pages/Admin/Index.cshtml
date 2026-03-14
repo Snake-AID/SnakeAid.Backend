@@ -30,9 +30,9 @@
 
         .hub-grid {
             display: grid;
-            grid-template-columns: repeat(3, 1fr);
+            grid-template-columns: repeat(4, 1fr);
             gap: 30px;
-            max-width: 1200px;
+            max-width: 1480px;
             width: 100%;
         }
 
@@ -96,6 +96,7 @@
 
         .hub-card.species:hover .hub-icon { background: var(--accent-purple); color: #fff; box-shadow: 0 0 20px rgba(139, 92, 246, 0.4); }
         .hub-card.incidents:hover .hub-icon { background: var(--accent-red); color: #fff; box-shadow: 0 0 20px rgba(244, 63, 94, 0.4); }
+        .hub-card.operator:hover .hub-icon { background: var(--accent-green); color: #fff; box-shadow: 0 0 20px rgba(16, 185, 129, 0.4); }
 
         .hub-info h3 {
             font-size: 1.6rem;
@@ -184,6 +185,28 @@
             <div class="hub-info">
                 <h3>Rescue Simulator</h3>
                 <p>Simulate emergencies and test rescuer dispatch logic in a safe sandbox.</p>
+            </div>
+            <div class="go-btn">Enter Module</div>
+        </a>
+
+        <a href="/admin/dispatch-operator" class="hub-card operator">
+            <div class="hub-icon">
+                <i class="bi bi-broadcast-pin"></i>
+            </div>
+            <div class="hub-info">
+                <h3>Dispatch Operator</h3>
+                <p>Test luong operator nhan SOS, verify case, va dispatch mission cho rescuer online.</p>
+            </div>
+            <div class="go-btn">Enter Module</div>
+        </a>
+
+        <a href="/admin/dispatch-rescuers" class="hub-card">
+            <div class="hub-icon">
+                <i class="bi bi-people"></i>
+            </div>
+            <div class="hub-info">
+                <h3>Dispatch Rescuers</h3>
+                <p>Mo 4 rescuer demo, nhan lenh dieu phoi, accept request, va mo mission o phia truoc.</p>
             </div>
             <div class="go-btn">Enter Module</div>
         </a>
