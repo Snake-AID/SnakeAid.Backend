@@ -1,0 +1,340 @@
+@page "/admin/dispatch-rescuers"
+@using System.Text.Json
+@model SnakeAid.Api.Pages.Admin.DispatchRescuers.IndexModel
+@{
+    ViewData["Title"] = "Dispatch Rescuers | Admin Portal";
+    var jsonOptions = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
+}
+
+@section Styles {
+    <style>
+        .rescuer-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 22px; }
+        .rescuer-shell { background: var(--bg-panel); border: 1px solid var(--border-glass); border-radius: 24px; padding: 22px; box-shadow: 0 18px 38px -18px rgba(0, 0, 0, 0.55); }
+        .rescuer-head { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; margin-bottom: 16px; }
+        .rescuer-name { font-size: 1.1rem; font-weight: 700; }
+        .mono { font-family: var(--font-mono); }
+        .muted { color: var(--text-muted); }
+        .badge-soft { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.5px; border: 1px solid transparent; font-weight: 700; }
+        .badge-soft.online { color: var(--accent-green); border-color: rgba(16,185,129,0.35); background: rgba(16,185,129,0.14); }
+        .badge-soft.offline { color: var(--accent-red); border-color: rgba(244,63,94,0.35); background: rgba(244,63,94,0.14); }
+        .badge-soft.pending { color: var(--accent-gold); border-color: rgba(245,158,11,0.35); background: rgba(245,158,11,0.14); }
+        .badge-soft.accepted { color: var(--accent-green); border-color: rgba(16,185,129,0.35); background: rgba(16,185,129,0.14); }
+        .meta-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+        .meta-card { border: 1px solid rgba(255,255,255,0.05); background: rgba(255,255,255,0.03); border-radius: 16px; padding: 14px; }
+        .meta-card .k { display: block; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); margin-bottom: 6px; }
+        .meta-card .v { color: #fff; font-size: 0.92rem; word-break: break-word; }
+        .action-row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 16px; }
+        .btn-neo { border: 1px solid var(--border-glass); background: rgba(255,255,255,0.04); color: var(--text-main); border-radius: 14px; padding: 10px 14px; font-weight: 600; cursor: pointer; transition: 180ms ease; position: relative; }
+        .btn-neo:hover:not(:disabled) { transform: translateY(-1px); }
+        .btn-neo:active:not(:disabled), .btn-neo.is-busy { transform: translateY(1px) scale(0.985); }
+        .btn-neo:disabled { opacity: 0.42; cursor: not-allowed; filter: grayscale(1); pointer-events: none; box-shadow: none; }
+        .btn-neo.is-busy { cursor: progress; }
+        .btn-neo.primary { background: rgba(59,130,246,0.16); border-color: rgba(59,130,246,0.35); }
+        .btn-neo.success { background: rgba(16,185,129,0.16); border-color: rgba(16,185,129,0.35); }
+        .btn-neo.warn { background: rgba(245,158,11,0.16); border-color: rgba(245,158,11,0.35); }
+        .request-box, .mission-box { margin-top: 16px; padding: 16px; border-radius: 18px; border: 1px solid var(--border-glass); background: rgba(2, 6, 23, 0.45); }
+        .request-box.live { border-color: rgba(245,158,11,0.35); background: rgba(245,158,11,0.08); }
+        .mission-box.live { border-color: rgba(16,185,129,0.35); background: rgba(16,185,129,0.08); }
+        .console { margin-top: 24px; background: var(--bg-panel); border: 1px solid var(--border-glass); border-radius: 24px; padding: 22px; }
+        .log-list { display: flex; flex-direction: column; gap: 10px; max-height: 260px; overflow-y: auto; }
+        .log-line { display: grid; grid-template-columns: 80px 1fr; gap: 12px; border: 1px solid var(--border-glass); border-radius: 14px; padding: 12px 14px; background: rgba(255,255,255,0.03); font-size: 0.8rem; }
+        @@media (max-width: 1100px) { .rescuer-grid { grid-template-columns: 1fr; } }
+    </style>
+}
+
+<div class="page-header">
+    <div class="header-title-group">
+        <h1>Dispatch Rescuers</h1>
+        <p>Bốn rescuer demo connect độc lập, nhận dispatch từ operator và accept để mở mission.</p>
+    </div>
+    <div class="header-actions">
+        <div class="stat-badge">
+            <span class="stat-value" id="connectedCount">0</span>
+            <span class="stat-label">Connected</span>
+        </div>
+    </div>
+</div>
+
+<div class="rescuer-grid" id="rescuerGrid">
+    @foreach (var rescuer in Model.Rescuers)
+    {
+        <section class="rescuer-shell" id="rescuer-@rescuer.Id">
+            <div class="rescuer-head">
+                <div>
+                    <div class="rescuer-name">@rescuer.FullName</div>
+                    <div class="mono muted" style="margin-top:6px;">@rescuer.Id</div>
+                </div>
+                <span class="badge-soft offline" id="conn-badge-@rescuer.Id">Offline</span>
+            </div>
+
+            <div class="meta-grid">
+                <div class="meta-card">
+                    <span class="k">Shift</span>
+                    <span class="v" id="shift-@rescuer.Id">Unknown</span>
+                </div>
+                <div class="meta-card">
+                    <span class="k">Availability</span>
+                    <span class="v" id="availability-@rescuer.Id">Unknown</span>
+                </div>
+            </div>
+
+            <div class="action-row">
+                <button class="btn-neo primary" id="btn-connect-@rescuer.Id" type="button" onclick="connectRescuer('@rescuer.Id', this)">Connect</button>
+                <button class="btn-neo" id="btn-disconnect-@rescuer.Id" type="button" onclick="disconnectRescuer('@rescuer.Id')">Disconnect</button>
+                <button class="btn-neo success" id="btn-accept-@rescuer.Id" type="button" onclick="acceptDispatch('@rescuer.Id', this)">Accept Request</button>
+                <button class="btn-neo warn" id="btn-decline-@rescuer.Id" type="button" onclick="declineDispatch('@rescuer.Id', this)">Decline</button>
+            </div>
+
+            <div class="request-box" id="request-box-@rescuer.Id">
+                <div class="muted">Chưa có dispatch request.</div>
+            </div>
+
+            <div class="mission-box" id="mission-box-@rescuer.Id">
+                <div class="muted">Chưa mở mission.</div>
+            </div>
+        </section>
+    }
+</div>
+
+<section class="console">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:16px;">
+        <h2 style="margin:0;font-size:1rem;text-transform:uppercase;letter-spacing:1.4px;color:var(--text-muted);">Rescuer Console</h2>
+        <button class="btn-neo" type="button" onclick="clearLogs()">Clear</button>
+    </div>
+    <div id="logList" class="log-list"></div>
+</section>
+
+@section Scripts {
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.7/signalr.min.js"></script>
+    <script>
+        const rescuers = @Html.Raw(JsonSerializer.Serialize(Model.Rescuers, jsonOptions));
+        const rosterUrl = '?handler=Roster';
+        const connections = {};
+        const rescuerState = {};
+
+        rescuers.forEach(rescuer => {
+            rescuerState[rescuer.id] = { connectionStatus: 'offline', latestRequest: null, latestMission: null };
+        });
+
+        function logEvent(message) {
+            const host = document.getElementById('logList');
+            const row = document.createElement('div');
+            row.className = 'log-line';
+            row.innerHTML = `<div class="mono muted">${new Date().toLocaleTimeString()}</div><div>${message}</div>`;
+            host.prepend(row);
+            while (host.children.length > 40) host.removeChild(host.lastChild);
+        }
+
+        function clearLogs() { document.getElementById('logList').innerHTML = ''; }
+
+        function updateConnectedCount() {
+            const count = Object.values(rescuerState).filter(x => x.connectionStatus === 'online').length;
+            document.getElementById('connectedCount').textContent = count;
+        }
+
+        function renderRequest(rescuerId) {
+            const host = document.getElementById(`request-box-${rescuerId}`);
+            const request = rescuerState[rescuerId].latestRequest;
+            if (!request) {
+                host.className = 'request-box';
+                host.innerHTML = '<div class="muted">Chưa có dispatch request.</div>';
+                return;
+            }
+
+            host.className = `request-box ${request.status === 'Pending' ? 'live' : ''}`;
+            host.innerHTML = `
+                <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;">
+                    <strong>Dispatch ${request.requestId || request.id}</strong>
+                    <span class="badge-soft ${request.status === 'Accepted' ? 'accepted' : (request.status === 'Pending' ? 'pending' : 'offline')}">${request.status}</span>
+                </div>
+                <div class="muted" style="margin-top:10px;">Incident: <span class="mono">${request.incidentId}</span></div>`;
+        }
+
+        function renderMission(rescuerId) {
+            const host = document.getElementById(`mission-box-${rescuerId}`);
+            const mission = rescuerState[rescuerId].latestMission;
+            if (!mission) {
+                host.className = 'mission-box';
+                host.innerHTML = '<div class="muted">Chưa mở mission.</div>';
+                return;
+            }
+
+            host.className = 'mission-box live';
+            host.innerHTML = `
+                <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;">
+                    <strong>Mission Ready</strong>
+                    <span class="badge-soft accepted">${mission.status}</span>
+                </div>
+                <div style="margin-top:10px;">Mission ID: <span class="mono">${mission.missionId || mission.id}</span></div>
+                <div class="muted" style="margin-top:6px;">Incident: <span class="mono">${mission.incidentId}</span></div>`;
+        }
+
+        function renderBadge(rescuerId) {
+            const badge = document.getElementById(`conn-badge-${rescuerId}`);
+            const online = rescuerState[rescuerId].connectionStatus === 'online';
+            badge.className = `badge-soft ${online ? 'online' : 'offline'}`;
+            badge.textContent = online ? 'Online' : 'Offline';
+        }
+
+        function setBusy(button, busy, busyText) {
+            if (!button) return;
+            if (!button.dataset.defaultText) button.dataset.defaultText = button.textContent;
+            button.disabled = busy;
+            button.classList.toggle('is-busy', busy);
+            button.textContent = busy ? busyText : button.dataset.defaultText;
+        }
+
+        function syncActionButtons(rescuerId) {
+            const state = rescuerState[rescuerId];
+            const request = state.latestRequest;
+            const isConnected = state.connectionStatus === 'online';
+            const isPending = request?.status === 'Pending';
+
+            const connectBtn = document.getElementById(`btn-connect-${rescuerId}`);
+            const disconnectBtn = document.getElementById(`btn-disconnect-${rescuerId}`);
+            const acceptBtn = document.getElementById(`btn-accept-${rescuerId}`);
+            const declineBtn = document.getElementById(`btn-decline-${rescuerId}`);
+
+            if (connectBtn && !connectBtn.classList.contains('is-busy')) connectBtn.disabled = isConnected;
+            if (disconnectBtn && !disconnectBtn.classList.contains('is-busy')) disconnectBtn.disabled = !isConnected;
+            if (acceptBtn && !acceptBtn.classList.contains('is-busy')) acceptBtn.disabled = !isConnected || !isPending;
+            if (declineBtn && !declineBtn.classList.contains('is-busy')) declineBtn.disabled = !isConnected || !isPending;
+        }
+
+        function applyRoster(roster) {
+            roster.forEach(item => {
+                const state = rescuerState[item.id];
+                if (!state) return;
+                document.getElementById(`shift-${item.id}`).textContent = item.shiftStatus || item.shiftName || 'None';
+                document.getElementById(`availability-${item.id}`).textContent = item.isAvailable ? 'Ready' : 'Busy';
+                if (!state.latestRequest && item.latestRequest) state.latestRequest = item.latestRequest;
+                if (!state.latestMission && item.latestMission) state.latestMission = item.latestMission;
+                renderRequest(item.id);
+                renderMission(item.id);
+                syncActionButtons(item.id);
+            });
+        }
+
+        async function refreshRoster() {
+            const response = await fetch(rosterUrl);
+            const payload = await response.json();
+            applyRoster(payload.rescuers || []);
+        }
+
+        async function connectRescuer(rescuerId, button) {
+            if (connections[rescuerId]) {
+                logEvent(`Rescuer ${rescuerId} already connected.`);
+                return;
+            }
+
+            const rescuer = rescuers.find(item => item.id === rescuerId);
+            const connection = new signalR.HubConnectionBuilder().withUrl('/rescuer-hub', { accessTokenFactory: () => rescuer.token }).withAutomaticReconnect().build();
+
+            connection.on('Joined', async data => {
+                rescuerState[rescuerId].connectionStatus = 'online';
+                renderBadge(rescuerId);
+                updateConnectedCount();
+                syncActionButtons(rescuerId);
+                logEvent(`${rescuer.fullName} joined hub: ${data.message}`);
+                await refreshRoster();
+            });
+
+            connection.on('DispatchRequested', data => {
+                rescuerState[rescuerId].latestRequest = { requestId: data.requestId, incidentId: data.incidentId, status: 'Pending' };
+                renderRequest(rescuerId);
+                syncActionButtons(rescuerId);
+                logEvent(`${rescuer.fullName} received dispatch ${data.requestId}.`);
+            });
+
+            connection.on('RequestAccepted', async data => {
+                rescuerState[rescuerId].latestRequest = { requestId: data.requestId, incidentId: data.incidentId, status: 'Accepted' };
+                rescuerState[rescuerId].latestMission = { missionId: data.missionId, incidentId: data.incidentId, status: 'Preparing' };
+                renderRequest(rescuerId);
+                renderMission(rescuerId);
+                syncActionButtons(rescuerId);
+                logEvent(`${rescuer.fullName} accepted and opened mission ${data.missionId}.`);
+                await refreshRoster();
+            });
+
+            connection.on('RequestDeclined', async data => {
+                rescuerState[rescuerId].latestRequest = { requestId: data.requestId, status: 'Declined' };
+                renderRequest(rescuerId);
+                syncActionButtons(rescuerId);
+                logEvent(`${rescuer.fullName} declined request ${data.requestId}.`);
+                await refreshRoster();
+            });
+
+            connection.on('RequestError', data => {
+                syncActionButtons(rescuerId);
+                logEvent(`${rescuer.fullName} error: ${data.error}`);
+            });
+
+            connection.onclose(async () => {
+                rescuerState[rescuerId].connectionStatus = 'offline';
+                renderBadge(rescuerId);
+                updateConnectedCount();
+                syncActionButtons(rescuerId);
+                logEvent(`${rescuer.fullName} disconnected.`);
+                delete connections[rescuerId];
+                await refreshRoster();
+            });
+
+            try {
+                setBusy(button, true, 'Connecting...');
+                await connection.start();
+                await connection.invoke('JoinAsRescuer', rescuerId);
+                connections[rescuerId] = connection;
+            } finally {
+                setBusy(button, false);
+                syncActionButtons(rescuerId);
+            }
+        }
+
+        async function disconnectRescuer(rescuerId) {
+            if (connections[rescuerId]) await connections[rescuerId].stop();
+        }
+
+        async function acceptDispatch(rescuerId, button) {
+            const connection = connections[rescuerId];
+            const request = rescuerState[rescuerId].latestRequest;
+            if (!connection || !request?.requestId) {
+                logEvent(`Rescuer ${rescuerId} chưa có request để accept.`);
+                return;
+            }
+            try {
+                setBusy(button, true, 'Accepting...');
+                await connection.invoke('AcceptDispatchRequest', request.requestId);
+            } finally {
+                setBusy(button, false);
+                syncActionButtons(rescuerId);
+            }
+        }
+
+        async function declineDispatch(rescuerId, button) {
+            const connection = connections[rescuerId];
+            const request = rescuerState[rescuerId].latestRequest;
+            if (!connection || !request?.requestId) {
+                logEvent(`Rescuer ${rescuerId} chưa có request để decline.`);
+                return;
+            }
+            try {
+                setBusy(button, true, 'Declining...');
+                await connection.invoke('DeclineDispatchRequest', request.requestId, 'Demo rescuer declined');
+            } finally {
+                setBusy(button, false);
+                syncActionButtons(rescuerId);
+            }
+        }
+
+        (async () => {
+            rescuers.forEach(rescuer => {
+                renderBadge(rescuer.id);
+                renderRequest(rescuer.id);
+                renderMission(rescuer.id);
+                syncActionButtons(rescuer.id);
+            });
+            await refreshRoster();
+            setInterval(refreshRoster, 8000);
+        })();
+    </script>
+}
