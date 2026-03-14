@@ -149,6 +149,7 @@ namespace SnakeAid.Api.Controllers
         /// Cancel mission - user cancels before rescuer starts
         /// No new session is created
         /// </summary>
+        [Obsolete("Use /api/incidents/{incidentId}/cancel instead")]
         [HttpPatch("{missionId}/cancel")]
         [SwaggerOperation(
             Summary = "Cancel Mission (User)",

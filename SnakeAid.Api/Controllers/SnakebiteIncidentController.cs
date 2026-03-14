@@ -163,6 +163,36 @@ namespace SnakeAid.Api.Controllers
         }
 
         /// <summary>
+        /// Operator marks incident as a false alarm
+        /// </summary>
+        [HttpPost("{incidentId}/false-alarm")]
+        [SwaggerOperation(Summary = "Mark Incident as False Alarm", Description = "Mark an incident as a false alarm after operator call.")]
+        [SwaggerResponse(200, "Incident marked as false alarm", typeof(ApiResponse<CreateIncidentResponse>))]
+        [SwaggerResponse(404, "Incident not found")]
+        [SwaggerResponse(409, "Incident updated by another operator")]
+        public async Task<IActionResult> MarkFalseAlarm(Guid incidentId, [FromBody] MarkFalseAlarmRequest request)
+        {
+            var operatorId = GetCurrentUserId();
+            var result = await _incidentService.MarkIncidentFalseAlarmAsync(incidentId, operatorId, request?.Reason);
+            return Ok(ApiResponseBuilder.BuildSuccessResponse(result, "Incident marked as false alarm."));
+        }
+
+        /// <summary>
+        /// Operator reports no answer from member
+        /// </summary>
+        [HttpPost("{incidentId}/no-answer")]
+        [SwaggerOperation(Summary = "Report No Answer", Description = "Report that the member did not answer the operator's call. Operator can choose to continue calling or release the case.")]
+        [SwaggerResponse(200, "No answer recorded", typeof(ApiResponse<CreateIncidentResponse>))]
+        [SwaggerResponse(404, "Incident not found")]
+        [SwaggerResponse(409, "Incident updated by another operator")]
+        public async Task<IActionResult> ReportNoAnswer(Guid incidentId, [FromBody] ReportNoAnswerRequest request)
+        {
+            var operatorId = GetCurrentUserId();
+            var result = await _incidentService.ReportIncidentNoAnswerAsync(incidentId, operatorId, request?.ContinueCalling ?? true, request?.Note);
+            return Ok(ApiResponseBuilder.BuildSuccessResponse(result, "No answer recorded."));
+        }
+
+        /// <summary>
         /// Operator dispatches an incident to a rescuer
         /// </summary>
         [HttpPost("{incidentId}/dispatch")]

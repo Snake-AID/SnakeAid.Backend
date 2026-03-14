@@ -103,6 +103,49 @@ namespace SnakeAid.Api.Services
             }
         }
 
+        public async Task NotifyIncidentFalseAlarmAsync(Guid incidentId, Guid operatorId, string? reason)
+        {
+            try
+            {
+                await _hubContext.Clients.Group(OperatorGroup).SendAsync("IncidentFalseAlarm", new
+                {
+                    IncidentId = incidentId,
+                    OperatorId = operatorId,
+                    Reason = reason,
+                    UpdatedAt = DateTime.UtcNow
+                });
+
+                _logger.LogInformation("Broadcasted IncidentFalseAlarm for {IncidentId} to operator group", incidentId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(new SignalRNotificationException($"Error notifying incident false alarm {incidentId} to operators", ex),
+                    "SignalR_Operator_Notification_Error");
+            }
+        }
+
+        public async Task NotifyIncidentNoAnswerAsync(Guid incidentId, Guid operatorId, string? reason, bool continueCalling)
+        {
+            try
+            {
+                await _hubContext.Clients.Group(OperatorGroup).SendAsync("IncidentNoAnswer", new
+                {
+                    IncidentId = incidentId,
+                    OperatorId = operatorId,
+                    Reason = reason,
+                    ContinueCalling = continueCalling,
+                    UpdatedAt = DateTime.UtcNow
+                });
+
+                _logger.LogInformation("Broadcasted IncidentNoAnswer for {IncidentId} to operator group", incidentId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(new SignalRNotificationException($"Error notifying incident no answer {incidentId} to operators", ex),
+                    "SignalR_Operator_Notification_Error");
+            }
+        }
+
         public async Task NotifyRescuerDispatchedAsync(Guid incidentId, Guid rescuerId)
         {
             try
@@ -119,6 +162,26 @@ namespace SnakeAid.Api.Services
             catch (Exception ex)
             {
                 _logger.LogError(new SignalRNotificationException($"Error notifying rescuer dispatched {incidentId} to operators", ex),
+                    "SignalR_Operator_Notification_Error");
+            }
+        }
+
+        public async Task NotifyIncidentCancelledAsync(Guid incidentId, string? reason)
+        {
+            try
+            {
+                await _hubContext.Clients.Group(OperatorGroup).SendAsync("IncidentCancelled", new
+                {
+                    IncidentId = incidentId,
+                    Reason = reason,
+                    UpdatedAt = DateTime.UtcNow
+                });
+
+                _logger.LogInformation("Broadcasted IncidentCancelled for {IncidentId} to operator group", incidentId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(new SignalRNotificationException($"Error notifying incident cancelled {incidentId} to operators", ex),
                     "SignalR_Operator_Notification_Error");
             }
         }
@@ -140,6 +203,27 @@ namespace SnakeAid.Api.Services
             catch (Exception ex)
             {
                 _logger.LogError(new SignalRNotificationException($"Error notifying rescuer declined {incidentId} to operators", ex),
+                    "SignalR_Operator_Notification_Error");
+            }
+        }
+
+        public async Task NotifyRescuerAbortedAsync(Guid incidentId, Guid rescuerId, string? reason)
+        {
+            try
+            {
+                await _hubContext.Clients.Group(OperatorGroup).SendAsync("RescuerAborted", new
+                {
+                    IncidentId = incidentId,
+                    RescuerId = rescuerId,
+                    Reason = reason,
+                    UpdatedAt = DateTime.UtcNow
+                });
+
+                _logger.LogInformation("Broadcasted RescuerAborted for {IncidentId} to operator group", incidentId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(new SignalRNotificationException($"Error notifying rescuer aborted {incidentId} to operators", ex),
                     "SignalR_Operator_Notification_Error");
             }
         }
