@@ -25,6 +25,7 @@ namespace SnakeAid.Service.Implements
         private readonly ILocationIqService _locationIqService;
         private readonly IPayOsPaymentService _payOsPaymentService;
         private readonly ISnakeAIService _snakeAIService;
+        private readonly ISnakeCatchingRequestNotificationService _snakeCatchingRequestNotificationService;
         private readonly decimal additionalSnakePrice = 100000;
 
         public SnakeCatchingRequestService(
@@ -33,7 +34,8 @@ namespace SnakeAid.Service.Implements
             IConfiguration configuration,
             ILocationIqService locationIqService,
             IPayOsPaymentService payOsPaymentService,
-            ISnakeAIService snakeAIService)
+            ISnakeAIService snakeAIService,
+            ISnakeCatchingRequestNotificationService snakeCatchingRequestNotificationService)
         {
             _unitOfWork = unitOfWork;
             _logger = logger;
@@ -41,6 +43,7 @@ namespace SnakeAid.Service.Implements
             _locationIqService = locationIqService;
             _payOsPaymentService = payOsPaymentService;
             _snakeAIService = snakeAIService;
+            _snakeCatchingRequestNotificationService = snakeCatchingRequestNotificationService;
         }
 
         public async Task<CreateSnakeCatchingRequestResponse> CreateSnakeCatchingRequestAsync(
@@ -54,7 +57,7 @@ namespace SnakeAid.Service.Implements
                     throw new BadRequestException("Request data cannot be null.");
                 }
 
-                return await _unitOfWork.ExecuteInTransactionAsync(async () =>
+                var response = await _unitOfWork.ExecuteInTransactionAsync(async () =>
                 {
                     // Validate user exists and has member profile
                     var existingAccount = await _unitOfWork.GetRepository<Account>().FirstOrDefaultAsync(
@@ -311,6 +314,10 @@ namespace SnakeAid.Service.Implements
 
                     return response;
                 });
+
+                await _snakeCatchingRequestNotificationService.NotifyRequestCreatedAsync(response);
+
+                return response;
             }
             catch (Exception ex)
             {
@@ -332,7 +339,7 @@ namespace SnakeAid.Service.Implements
                     throw new NotFoundException("Account not found.");
                 }
 
-                return await _unitOfWork.ExecuteInTransactionAsync(async () =>
+                var response = await _unitOfWork.ExecuteInTransactionAsync(async () =>
                 {
                     // fetch and validate inside transaction to ensure data consistency (optimistic locking)
                     var snakeRequest = await _unitOfWork.GetRepository<SnakeCatchingRequest>().FirstOrDefaultAsync(
@@ -407,6 +414,10 @@ namespace SnakeAid.Service.Implements
 
                     return response;
                 });
+
+                await _snakeCatchingRequestNotificationService.NotifyRequestAcceptedAsync(response);
+
+                return response;
             }
             catch (Exception ex)
             {
@@ -454,7 +465,7 @@ namespace SnakeAid.Service.Implements
                 }
 
                 // Step 2: Start transaction for DB operations ONLY
-                return await _unitOfWork.ExecuteInTransactionAsync(async () =>
+                var response = await _unitOfWork.ExecuteInTransactionAsync(async () =>
                 {
                     // fetch and validate inside transaction to ensure data consistency (optimistic locking)
                     var snakeRequest = await _unitOfWork.GetRepository<SnakeCatchingRequest>().FirstOrDefaultAsync(
@@ -554,6 +565,10 @@ namespace SnakeAid.Service.Implements
 
                     return response;
                 });
+
+                await _snakeCatchingRequestNotificationService.NotifyRequestAssignedAsync(response);
+
+                return response;
             }
             catch (Exception ex)
             {
@@ -824,7 +839,7 @@ namespace SnakeAid.Service.Implements
                     throw new BadRequestException("Cancellation reason is required.");
                 }
 
-                return await _unitOfWork.ExecuteInTransactionAsync(async () =>
+                var response = await _unitOfWork.ExecuteInTransactionAsync(async () =>
                 {
                     // Get the snake catching request with missions
                     var snakeCatchingRequest = await _unitOfWork.GetRepository<SnakeCatchingRequest>().FirstOrDefaultAsync(
@@ -957,6 +972,10 @@ namespace SnakeAid.Service.Implements
 
                     return response;
                 });
+
+                await _snakeCatchingRequestNotificationService.NotifyRequestCancelledAsync(response);
+
+                return response;
             }
             catch (Exception ex)
             {
