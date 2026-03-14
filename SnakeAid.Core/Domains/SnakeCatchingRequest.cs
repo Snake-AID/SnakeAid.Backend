@@ -81,7 +81,7 @@ namespace SnakeAid.Core.Domains
     {
         Pending = 0,
         OperatorContacting = 1,
-        Verified = 2,
+        Confirmed = 2,
         Assigned = 3,
         Finished = 4,
         Paid = 5,

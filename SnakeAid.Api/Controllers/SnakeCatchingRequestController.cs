@@ -75,11 +75,11 @@ namespace SnakeAid.Api.Controllers
         /// Accept a snake catching request as a rescuer
         /// </summary>
         /// <param name="requestId">The ID of the snake catching request to accept</param>
-        [HttpPost("accept/{requestId:guid}")]
+        [HttpPost("assign/{requestId:guid}")]
         [SwaggerOperation(
-            Summary = "Accept Snake Catching Request",
-            Description = "Rescuer accepts a pending snake catching request and creates a new mission")]
-        [SwaggerResponse(200, "Request accepted successfully", typeof(ApiResponse<CreateSnakeCatchingRequestResponse>))]
+            Summary = "Assign Snake Catching Request",
+            Description = "Operatpr assigns a rescuer for the pending snake catching request and creates a new mission")]
+        [SwaggerResponse(200, "Request assigned successfully", typeof(ApiResponse<CreateSnakeCatchingRequestResponse>))]
         [SwaggerResponse(400, "Invalid request (already assigned, not pending, or rescuer offline)")]
         [SwaggerResponse(401, "User not authenticated")]
         [SwaggerResponse(403, "User is not a rescuer")]
@@ -87,11 +87,9 @@ namespace SnakeAid.Api.Controllers
         [ProducesResponseType(typeof(ApiResponse<CreateSnakeCatchingRequestResponse>), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
         [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
-        public async Task<IActionResult> AcceptSnakeCatchingRequest([FromRoute] Guid requestId, [FromBody] AcceptSnakeCatchingRequestRequest request)
+        public async Task<IActionResult> AssignSnakeCatchingRequest([FromRoute] Guid requestId, [FromBody] AssignSnakeCatchingRequestRequest request)
         {
-            var rescuerId = GetCurrentUserId();
-
-            var result = await _snakeCatchingRequestService.AcceptSnakeCatchingRequestAsync(rescuerId, requestId, request);
+            var result = await _snakeCatchingRequestService.AssignSnakeCatchingRequestAsync(requestId, request);
             
             return Ok(ApiResponseBuilder.BuildSuccessResponse(
                 result,

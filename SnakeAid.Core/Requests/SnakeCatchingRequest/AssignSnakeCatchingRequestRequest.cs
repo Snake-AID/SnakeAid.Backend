@@ -7,8 +7,10 @@ using System.Threading.Tasks;
 
 namespace SnakeAid.Core.Requests.SnakeCatchingRequest
 {
-    public class AcceptSnakeCatchingRequestRequest
+    public class AssignSnakeCatchingRequestRequest
     {
+        public Guid rescuerId { get; set; }
+
         /// <summary>
         /// Longitude (Kinh độ) - VD: 106.660172
         /// </summary>

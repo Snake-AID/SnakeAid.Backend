@@ -320,16 +320,15 @@ namespace SnakeAid.Service.Implements
 
 
 
-        public async Task<CreateSnakeCatchingRequestResponse> AcceptSnakeCatchingRequestAsync(
-            Guid rescuerId,
+        public async Task<CreateSnakeCatchingRequestResponse> AssignSnakeCatchingRequestAsync(
             Guid requestId,
-            AcceptSnakeCatchingRequestRequest request)
+            AssignSnakeCatchingRequestRequest request)
         {
             try
             {
                 // Step 1: Validate rescuer exists and has rescuer profile (OUTSIDE transaction)
                 var existingAccount = await _unitOfWork.GetRepository<Account>().FirstOrDefaultAsync(
-                    predicate: a => a.Id == rescuerId,
+                    predicate: a => a.Id == request.rescuerId,
                     include: r => r.Include(i => i.RescuerProfile)
                 );
 
@@ -364,7 +363,7 @@ namespace SnakeAid.Service.Implements
                     }
 
                     // validate status inside transaction (race condition protection)
-                    if (snakeRequest.Status != RequestStatus.Pending)
+                    if (snakeRequest.Status != RequestStatus.Confirmed)
                     {
                         throw new BadRequestException($"Request cannot be accepted. Current status: {snakeRequest.Status}");
                     }
@@ -389,18 +388,18 @@ namespace SnakeAid.Service.Implements
                     }
 
                     // Update the request with pre-calculated price
-                    snakeRequest.AssignedRescuerId = rescuerId;
+                    snakeRequest.AssignedRescuerId = request.rescuerId;
                     snakeRequest.AssignedAt = DateTime.UtcNow;
                     snakeRequest.Status = RequestStatus.Assigned;
 
                     _unitOfWork.GetRepository<SnakeCatchingRequest>().Update(snakeRequest);
 
                     // Create a new mission for this request
-                    decimal basePrice = _configuration.GetValue<decimal>("Center:Longitude");
+                    decimal basePrice = _configuration.GetValue<decimal>("Price:CatchingBasePrice");
                     var newMission = new SnakeCatchingMission
                     {
                         Id = Guid.NewGuid(),
-                        RescuerId = rescuerId,
+                        RescuerId = request.rescuerId,
                         SnakeCatchingRequestId = requestId,
                         Status = CatchingMissionStatus.Preparing,
                         Price = basePrice,
