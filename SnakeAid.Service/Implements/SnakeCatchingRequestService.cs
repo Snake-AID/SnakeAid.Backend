@@ -318,7 +318,100 @@ namespace SnakeAid.Service.Implements
             }
         }
 
+        public async Task<CreateSnakeCatchingRequestResponse> AcceptSnakeCatchingRequestAsync(Guid requestId, Guid operatorId)
+        {
+            try
+            {
+                var existingAccount = await _unitOfWork.GetRepository<Account>().FirstOrDefaultAsync(
+                    predicate: a => a.Id == operatorId
+                );
 
+                if (existingAccount == null)
+                {
+                    throw new NotFoundException("Account not found.");
+                }
+
+                return await _unitOfWork.ExecuteInTransactionAsync(async () =>
+                {
+                    // fetch and validate inside transaction to ensure data consistency (optimistic locking)
+                    var snakeRequest = await _unitOfWork.GetRepository<SnakeCatchingRequest>().FirstOrDefaultAsync(
+                        predicate: r => r.Id == requestId,
+                        include: query => query.Include(r => r.User)
+                    );
+
+                    if (snakeRequest == null)
+                    {
+                        throw new NotFoundException("Snake catching request not found.");
+                    }
+
+                    // validate status inside transaction (race condition protection)
+                    if (snakeRequest.Status != RequestStatus.Pending)
+                    {
+                        throw new BadRequestException($"Request cannot be accepted. Current status: {snakeRequest.Status}");
+                    }
+
+                    // check if request is already assigned (race condition protection)
+                    if (snakeRequest.Version != 1)
+                    {
+                        throw new BadRequestException("This request has already been accepted to another operator.");
+                    }
+
+
+                    // Update the request with pre-calculated price
+                    snakeRequest.HandlingOperatorId = operatorId;
+                    snakeRequest.DispatchedAt = DateTime.UtcNow;
+                    snakeRequest.Status = RequestStatus.OperatorContacting;
+
+                    _unitOfWork.GetRepository<SnakeCatchingRequest>().Update(snakeRequest);
+
+                    await _unitOfWork.CommitAsync();
+
+                    // Reload the request with all navigation properties for response
+                    var updatedRequest = await _unitOfWork.GetRepository<SnakeCatchingRequest>().FirstOrDefaultAsync(
+                        predicate: r => r.Id == requestId,
+                        include: query => query
+                            .Include(r => r.User)
+                            .Include(r => r.AssignedRescuer)
+                                .ThenInclude(ar => ar.Account)
+                            .Include(r => r.Missions)
+                                .ThenInclude(m => m.CatchingEnvironment)
+                            .Include(r => r.Missions)
+                                .ThenInclude(m => m.MissionDetails)
+                                    .ThenInclude(md => md.SnakeSpecies)
+                            .Include(r => r.Details)
+                                .ThenInclude(d => d.SnakeSpecies)
+                    );
+
+                    if (updatedRequest == null)
+                    {
+                        throw new Exception("Failed to retrieve updated request.");
+                    }
+
+                    await updatedRequest.AttachReportMediaAsync(_unitOfWork, MediaReferenceType.SnakeCatchingRequest);
+
+                    var response = updatedRequest.Adapt<CreateSnakeCatchingRequestResponse>();
+                    if (response.EstimatedPrice.HasValue)
+                    {
+                        var perKmRate = _configuration.GetValue<decimal>("LocationIq:PricePerKilometer");
+                        if (perKmRate > 0)
+                        {
+                            response.DistanceKm = (double)(response.EstimatedPrice.Value / perKmRate);
+                        }
+                    }
+
+                    //_logger.LogInformation(
+                    //    "Snake catching request accepted successfully. RequestId: {RequestId}, RescuerId: {RescuerId}, EstimatedPrice: {Price} VND",
+                    //    requestId, rescuerId, estimatedPrice);
+
+                    return response;
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error accepting snake catching request: {Message}", ex.Message);
+                throw;
+            }
+        }
 
         public async Task<CreateSnakeCatchingRequestResponse> AssignSnakeCatchingRequestAsync(
             Guid requestId,

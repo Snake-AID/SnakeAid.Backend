@@ -12,6 +12,8 @@ namespace SnakeAid.Service.Interfaces
     {
         Task<CreateSnakeCatchingRequestResponse> CreateSnakeCatchingRequestAsync(Guid userId, CreateSnakeCatchingRequestRequest request);
 
+        Task<CreateSnakeCatchingRequestResponse> AcceptSnakeCatchingRequestAsync(Guid requestId, Guid operatorId);
+
         Task<CreateSnakeCatchingRequestResponse> AssignSnakeCatchingRequestAsync(Guid requestId, AssignSnakeCatchingRequestRequest request);
 
         Task<DetailSnakeCatchingRequestResponse> GetDetailAsync(Guid requestId);
