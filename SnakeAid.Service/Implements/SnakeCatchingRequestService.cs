@@ -715,12 +715,26 @@ namespace SnakeAid.Service.Implements
             }
         }
 
-        public async Task<List<ListSnakeCatchingRequestResponse>> GetAllRequestAsync()
+        public async Task<List<ListSnakeCatchingRequestResponse>> GetAllRequestAsync(GetAllSnakeCatchingRequestsQuery? query = null)
         {
             try
             {
+                query ??= new GetAllSnakeCatchingRequestsQuery();
+
+                var userId = query.UserId;
+                var handlingOperatorId = query.HandlingOperatorId;
+                var assignedRescuerId = query.AssignedRescuerId;
+                var status = query.Status;
+
+                var hasFilter = userId.HasValue || handlingOperatorId.HasValue || assignedRescuerId.HasValue || status.HasValue;
+
                 // Get all snake catching requests with related data
                 var requests = await _unitOfWork.GetRepository<SnakeCatchingRequest>().GetListAsync(
+                    predicate: r => !hasFilter
+                        || (!userId.HasValue || r.UserId == userId.Value)
+                        && (!handlingOperatorId.HasValue || r.HandlingOperatorId == handlingOperatorId.Value)
+                        && (!assignedRescuerId.HasValue || r.AssignedRescuerId == assignedRescuerId.Value)
+                        && (!status.HasValue || r.Status == status.Value),
                     include: query => query
                         .Include(r => r.User)
                             .ThenInclude(u => u.Account)
@@ -728,7 +742,7 @@ namespace SnakeAid.Service.Implements
                             .ThenInclude(r => r.Account)
                         .Include(r => r.Details)
                             .ThenInclude(d => d.SnakeSpecies),
-                    orderBy: q => q.OrderByDescending(r => r.RequestDate)
+                    orderBy: q => q.OrderByDescending(r => r.CreatedAt)
                 );
 
                 await requests.AttachReportMediaAsync(_unitOfWork, MediaReferenceType.SnakeCatchingRequest);

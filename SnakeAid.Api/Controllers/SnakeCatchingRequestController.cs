@@ -2,6 +2,7 @@ using MapsterMapper;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using SnakeAid.Core.Domains;
 using SnakeAid.Core.Meta;
 using SnakeAid.Core.Requests.SnakeCatchingRequest;
 using SnakeAid.Core.Responses.SnakeCatchingRequest;
@@ -33,13 +34,13 @@ namespace SnakeAid.Api.Controllers
         [HttpGet]
         [SwaggerOperation(
             Summary = "Get All Snake Catching Requests",
-            Description = "Retrieve all snake catching requests with user information, media, and snake species details. Results are ordered by request date (newest first)")]
+            Description = "Retrieve snake catching requests with optional AND filters: userId, handlingOperatorId, assignedRescuerId, status. If no filters are provided, returns all. Results are ordered by created time (newest first).")]
         [SwaggerResponse(200, "Requests retrieved successfully", typeof(ApiResponse<List<ListSnakeCatchingRequestResponse>>))]
         [SwaggerResponse(401, "User not authenticated")]
         [ProducesResponseType(typeof(ApiResponse<List<ListSnakeCatchingRequestResponse>>), StatusCodes.Status200OK)]
-        public async Task<IActionResult> GetAllSnakeCatchingRequests()
+        public async Task<IActionResult> GetAllSnakeCatchingRequests([FromQuery] GetAllSnakeCatchingRequestsQuery query)
         {
-            var result = await _snakeCatchingRequestService.GetAllRequestAsync();
+            var result = await _snakeCatchingRequestService.GetAllRequestAsync(query);
             
             return Ok(ApiResponseBuilder.BuildSuccessResponse(
                 result,
