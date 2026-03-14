@@ -157,6 +157,7 @@ namespace SnakeAid.Service.Implements
                         predicate: r => r.Id == newRequest.Id,
                         include: query => query
                             .Include(r => r.User)
+                            .Include(r => r.HandlingOperator)
                             .Include(r => r.Details)
                                 .ThenInclude(d => d.SnakeSpecies)
                     );
@@ -351,7 +352,7 @@ namespace SnakeAid.Service.Implements
                     }
 
                     // check if request is already assigned (race condition protection)
-                    if (snakeRequest.Version != 1)
+                    if (snakeRequest.HandlingOperatorId.HasValue)
                     {
                         throw new BadRequestException("This request has already been accepted to another operator.");
                     }
@@ -371,6 +372,7 @@ namespace SnakeAid.Service.Implements
                         predicate: r => r.Id == requestId,
                         include: query => query
                             .Include(r => r.User)
+                            .Include(r => r.HandlingOperator)
                             .Include(r => r.AssignedRescuer)
                                 .ThenInclude(ar => ar.Account)
                             .Include(r => r.Missions)
@@ -419,6 +421,16 @@ namespace SnakeAid.Service.Implements
         {
             try
             {
+                if (request == null)
+                {
+                    throw new BadRequestException("Request data cannot be null.");
+                }
+
+                if (request.rescuerId == Guid.Empty)
+                {
+                    throw new BadRequestException("Rescuer ID is required.");
+                }
+
                 // Step 1: Validate rescuer exists and has rescuer profile (OUTSIDE transaction)
                 var existingAccount = await _unitOfWork.GetRepository<Account>().FirstOrDefaultAsync(
                     predicate: a => a.Id == request.rescuerId,
@@ -507,6 +519,7 @@ namespace SnakeAid.Service.Implements
                         predicate: r => r.Id == requestId,
                         include: query => query
                             .Include(r => r.User)
+                            .Include(r => r.HandlingOperator)
                             .Include(r => r.AssignedRescuer)
                                 .ThenInclude(ar => ar.Account)
                             .Include(r => r.Missions)
@@ -559,6 +572,7 @@ namespace SnakeAid.Service.Implements
                     include: query => query
                         .Include(r => r.User)
                             .ThenInclude(u => u.Account)
+                        .Include(r => r.HandlingOperator)
                         .Include(r => r.AssignedRescuer)
                             .ThenInclude(ar => ar.Account)
                         .Include(r => r.Missions)
@@ -887,6 +901,7 @@ namespace SnakeAid.Service.Implements
                         include: query => query
                             .Include(r => r.User)
                                 .ThenInclude(u => u.Account)
+                            .Include(r => r.HandlingOperator)
                             .Include(r => r.AssignedRescuer)
                                 .ThenInclude(ar => ar.Account)
                             .Include(r => r.Missions)

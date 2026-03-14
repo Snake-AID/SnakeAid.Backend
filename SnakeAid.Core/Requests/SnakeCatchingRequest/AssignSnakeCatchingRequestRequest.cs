@@ -10,19 +10,5 @@ namespace SnakeAid.Core.Requests.SnakeCatchingRequest
     public class AssignSnakeCatchingRequestRequest
     {
         public Guid rescuerId { get; set; }
-
-        /// <summary>
-        /// Longitude (Kinh độ) - VD: 106.660172
-        /// </summary>
-        [Required]
-        [Range(-180, 180)]
-        public double Lng { get; set; }
-
-        /// <summary>
-        /// Latitude (Vĩ độ) - VD: 10.762622
-        /// </summary>
-        [Required]
-        [Range(-90, 90)]
-        public double Lat { get; set; }
     }
 }

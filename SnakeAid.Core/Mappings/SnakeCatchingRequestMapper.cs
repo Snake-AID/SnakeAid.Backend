@@ -1,5 +1,6 @@
 using Mapster;
 using SnakeAid.Core.Domains;
+using SnakeAid.Core.Responses.Auth;
 using SnakeAid.Core.Responses.MemberProfile;
 using SnakeAid.Core.Responses.RescuerProfile;
 using SnakeAid.Core.Responses.SnakeCatchingRequest;
@@ -17,6 +18,7 @@ namespace SnakeAid.Core.Mappings
                 .Map(dest => dest.LocationCoordinates, src => src.LocationCoordinates)
                 .Map(dest => dest.Lng, src => src.LocationCoordinates.X)
                 .Map(dest => dest.Lat, src => src.LocationCoordinates.Y)
+                .Map(dest => dest.HandlingOperator, src => src.HandlingOperator)
                 .Map(dest => dest.Media, src => src.Media); // Explicitly map Media
 
             TypeAdapterConfig<SnakeCatchingRequest, DetailSnakeCatchingRequestResponse>
@@ -26,6 +28,7 @@ namespace SnakeAid.Core.Mappings
                 .Map(dest => dest.LocationCoordinates, src => src.LocationCoordinates)
                 .Map(dest => dest.Lng, src => src.LocationCoordinates.X)
                 .Map(dest => dest.Lat, src => src.LocationCoordinates.Y)
+                .Map(dest => dest.HandlingOperator, src => src.HandlingOperator)
                 .Map(dest => dest.Media, src => src.Media); // Explicitly map Media
 
             // Configure MemberProfile mapping to ignore circular collections
@@ -45,6 +48,9 @@ namespace SnakeAid.Core.Mappings
                 .NewConfig()
                 .PreserveReference(true)
                 .MaxDepth(2);
+
+            TypeAdapterConfig<Account, UserInfo>
+                .NewConfig();
 
             // Configure MemberProfile to BriefMemberProfileResponse mapping
             TypeAdapterConfig<MemberProfile, BriefMemberProfileResponse>
