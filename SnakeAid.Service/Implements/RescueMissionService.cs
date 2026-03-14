@@ -30,17 +30,20 @@ namespace SnakeAid.Service.Implements
 
 
         private readonly IMissionNotificationService _notificationService;
+        private readonly IOperatorRealtimeNotificationService _operatorRealtimeNotificationService;
 
         public RescueMissionService(
             IUnitOfWork<SnakeAidDbContext> unitOfWork,
             ILogger<RescueMissionService> logger,
             IConfiguration configuration,
-            IMissionNotificationService notificationService)
+            IMissionNotificationService notificationService,
+            IOperatorRealtimeNotificationService operatorRealtimeNotificationService)
         {
             _unitOfWork = unitOfWork;
             _logger = logger;
             _configuration = configuration;
             _notificationService = notificationService;
+            _operatorRealtimeNotificationService = operatorRealtimeNotificationService;
         }
 
         /// <summary>
@@ -297,6 +300,7 @@ namespace SnakeAid.Service.Implements
         /// User cancel mission: Set status to Cancelled, no new session
         /// Only allowed during Preparing phase (before rescuer starts moving)
         /// </summary>
+        [Obsolete("Use SnakebiteIncidentService.CancelIncidentAsync instead")]
         public async Task UserCancelMissionAsync(Guid missionId, string reason)
         {
             RescueMission mission;
@@ -308,7 +312,9 @@ namespace SnakeAid.Service.Implements
                 {
                     var missionEntity = await _unitOfWork.GetRepository<RescueMission>().FirstOrDefaultAsync(
                         predicate: m => m.Id == missionId,
-                        include: q => q.Include(m => m.Incident)
+                        include: q => q
+                            .Include(m => m.Incident)
+                            .Include(m => m.Rescuer)
                     );
 
                     if (missionEntity == null)
@@ -331,6 +337,14 @@ namespace SnakeAid.Service.Implements
                     incident.Status = SnakebiteIncidentStatus.Cancelled;
                     incident.AssignedRescuerId = null;
                     incident.AssignedAt = null;
+                    incident.DispatchedAt = null;
+
+                    // Make rescuer available again
+                    if (missionEntity.Rescuer != null)
+                    {
+                        missionEntity.Rescuer.IsAvailable = true;
+                        _unitOfWork.GetRepository<RescuerProfile>().Update(missionEntity.Rescuer);
+                    }
 
                     _unitOfWork.GetRepository<RescueMission>().Update(missionEntity);
                     _unitOfWork.GetRepository<SnakebiteIncident>().Update(incident);
@@ -357,6 +371,7 @@ namespace SnakeAid.Service.Implements
         public async Task RescuerAbortMissionAsync(Guid missionId, string reason)
         {
             Guid incidentId;
+            Guid? rescuerId = null;
 
             try
             {
@@ -372,6 +387,8 @@ namespace SnakeAid.Service.Implements
                     {
                         throw new NotFoundException("Mission not found.");
                     }
+
+                    rescuerId = mission.RescuerId;
 
                     // Validate status transition using centralized method
                     if (!IsValidStatusTransition(mission.Status, RescueMissionStatus.MissionAborted))
@@ -419,6 +436,12 @@ namespace SnakeAid.Service.Implements
 
                 // PUSH NOTIFICATION: Notify Member about rescuer abort AFTER transaction committed
                 await _notificationService.NotifyMissionCancelledAsync(incidentId, reason);
+
+                // Notify operators that rescuer aborted and the incident is ready for re-dispatch
+                if (rescuerId.HasValue)
+                {
+                    await _operatorRealtimeNotificationService.NotifyRescuerAbortedAsync(incidentId, rescuerId.Value, reason);
+                }
 
                 // NOTE: In new operator-dispatch flow, re-dispatching is handled manually by operator.
                 // Operator will be notified via SignalR that the incident is back in Verified state.
