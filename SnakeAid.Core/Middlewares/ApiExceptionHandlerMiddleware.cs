@@ -166,8 +166,8 @@ public class ApiExceptionHandlerMiddleware
                 "DATABASE_SCHEMA_MISMATCH",
                 null
             ),
-            UnauthorizedException => (
-                "Unauthorized access",
+            UnauthorizedException unauthorizedEx => (
+                unauthorizedEx.Message,
                 "UNAUTHORIZED",
                 null
             ),
