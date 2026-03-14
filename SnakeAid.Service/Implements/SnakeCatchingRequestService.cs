@@ -82,6 +82,12 @@ namespace SnakeAid.Service.Implements
                         "Creating snake catching request at Lng={Lng}, Lat={Lat} (Point.X={X}, Point.Y={Y})",
                         request.Lng, request.Lat, locationPoint.X, locationPoint.Y);
 
+                    // Calculate estimated price based on distance from center (before creating request to avoid unnecessary calculations if validation fails)
+                    var estimatedPrice = await CalculateEstimatedPriceFromCenterAsync(
+                        request.Lng,
+                        request.Lat,
+                        $"create request for user {userId}");
+
                     // Create new SnakeCatchingRequest
                     var newRequest = new SnakeCatchingRequest
                     {
@@ -94,7 +100,8 @@ namespace SnakeAid.Service.Implements
                         Priority = RequestPriority.Normal,
                         RequestDate = DateTime.UtcNow,
                         PreferredTime = DateTime.UtcNow,
-                        Notes = request.Notes
+                        Notes = request.Notes,
+                        EstimatedPrice = estimatedPrice
                     };
 
                     // Handle snake species identification if provided
@@ -342,64 +349,10 @@ namespace SnakeAid.Service.Implements
                     throw new BadRequestException("Rescuer must be online to accept requests.");
                 }
 
-                // Step 2: Get snake catching request to retrieve coordinates (OUTSIDE transaction)
-                var snakeRequestForCoords = await _unitOfWork.GetRepository<SnakeCatchingRequest>().FirstOrDefaultAsync(
-                    predicate: r => r.Id == requestId,
-                    include: query => query.Include(r => r.User)
-                );
-
-                if (snakeRequestForCoords == null)
-                {
-                    throw new NotFoundException("Snake catching request not found.");
-                }
-
-                // Pre-validate request status
-                if (snakeRequestForCoords.Status != RequestStatus.Pending)
-                {
-                    throw new BadRequestException($"Request cannot be accepted. Current status: {snakeRequestForCoords.Status}");
-                }
-
-                // Check if request is already assigned
-                if (snakeRequestForCoords.AssignedRescuerId.HasValue)
-                {
-                    throw new BadRequestException("This request has already been assigned to another rescuer.");
-                }
-
-                // Step 3: Calculate distance and price BEFORE transaction (external HTTP call)
-                decimal estimatedPrice;
-                try
-                {
-                    // Log coordinates for debugging
-                    _logger.LogInformation(
-                        "Calculating distance - Rescuer (Source): Lng={SourceLng}, Lat={SourceLat} | " +
-                        "Request (Dest): Lng={DestLng}, Lat={DestLat} (from Point.X/Y)",
-                        request.Lng, request.Lat,
-                        snakeRequestForCoords.LocationCoordinates.X,
-                        snakeRequestForCoords.LocationCoordinates.Y);
-
-                    var (distanceInKm, priceInVnd) = await _locationIqService.CalculateDistanceAndPriceAsync(
-                        request.Lng,
-                        request.Lat,
-                        snakeRequestForCoords.LocationCoordinates.X, // Longitude
-                        snakeRequestForCoords.LocationCoordinates.Y  // Latitude
-                    );
-
-                    estimatedPrice = priceInVnd;
-
-                    _logger.LogInformation(
-                        "Distance calculated for RequestId {RequestId}: {Distance} km, Price: {Price} VND",
-                        requestId, distanceInKm.ToString("F2"), estimatedPrice);
-                }
-                catch (ExternalServiceException ex)
-                {
-                    _logger.LogWarning(ex, "Failed to calculate distance, using default price of 50000 VND");
-                    estimatedPrice = 50000; // Fallback price
-                }
-
-                // Step 4: Start transaction for DB operations ONLY
+                // Step 2: Start transaction for DB operations ONLY
                 return await _unitOfWork.ExecuteInTransactionAsync(async () =>
                 {
-                    // Re-fetch and re-validate inside transaction to ensure data consistency (optimistic locking)
+                    // fetch and validate inside transaction to ensure data consistency (optimistic locking)
                     var snakeRequest = await _unitOfWork.GetRepository<SnakeCatchingRequest>().FirstOrDefaultAsync(
                         predicate: r => r.Id == requestId,
                         include: query => query.Include(r => r.User)
@@ -410,13 +363,13 @@ namespace SnakeAid.Service.Implements
                         throw new NotFoundException("Snake catching request not found.");
                     }
 
-                    // Re-validate status inside transaction (race condition protection)
+                    // validate status inside transaction (race condition protection)
                     if (snakeRequest.Status != RequestStatus.Pending)
                     {
                         throw new BadRequestException($"Request cannot be accepted. Current status: {snakeRequest.Status}");
                     }
 
-                    // Re-check if request is already assigned (race condition protection)
+                    // check if request is already assigned (race condition protection)
                     if (snakeRequest.AssignedRescuerId.HasValue)
                     {
                         throw new BadRequestException("This request has already been assigned to another rescuer.");
@@ -439,19 +392,19 @@ namespace SnakeAid.Service.Implements
                     snakeRequest.AssignedRescuerId = rescuerId;
                     snakeRequest.AssignedAt = DateTime.UtcNow;
                     snakeRequest.Status = RequestStatus.Assigned;
-                    snakeRequest.EstimatedPrice = estimatedPrice;
 
                     _unitOfWork.GetRepository<SnakeCatchingRequest>().Update(snakeRequest);
 
                     // Create a new mission for this request
+                    decimal basePrice = _configuration.GetValue<decimal>("Center:Longitude");
                     var newMission = new SnakeCatchingMission
                     {
                         Id = Guid.NewGuid(),
                         RescuerId = rescuerId,
                         SnakeCatchingRequestId = requestId,
                         Status = CatchingMissionStatus.Preparing,
-                        Price = estimatedPrice,
-                        EstimatedCost = estimatedPrice
+                        Price = basePrice,
+                        EstimatedCost = snakeRequest.EstimatedPrice,
                     };
 
                     await _unitOfWork.GetRepository<SnakeCatchingMission>().InsertAsync(newMission);
@@ -490,9 +443,9 @@ namespace SnakeAid.Service.Implements
                         }
                     }
 
-                    _logger.LogInformation(
-                        "Snake catching request accepted successfully. RequestId: {RequestId}, RescuerId: {RescuerId}, EstimatedPrice: {Price} VND",
-                        requestId, rescuerId, estimatedPrice);
+                    //_logger.LogInformation(
+                    //    "Snake catching request accepted successfully. RequestId: {RequestId}, RescuerId: {RescuerId}, EstimatedPrice: {Price} VND",
+                    //    requestId, rescuerId, estimatedPrice);
 
                     return response;
                 });
@@ -686,6 +639,56 @@ namespace SnakeAid.Service.Implements
             {
                 _logger.LogError(ex, "Error getting all snake catching requests: {Message}", ex.Message);
                 throw;
+            }
+        }
+
+        private (double centerLng, double centerLat) GetCenterCoordinates()
+        {
+            var centerLng = _configuration.GetValue<double?>("Center:Longitude");
+            var centerLat = _configuration.GetValue<double?>("Center:Latitude");
+
+            if (!centerLng.HasValue || !centerLat.HasValue)
+            {
+                throw new BadRequestException("Center coordinates are missing in appsettings (Center:Longitude, Center:Latitude).");
+            }
+
+            return (centerLng.Value, centerLat.Value);
+        }
+
+        private async Task<decimal> CalculateEstimatedPriceFromCenterAsync(double destinationLng, double destinationLat, string context)
+        {
+            var (centerLng, centerLat) = GetCenterCoordinates();
+
+            try
+            {
+                _logger.LogInformation(
+                    "Calculating estimated price from center for {Context} - Source: Lng={SourceLng}, Lat={SourceLat} | Dest: Lng={DestLng}, Lat={DestLat}",
+                    context,
+                    centerLng,
+                    centerLat,
+                    destinationLng,
+                    destinationLat);
+
+                var (distanceInKm, priceInVnd) = await _locationIqService.CalculateDistanceAndPriceAsync(
+                    centerLng,
+                    centerLat,
+                    destinationLng,
+                    destinationLat);
+
+                _logger.LogInformation(
+                    "Estimated price calculated for {Context}: {Distance} km, Price: {Price} VND",
+                    context,
+                    distanceInKm.ToString("F2"),
+                    priceInVnd);
+
+                return priceInVnd;
+            }
+            catch (ExternalServiceException ex)
+            {
+                _logger.LogWarning(ex,
+                    "Failed to calculate distance from center for {Context}, using fallback price of 50000 VND",
+                    context);
+                return 50000;
             }
         }
 
