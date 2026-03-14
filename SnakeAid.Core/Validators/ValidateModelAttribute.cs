@@ -26,10 +26,21 @@ namespace SnakeAid.Core.Validators
                     var key = modelStateEntry.Key;
                     var errorMessages = new List<string>();
 
+                    // Determine expected type once so we can produce friendlier messages
+                    var expectedType = GetExpectedType(key, context);
+
                     foreach (var error in modelStateEntry.Value.Errors)
                     {
+                        // Prefer friendly messages for JSON deserialization issues
                         if (!string.IsNullOrEmpty(error.ErrorMessage))
                         {
+                            var friendly = TryGetFriendlyErrorMessage(key, error.ErrorMessage, expectedType);
+                            if (!string.IsNullOrEmpty(friendly))
+                            {
+                                errorMessages.Add(friendly);
+                                continue;
+                            }
+
                             errorMessages.Add(error.ErrorMessage);
                         }
                         else if (error.Exception != null)
@@ -43,7 +54,15 @@ namespace SnakeAid.Core.Validators
                     if (!errorMessages.Any() && modelStateEntry.Value.ValidationState == ModelValidationState.Invalid)
                     {
                         string propertyName = key.Split('.').Last();
-                        errorMessages.Add($"The {propertyName} field is required.");
+                        // Prefer a generic message for the root request object
+                        if (key.Equals(propertyName, StringComparison.OrdinalIgnoreCase))
+                        {
+                            errorMessages.Add("The request body is required and must be valid JSON.");
+                        }
+                        else
+                        {
+                            errorMessages.Add($"The {propertyName} field is required.");
+                        }
                     }
 
                     if (errorMessages.Any())
@@ -54,6 +73,25 @@ namespace SnakeAid.Core.Validators
 
                 CreateValidationErrorResponse(context, errors);
             }
+        }
+
+        private string? TryGetFriendlyErrorMessage(string fieldPath, string rawMessage, Type? expectedType)
+        {
+            // Normalize common model binding messages for root request body
+            if (rawMessage.Contains("The request field is required", StringComparison.OrdinalIgnoreCase) ||
+                rawMessage.Contains("The request body is required", StringComparison.OrdinalIgnoreCase))
+            {
+                return "The request body is required and must be valid JSON.";
+            }
+
+            // Handle System.Text.Json conversion errors (common for wrong data types)
+            if (expectedType != null && rawMessage.Contains("The JSON value could not be converted", StringComparison.OrdinalIgnoreCase))
+            {
+                string propertyName = fieldPath.Split('.').Last();
+                return GetTypeSpecificMessage(propertyName, expectedType);
+            }
+
+            return null;
         }
 
         private string GetCustomTypeErrorMessage(string fieldPath, Exception exception, ActionExecutingContext context)
@@ -79,15 +117,30 @@ namespace SnakeAid.Core.Validators
                 var actionDescriptor = context.ActionDescriptor as Microsoft.AspNetCore.Mvc.Controllers.ControllerActionDescriptor;
                 if (actionDescriptor?.MethodInfo == null) return null;
 
-                // For simple parameters
-                if (!fieldPath.Contains('.'))
+                // Handle JSON path keys like "$.role" coming from System.Text.Json deserialization errors
+                // In that case, we treat it as a property of the first complex parameter (usually the request model).
+                bool isJsonPath = fieldPath.StartsWith("$.", StringComparison.Ordinal);
+
+                // For simple parameters (not a member access)
+                if (!fieldPath.Contains('.') || isJsonPath)
                 {
+                    // If this is a JSON path, assume the first action parameter is the root object
+                    if (isJsonPath)
+                    {
+                        var rootParamJson = actionDescriptor.MethodInfo.GetParameters().FirstOrDefault();
+                        if (rootParamJson == null) return null;
+
+                        var propertyName = fieldPath.Substring(2);
+                        var property = rootParamJson.ParameterType.GetProperty(propertyName, BindingFlags.IgnoreCase | BindingFlags.Public | BindingFlags.Instance);
+                        return property?.PropertyType;
+                    }
+
                     var parameter = actionDescriptor.MethodInfo.GetParameters()
                         .FirstOrDefault(p => p.Name?.Equals(fieldPath, StringComparison.OrdinalIgnoreCase) == true);
                     return parameter?.ParameterType;
                 }
 
-                // For complex object properties
+                // For complex object properties (e.g. "request.role")
                 var parts = fieldPath.Split('.');
                 var rootParam = actionDescriptor.MethodInfo.GetParameters()
                     .FirstOrDefault(p => p.Name?.Equals(parts[0], StringComparison.OrdinalIgnoreCase) == true);

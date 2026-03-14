@@ -17,6 +17,11 @@ public interface IAuthService
     Task<AuthResponse> LoginAsync(LoginRequest request);
 
     /// <summary>
+    /// Login with email and password
+    /// </summary>
+    Task<AuthResponse> LoginV2Async(LoginRequestV2 request);
+
+    /// <summary>
     /// Refresh access token using refresh token
     /// </summary>
     Task<AuthResponse> RefreshTokenAsync(RefreshTokenRequest request);

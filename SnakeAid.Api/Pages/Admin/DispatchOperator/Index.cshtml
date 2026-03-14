@@ -1,0 +1,416 @@
+@page "/admin/dispatch-operator"
+@model SnakeAid.Api.Pages.Admin.DispatchOperator.IndexModel
+@{
+    ViewData["Title"] = "Dispatch Operator | Admin Portal";
+}
+
+@section Styles {
+    <style>
+        .dispatch-layout { display: grid; grid-template-columns: 1.15fr 1fr; gap: 24px; }
+        .stack { display: flex; flex-direction: column; gap: 20px; }
+        .panel { background: var(--bg-panel); border: 1px solid var(--border-glass); border-radius: 24px; padding: 24px; box-shadow: 0 20px 40px -20px rgba(0, 0, 0, 0.55); }
+        .panel-header { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 18px; }
+        .panel-title { font-size: 1rem; text-transform: uppercase; letter-spacing: 1.4px; color: var(--text-muted); margin: 0; }
+        .action-row { display: flex; flex-wrap: wrap; gap: 12px; }
+        .btn-neo { border: 1px solid var(--border-glass); background: rgba(255, 255, 255, 0.04); color: var(--text-main); border-radius: 14px; padding: 10px 16px; font-weight: 600; cursor: pointer; transition: 180ms ease; position: relative; }
+        .btn-neo:hover:not(:disabled) { transform: translateY(-1px); border-color: rgba(255,255,255,0.18); }
+        .btn-neo:active:not(:disabled), .btn-neo.is-busy { transform: translateY(1px) scale(0.985); }
+        .btn-neo:disabled { opacity: 0.42; cursor: not-allowed; filter: grayscale(1); pointer-events: none; box-shadow: none; }
+        .btn-neo.is-busy { cursor: progress; }
+        .btn-neo.primary { background: rgba(59, 130, 246, 0.16); border-color: rgba(59, 130, 246, 0.35); }
+        .btn-neo.success { background: rgba(16, 185, 129, 0.14); border-color: rgba(16, 185, 129, 0.35); }
+        .btn-neo.warn { background: rgba(245, 158, 11, 0.14); border-color: rgba(245, 158, 11, 0.35); }
+        .status-strip { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
+        .status-box { padding: 16px; border-radius: 18px; background: rgba(255,255,255,0.03); border: 1px solid var(--border-glass); }
+        .status-box .value { font-size: 1.45rem; font-family: var(--font-mono); font-weight: 700; color: #fff; }
+        .status-box .label { color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; font-size: 0.72rem; margin-top: 6px; }
+        .status-note { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; }
+        .incident-list, .rescuer-list, .log-list { display: flex; flex-direction: column; gap: 14px; }
+        .incident-card, .rescuer-card, .log-line { border: 1px solid var(--border-glass); border-radius: 18px; background: rgba(255,255,255,0.03); padding: 18px; }
+        .incident-card.active-claim { border-color: rgba(59, 130, 246, 0.4); }
+        .incident-card.verified-card { border-color: rgba(16, 185, 129, 0.4); }
+        .incident-top, .rescuer-top { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; }
+        .mono { font-family: var(--font-mono); }
+        .muted { color: var(--text-muted); }
+        .pill { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; border: 1px solid transparent; }
+        .pill.pending { background: rgba(245, 158, 11, 0.14); color: var(--accent-gold); border-color: rgba(245, 158, 11, 0.3); }
+        .pill.contacting { background: rgba(59, 130, 246, 0.14); color: var(--accent-blue); border-color: rgba(59, 130, 246, 0.3); }
+        .pill.verified { background: rgba(16, 185, 129, 0.14); color: var(--accent-green); border-color: rgba(16, 185, 129, 0.3); }
+        .pill.assigned { background: rgba(139, 92, 246, 0.14); color: #c4b5fd; border-color: rgba(139, 92, 246, 0.35); }
+        .pill.offline { background: rgba(244, 63, 94, 0.14); color: var(--accent-red); border-color: rgba(244, 63, 94, 0.3); }
+        .incident-meta { margin-top: 12px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+        .meta-box { background: rgba(2, 6, 23, 0.45); border: 1px solid rgba(255,255,255,0.04); border-radius: 14px; padding: 10px 12px; }
+        .meta-box .k { display: block; color: var(--text-muted); font-size: 0.68rem; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; }
+        .meta-box .v { color: #fff; font-size: 0.9rem; word-break: break-word; }
+        .dispatch-row { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
+        .dispatch-select { flex: 1; min-width: 220px; border-radius: 14px; border: 1px solid var(--border-glass); background: rgba(2, 6, 23, 0.8); color: #fff; padding: 12px 14px; }
+        .request-list { margin-top: 12px; display: flex; gap: 8px; flex-wrap: wrap; }
+        .request-chip { padding: 6px 10px; border-radius: 10px; background: rgba(255,255,255,0.04); border: 1px solid var(--border-glass); font-size: 0.76rem; }
+        .request-chip.accepted { border-color: rgba(16,185,129,0.35); color: var(--accent-green); }
+        .request-chip.declined { border-color: rgba(244,63,94,0.35); color: var(--accent-red); }
+        .request-chip.pending { border-color: rgba(245,158,11,0.35); color: var(--accent-gold); }
+        .log-list { max-height: 720px; overflow-y: auto; }
+        .log-line { display: grid; grid-template-columns: 78px 1fr; gap: 12px; font-size: 0.8rem; }
+        .empty-state { padding: 30px 20px; border: 1px dashed var(--border-glass); border-radius: 18px; text-align: center; color: var(--text-muted); }
+        @@media (max-width: 1180px) { .dispatch-layout { grid-template-columns: 1fr; } .status-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    </style>
+}
+
+<div class="page-header">
+    <div class="header-title-group">
+        <h1>Dispatch Operator</h1>
+        <p>Claim SOS, verify incident, and hand off mission to one rescuer on duty.</p>
+    </div>
+    <div class="header-actions">
+        <div class="stat-badge">
+            <span class="stat-value mono">OP-A</span>
+            <span class="stat-label">Demo Operator</span>
+        </div>
+    </div>
+</div>
+
+<div class="status-strip" id="statusStrip">
+    <div class="status-box"><div class="value" id="pendingCount">0</div><div class="label">Pending SOS</div></div>
+    <div class="status-box"><div class="value" id="contactingCount">0</div><div class="label">Operator Contacting</div></div>
+    <div class="status-box"><div class="value" id="verifiedCount">0</div><div class="label">Ready To Dispatch</div></div>
+    <div class="status-box"><div class="value" id="onlineRescuerCount">0</div><div class="label">Online Rescuers</div></div>
+</div>
+
+<div class="dispatch-layout" style="margin-top: 22px;">
+    <div class="stack">
+        <section class="panel">
+            <div class="panel-header">
+                <h2 class="panel-title">Demo Controls</h2>
+                <div class="mono muted" id="hubStatus">Hub: connecting</div>
+            </div>
+            <div class="action-row">
+                <button class="btn-neo primary" id="btnSeedDemo" type="button" onclick="seedDemo(this)">Seed demo data</button>
+                <button class="btn-neo warn" id="btnRevokeDemo" type="button" onclick="revokeDemo(this)">Revoke seed data</button>
+                <button class="btn-neo warn" id="btnCreateIncident" type="button" onclick="createDemoIncident(this)">Create demo SOS</button>
+                <button class="btn-neo" id="btnRefreshSnapshot" type="button" onclick="loadSnapshot()">Refresh snapshot</button>
+            </div>
+            <div class="status-note">
+                <span class="pill pending" id="demoSeedBadge">Checking seed...</span>
+                <span class="pill pending" id="demoDispatchBadge">Checking dispatch...</span>
+                <span class="muted mono" id="demoStatusDetail">Demo status chưa tải.</span>
+            </div>
+            <p class="muted" style="margin: 14px 0 0 0;">
+                Demo SOS được tạo bằng demo member. Operator page này dùng token của <span class="mono">Demo Operator A</span>
+                để gọi API thật và join operator SignalR group.
+            </p>
+        </section>
+
+        <section class="panel">
+            <div class="panel-header">
+                <h2 class="panel-title">Incident Queue</h2>
+                <div class="mono muted" id="incidentCount">0 incidents</div>
+            </div>
+            <div id="incidentList" class="incident-list">
+                <div class="empty-state">Chưa có SOS demo nào.</div>
+            </div>
+        </section>
+    </div>
+
+    <div class="stack">
+        <section class="panel">
+            <div class="panel-header">
+                <h2 class="panel-title">Rescuer On Duty</h2>
+                <div class="mono muted" id="rescuerSummary">0 online</div>
+            </div>
+            <div id="rescuerList" class="rescuer-list">
+                <div class="empty-state">Chưa có rescuer demo.</div>
+            </div>
+        </section>
+
+        <section class="panel">
+            <div class="panel-header">
+                <h2 class="panel-title">Event Console</h2>
+                <button class="btn-neo" type="button" onclick="clearLogs()">Clear</button>
+            </div>
+            <div id="logList" class="log-list"></div>
+        </section>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.7/signalr.min.js"></script>
+    <script>
+        const operatorToken = '@Model.OperatorToken';
+        const operatorId = '@Model.OperatorId'.toLowerCase();
+        const snapshotUrl = '?handler=Snapshot';
+        let hubConnection;
+        let currentState = { incidents: [], rescuers: [] };
+        let demoStatus = null;
+
+        function logEvent(message, level = 'info') {
+            const host = document.getElementById('logList');
+            const row = document.createElement('div');
+            row.className = `log-line ${level}`;
+            row.innerHTML = `<div class="mono muted">${new Date().toLocaleTimeString()}</div><div>${message}</div>`;
+            host.prepend(row);
+            while (host.children.length > 40) host.removeChild(host.lastChild);
+        }
+
+        function clearLogs() { document.getElementById('logList').innerHTML = ''; }
+
+        async function apiPost(url, body) {
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${operatorToken}` },
+                body: body ? JSON.stringify(body) : null
+            });
+            const payload = await response.json().catch(() => ({}));
+            if (!response.ok) throw new Error(payload.message || payload.title || payload.error || `HTTP ${response.status}`);
+            return payload.data ?? payload;
+        }
+
+        function setBusy(button, busy, busyText) {
+            if (!button) return;
+            if (!button.dataset.defaultText) button.dataset.defaultText = button.textContent;
+            button.disabled = busy;
+            button.classList.toggle('is-busy', busy);
+            button.textContent = busy ? busyText : button.dataset.defaultText;
+        }
+
+        function syncControlStates() {
+            const hasSeed = !!demoStatus?.isSeeded;
+            const dispatchReady = !!demoStatus?.isDispatchReady;
+            const hasOpenIncident = (currentState.incidents || []).some(i => ['Pending', 'OperatorContacting', 'Verified'].includes(i.status));
+            const hasOnlineDutyRescuer = (currentState.rescuers || []).some(r => r.isOnline && r.isAvailable && r.isOnDuty);
+
+            const btnSeed = document.getElementById('btnSeedDemo');
+            const btnRevoke = document.getElementById('btnRevokeDemo');
+            const btnCreate = document.getElementById('btnCreateIncident');
+            const btnRefresh = document.getElementById('btnRefreshSnapshot');
+
+            if (btnSeed && !btnSeed.classList.contains('is-busy')) btnSeed.disabled = dispatchReady;
+            if (btnRevoke && !btnRevoke.classList.contains('is-busy')) btnRevoke.disabled = !hasSeed;
+            if (btnCreate && !btnCreate.classList.contains('is-busy')) btnCreate.disabled = !dispatchReady || hasOpenIncident || !hasOnlineDutyRescuer;
+            if (btnRefresh && !btnRefresh.classList.contains('is-busy')) btnRefresh.disabled = false;
+        }
+
+        async function seedDemo(button) {
+            try {
+                setBusy(button, true, 'Seeding...');
+                const response = await fetch('/api/rescuedemo/seed', { method: 'POST' });
+                if (!response.ok) throw new Error(await response.text());
+                logEvent('Demo data seeded or already present.', 'success');
+                await loadDemoStatus();
+                await loadSnapshot();
+            } catch (error) {
+                logEvent(`Seed failed: ${error.message}`, 'warn');
+            } finally {
+                setBusy(button, false);
+                syncControlStates();
+            }
+        }
+
+        async function revokeDemo(button) {
+            try {
+                setBusy(button, true, 'Revoking...');
+                const response = await fetch('/api/rescuedemo/cleanup', { method: 'POST' });
+                if (!response.ok) throw new Error(await response.text());
+                logEvent('Demo data revoked and cleaned up.', 'warn');
+                await loadDemoStatus();
+                await loadSnapshot();
+            } catch (error) {
+                logEvent(`Revoke failed: ${error.message}`, 'warn');
+            } finally {
+                setBusy(button, false);
+                syncControlStates();
+            }
+        }
+
+        async function createDemoIncident(button) {
+            try {
+                setBusy(button, true, 'Creating...');
+                const response = await fetch('/api/rescuedemo/incident/create', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ lat: 10.7768, lng: 106.7009 })
+                });
+                const payload = await response.json().catch(() => ({}));
+                if (!response.ok) throw new Error(payload.message || payload.error || 'Create incident failed');
+                logEvent(`Demo SOS created: ${payload.incidentId}`, 'warn');
+                await loadSnapshot();
+            } catch (error) {
+                logEvent(`Create SOS failed: ${error.message}`, 'warn');
+            } finally {
+                setBusy(button, false);
+                syncControlStates();
+            }
+        }
+
+        async function claimIncident(incidentId) {
+            try {
+                await apiPost(`/api/incidents/${incidentId}/claim`);
+                logEvent(`Claimed incident ${incidentId}`, 'success');
+                await loadSnapshot();
+            } catch (error) {
+                logEvent(`Claim failed: ${error.message}`, 'warn');
+            }
+        }
+
+        async function verifyIncident(incidentId) {
+            try {
+                await apiPost(`/api/incidents/${incidentId}/confirm`);
+                logEvent(`Verified incident ${incidentId}`, 'success');
+                await loadSnapshot();
+            } catch (error) {
+                logEvent(`Verify failed: ${error.message}`, 'warn');
+            }
+        }
+
+        async function dispatchIncident(incidentId) {
+            const select = document.getElementById(`dispatch-select-${incidentId}`);
+            const rescuerId = select?.value;
+            if (!rescuerId) { logEvent('Chọn rescuer trước khi dispatch.', 'warn'); return; }
+            try {
+                const payload = await apiPost(`/api/incidents/${incidentId}/dispatch`, { rescuerId });
+                logEvent(`Dispatch sent for incident ${incidentId} -> request ${payload.dispatchRequestId}`, 'success');
+                await loadSnapshot();
+            } catch (error) {
+                logEvent(`Dispatch failed: ${error.message}`, 'warn');
+            }
+        }
+
+        function statusClass(status) {
+            const key = (status || '').toLowerCase();
+            if (key.includes('pending')) return 'pending';
+            if (key.includes('operatorcontacting')) return 'contacting';
+            if (key.includes('verified')) return 'verified';
+            if (key.includes('assigned')) return 'assigned';
+            return 'pending';
+        }
+
+        function renderRescuers(rescuers) {
+            const host = document.getElementById('rescuerList');
+            document.getElementById('onlineRescuerCount').textContent = rescuers.filter(r => r.isOnline).length;
+            document.getElementById('rescuerSummary').textContent = `${rescuers.filter(r => r.isOnline).length} online / ${rescuers.filter(r => r.isOnDuty).length} on duty`;
+            if (!rescuers.length) { host.innerHTML = '<div class="empty-state">Chưa có rescuer demo. Seed data trước.</div>'; return; }
+            host.innerHTML = rescuers.map(rescuer => `
+                <article class="rescuer-card">
+                    <div class="rescuer-top">
+                        <div><div style="font-weight:700;">${rescuer.fullName}</div><div class="muted mono" style="margin-top:6px;">${rescuer.id}</div></div>
+                        <span class="pill ${rescuer.isOnline ? 'verified' : 'offline'}">${rescuer.isOnline ? 'Online' : 'Offline'}</span>
+                    </div>
+                    <div class="incident-meta" style="margin-top:14px;">
+                        <div class="meta-box"><span class="k">Available</span><span class="v">${rescuer.isAvailable ? 'Ready' : 'Busy'}</span></div>
+                        <div class="meta-box"><span class="k">Shift</span><span class="v">${rescuer.shiftStatus || 'None'}</span></div>
+                        <div class="meta-box"><span class="k">Missions</span><span class="v">${rescuer.totalMissions}</span></div>
+                    </div>
+                </article>`).join('');
+        }
+
+        function buildDispatchOptions(incident) {
+            const eligible = currentState.rescuers.filter(r => r.isOnline && r.isAvailable && r.isOnDuty);
+            if (!eligible.length) return '<div class="muted" style="margin-top:14px;">Không có rescuer đang online + available + on duty.</div>';
+            const options = eligible.map(r => `<option value="${r.id}">${r.fullName}</option>`).join('');
+            return `<div class="dispatch-row"><select class="dispatch-select" id="dispatch-select-${incident.id}"><option value="">Select rescuer</option>${options}</select><button class="btn-neo success" type="button" ${eligible.length ? '' : 'disabled'} onclick="dispatchIncident('${incident.id}')">Dispatch</button></div>`;
+        }
+
+        function renderIncidents(incidents) {
+            const host = document.getElementById('incidentList');
+            document.getElementById('incidentCount').textContent = `${incidents.length} incidents`;
+            document.getElementById('pendingCount').textContent = incidents.filter(i => i.status === 'Pending').length;
+            document.getElementById('contactingCount').textContent = incidents.filter(i => i.status === 'OperatorContacting').length;
+            document.getElementById('verifiedCount').textContent = incidents.filter(i => i.status === 'Verified').length;
+            if (!incidents.length) { host.innerHTML = '<div class="empty-state">Chưa có SOS demo nào.</div>'; return; }
+
+            host.innerHTML = incidents.map(incident => {
+                const mine = (incident.handlingOperatorId || '').toLowerCase() === operatorId;
+                const cardClass = incident.status === 'Verified' ? 'verified-card' : (mine ? 'active-claim' : '');
+                const requestChips = (incident.dispatchRequests || []).map(request => `<span class="request-chip ${request.status.toLowerCase()}">${request.rescuerName}: ${request.status}</span>`).join('');
+                let controls = '';
+                if (incident.status === 'Pending') controls = `<div class="dispatch-row"><button class="btn-neo primary" type="button" onclick="claimIncident('${incident.id}')">Accept Handling</button></div>`;
+                else if (incident.status === 'OperatorContacting' && mine) controls = `<div class="dispatch-row"><button class="btn-neo success" type="button" onclick="verifyIncident('${incident.id}')">Mark Verified</button></div>`;
+                else if (incident.status === 'Verified' && mine) controls = buildDispatchOptions(incident);
+                else if (incident.status === 'Assigned') controls = `<div class="dispatch-row"><span class="pill assigned">Mission Opened</span></div>`;
+
+                return `<article class="incident-card ${cardClass}">
+                        <div class="incident-top">
+                            <div><div style="font-weight:700;">${incident.userName || 'Unknown member'}</div><div class="muted">${incident.userPhone || 'No phone'} · ${incident.id}</div></div>
+                            <span class="pill ${statusClass(incident.status)}">${incident.status}</span>
+                        </div>
+                        <div class="incident-meta">
+                            <div class="meta-box"><span class="k">Location</span><span class="v mono">${incident.latitude?.toFixed?.(5) ?? incident.latitude}, ${incident.longitude?.toFixed?.(5) ?? incident.longitude}</span></div>
+                            <div class="meta-box"><span class="k">Handling</span><span class="v">${mine ? 'Demo Operator A' : (incident.handlingOperatorId ? 'Other operator' : 'Unclaimed')}</span></div>
+                            <div class="meta-box"><span class="k">Assigned Rescuer</span><span class="v">${incident.assignedRescuerName || 'Waiting dispatch'}</span></div>
+                        </div>
+                        ${controls}
+                        ${requestChips ? `<div class="request-list">${requestChips}</div>` : ''}
+                    </article>`;
+            }).join('');
+        }
+
+        function setBadgeState(elementId, ok, okLabel, notOkLabel) {
+            const node = document.getElementById(elementId);
+            node.className = `pill ${ok ? 'verified' : 'pending'}`;
+            node.textContent = ok ? okLabel : notOkLabel;
+        }
+
+        function renderDemoStatus(status) {
+            demoStatus = status;
+            setBadgeState('demoSeedBadge', status?.isSeeded, 'Seeded', 'Not seeded');
+            setBadgeState('demoDispatchBadge', status?.isDispatchReady, 'Dispatch ready', 'Dispatch not ready');
+
+            const detail = [];
+            detail.push(`victim:${status?.userExists ? 'ok' : 'missing'}`);
+            detail.push(`operator:${status?.operatorAExists && status?.operatorBExists ? 'ok' : 'missing'}`);
+            detail.push(`rescuerProfiles:${status?.rescuerProfileCount ?? 0}/4`);
+            detail.push(`shift:${status?.demoShiftExists ? 'ok' : 'missing'}`);
+            detail.push(`assignments:${status?.activeShiftAssignmentCount ?? 0}/4`);
+            document.getElementById('demoStatusDetail').textContent = detail.join(' | ');
+            syncControlStates();
+        }
+
+        async function loadDemoStatus() {
+            try {
+                const response = await fetch('/api/rescuedemo/status');
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                const payload = await response.json();
+                renderDemoStatus(payload.status || {});
+            } catch (error) {
+                renderDemoStatus({});
+                logEvent(`Load demo status failed: ${error.message}`, 'warn');
+            }
+        }
+
+        async function loadSnapshot() {
+            const response = await fetch(snapshotUrl);
+            const payload = await response.json();
+            if (!payload.seeded) {
+                currentState = { incidents: [], rescuers: [] };
+                renderIncidents([]);
+                renderRescuers([]);
+                syncControlStates();
+                return;
+            }
+            currentState = payload;
+            renderIncidents(payload.incidents || []);
+            renderRescuers(payload.rescuers || []);
+            syncControlStates();
+        }
+
+        async function connectOperatorHub() {
+            hubConnection = new signalR.HubConnectionBuilder().withUrl('/rescuer-hub', { accessTokenFactory: () => operatorToken }).withAutomaticReconnect().build();
+            hubConnection.on('IncidentLocationUpdated', async data => { logEvent(`New SOS received: ${data.incidentId}`, 'warn'); await loadSnapshot(); });
+            hubConnection.on('RescuerOnlineStatus', async data => { logEvent(`Rescuer ${data.rescuerId} is now ${data.isOnline ? 'online' : 'offline'}`, data.isOnline ? 'success' : 'warn'); await loadSnapshot(); });
+            hubConnection.on('IncidentClaimed', async data => { logEvent(`Incident ${data.incidentId} claimed by operator ${data.operatorId}`, 'info'); await loadSnapshot(); });
+            hubConnection.on('DispatchRequested', async data => { logEvent(`Dispatch request sent for incident ${data.incidentId} -> rescuer ${data.rescuerId}`, 'success'); await loadSnapshot(); });
+            hubConnection.on('RescuerAccepted', async data => { logEvent(`Rescuer ${data.rescuerId} accepted request ${data.requestId}`, 'success'); await loadSnapshot(); });
+            hubConnection.on('RescuerDeclined', async data => { logEvent(`Rescuer ${data.rescuerId} declined: ${data.reason || 'No reason'}`, 'warn'); await loadSnapshot(); });
+            await hubConnection.start();
+            await hubConnection.invoke('JoinAsOperator', operatorId);
+            document.getElementById('hubStatus').textContent = 'Hub: operator joined';
+            logEvent('Operator SignalR connected.', 'success');
+        }
+
+        (async () => {
+            await loadDemoStatus();
+            await loadSnapshot();
+            try { await connectOperatorHub(); } catch (error) { document.getElementById('hubStatus').textContent = 'Hub: failed'; logEvent(`SignalR failed: ${error.message}`, 'warn'); }
+            setInterval(async () => { await loadDemoStatus(); await loadSnapshot(); }, 8000);
+        })();
+    </script>
+}
