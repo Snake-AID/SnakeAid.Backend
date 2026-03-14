@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Mapster;
 using SnakeAid.Core.Domains;
 using SnakeAid.Core.Exceptions;
 using SnakeAid.Core.Responses.RescuerProfile;
@@ -20,6 +21,20 @@ namespace SnakeAid.Service.Implements
         {
             _unitOfWork = unitOfWork;
             _logger = logger;
+        }
+
+        public async Task<List<BriefRescuerProfileResponse>> GetOnlineRescuersAsync()
+        {
+            var onlineRescuers = await _unitOfWork.GetRepository<RescuerProfile>().GetListAsync(
+                predicate: r => r.IsOnline,
+                include: q => q.Include(r => r.Account),
+                orderBy: q => q.OrderByDescending(r => r.UpdatedAt));
+
+            var response = onlineRescuers.Adapt<List<BriefRescuerProfileResponse>>();
+
+            _logger.LogInformation("Retrieved {Count} online rescuer(s).", response.Count);
+
+            return response;
         }
 
         public async Task<OnDutyRescuerSnapshotResponse> GetOnDutyRescuersAsync(
