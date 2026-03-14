@@ -27,6 +27,7 @@ namespace SnakeAid.Api.Services
         public static readonly Guid DEMO_OPERATOR_A_ID = Guid.Parse("33333333-3333-3333-3333-333333333331");
 
         public static readonly Guid DEMO_OPERATOR_B_ID = Guid.Parse("33333333-3333-3333-3333-333333333332");
+        public static readonly Guid DEMO_ADMIN_ID = Guid.Parse("55555555-5555-5555-5555-555555555551");
         public static readonly Guid DEMO_SHIFT_ID = Guid.Parse("44444444-4444-4444-4444-444444444441");
 
         // Demo locations (HCMC area)
@@ -219,9 +220,13 @@ namespace SnakeAid.Api.Services
                 }
 
                 await _dbContext.SaveChangesAsync();
+
+                // Ensure we have an admin account for demo purposes
+                await EnsureDemoAdminAsync();
+
                 await EnsureDemoDataIntegrityAsync();
 
-                _logger.LogInformation("Demo data seeded successfully: 1 user + 4 rescuers with profiles");
+                _logger.LogInformation("Demo data seeded successfully: 1 user + 4 rescuers with profiles + admin account");
                 return true;
             }
             catch (Exception ex)
@@ -231,8 +236,36 @@ namespace SnakeAid.Api.Services
             }
         }
 
+        private async Task EnsureDemoAdminAsync()
+        {
+            var admin = await _userManager.FindByIdAsync(DEMO_ADMIN_ID.ToString());
+            if (admin != null) return;
+
+            admin = new Account
+            {
+                Id = DEMO_ADMIN_ID,
+                UserName = "demo_admin",
+                Email = "demo.admin@snakeaid.test",
+                FullName = "Demo Admin",
+                PhoneNumber = "0905555555",
+                Role = AccountRole.Admin,
+                IsActive = true,
+                EmailConfirmed = true,
+                PhoneNumberConfirmed = true,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            };
+
+            var result = await _userManager.CreateAsync(admin, "Demo@123");
+            if (!result.Succeeded)
+            {
+                _logger.LogError("Failed to create demo admin: {Errors}", string.Join(", ", result.Errors.Select(e => e.Description)));
+            }
+        }
+
         private async Task EnsureDemoDataIntegrityAsync()
         {
+            await EnsureDemoAdminAsync();
             await EnsureDemoMemberProfileAsync();
             await EnsureDemoRescuersAsync();
             await EnsureDemoOperatorsAsync();
@@ -482,7 +515,8 @@ namespace SnakeAid.Api.Services
                     DEMO_RESCUER_C_ID,
                     DEMO_RESCUER_D_ID,
                     DEMO_OPERATOR_A_ID,
-                    DEMO_OPERATOR_B_ID
+                    DEMO_OPERATOR_B_ID,
+                    DEMO_ADMIN_ID
                 };
 
                 _logger.LogInformation("Starting cleanup of demo data...");
@@ -622,6 +656,7 @@ namespace SnakeAid.Api.Services
             status.RescuerDExists = await _userManager.FindByIdAsync(DEMO_RESCUER_D_ID.ToString()) != null;
             status.OperatorAExists = await _userManager.FindByIdAsync(DEMO_OPERATOR_A_ID.ToString()) != null;
             status.OperatorBExists = await _userManager.FindByIdAsync(DEMO_OPERATOR_B_ID.ToString()) != null;
+            status.AdminExists = await _userManager.FindByIdAsync(DEMO_ADMIN_ID.ToString()) != null;
 
             status.MemberProfileExists = await _dbContext.MemberProfiles.AnyAsync(m => m.AccountId == DEMO_USER_ID);
             status.RescuerProfileCount = await _dbContext.RescuerProfiles.CountAsync(r =>
@@ -651,6 +686,7 @@ namespace SnakeAid.Api.Services
         public bool RescuerDExists { get; set; }
         public bool OperatorAExists { get; set; }
         public bool OperatorBExists { get; set; }
+        public bool AdminExists { get; set; }
         public bool MemberProfileExists { get; set; }
         public int RescuerProfileCount { get; set; }
         public int OperatorProfileCount { get; set; }
@@ -664,7 +700,8 @@ namespace SnakeAid.Api.Services
             RescuerCExists &&
             RescuerDExists &&
             OperatorAExists &&
-            OperatorBExists;
+            OperatorBExists &&
+            AdminExists;
 
         public bool IsDispatchReady =>
             IsSeeded &&
