@@ -1,4 +1,5 @@
 ﻿using SnakeAid.Core.Requests.SnakeCatchingRequest;
+using SnakeAid.Core.Domains;
 using SnakeAid.Core.Responses.SnakeCatchingRequest;
 using System;
 using System.Collections.Generic;
@@ -12,11 +13,13 @@ namespace SnakeAid.Service.Interfaces
     {
         Task<CreateSnakeCatchingRequestResponse> CreateSnakeCatchingRequestAsync(Guid userId, CreateSnakeCatchingRequestRequest request);
 
-        Task<CreateSnakeCatchingRequestResponse> AcceptSnakeCatchingRequestAsync(Guid rescuerId, Guid requestId, AcceptSnakeCatchingRequestRequest request);
+        Task<CreateSnakeCatchingRequestResponse> AcceptSnakeCatchingRequestAsync(Guid requestId, Guid operatorId);
+
+        Task<CreateSnakeCatchingRequestResponse> AssignSnakeCatchingRequestAsync(Guid requestId, AssignSnakeCatchingRequestRequest request);
 
         Task<DetailSnakeCatchingRequestResponse> GetDetailAsync(Guid requestId);
 
-        Task<List<ListSnakeCatchingRequestResponse>> GetAllRequestAsync();
+        Task<List<ListSnakeCatchingRequestResponse>> GetAllRequestAsync(GetAllSnakeCatchingRequestsQuery? query = null);
 
         Task<DetailSnakeCatchingRequestResponse> CancelSnakeCatchingRequestAsync(Guid userId, Guid requestId, CancelSnakeCatchingRequestRequest request);
 

@@ -61,8 +61,9 @@ public class WalletPaymentService : IWalletPaymentService
                     throw new InvalidOperationException($"SnakeCatchingRequest {request.SnakeCatchingRequestId} not found");
                 }
 
-                // Validate status - must be Assigned or Finished
-                if (catchingRequest.Status != RequestStatus.Assigned && 
+                // Validate status - must be OperatorContacting or Finished
+                if (catchingRequest.Status != RequestStatus.Pending && 
+                    catchingRequest.Status != RequestStatus.OperatorContacting &&
                     catchingRequest.Status != RequestStatus.Finished)
                 {
                     throw new InvalidOperationException(
@@ -194,6 +195,22 @@ public class WalletPaymentService : IWalletPaymentService
             };
 
             await _unitOfWork.GetRepository<Transaction>().InsertAsync(systemTransaction);
+
+            // Update SnakeCatchingRequest status to Confirmed only for CatchingDeposit transactions
+            if (request.TransactionType == TransactionType.CatchingDeposit)
+            {
+                var catchingRequest = await _unitOfWork.GetRepository<SnakeCatchingRequest>()
+                    .GetByIdAsync(request.SnakeCatchingRequestId);
+
+                if (catchingRequest != null)
+                {
+                    catchingRequest.Status = RequestStatus.Confirmed;
+                    _unitOfWork.GetRepository<SnakeCatchingRequest>().Update(catchingRequest);
+
+                    _logger.LogInformation("{Prefix} SnakeCatchingRequest {RequestId} status updated to Paid",
+                        LogPrefix, request.SnakeCatchingRequestId);
+                }
+            }
 
             // Update SnakeCatchingRequest status to Paid only for CatchingPayment transactions
             if (request.TransactionType == TransactionType.CatchingPayment)
