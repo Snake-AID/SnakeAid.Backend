@@ -27,6 +27,7 @@ namespace SnakeAid.Api.Services
         public static readonly Guid DEMO_OPERATOR_A_ID = Guid.Parse("33333333-3333-3333-3333-333333333331");
 
         public static readonly Guid DEMO_OPERATOR_B_ID = Guid.Parse("33333333-3333-3333-3333-333333333332");
+        public static readonly Guid DEMO_SHIFT_ID = Guid.Parse("44444444-4444-4444-4444-444444444441");
 
         // Demo locations (HCMC area)
         private static readonly GeometryFactory _geometryFactory = NetTopologySuite.NtsGeometryServices.Instance.CreateGeometryFactory(srid: 4326);
@@ -52,7 +53,8 @@ namespace SnakeAid.Api.Services
                 var existingUser = await _userManager.FindByIdAsync(DEMO_USER_ID.ToString());
                 if (existingUser != null)
                 {
-                    _logger.LogInformation("Demo data already exists, skipping seed");
+                    _logger.LogInformation("Demo data already exists, ensuring dispatch demo prerequisites");
+                    await EnsureDemoDataIntegrityAsync();
                     return true;
                 }
 
@@ -95,6 +97,7 @@ namespace SnakeAid.Api.Services
                 var memberWallet = new Wallet
                 {
                     Id = DEMO_USER_ID,
+                    UserId = DEMO_USER_ID,
                     Balance = 500000,
                     CreatedAt = DateTime.UtcNow,
                     UpdatedAt = DateTime.UtcNow
@@ -162,6 +165,7 @@ namespace SnakeAid.Api.Services
                     var rescuerWallet = new Wallet
                     {
                         Id = r.Id,
+                        UserId = r.Id,
                         Balance = 10000,
                         CreatedAt = DateTime.UtcNow,
                         UpdatedAt = DateTime.UtcNow
@@ -215,6 +219,7 @@ namespace SnakeAid.Api.Services
                 }
 
                 await _dbContext.SaveChangesAsync();
+                await EnsureDemoDataIntegrityAsync();
 
                 _logger.LogInformation("Demo data seeded successfully: 1 user + 4 rescuers with profiles");
                 return true;
@@ -226,6 +231,242 @@ namespace SnakeAid.Api.Services
             }
         }
 
+        private async Task EnsureDemoDataIntegrityAsync()
+        {
+            await EnsureDemoMemberProfileAsync();
+            await EnsureDemoRescuersAsync();
+            await EnsureDemoOperatorsAsync();
+            await EnsureDispatchShiftSetupAsync();
+        }
+
+        private async Task EnsureDemoMemberProfileAsync()
+        {
+            if (await _userManager.FindByIdAsync(DEMO_USER_ID.ToString()) == null)
+            {
+                return;
+            }
+
+            if (!await _dbContext.MemberProfiles.AnyAsync(m => m.AccountId == DEMO_USER_ID))
+            {
+                await _dbContext.MemberProfiles.AddAsync(new MemberProfile
+                {
+                    AccountId = DEMO_USER_ID,
+                    Rating = 0,
+                    RatingCount = 0,
+                    EmergencyContacts = new List<string> { "0909999999" },
+                    HasUnderlyingDisease = false,
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
+                });
+            }
+
+            if (!await _dbContext.Wallets.AnyAsync(w => w.Id == DEMO_USER_ID))
+            {
+                await _dbContext.Wallets.AddAsync(new Wallet
+                {
+                    Id = DEMO_USER_ID,
+                    UserId = DEMO_USER_ID,
+                    Balance = 500000,
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
+                });
+            }
+
+            await _dbContext.SaveChangesAsync();
+        }
+
+        private async Task EnsureDemoRescuersAsync()
+        {
+            var rescuers = new[]
+            {
+                new { Id = DEMO_RESCUER_A_ID, Name = "Rescuer A - Quận 1", Phone = "0902222221", Lng = 106.699800, Lat = 10.775400 },
+                new { Id = DEMO_RESCUER_B_ID, Name = "Rescuer B - Quận 3", Phone = "0902222222", Lng = 106.682166, Lat = 10.776889 },
+                new { Id = DEMO_RESCUER_C_ID, Name = "Rescuer C - Quận 7", Phone = "0902222223", Lng = 106.722550, Lat = 10.733200 },
+                new { Id = DEMO_RESCUER_D_ID, Name = "Rescuer D - Tân Bình", Phone = "0902222224", Lng = 106.652344, Lat = 10.799862 }
+            };
+
+            foreach (var r in rescuers)
+            {
+                var account = await _userManager.FindByIdAsync(r.Id.ToString());
+                if (account == null)
+                {
+                    account = new Account
+                    {
+                        Id = r.Id,
+                        UserName = r.Phone,
+                        Email = $"{r.Phone}@snakeaid.test",
+                        FullName = r.Name,
+                        PhoneNumber = r.Phone,
+                        Role = AccountRole.Rescuer,
+                        IsActive = true,
+                        EmailConfirmed = true,
+                        PhoneNumberConfirmed = true,
+                        CreatedAt = DateTime.UtcNow,
+                        UpdatedAt = DateTime.UtcNow
+                    };
+
+                    var createResult = await _userManager.CreateAsync(account, "Demo@123");
+                    if (!createResult.Succeeded)
+                    {
+                        _logger.LogError("Failed to ensure rescuer account {Name}: {Errors}", r.Name, string.Join(", ", createResult.Errors.Select(e => e.Description)));
+                        continue;
+                    }
+                }
+
+                if (!await _dbContext.RescuerProfiles.AnyAsync(p => p.AccountId == r.Id))
+                {
+                    await _dbContext.RescuerProfiles.AddAsync(new RescuerProfile
+                    {
+                        AccountId = r.Id,
+                        IsOnline = false,
+                        IsAvailable = false,
+                        Rating = 0,
+                        RatingCount = 0,
+                        Type = RescuerType.Emergency,
+                        LastLocation = _geometryFactory.CreatePoint(new Coordinate(r.Lng, r.Lat)),
+                        LastLocationUpdate = DateTime.UtcNow,
+                        TotalMissions = 0,
+                        CompletedMissions = 0,
+                        CreatedAt = DateTime.UtcNow,
+                        UpdatedAt = DateTime.UtcNow
+                    });
+                }
+
+                if (!await _dbContext.Wallets.AnyAsync(w => w.Id == r.Id))
+                {
+                    await _dbContext.Wallets.AddAsync(new Wallet
+                    {
+                        Id = r.Id,
+                        UserId = r.Id,
+                        Balance = 10000,
+                        CreatedAt = DateTime.UtcNow,
+                        UpdatedAt = DateTime.UtcNow
+                    });
+                }
+            }
+
+            await _dbContext.SaveChangesAsync();
+        }
+
+        private async Task EnsureDemoOperatorsAsync()
+        {
+            var operators = new[]
+            {
+                new { Id = DEMO_OPERATOR_A_ID, Name = "Demo Operator A", Phone = "0903333331" },
+                new { Id = DEMO_OPERATOR_B_ID, Name = "Demo Operator B", Phone = "0903333332" }
+            };
+
+            foreach (var o in operators)
+            {
+                var account = await _userManager.FindByIdAsync(o.Id.ToString());
+                if (account == null)
+                {
+                    account = new Account
+                    {
+                        Id = o.Id,
+                        UserName = o.Phone,
+                        Email = $"{o.Phone}@snakeaid.test",
+                        FullName = o.Name,
+                        PhoneNumber = o.Phone,
+                        Role = AccountRole.Operator,
+                        IsActive = true,
+                        EmailConfirmed = true,
+                        PhoneNumberConfirmed = true,
+                        CreatedAt = DateTime.UtcNow,
+                        UpdatedAt = DateTime.UtcNow
+                    };
+
+                    var createResult = await _userManager.CreateAsync(account, "Demo@123");
+                    if (!createResult.Succeeded)
+                    {
+                        _logger.LogError("Failed to ensure operator account {Name}: {Errors}", o.Name, string.Join(", ", createResult.Errors.Select(e => e.Description)));
+                        continue;
+                    }
+                }
+
+                if (!await _dbContext.OperatorProfiles.AnyAsync(p => p.AccountId == o.Id))
+                {
+                    await _dbContext.OperatorProfiles.AddAsync(new OperatorProfile
+                    {
+                        AccountId = o.Id,
+                        CreatedAt = DateTime.UtcNow,
+                        UpdatedAt = DateTime.UtcNow
+                    });
+                }
+            }
+
+            await _dbContext.SaveChangesAsync();
+        }
+
+        private async Task EnsureDispatchShiftSetupAsync()
+        {
+            var demoShift = await _dbContext.WorkShifts.FirstOrDefaultAsync(s => s.Id == DEMO_SHIFT_ID);
+            if (demoShift == null)
+            {
+                demoShift = new WorkShift
+                {
+                    Id = DEMO_SHIFT_ID,
+                    Name = "Demo Dispatch Shift",
+                    StartTime = TimeSpan.Zero,
+                    EndTime = new TimeSpan(23, 59, 0),
+                    RequiredRescuers = 4,
+                    IsActive = true,
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
+                };
+
+                await _dbContext.WorkShifts.AddAsync(demoShift);
+                await _dbContext.SaveChangesAsync();
+            }
+
+            var shiftDate = DateOnly.FromDateTime(DateTime.UtcNow);
+            var rescuerIds = new[]
+            {
+                DEMO_RESCUER_A_ID,
+                DEMO_RESCUER_B_ID,
+                DEMO_RESCUER_C_ID,
+                DEMO_RESCUER_D_ID
+            };
+
+            foreach (var rescuerId in rescuerIds)
+            {
+                if (!await _dbContext.RescuerProfiles.AnyAsync(r => r.AccountId == rescuerId))
+                {
+                    _logger.LogWarning("Skipping shift assignment for rescuer {RescuerId} because RescuerProfile is missing", rescuerId);
+                    continue;
+                }
+
+                var existingAssignment = await _dbContext.ShiftAssignments.FirstOrDefaultAsync(a =>
+                    a.RescuerId == rescuerId &&
+                    a.ShiftId == DEMO_SHIFT_ID &&
+                    a.Date == shiftDate);
+
+                if (existingAssignment != null)
+                {
+                    existingAssignment.Status = ShiftAssignmentStatus.Active;
+                    existingAssignment.CheckInAt ??= DateTime.UtcNow;
+                    existingAssignment.UpdatedAt = DateTime.UtcNow;
+                    _dbContext.ShiftAssignments.Update(existingAssignment);
+                    continue;
+                }
+
+                await _dbContext.ShiftAssignments.AddAsync(new ShiftAssignment
+                {
+                    Id = Guid.NewGuid(),
+                    RescuerId = rescuerId,
+                    ShiftId = DEMO_SHIFT_ID,
+                    Date = shiftDate,
+                    Status = ShiftAssignmentStatus.Active,
+                    CheckInAt = DateTime.UtcNow,
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow,
+                    Notes = "Auto-generated for dispatch demo"
+                });
+            }
+
+            await _dbContext.SaveChangesAsync();
+        }
+
         /// <summary>
         /// Clean up all demo data (missions, incidents, sessions, requests, profiles, accounts)
         /// </summary>
@@ -233,7 +474,16 @@ namespace SnakeAid.Api.Services
         {
             try
             {
-                var demoUserIds = new[] { DEMO_USER_ID, DEMO_RESCUER_A_ID, DEMO_RESCUER_B_ID, DEMO_RESCUER_C_ID, DEMO_RESCUER_D_ID };
+                var demoUserIds = new[]
+                {
+                    DEMO_USER_ID,
+                    DEMO_RESCUER_A_ID,
+                    DEMO_RESCUER_B_ID,
+                    DEMO_RESCUER_C_ID,
+                    DEMO_RESCUER_D_ID,
+                    DEMO_OPERATOR_A_ID,
+                    DEMO_OPERATOR_B_ID
+                };
 
                 _logger.LogInformation("Starting cleanup of demo data...");
 
@@ -311,6 +561,18 @@ namespace SnakeAid.Api.Services
                 _dbContext.OperatorProfiles.RemoveRange(operatorProfiles);
                 _logger.LogInformation("Removing {Count} operator profiles", operatorProfiles.Count);
 
+                var shiftAssignments = await _dbContext.ShiftAssignments
+                    .Where(a => demoUserIds.Contains(a.RescuerId) || a.ShiftId == DEMO_SHIFT_ID)
+                    .ToListAsync();
+                _dbContext.ShiftAssignments.RemoveRange(shiftAssignments);
+                _logger.LogInformation("Removing {Count} shift assignments", shiftAssignments.Count);
+
+                var workShifts = await _dbContext.WorkShifts
+                    .Where(s => s.Id == DEMO_SHIFT_ID)
+                    .ToListAsync();
+                _dbContext.WorkShifts.RemoveRange(workShifts);
+                _logger.LogInformation("Removing {Count} demo work shifts", workShifts.Count);
+
                 // Save all deletions
                 await _dbContext.SaveChangesAsync();
                 _logger.LogInformation("All related data deleted from database");
@@ -350,6 +612,7 @@ namespace SnakeAid.Api.Services
         public async Task<DemoDataStatus> GetStatusAsync()
         {
             var status = new DemoDataStatus();
+            var today = DateOnly.FromDateTime(DateTime.UtcNow);
 
             // Check users
             status.UserExists = await _userManager.FindByIdAsync(DEMO_USER_ID.ToString()) != null;
@@ -357,6 +620,23 @@ namespace SnakeAid.Api.Services
             status.RescuerBExists = await _userManager.FindByIdAsync(DEMO_RESCUER_B_ID.ToString()) != null;
             status.RescuerCExists = await _userManager.FindByIdAsync(DEMO_RESCUER_C_ID.ToString()) != null;
             status.RescuerDExists = await _userManager.FindByIdAsync(DEMO_RESCUER_D_ID.ToString()) != null;
+            status.OperatorAExists = await _userManager.FindByIdAsync(DEMO_OPERATOR_A_ID.ToString()) != null;
+            status.OperatorBExists = await _userManager.FindByIdAsync(DEMO_OPERATOR_B_ID.ToString()) != null;
+
+            status.MemberProfileExists = await _dbContext.MemberProfiles.AnyAsync(m => m.AccountId == DEMO_USER_ID);
+            status.RescuerProfileCount = await _dbContext.RescuerProfiles.CountAsync(r =>
+                r.AccountId == DEMO_RESCUER_A_ID ||
+                r.AccountId == DEMO_RESCUER_B_ID ||
+                r.AccountId == DEMO_RESCUER_C_ID ||
+                r.AccountId == DEMO_RESCUER_D_ID);
+            status.OperatorProfileCount = await _dbContext.OperatorProfiles.CountAsync(o =>
+                o.AccountId == DEMO_OPERATOR_A_ID ||
+                o.AccountId == DEMO_OPERATOR_B_ID);
+            status.DemoShiftExists = await _dbContext.WorkShifts.AnyAsync(s => s.Id == DEMO_SHIFT_ID);
+            status.ActiveShiftAssignmentCount = await _dbContext.ShiftAssignments.CountAsync(a =>
+                a.ShiftId == DEMO_SHIFT_ID &&
+                a.Date == today &&
+                (a.Status == ShiftAssignmentStatus.Active || a.Status == ShiftAssignmentStatus.Scheduled));
 
             return status;
         }
@@ -369,7 +649,29 @@ namespace SnakeAid.Api.Services
         public bool RescuerBExists { get; set; }
         public bool RescuerCExists { get; set; }
         public bool RescuerDExists { get; set; }
+        public bool OperatorAExists { get; set; }
+        public bool OperatorBExists { get; set; }
+        public bool MemberProfileExists { get; set; }
+        public int RescuerProfileCount { get; set; }
+        public int OperatorProfileCount { get; set; }
+        public bool DemoShiftExists { get; set; }
+        public int ActiveShiftAssignmentCount { get; set; }
 
-        public bool IsSeeded => UserExists && RescuerAExists && RescuerBExists && RescuerCExists && RescuerDExists;
+        public bool IsSeeded =>
+            UserExists &&
+            RescuerAExists &&
+            RescuerBExists &&
+            RescuerCExists &&
+            RescuerDExists &&
+            OperatorAExists &&
+            OperatorBExists;
+
+        public bool IsDispatchReady =>
+            IsSeeded &&
+            MemberProfileExists &&
+            RescuerProfileCount >= 4 &&
+            OperatorProfileCount >= 2 &&
+            DemoShiftExists &&
+            ActiveShiftAssignmentCount >= 4;
     }
 }
