@@ -85,14 +85,13 @@ namespace SnakeAid.Core.Domains
         OperatorContacting = 1,   // Operator đang gọi xác nhận
         Verified = 2,            // Xác nhận thật, chờ điều phối
         Assigned = 3,             // Rescuer đã acknowledge, đang chuẩn bị
-        EnRoute = 4,              // Rescuer đang trên đường
-        FalseAlarm = 5,           // Báo động giả
-        Finished = 6,
-        Cancelled = 7,
-        NoRescuerFound = 8,
-        Paid = 9,
-        Disputed = 10,
-        Completed = 11
+        FalseAlarm = 4,           // Báo động giả
+        Finished = 5,
+        Cancelled = 6,
+        NoRescuerFound = 7,
+        Paid = 8,
+        Disputed = 9,
+        Completed = 10
     }
 
     public enum SnakeIdentificationMethod
