@@ -27,6 +27,18 @@ namespace SnakeAid.Api.Services
                 "RescuerAccepted", incidentId);
         }
 
+        public async Task NotifyOperatorContactingAsync(Guid incidentId, object data)
+            => await SafeExecuteAsync(() => _hubContext.Clients.Group(incidentId.ToString()).SendAsync("OperatorContacting", data),
+                "OperatorContacting", incidentId);
+
+        public async Task NotifyRescuerDispatchedAsync(Guid incidentId, object data)
+            => await SafeExecuteAsync(() => _hubContext.Clients.Group(incidentId.ToString()).SendAsync("RescuerDispatched", data),
+                "RescuerDispatched", incidentId);
+
+        public async Task NotifyRescuerDeclinedAsync(Guid incidentId, object data)
+            => await SafeExecuteAsync(() => _hubContext.Clients.Group(incidentId.ToString()).SendAsync("RescuerDeclined", data),
+                "RescuerDeclined", incidentId);
+
         public async Task NotifyMissionStartedAsync(Guid incidentId, object missionInfo)
             => await SafeExecuteAsync(() => _hubContext.Clients.Group(incidentId.ToString()).SendAsync("MissionStarted", missionInfo),
                 "MissionStarted", incidentId);

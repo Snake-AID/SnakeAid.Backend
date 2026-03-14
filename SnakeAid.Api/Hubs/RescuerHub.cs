@@ -39,6 +39,8 @@ namespace SnakeAid.Api.Hubs
         private readonly ILogger<RescuerHub> _logger;
         private readonly IRescuerLocationService _rescuerLocationService;
         private readonly IRescuerOnlineStatusService _onlineStatusService;
+        private readonly IOperatorOnlineStatusService _operatorOnlineStatusService;
+        private readonly ISnakebiteIncidentService _incidentService;
 
         // Static dictionary để track connected rescuers: userId -> connectionId
         public static ConcurrentDictionary<string, string> ConnectedRescuers => SignalRRescueNotificationService.ConnectedRescuers;
@@ -47,12 +49,16 @@ namespace SnakeAid.Api.Hubs
             IUnitOfWork<SnakeAidDbContext> unitOfWork,
             ILogger<RescuerHub> logger,
             IRescuerLocationService rescuerLocationService,
-            IRescuerOnlineStatusService onlineStatusService)
+            IRescuerOnlineStatusService onlineStatusService,
+            IOperatorOnlineStatusService operatorOnlineStatusService,
+            ISnakebiteIncidentService incidentService)
         {
             _unitOfWork = unitOfWork;
             _logger = logger;
             _rescuerLocationService = rescuerLocationService;
             _onlineStatusService = onlineStatusService;
+            _operatorOnlineStatusService = operatorOnlineStatusService;
+            _incidentService = incidentService;
         }
 
         /// Rescuer joins the hub to receice rescue request from server
@@ -145,6 +151,75 @@ namespace SnakeAid.Api.Hubs
                     Error = "Failed to update location",
                     Message = "An unexpected error occurred while updating location."
                 });
+            }
+        }
+
+        /// <summary>
+        /// Rescuer accepts a dispatched request.
+        /// </summary>
+        public async Task AcceptDispatchRequest(Guid requestId)
+        {
+            var rescuerIdString = Context.UserIdentifier;
+            if (string.IsNullOrEmpty(rescuerIdString) || !Guid.TryParse(rescuerIdString, out var rescuerId))
+            {
+                _logger.LogWarning("AcceptDispatchRequest rejected: Invalid or missing user identifier");
+                await Clients.Caller.SendAsync("RequestError", new { RequestId = requestId, Error = "Invalid rescuer identifier." });
+                return;
+            }
+
+            try
+            {
+                var response = await _incidentService.AcceptDispatchRequestAsync(requestId, rescuerId);
+
+                await Clients.Caller.SendAsync("RequestAccepted", response);
+
+                // Notify operators (dashboard) about acceptance
+                await Clients.Group(OperatorGroup).SendAsync("RescuerAccepted", response);
+
+                _logger.LogInformation("Rescuer {RescuerId} accepted dispatch request {RequestId}, mission {MissionId}",
+                    rescuerId, requestId, response.MissionId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error accepting dispatch request {RequestId}", requestId);
+                await Clients.Caller.SendAsync("RequestError", new { RequestId = requestId, Error = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Rescuer declines a dispatched request.
+        /// </summary>
+        public async Task DeclineDispatchRequest(Guid requestId, string? reason)
+        {
+            var rescuerIdString = Context.UserIdentifier;
+            if (string.IsNullOrEmpty(rescuerIdString) || !Guid.TryParse(rescuerIdString, out var rescuerId))
+            {
+                _logger.LogWarning("DeclineDispatchRequest rejected: Invalid or missing user identifier");
+                await Clients.Caller.SendAsync("RequestError", new { RequestId = requestId, Error = "Invalid rescuer identifier." });
+                return;
+            }
+
+            try
+            {
+                var response = await _incidentService.DeclineDispatchRequestAsync(requestId, rescuerId, reason);
+
+                await Clients.Caller.SendAsync("RequestDeclined", response);
+
+                // Notify operators (dashboard) about decline
+                await Clients.Group(OperatorGroup).SendAsync("RescuerDeclined", new
+                {
+                    RequestId = response.RequestId,
+                    RescuerId = rescuerId,
+                    Reason = response.Message,
+                    DeclinedAt = response.RejectedAt
+                });
+
+                _logger.LogInformation("Rescuer {RescuerId} declined dispatch request {RequestId}", rescuerId, requestId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error declining dispatch request {RequestId}", requestId);
+                await Clients.Caller.SendAsync("RequestError", new { RequestId = requestId, Error = ex.Message });
             }
         }
 
@@ -257,9 +332,52 @@ namespace SnakeAid.Api.Hubs
             await Groups.AddToGroupAsync(Context.ConnectionId, OperatorGroup);
             _logger.LogInformation("Operator joined realtime group. ConnectionId={ConnectionId}", Context.ConnectionId);
 
+            // Update operator online status (like rescuer joins)
+            var operatorId = Context.UserIdentifier;
+            if (!string.IsNullOrEmpty(operatorId))
+            {
+                await _operatorOnlineStatusService.SetOnDutyAsync(operatorId);
+
+                // Notify monitors/operators about operator availability
+                await Clients.Group(OperatorGroup).SendAsync("OperatorOnlineStatus", new
+                {
+                    OperatorId = operatorId,
+                    IsOnDuty = true,
+                    UpdatedAt = DateTime.UtcNow
+                });
+            }
+
             await Clients.Caller.SendAsync("OperatorJoined", new
             {
                 Message = "Joined operator realtime group successfully.",
+                Timestamp = DateTime.UtcNow
+            });
+        }
+
+        /// <summary>
+        /// Operator leaves the realtime group and is marked off duty.
+        /// </summary>
+        public async Task LeaveAsOperator()
+        {
+            var operatorId = Context.UserIdentifier;
+            if (!string.IsNullOrEmpty(operatorId))
+            {
+                await _operatorOnlineStatusService.SetOffDutyAsync(operatorId);
+
+                await Clients.Group(OperatorGroup).SendAsync("OperatorOnlineStatus", new
+                {
+                    OperatorId = operatorId,
+                    IsOnDuty = false,
+                    UpdatedAt = DateTime.UtcNow
+                });
+            }
+
+            await Groups.RemoveFromGroupAsync(Context.ConnectionId, OperatorGroup);
+            _logger.LogInformation("Operator left realtime group. ConnectionId={ConnectionId}", Context.ConnectionId);
+
+            await Clients.Caller.SendAsync("OperatorLeft", new
+            {
+                Message = "Left operator realtime group successfully.",
                 Timestamp = DateTime.UtcNow
             });
         }

@@ -59,10 +59,15 @@ namespace SnakeAid.Api.Services
                 _logger.LogWarning("Rescuer {RescuerId} not connected, cannot send dispatch request", rescuerId);
         }
 
-        public async Task NotifyRequestTakenAsync(string rescuerId, Guid requestId)
-            => await NotifyRescuerAndMonitorsAsync(rescuerId, "RequestTaken",
-                connId => _hubContext.Clients.Client(connId).SendAsync("RequestTaken", new { RequestId = requestId, Message = "This request has been taken by another rescuer." }),
-                new { RequestId = requestId, TargetRescuerId = rescuerId });
+        public async Task NotifyRescuerAcceptedAsync(string rescuerId, object acceptedData)
+            => await NotifyRescuerAndMonitorsAsync(rescuerId, "RequestAccepted",
+                connId => _hubContext.Clients.Client(connId).SendAsync("RequestAccepted", acceptedData),
+                new { RescuerId = rescuerId, Data = acceptedData });
+
+        public async Task NotifyRescuerDeclinedAsync(string rescuerId, object declinedData)
+            => await NotifyRescuerAndMonitorsAsync(rescuerId, "RequestDeclined",
+                connId => _hubContext.Clients.Client(connId).SendAsync("RequestDeclined", declinedData),
+                new { RescuerId = rescuerId, Data = declinedData });
 
         public async Task NotifyRequestCancelledAsync(string rescuerId, Guid requestId)
             => await NotifyRescuerAndMonitorsAsync(rescuerId, "RequestCancelled",
