@@ -304,29 +304,12 @@ namespace SnakeAid.Service.Implements
                     if (incident.Status != SnakebiteIncidentStatus.Verified)
                         throw new BadRequestException($"Cannot accept dispatch when incident is in status: {incident.Status}");
 
-                    // Create mission for rescuer
                     var mission = await _rescueMissionService.CreateMissionAsync(incident.Id, rescuerId, price: 0);
 
                     // Update request
                     request.Status = RescueRequestStatus.Accepted;
                     request.ResponseAt = DateTime.UtcNow;
                     _unitOfWork.GetRepository<RescuerRequest>().Update(request);
-
-                    // Update incident
-                    incident.Status = SnakebiteIncidentStatus.Assigned;
-                    incident.AssignedRescuerId = rescuerId;
-                    incident.AssignedAt = DateTime.UtcNow;
-                    _unitOfWork.GetRepository<SnakebiteIncident>().Update(incident);
-
-                    // Update rescuer availability
-                    var rescuerProfile = await _unitOfWork.GetRepository<RescuerProfile>().FirstOrDefaultAsync(
-                        predicate: r => r.AccountId == rescuerId,
-                        asNoTracking: false);
-                    if (rescuerProfile != null)
-                    {
-                        rescuerProfile.IsAvailable = false;
-                        _unitOfWork.GetRepository<RescuerProfile>().Update(rescuerProfile);
-                    }
 
                     var response = new AcceptRescueResponse
                     {

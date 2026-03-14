@@ -62,7 +62,8 @@ namespace SnakeAid.Service.Implements
                         throw new NotFoundException("Incident not found.");
                     }
 
-                    if (incident.Status != SnakebiteIncidentStatus.Pending)
+                    if (incident.Status != SnakebiteIncidentStatus.Pending &&
+                        incident.Status != SnakebiteIncidentStatus.Verified)
                     {
                         throw new BadRequestException($"Cannot create mission for incident with status: {incident.Status}");
                     }
