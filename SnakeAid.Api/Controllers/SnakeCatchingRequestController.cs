@@ -73,6 +73,32 @@ namespace SnakeAid.Api.Controllers
         }
 
         /// <summary>
+        /// Confirm a snake catching request as an operator
+        /// </summary>
+        /// <param name="requestId">The ID of the snake catching request to confirm</param>
+        [HttpPut("confirm/{requestId:guid}")]
+        [SwaggerOperation(
+            Summary = "Confirm Snake Catching Request",
+            Description = "Operator confirm the pending snake catching request")]
+        [SwaggerResponse(200, "Request confirmed successfully", typeof(ApiResponse<CreateSnakeCatchingRequestResponse>))]
+        [SwaggerResponse(400, "Invalid request")]
+        [SwaggerResponse(401, "User not authenticated")]
+        [SwaggerResponse(403, "User is not a rescuer")]
+        [SwaggerResponse(404, "Request not found")]
+        [ProducesResponseType(typeof(ApiResponse<CreateSnakeCatchingRequestResponse>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> ConfirmSnakeCatchingRequest([FromRoute] Guid requestId)
+        {
+
+            var result = await _snakeCatchingRequestService.ConfirmSnakeCatchingRequestAsync(requestId);
+
+            return Ok(ApiResponseBuilder.BuildSuccessResponse(
+                result,
+                "Snake catching request confirmed successfully!"));
+        }
+
+        /// <summary>
         /// Accept a snake catching request as an operator
         /// </summary>
         /// <param name="requestId">The ID of the snake catching request to accept</param>
@@ -96,7 +122,7 @@ namespace SnakeAid.Api.Controllers
 
             return Ok(ApiResponseBuilder.BuildSuccessResponse(
                 result,
-                "Snake catching request accepted successfully! Mission created."));
+                "Snake catching request accepted successfully!"));
         }
 
         /// <summary>
@@ -121,7 +147,7 @@ namespace SnakeAid.Api.Controllers
             
             return Ok(ApiResponseBuilder.BuildSuccessResponse(
                 result,
-                "Snake catching request accepted successfully! Mission created."));
+                "Snake catching request assigned successfully! Mission created."));
         }
 
         /// <summary>
