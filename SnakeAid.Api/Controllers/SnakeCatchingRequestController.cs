@@ -76,7 +76,7 @@ namespace SnakeAid.Api.Controllers
         /// Confirm a snake catching request as an operator
         /// </summary>
         /// <param name="requestId">The ID of the snake catching request to confirm</param>
-        [HttpPut("confirm/{requestId:guid}")]
+        [HttpPatch("confirm/{requestId:guid}")]
         [SwaggerOperation(
             Summary = "Confirm Snake Catching Request",
             Description = "Operator confirm the pending snake catching request")]
@@ -102,7 +102,7 @@ namespace SnakeAid.Api.Controllers
         /// Accept a snake catching request as an operator
         /// </summary>
         /// <param name="requestId">The ID of the snake catching request to accept</param>
-        [HttpPut("accept/{requestId:guid}")]
+        [HttpPatch("accept/{requestId:guid}")]
         [SwaggerOperation(
             Summary = "Accept Snake Catching Request",
             Description = "Operatpr accept the pending snake catching request")]
