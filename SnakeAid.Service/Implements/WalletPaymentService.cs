@@ -196,7 +196,7 @@ public class WalletPaymentService : IWalletPaymentService
 
             await _unitOfWork.GetRepository<Transaction>().InsertAsync(systemTransaction);
 
-            // Update SnakeCatchingRequest status to Confirmed only for CatchingDeposit transactions
+            // Update SnakeCatchingRequest is pre-paid only for CatchingDeposit transactions
             if (request.TransactionType == TransactionType.CatchingDeposit)
             {
                 var catchingRequest = await _unitOfWork.GetRepository<SnakeCatchingRequest>()
@@ -204,7 +204,8 @@ public class WalletPaymentService : IWalletPaymentService
 
                 if (catchingRequest != null)
                 {
-                    catchingRequest.Status = RequestStatus.Confirmed;
+                    catchingRequest.PrePaidAt = DateTime.UtcNow;
+                    catchingRequest.IsPrePaid = true;
                     _unitOfWork.GetRepository<SnakeCatchingRequest>().Update(catchingRequest);
 
                     _logger.LogInformation("{Prefix} SnakeCatchingRequest {RequestId} status updated to Paid",
