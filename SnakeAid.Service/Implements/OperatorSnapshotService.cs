@@ -32,6 +32,7 @@ namespace SnakeAid.Service.Implements
             var nowUtc = DateTime.UtcNow;
 
             SnakebiteIncident? incident = null;
+            var excludedRescuerIds = new HashSet<Guid>();
             if (incidentId.HasValue)
             {
                 incident = await _unitOfWork.GetRepository<SnakebiteIncident>().FirstOrDefaultAsync(
@@ -41,6 +42,22 @@ namespace SnakeAid.Service.Implements
                 {
                     throw new NotFoundException("Incident not found.");
                 }
+
+                var declinedRescuerIds = await _unitOfWork.GetRepository<RescuerRequest>().CreateBaseQuery(asNoTracking: true)
+                    .Where(r => r.IncidentId == incidentId.Value && r.Status == RescueRequestStatus.Declined)
+                    .Select(r => r.RescuerId)
+                    .Distinct()
+                    .ToListAsync();
+
+                var abortedRescuerIds = await _unitOfWork.GetRepository<RescueMission>().CreateBaseQuery(asNoTracking: true)
+                    .Where(m => m.IncidentId == incidentId.Value && m.Status == RescueMissionStatus.MissionAborted)
+                    .Select(m => m.RescuerId)
+                    .Distinct()
+                    .ToListAsync();
+
+                excludedRescuerIds = declinedRescuerIds
+                    .Concat(abortedRescuerIds)
+                    .ToHashSet();
             }
 
             var assignments = await _unitOfWork.GetRepository<ShiftAssignment>().GetListAsync(
@@ -56,6 +73,7 @@ namespace SnakeAid.Service.Implements
                 .GroupBy(a => a.RescuerId)
                 .Select(g => SelectBestAssignment(g.ToList(), nowUtc, targetDate))
                 .Where(a => a != null)
+                .Where(a => !excludedRescuerIds.Contains(a!.RescuerId))
                 .Select(a => BuildRescuerItem(a!, incident, nowUtc))
                 .Where(item => !onlyAvailable || (item.IsOnline && item.IsAvailable))
                 .Where(item => !maxDistanceKm.HasValue || (item.DistanceKm.HasValue && item.DistanceKm.Value <= maxDistanceKm.Value))

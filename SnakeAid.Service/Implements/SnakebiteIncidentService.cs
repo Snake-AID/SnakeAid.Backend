@@ -299,6 +299,28 @@ namespace SnakeAid.Service.Implements
                         throw new NotFoundException("Rescuer not found.");
                     }
 
+                    var hasDeclinedIncident = await _unitOfWork.GetRepository<RescuerRequest>().CreateBaseQuery(asNoTracking: true)
+                        .AnyAsync(r =>
+                            r.IncidentId == incidentId
+                            && r.RescuerId == rescuer.AccountId
+                            && r.Status == RescueRequestStatus.Declined);
+
+                    if (hasDeclinedIncident)
+                    {
+                        throw new ConflictException("Rescuer already declined this incident and is excluded from re-dispatch.");
+                    }
+
+                    var hasAbortedMission = await _unitOfWork.GetRepository<RescueMission>().CreateBaseQuery(asNoTracking: true)
+                        .AnyAsync(m =>
+                            m.IncidentId == incidentId
+                            && m.RescuerId == rescuer.AccountId
+                            && m.Status == RescueMissionStatus.MissionAborted);
+
+                    if (hasAbortedMission)
+                    {
+                        throw new ConflictException("Rescuer already aborted this incident and is excluded from re-dispatch.");
+                    }
+
                     if (!rescuer.IsOnline)
                     {
                         throw new BadRequestException("Rescuer is currently offline.");

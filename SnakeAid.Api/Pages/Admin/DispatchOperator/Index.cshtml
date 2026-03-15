@@ -338,8 +338,20 @@
         }
 
         function buildDispatchOptions(incident) {
-            const eligible = currentState.rescuers.filter(r => r.isOnline && r.isAvailable && r.isOnDuty);
-            if (!eligible.length) return '<div class="muted" style="margin-top:14px;">Không có rescuer đang online + available + on duty.</div>';
+            const excludedRescuerIds = new Set((incident.excludedRescuerIds || []).map(id => id.toLowerCase()));
+            const eligible = currentState.rescuers.filter(r =>
+                r.isOnline &&
+                r.isAvailable &&
+                r.isOnDuty &&
+                !excludedRescuerIds.has((r.id || '').toLowerCase()));
+
+            if (!eligible.length) {
+                const hasExcludedRescuers = excludedRescuerIds.size > 0;
+                return `<div class="muted" style="margin-top:14px;">${hasExcludedRescuers
+                    ? 'Không còn rescuer hợp lệ để dispatch. Các rescuer đã decline/abort incident này bị loại tuyệt đối.'
+                    : 'Không có rescuer đang online + available + on duty.'}</div>`;
+            }
+
             const options = eligible.map(r => `<option value="${r.id}">${r.fullName}</option>`).join('');
             return `<div class="dispatch-row"><select class="dispatch-select" id="dispatch-select-${incident.id}"><option value="">Select rescuer</option>${options}</select><button class="btn-neo success" type="button" ${eligible.length ? '' : 'disabled'} onclick="dispatchIncident('${incident.id}')">Dispatch</button></div>`;
         }
