@@ -110,6 +110,7 @@
         const rescuers = @Html.Raw(JsonSerializer.Serialize(Model.Rescuers, jsonOptions));
         const rosterUrl = '?handler=Roster';
         const connections = {};
+        const missionConnections = {};
         const rescuerState = {};
 
         rescuers.forEach(rescuer => {
@@ -159,14 +160,34 @@
                 return;
             }
 
+            const missionId = mission.missionId || mission.id;
+            let actionControls = '';
+
+            if (mission.status === 'Preparing') {
+                actionControls = `<div class="action-row">
+                    <button class="btn-neo success" type="button" onclick="startMission('${missionId}')">Start (EnRoute)</button>
+                    <button class="btn-neo warn" type="button" onclick="abortMission('${missionId}')">Abort</button>
+                </div>`;
+            } else if (mission.status === 'EnRoute') {
+                actionControls = `<div class="action-row">
+                    <button class="btn-neo success" type="button" onclick="arriveMission('${missionId}')">Arrived</button>
+                    <button class="btn-neo warn" type="button" onclick="abortMission('${missionId}')">Abort</button>
+                </div>`;
+            } else if (mission.status === 'RescuerArrived') {
+                actionControls = `<div class="action-row">
+                    <button class="btn-neo success" type="button" onclick="completeMission('${missionId}')">Complete</button>
+                </div>`;
+            }
+
             host.className = 'mission-box live';
             host.innerHTML = `
                 <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;">
                     <strong>Mission Ready</strong>
                     <span class="badge-soft accepted">${mission.status}</span>
                 </div>
-                <div style="margin-top:10px;">Mission ID: <span class="mono">${mission.missionId || mission.id}</span></div>
-                <div class="muted" style="margin-top:6px;">Incident: <span class="mono">${mission.incidentId}</span></div>`;
+                <div style="margin-top:10px;">Mission ID: <span class="mono">${missionId}</span></div>
+                <div class="muted" style="margin-top:6px;">Incident: <span class="mono">${mission.incidentId}</span></div>
+                ${actionControls}`;
         }
 
         function renderBadge(rescuerId) {
@@ -207,12 +228,112 @@
                 if (!state) return;
                 document.getElementById(`shift-${item.id}`).textContent = item.shiftStatus || item.shiftName || 'None';
                 document.getElementById(`availability-${item.id}`).textContent = item.isAvailable ? 'Ready' : 'Busy';
-                if (!state.latestRequest && item.latestRequest) state.latestRequest = item.latestRequest;
-                if (!state.latestMission && item.latestMission) state.latestMission = item.latestMission;
+
+                // Always sync latest request/mission from server so UI reflects changes like Abort/EnRoute
+                if (item.latestRequest) state.latestRequest = item.latestRequest;
+                if (item.latestMission) state.latestMission = item.latestMission;
+
                 renderRequest(item.id);
                 renderMission(item.id);
                 syncActionButtons(item.id);
+
+                // Ensure mission hub connection follows the current mission state
+                if (connections[item.id]) {
+                    ensureMissionHubSync(item.id);
+                }
             });
+        }
+
+        function isMissionActive(status) {
+            return status === 'Preparing' || status === 'EnRoute' || status === 'RescuerArrived';
+        }
+
+        function disconnectMissionHub(rescuerId) {
+            const connection = missionConnections[rescuerId];
+            if (!connection) return;
+            try {
+                connection.stop();
+            } catch {
+                // ignore
+            }
+            delete missionConnections[rescuerId];
+            logEvent(`MissionHub disconnected for rescuer ${rescuerId}`);
+        }
+
+        async function connectMissionHub(rescuerId, incidentId, token) {
+            // Already connected
+            if (missionConnections[rescuerId]) return;
+
+            const connection = new signalR.HubConnectionBuilder()
+                .withUrl(`/mission-hub?incidentId=${incidentId}`, { accessTokenFactory: () => token })
+                .withAutomaticReconnect()
+                .build();
+
+            connection.on('JoinedMissionHub', data => {
+                logEvent(`${rescuerId} joined MissionHub for incident ${data.incidentId}`);
+            });
+
+            connection.on('MemberLocationUpdated', data => {
+                logEvent(`Member location for incident ${data.role === 'Member' ? data.userId : ''}: (${data.latitude}, ${data.longitude})`);
+            });
+
+            connection.on('RescuerLocationUpdated', data => {
+                logEvent(`Rescuer location for incident ${data.role === 'Rescuer' ? data.userId : ''}: (${data.latitude}, ${data.longitude})`);
+            });
+
+            connection.on('MissionStarted', async data => {
+                logEvent(`Mission started for incident ${incidentId}`);
+                await refreshRoster();
+            });
+
+            connection.on('RescuerArrived', async () => {
+                logEvent(`Rescuer arrived for incident ${incidentId}`);
+                await refreshRoster();
+            });
+
+            connection.on('MissionCompleted', async () => {
+                logEvent(`Mission completed for incident ${incidentId}`);
+                await refreshRoster();
+            });
+
+            connection.on('MissionCancelled', async data => {
+                logEvent(`Mission cancelled for incident ${incidentId}: ${data.reason}`);
+                await refreshRoster();
+            });
+
+            connection.onclose(async () => {
+                logEvent(`MissionHub closed for rescuer ${rescuerId}`);
+                delete missionConnections[rescuerId];
+                await refreshRoster();
+            });
+
+            try {
+                await connection.start();
+                missionConnections[rescuerId] = connection;
+                logEvent(`MissionHub connected for rescuer ${rescuerId}`);
+            } catch (err) {
+                logEvent(`MissionHub connect error for rescuer ${rescuerId}: ${err.message}`, 'warn');
+            }
+        }
+
+        function ensureMissionHubSync(rescuerId) {
+            const mission = rescuerState[rescuerId]?.latestMission;
+            const connection = missionConnections[rescuerId];
+
+            if (mission && isMissionActive(mission.status) && mission.incidentId) {
+                if (!connection) {
+                    const rescuer = rescuers.find(r => r.id === rescuerId);
+                    if (rescuer) {
+                        connectMissionHub(rescuerId, mission.incidentId, rescuer.token);
+                    }
+                }
+                return;
+            }
+
+            // No active mission any more; disconnect if connected.
+            if (connection) {
+                disconnectMissionHub(rescuerId);
+            }
         }
 
         async function refreshRoster() {
@@ -237,6 +358,7 @@
                 syncActionButtons(rescuerId);
                 logEvent(`${rescuer.fullName} joined hub: ${data.message}`);
                 await refreshRoster();
+                ensureMissionHubSync(rescuerId);
             });
 
             connection.on('DispatchRequested', data => {
@@ -276,6 +398,7 @@
                 syncActionButtons(rescuerId);
                 logEvent(`${rescuer.fullName} disconnected.`);
                 delete connections[rescuerId];
+                disconnectMissionHub(rescuerId);
                 await refreshRoster();
             });
 
@@ -291,7 +414,10 @@
         }
 
         async function disconnectRescuer(rescuerId) {
-            if (connections[rescuerId]) await connections[rescuerId].stop();
+            if (connections[rescuerId]) {
+                await connections[rescuerId].stop();
+            }
+            disconnectMissionHub(rescuerId);
         }
 
         async function acceptDispatch(rescuerId, button) {
@@ -323,6 +449,55 @@
             } finally {
                 setBusy(button, false);
                 syncActionButtons(rescuerId);
+            }
+        }
+
+        async function startMission(missionId) {
+            try {
+                logEvent(`Starting mission ${missionId}...`);
+                await fetch(`/api/rescue-missions/${missionId}/start`, { method: 'PATCH' });
+                await refreshRoster();
+            } catch (error) {
+                logEvent(`Start failed: ${error.message}`, 'warn');
+            }
+        }
+
+        async function arriveMission(missionId) {
+            try {
+                logEvent(`Marking mission ${missionId} as arrived...`);
+                await fetch(`/api/rescue-missions/${missionId}/arrive`, { method: 'PATCH' });
+                await refreshRoster();
+            } catch (error) {
+                logEvent(`Arrive failed: ${error.message}`, 'warn');
+            }
+        }
+
+        async function completeMission(missionId) {
+            try {
+                logEvent(`Completing mission ${missionId}...`);
+                await fetch(`/api/rescue-missions/${missionId}/complete`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ evidenceMediaIds: [] })
+                });
+                await refreshRoster();
+            } catch (error) {
+                logEvent(`Complete failed: ${error.message}`, 'warn');
+            }
+        }
+
+        async function abortMission(missionId) {
+            try {
+                const reason = prompt('Enter reason for aborting mission (optional):', 'Rescuer cannot continue');
+                logEvent(`Aborting mission ${missionId}...`);
+                await fetch(`/api/rescue-missions/${missionId}/abort`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ cancellationReason: reason })
+                });
+                await refreshRoster();
+            } catch (error) {
+                logEvent(`Abort failed: ${error.message}`, 'warn');
             }
         }
 

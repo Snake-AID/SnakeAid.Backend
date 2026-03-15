@@ -1,17 +1,22 @@
 ﻿using SnakeAid.Repository.Interfaces;
 using Microsoft.EntityFrameworkCore;
 using System.ComponentModel.DataAnnotations;
+using Microsoft.Extensions.Logging;
 
 namespace SnakeAid.Repository.Implements
 {
     public class UnitOfWork<TContext> : IUnitOfWork<TContext> where TContext : DbContext
     {
         public TContext Context { get; }
-        private Dictionary<Type, object> _repositories;
+        private Dictionary<Type, object>? _repositories;
+        private readonly ILoggerFactory? _loggerFactory;
+        private readonly ILogger<UnitOfWork<TContext>>? _logger;
 
-        public UnitOfWork(TContext context)
+        public UnitOfWork(TContext context, ILoggerFactory? loggerFactory = null, ILogger<UnitOfWork<TContext>>? logger = null)
         {
             Context = context;
+            _loggerFactory = loggerFactory;
+            _logger = logger;
         }
 
         #region Repository Management
@@ -23,7 +28,8 @@ namespace SnakeAid.Repository.Implements
                 return (IGenericRepository<TEntity>)repository;
             }
 
-            repository = new GenericRepository<TEntity>(Context);
+            var repoLogger = _loggerFactory?.CreateLogger<GenericRepository<TEntity>>();
+            repository = new GenericRepository<TEntity>(Context, repoLogger);
             _repositories.Add(typeof(TEntity), repository);
             return (IGenericRepository<TEntity>)repository;
         }
