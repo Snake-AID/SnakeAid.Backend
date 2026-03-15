@@ -54,6 +54,8 @@ namespace SnakeAid.Core.Domains
         public DateTime? ConfirmedAt { get; set; }
 
         public DateTime? AssignedAt { get; set; }
+        public DateTime? PrePaidAt { get; set; }
+        public bool IsPrePaid { get; set; } = false;
 
         [ForeignKey(nameof(AssignedRescuer))]
         public Guid? AssignedRescuerId { get; set; }
