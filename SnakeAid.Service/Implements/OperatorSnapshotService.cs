@@ -1,7 +1,13 @@
+using Mapster;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using SnakeAid.Core.Domains;
 using SnakeAid.Core.Exceptions;
+using SnakeAid.Core.Responses.Auth;
 using SnakeAid.Core.Responses.RescuerProfile;
 using SnakeAid.Repository.Data;
 using SnakeAid.Repository.Interfaces;
@@ -20,6 +26,24 @@ namespace SnakeAid.Service.Implements
         {
             _unitOfWork = unitOfWork;
             _logger = logger;
+        }
+
+        public async Task<List<BriefRescuerProfileResponse>> GetRescuerRegistryAsync()
+        {
+            var profiles = await _unitOfWork.GetRepository<RescuerProfile>().GetListAsync(
+                include: q => q.Include(p => p.Account));
+
+            return profiles.Select(p => p.Adapt<BriefRescuerProfileResponse>()).ToList();
+        }
+
+        public async Task<BriefRescuerProfileResponse?> GetRescuerByIdAsync(Guid rescuerId)
+        {
+            var profile = await _unitOfWork.GetRepository<RescuerProfile>().FirstOrDefaultAsync<BriefRescuerProfileResponse>(
+                predicate: p => p.AccountId == rescuerId,
+                include: q => q.Include(p => p.Account),
+                selector: p => p.Adapt<BriefRescuerProfileResponse>());
+
+            return profile == null ? null : profile;
         }
 
         public async Task<OnDutyRescuerSnapshotResponse> GetOnDutyRescuersAsync(

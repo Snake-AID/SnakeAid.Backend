@@ -1,7 +1,10 @@
-﻿using MapsterMapper;
+﻿using System;
+using MapsterMapper;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SnakeAid.Core.Meta;
 using SnakeAid.Core.Responses.RescuerProfile;
+using SnakeAid.Core.Responses.Shift;
 using SnakeAid.Service.Interfaces;
 using Swashbuckle.AspNetCore.Annotations;
 
@@ -9,18 +12,22 @@ namespace SnakeAid.Api.Controllers
 {
     [Route("api/monitoring")]
     [ApiController]
+    [Authorize(Roles = "Operator,Admin")]
     public class OperatorController : BaseController<OperatorController>
     {
         private readonly IOperatorSnapshotService _operatorSnapshotService;
+        private readonly IShiftService _shiftService;
 
         public OperatorController(
             ILogger<OperatorController> logger,
             IHttpContextAccessor httpContextAccessor,
             IMapper mapper,
-            IOperatorSnapshotService operatorSnapshotService)
+            IOperatorSnapshotService operatorSnapshotService,
+            IShiftService shiftService)
             : base(logger, httpContextAccessor, mapper)
         {
             _operatorSnapshotService = operatorSnapshotService;
+            _shiftService = shiftService;
         }
 
         /// <summary>Basic service health check</summary>
@@ -49,6 +56,44 @@ namespace SnakeAid.Api.Controllers
                 onlyAvailable,
                 maxDistanceKm);
 
+            return Ok(ApiResponseBuilder.BuildSuccessResponse(result));
+        }
+
+        [HttpGet("rescuers")]
+        [SwaggerOperation(
+            Summary = "Get Rescuer Registry",
+            Description = "Return a list of all rescuer profiles (registry) for operator dashboard.")]
+        [SwaggerResponse(200, "Success", typeof(ApiResponse<List<BriefRescuerProfileResponse>>))]
+        public async Task<IActionResult> GetRescuerRegistry()
+        {
+            var result = await _operatorSnapshotService.GetRescuerRegistryAsync();
+            return Ok(ApiResponseBuilder.BuildSuccessResponse(result));
+        }
+
+        [HttpGet("rescuers/{rescuerId:guid}")]
+        [SwaggerOperation(
+            Summary = "Get Rescuer by Id",
+            Description = "Return rescuer profile details by rescuer id.")]
+        [SwaggerResponse(200, "Success", typeof(ApiResponse<BriefRescuerProfileResponse>))]
+        [SwaggerResponse(404, "Not found", typeof(ApiResponse<object>))]
+        public async Task<IActionResult> GetRescuerById(Guid rescuerId)
+        {
+            var result = await _operatorSnapshotService.GetRescuerByIdAsync(rescuerId);
+            if (result == null)
+                return NotFound(ApiResponseBuilder.BuildNotFoundResponse($"Rescuer {rescuerId} not found."));
+
+            return Ok(ApiResponseBuilder.BuildSuccessResponse(result));
+        }
+
+        [HttpGet("shift-assignments/today")]
+        [SwaggerOperation(
+            Summary = "Get Today's Shift Assignments",
+            Description = "Return all shift assignments for today (for operator dashboard).")]
+        [SwaggerResponse(200, "Success", typeof(ApiResponse<List<ShiftAssignmentResponse>>))]
+        public async Task<IActionResult> GetTodayShiftAssignments()
+        {
+            var today = DateOnly.FromDateTime(DateTime.UtcNow);
+            var result = await _shiftService.GetAssignmentsByDateAsync(today);
             return Ok(ApiResponseBuilder.BuildSuccessResponse(result));
         }
     }
