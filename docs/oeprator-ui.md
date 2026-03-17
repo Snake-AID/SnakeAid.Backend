@@ -125,3 +125,100 @@ Một modal / side panel “Case Detail” khi bấm vào incident:
 - Danh sách **available rescuer** để dispatch (liên kết tới map)
 - **Thông báo real-time** khi rescuer abort/decline → UI phải đẩy case này lên top và show alert
 - Áp dụng `RescuerAborted` event để bật **badge + toast + focus (scroll)** — để Operator không bỏ sót
+
+## 📌 Endpoint: `GET /api/monitoring/on-duty`
+
+### ✅ Mục đích
+
+Cung cấp **danh sách rescuer “đang ca trực”** (on-duty) để UI operator:
+
+- Hiển thị **danh sách candidate để dispatch** cho một incident
+- Hiển thị trên bản đồ (location + distance)
+- Lọc theo **online/available**, **khoảng cách**, **đã từ chối/abort cho incident này**
+
+Đây là nguồn dữ liệu “độ tin cậy cao” để UI lựa rescuer trước khi gửi dispatch request.
+
+---
+
+## 🧭 Request
+
+### URL
+
+```
+GET /api/monitoring/on-duty
+```
+
+### Query params
+
+| Param | Loại | Ý nghĩa | Ví dụ |
+|------|------|---------|-------|
+| `incidentId` | `Guid` | (tùy chọn) Nếu cung cấp, endpoint sẽ loại bỏ rescuer đã **decline** hoặc **abort mission** cho incident này | `?incidentId=...` |
+| `date` | `DateOnly` | (tùy chọn) Hiển thị ca trực cho ngày cụ thể (mặc định: hôm nay) | `?date=2026-03-17` |
+| `onlyAvailable` | `bool` | Nếu true chỉ lấy rescuer **online + available** | `?onlyAvailable=true` |
+| `maxDistanceKm` | `double` | (tùy chọn) Giới hạn rescuer chỉ trong bán kính (km) so với location incident | `?maxDistanceKm=10` |
+
+---
+
+## ✅ Response model (đã có)
+
+Endpoint trả về:
+
+```json
+{
+  "incidentId": "guid|null",
+  "date": "2026-03-17",
+  "snapshotAt": "2026-03-17T09:00:00Z",
+  "rescuers": [ ... ]
+}
+```
+
+---
+
+## 🧩 Trường trong `OnDutyRescuerItemResponse`
+
+| Field | Loại | Ý nghĩa (frontend) |
+|------|------|-------------------|
+| `rescuerId` | `Guid` | ID dùng để gọi dispatch request |
+| `fullName` | `string` | Tên hiển thị |
+| `phoneNumber` | `string?` | Có thể dùng khi cần gọi ngoài app |
+| `isOnline` | `bool` | Cho biết rescuer đang online (client hoặc hub vẫn kết nối) |
+| `isAvailable` | `bool` | Cho biết rescuer hiện “có thể nhận request” (không bận) |
+| `isOnDutyNow` | `bool` | Rescuer đang nằm trong ca trực **và** đúng thời điểm ca đang diễn ra |
+| `assignmentStatus` | `string` | Trạng thái `ShiftAssignment` (ví dụ: `Scheduled`, `Active`) |
+| `shiftAssignmentId` | `Guid` | ID record ca trực (dùng để audit/tracing) |
+| `shiftId` | `Guid` | ID ca (Shift) |
+| `shiftName` | `string` | Tên ca, hiển thị trong UI |
+| `shiftStartTime` | `TimeSpan` | Giờ bắt đầu ca (để UI show/so sánh) |
+| `shiftEndTime` | `TimeSpan` | Giờ kết thúc ca |
+| `shiftDate` | `DateOnly` | Ngày ca (dùng để so sánh/nhiều ngày) |
+| `latitude` | `double?` | Vị trí hiện tại rescuer (nếu cập nhật) |
+| `longitude` | `double?` | Vị trí hiện tại rescuer |
+| `lastLocationUpdate` | `DateTime?` | Thời điểm rescuer cập nhật vị trí lần cuối |
+| `distanceKm` | `double?` | Khoảng cách từ loc incident đến rescuer (tính bằng DB PostGIS) |
+
+---
+
+## 🧠 Các lưu ý quan trọng khi dùng endpoint này
+
+- **Không trả các rescuer ngoài ca trực** — chỉ những người có `ShiftAssignment` status `Scheduled` hoặc `Active`.
+- **Nếu gửi `incidentId` thì sẽ loại bỏ** rescuer:
+  - đã *decline* request cho incident ấy
+  - đã *abort mission* cho incident ấy
+- `distanceKm` được tính bằng **PostGIS** (EF.Functions.Distance) → chính xác & hiệu quả.
+
+---
+
+## ✅ Cách frontend nên dùng
+
+1. Khi cần dispatch: gọi
+   - `GET /api/monitoring/on-duty?incidentId={id}&onlyAvailable=true&maxDistanceKm=10`
+2. Hiển thị danh sách, ưu tiên:
+   - `isOnDutyNow == true`
+   - `distanceKm` nhỏ hơn
+   - `isAvailable == true`
+3. Khi chọn rescuer, gọi:
+   - `POST /api/incidents/{incidentId}/dispatch`
+
+---
+
+Nếu muốn, mình có thể bổ sung phần **OpenAPI/Swagger snippet** (request + response schema) để frontend tự generate types/contract.

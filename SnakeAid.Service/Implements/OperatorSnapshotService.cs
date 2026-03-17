@@ -98,8 +98,37 @@ namespace SnakeAid.Service.Implements
                 .Select(g => SelectBestAssignment(g.ToList(), nowUtc, targetDate))
                 .Where(a => a != null)
                 .Where(a => !excludedRescuerIds.Contains(a!.RescuerId))
-                .Select(a => BuildRescuerItem(a!, incident, nowUtc))
+                .Select(a => BuildRescuerItem(a!, incident, nowUtc, distanceKm: null))
                 .Where(item => !onlyAvailable || (item.IsOnline && item.IsAvailable))
+                .ToList();
+
+            // If we have incident location, compute best available distances via database (PostGIS)
+            if (incident != null && rescuerItems.Any() && rescuerItems.Any(i => i.Latitude.HasValue && i.Longitude.HasValue))
+            {
+                var rescuerIds = rescuerItems.Select(i => i.RescuerId).ToList();
+                var incidentPoint = incident.LocationCoordinates;
+                var distanceResults = await _unitOfWork.GetRepository<RescuerProfile>()
+                    .GetListAsync(
+                        predicate: r => rescuerIds.Contains(r.AccountId) && r.LastLocation != null,
+                        selector: r => new
+                        {
+                            Id = r.AccountId,
+                            DistanceKm = EF.Functions.Distance(r.LastLocation!, incidentPoint, true) / 1000
+                        });
+
+                var distanceMap = distanceResults.ToDictionary(x => x.Id, x => (double?)x.DistanceKm);
+
+                foreach (var item in rescuerItems)
+                {
+                    if (distanceMap.TryGetValue(item.RescuerId, out var d))
+                    {
+                        item.DistanceKm = Math.Round(d ?? 0, 2);
+                    }
+                }
+            }
+
+            // Apply distance filter and final ordering
+            rescuerItems = rescuerItems
                 .Where(item => !maxDistanceKm.HasValue || (item.DistanceKm.HasValue && item.DistanceKm.Value <= maxDistanceKm.Value))
                 .OrderBy(item => item.DistanceKm ?? double.MaxValue)
                 .ThenByDescending(item => item.IsOnDutyNow)
@@ -132,23 +161,13 @@ namespace SnakeAid.Service.Implements
                 .FirstOrDefault();
         }
 
-        private static OnDutyRescuerItemResponse BuildRescuerItem(ShiftAssignment assignment, SnakebiteIncident? incident, DateTime nowUtc)
+        private static OnDutyRescuerItemResponse BuildRescuerItem(ShiftAssignment assignment, SnakebiteIncident? incident, DateTime nowUtc, double? distanceKm)
         {
             var rescuer = assignment.Rescuer;
             var isOnDutyNow = IsOnDutyNow(assignment, nowUtc, assignment.Date);
 
             var latitude = rescuer.LastLocation?.Y;
             var longitude = rescuer.LastLocation?.X;
-
-            double? distanceKm = null;
-            if (incident != null && latitude.HasValue && longitude.HasValue)
-            {
-                distanceKm = CalculateDistance(
-                    latitude.Value,
-                    longitude.Value,
-                    incident.LocationCoordinates.Y,
-                    incident.LocationCoordinates.X);
-            }
 
             return new OnDutyRescuerItemResponse
             {
@@ -206,24 +225,5 @@ namespace SnakeAid.Service.Implements
             return current >= start && current <= end;
         }
 
-        private static double CalculateDistance(double lat1, double lng1, double lat2, double lng2)
-        {
-            const double earthRadiusKm = 6371.0;
-
-            var dLat = ToRadians(lat2 - lat1);
-            var dLng = ToRadians(lng2 - lng1);
-
-            var a = Math.Sin(dLat / 2) * Math.Sin(dLat / 2)
-                    + Math.Cos(ToRadians(lat1)) * Math.Cos(ToRadians(lat2))
-                    * Math.Sin(dLng / 2) * Math.Sin(dLng / 2);
-
-            var c = 2 * Math.Atan2(Math.Sqrt(a), Math.Sqrt(1 - a));
-            return Math.Round(earthRadiusKm * c, 2);
-        }
-
-        private static double ToRadians(double degrees)
-        {
-            return degrees * Math.PI / 180.0;
-        }
     }
 }
