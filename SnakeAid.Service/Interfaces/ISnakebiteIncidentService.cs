@@ -28,6 +28,10 @@ namespace SnakeAid.Service.Interfaces
 
         Task<RejectRescueResponse> DeclineDispatchRequestAsync(Guid requestId, Guid rescuerId, string? reason);
 
+        Task<RejectRescueResponse> CancelDispatchRequestAsync(Guid requestId, Guid operatorId);
+
+        Task<List<DispatchRequestResponse>> GetDispatchRequestsAsync(Guid incidentId);
+
         // Debug: Get media info
         Task<object> GetMediaDebugInfoAsync(Guid incidentId);
 

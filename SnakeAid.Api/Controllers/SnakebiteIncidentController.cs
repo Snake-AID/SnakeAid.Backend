@@ -222,5 +222,36 @@ namespace SnakeAid.Api.Controllers
             var result = await _incidentService.DispatchIncidentAsync(incidentId, request.RescuerId, operatorId);
             return Ok(ApiResponseBuilder.BuildSuccessResponse(result, "Incident dispatched."));
         }
+
+        /// <summary>
+        /// Operator cancels a dispatch request
+        /// </summary>
+        [HttpPost("dispatch-requests/{requestId}/cancel")]
+        [SwaggerOperation(Summary = "Cancel Dispatch Request", Description = "Cancel a pending dispatch request sent to a rescuer.")]
+        [SwaggerResponse(200, "Dispatch request cancelled", typeof(ApiResponse<RejectRescueResponse>))]
+        [SwaggerResponse(404, "Dispatch request not found")]
+        [SwaggerResponse(409, "Dispatch request is not pending or updated by another process")]
+        public async Task<IActionResult> CancelDispatchRequest(Guid requestId)
+        {
+            var operatorId = GetCurrentUserId();
+            var result = await _incidentService.CancelDispatchRequestAsync(requestId, operatorId);
+            return Ok(ApiResponseBuilder.BuildSuccessResponse(result, "Dispatch request cancelled."));
+        }
+
+        /// <summary>
+        /// Get dispatch requests for a given incident.
+        /// </summary>
+        /// <remarks>
+        /// Frontend can call this endpoint to get the list of dispatch requests associated with the specified incident Id.
+        /// </remarks>
+        [HttpGet("{incidentId}/dispatch-requests")]
+        [SwaggerOperation(Summary = "Get Dispatch Requests for Incident", Description = "Retrieve all dispatch requests for a specific incident (by incidentId).")]
+        [SwaggerResponse(200, "Dispatch requests retrieved", typeof(ApiResponse<IEnumerable<DispatchRequestResponse>>))]
+        [SwaggerResponse(404, "Incident not found")]
+        public async Task<IActionResult> GetDispatchRequests(Guid incidentId)
+        {
+            var result = await _incidentService.GetDispatchRequestsAsync(incidentId);
+            return Ok(ApiResponseBuilder.BuildSuccessResponse(result, "Dispatch requests retrieved."));
+        }
     }
 }

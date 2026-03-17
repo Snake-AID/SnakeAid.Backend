@@ -35,6 +35,7 @@ Mỗi dòng / card hiển thị:
 - Vị trí (khoảng cách tới từng rescuer)
 - Trạng thái (Pending / Contacting / Verified / Dispatched / Assigned)
 - Nút **“Dispatch”** (mở modal chọn rescuer hoặc click trên map)
+- Nút **“Cancel Dispatch”** (hiển thị khi trạng thái là Dispatched, cho phép Operator thu hồi request nếu Rescuer không phản hồi)
 - Event history (lần gọi info, reporter, notes)
 
 > Khi event `RescuerAborted` / `RescuerDeclined` xảy ra:
@@ -113,6 +114,7 @@ Một modal / side panel “Case Detail” khi bấm vào incident:
   - Highlight step hiện tại
 - **Actions**:
   - Dispatch (chọn rescuer)
+  - Cancel Dispatch (thu hồi request đang chờ Rescuer phản hồi)
   - Cancel
   - Mark False Alarm
   - Mark No Answer (với option tiếp tục gọi / release)
@@ -216,8 +218,75 @@ Endpoint trả về:
    - `isOnDutyNow == true`
    - `distanceKm` nhỏ hơn
    - `isAvailable == true`
-3. Khi chọn rescuer, gọi:
+3. Trước khi hủy dispatch request, lấy danh sách request hiện tại để xác định `requestId`:
+   - `GET /api/incidents/{incidentId}/dispatch-requests`
+
+   ### ✅ Response schema (GET /api/incidents/{incidentId}/dispatch-requests)
+
+   ```json
+   {
+     "success": true,
+     "message": "Dispatch requests retrieved.",
+     "data": [
+       {
+         "requestId": "guid",
+         "rescuerId": "guid",
+         "rescuerName": "string",
+         "rescuerPhone": "string",
+         "status": "Pending|Accepted|Declined|Cancelled",
+         "createdAt": "2026-03-17T10:00:00Z",
+         "responseAt": "2026-03-17T10:05:00Z|null",
+         "declineReason": "string|null"
+       }
+     ]
+   }
+   ```
+
+   > ⚠️ `status` là `RescueRequestStatus` (có thể là `Pending`, `Accepted`, `Declined`, `Cancelled`)
+
+4. Khi chọn rescuer, gọi:
    - `POST /api/incidents/{incidentId}/dispatch`
+5. Khi cần hủy dispatch request (nếu rescuer không phản hồi):
+   - `POST /api/incidents/dispatch-requests/{requestId}/cancel`
+
+---
+
+## 📌 Endpoint: `POST /api/incidents/dispatch-requests/{requestId}/cancel`
+
+### ✅ Mục đích
+
+Cho phép Operator chủ động thu hồi (cancel) một dispatch request đã gửi cho Rescuer nhưng chưa được phản hồi (đang ở trạng thái `Pending`).
+
+### 🧭 Request
+
+```
+POST /api/incidents/dispatch-requests/{requestId}/cancel
+```
+
+- **`requestId`**: ID của `RescuerRequest` (được trả về khi gọi API dispatch).
+
+### ✅ Response Model
+
+```json
+{
+  "success": true,
+  "message": "Dispatch request cancelled.",
+  "data": {
+    "requestId": "guid",
+    "rejectedAt": "2026-03-17T10:00:00Z",
+    "message": "Dispatch request was cancelled by operator."
+  }
+}
+```
+
+### 🧠 Logic xử lý
+
+- Kiểm tra request có tồn tại và đang ở trạng thái `Pending` hay không.
+- Kiểm tra Operator thực hiện request có phải là người đang xử lý Incident này không.
+- Cập nhật trạng thái request thành `Cancelled` với lý do "Cancelled by Operator".
+- Đưa Incident trở lại trạng thái `Verified` để có thể dispatch cho Rescuer khác.
+- Gửi real-time notification cho Rescuer để đóng popup yêu cầu nhận nhiệm vụ.
+- Gửi real-time notification cho Operator dashboard để cập nhật UI.
 
 ---
 
