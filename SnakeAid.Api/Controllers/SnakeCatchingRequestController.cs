@@ -98,32 +98,6 @@ namespace SnakeAid.Api.Controllers
                 "Snake catching request confirmed successfully!"));
         }
 
-        /// <summary>
-        /// Accept a snake catching request as an operator
-        /// </summary>
-        /// <param name="requestId">The ID of the snake catching request to accept</param>
-        [HttpPatch("accept/{requestId:guid}")]
-        [SwaggerOperation(
-            Summary = "Accept Snake Catching Request",
-            Description = "Operatpr accept the pending snake catching request")]
-        [SwaggerResponse(200, "Request accepted successfully", typeof(ApiResponse<CreateSnakeCatchingRequestResponse>))]
-        [SwaggerResponse(400, "Invalid request")]
-        [SwaggerResponse(401, "User not authenticated")]
-        [SwaggerResponse(403, "User is not a rescuer")]
-        [SwaggerResponse(404, "Request not found")]
-        [ProducesResponseType(typeof(ApiResponse<CreateSnakeCatchingRequestResponse>), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
-        [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
-        public async Task<IActionResult> AcceptSnakeCatchingRequest([FromRoute] Guid requestId)
-        {
-            var operatorId = GetCurrentUserId();
-
-            var result = await _snakeCatchingRequestService.AcceptSnakeCatchingRequestAsync(requestId, operatorId);
-
-            return Ok(ApiResponseBuilder.BuildSuccessResponse(
-                result,
-                "Snake catching request accepted successfully!"));
-        }
 
         /// <summary>
         /// Asign a snake catching request for the rescuer
