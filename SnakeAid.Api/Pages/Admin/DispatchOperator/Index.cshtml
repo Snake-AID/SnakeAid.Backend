@@ -71,7 +71,7 @@
 
 <div class="status-strip" id="statusStrip">
     <div class="status-box"><div class="value" id="pendingCount">0</div><div class="label">Pending SOS</div></div>
-    <div class="status-box"><div class="value" id="contactingCount">0</div><div class="label">Operator Contacting</div></div>
+    <div class="status-box"><div class="value" id="contactingCount">0</div><div class="label">Claimed SOS</div></div>
     <div class="status-box"><div class="value" id="verifiedCount">0</div><div class="label">Ready To Dispatch</div></div>
     <div class="status-box"><div class="value" id="onlineRescuerCount">0</div><div class="label">Online Rescuers</div></div>
 </div>
@@ -175,7 +175,7 @@
         function syncControlStates() {
             const hasSeed = !!demoStatus?.isSeeded;
             const dispatchReady = !!demoStatus?.isDispatchReady;
-            const hasOpenIncident = (currentState.incidents || []).some(i => ['Pending', 'OperatorContacting', 'Verified'].includes(i.status));
+            const hasOpenIncident = (currentState.incidents || []).some(i => ['Pending', 'Verified'].includes(i.status));
             const hasOnlineDutyRescuer = (currentState.rescuers || []).some(r => r.isOnline && r.isAvailable && r.isOnDuty);
 
             const btnSeed = document.getElementById('btnSeedDemo');
@@ -243,8 +243,9 @@
 
         async function claimIncident(incidentId) {
             try {
-                await apiPost(`/api/incidents/${incidentId}/claim`);
-                logEvent(`Claimed incident ${incidentId}`, 'success');
+                // Claiming is now merged into confirming the incident.
+                await apiPost(`/api/incidents/${incidentId}/confirm`);
+                logEvent(`Claimed/confirmed incident ${incidentId}`, 'success');
                 await loadSnapshot();
             } catch (error) {
                 logEvent(`Claim failed: ${error.message}`, 'warn');
@@ -310,11 +311,9 @@
         function statusClass(status) {
             const key = (status || '').toLowerCase();
             if (key.includes('pending')) return 'pending';
-            if (key.includes('operatorcontacting')) return 'contacting';
             if (key.includes('verified')) return 'verified';
             if (key.includes('assigned')) return 'assigned';
             if (key.includes('falsealarm')) return 'offline';
-            if (key.includes('noanswer')) return 'contacting';
             return 'pending';
         }
 
@@ -360,7 +359,7 @@
             const host = document.getElementById('incidentList');
             document.getElementById('incidentCount').textContent = `${incidents.length} incidents`;
             document.getElementById('pendingCount').textContent = incidents.filter(i => i.status === 'Pending').length;
-            document.getElementById('contactingCount').textContent = incidents.filter(i => i.status === 'OperatorContacting').length;
+            document.getElementById('contactingCount').textContent = incidents.filter(i => i.status === 'Verified' && (i.handlingOperatorId || '').toLowerCase() !== operatorId).length;
             document.getElementById('verifiedCount').textContent = incidents.filter(i => i.status === 'Verified').length;
             if (!incidents.length) { host.innerHTML = '<div class="empty-state">Chưa có SOS demo nào.</div>'; return; }
 
@@ -370,13 +369,6 @@
                 const requestChips = (incident.dispatchRequests || []).map(request => `<span class="request-chip ${request.status.toLowerCase()}">${request.rescuerName}: ${request.status}</span>`).join('');
                 let controls = '';
                 if (incident.status === 'Pending') controls = `<div class="dispatch-row"><button class="btn-neo primary" type="button" onclick="claimIncident('${incident.id}')">Accept Handling</button></div>`;
-                else if (incident.status === 'OperatorContacting' && mine) controls = `<div class="dispatch-row">
-                        <button class="btn-neo success" type="button" onclick="verifyIncident('${incident.id}')">Mark Verified</button>
-                        <button class="btn-neo warn" type="button" onclick="markFalseAlarm('${incident.id}')">False Alarm</button>
-                        <button class="btn-neo" type="button" onclick="reportNoAnswer('${incident.id}', true)">No Answer (Try Again)</button>
-                        <button class="btn-neo" type="button" onclick="reportNoAnswer('${incident.id}', false)">No Answer (Close)</button>
-                        <button class="btn-neo" type="button" onclick="cancelIncident('${incident.id}')">Cancel Incident</button>
-                    </div>`;
                 else if (incident.status === 'Verified' && mine) controls = `<div class="dispatch-row">
                         ${buildDispatchOptions(incident)}
                         <button class="btn-neo" type="button" onclick="cancelIncident('${incident.id}')">Cancel Incident</button>
@@ -450,7 +442,8 @@
 
         async function connectOperatorHub() {
             hubConnection = new signalR.HubConnectionBuilder().withUrl('/rescuer-hub', { accessTokenFactory: () => operatorToken }).withAutomaticReconnect().build();
-            hubConnection.on('IncidentLocationUpdated', async data => { logEvent(`New SOS received: ${data.incidentId}`, 'warn'); await loadSnapshot(); });
+            // New event name for a newly created incident (preferred)
+            hubConnection.on('NewIncidentCreated', async data => { logEvent(`New SOS received: ${data.incidentId}`, 'warn'); await loadSnapshot(); });
             hubConnection.on('RescuerOnlineStatus', async data => { logEvent(`Rescuer ${data.rescuerId} is now ${data.isOnline ? 'online' : 'offline'}`, data.isOnline ? 'success' : 'warn'); await loadSnapshot(); });
             hubConnection.on('IncidentClaimed', async data => { logEvent(`Incident ${data.incidentId} claimed by operator ${data.operatorId}`, 'info'); await loadSnapshot(); });
             hubConnection.on('DispatchRequested', async data => { logEvent(`Dispatch request sent for incident ${data.incidentId} -> rescuer ${data.rescuerId}`, 'success'); await loadSnapshot(); });

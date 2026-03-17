@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using Microsoft.AspNetCore.SignalR;
 using SnakeAid.Api.Hubs;
 using SnakeAid.Core.Exceptions;
@@ -11,6 +12,9 @@ namespace SnakeAid.Api.Services
         private readonly IHubContext<RescuerHub> _hubContext;
         private readonly ILogger<SignalROperatorRealtimeNotificationService> _logger;
 
+        // Track connected operator connections for fallback broadcasts
+        public static ConcurrentDictionary<string, string> ConnectedOperators { get; } = new();
+
         public SignalROperatorRealtimeNotificationService(
             IHubContext<RescuerHub> hubContext,
             ILogger<SignalROperatorRealtimeNotificationService> logger)
@@ -23,7 +27,8 @@ namespace SnakeAid.Api.Services
         {
             try
             {
-                await _hubContext.Clients.Group(OperatorGroup).SendAsync("IncidentLocationUpdated", new
+                // Preferred new event name for clarity.
+                await _hubContext.Clients.Group(OperatorGroup).SendAsync("NewIncidentCreated", new
                 {
                     IncidentId = incidentId,
                     MemberId = memberId,
@@ -33,13 +38,24 @@ namespace SnakeAid.Api.Services
                     UpdatedAt = DateTime.UtcNow
                 });
 
-                _logger.LogInformation("Broadcasted new incident location {IncidentId} to operator group", incidentId);
+
+                _logger.LogInformation("Broadcasted new incident {IncidentId} to operator group", incidentId);
             }
             catch (Exception ex)
             {
                 _logger.LogError(new SignalRNotificationException($"Error notifying new incident {incidentId} to operators", ex),
                     "SignalR_Operator_Notification_Error");
             }
+        }
+
+        public static void AddOperatorConnection(string operatorId, string connectionId)
+        {
+            ConnectedOperators[operatorId] = connectionId;
+        }
+
+        public static void RemoveOperatorConnection(string operatorId)
+        {
+            ConnectedOperators.TryRemove(operatorId, out _);
         }
 
         public async Task NotifyIncidentClaimedAsync(Guid incidentId, Guid operatorId)
@@ -58,26 +74,6 @@ namespace SnakeAid.Api.Services
             catch (Exception ex)
             {
                 _logger.LogError(new SignalRNotificationException($"Error notifying incident claimed {incidentId} to operators", ex),
-                    "SignalR_Operator_Notification_Error");
-            }
-        }
-
-        public async Task NotifyOperatorContactingAsync(Guid incidentId, Guid operatorId)
-        {
-            try
-            {
-                await _hubContext.Clients.Group(OperatorGroup).SendAsync("OperatorContacting", new
-                {
-                    IncidentId = incidentId,
-                    OperatorId = operatorId,
-                    UpdatedAt = DateTime.UtcNow
-                });
-
-                _logger.LogInformation("Broadcasted OperatorContacting for {IncidentId} to operator group", incidentId);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(new SignalRNotificationException($"Error notifying operator contacting {incidentId} to operators", ex),
                     "SignalR_Operator_Notification_Error");
             }
         }
@@ -207,19 +203,38 @@ namespace SnakeAid.Api.Services
             }
         }
 
-        public async Task NotifyRescuerAbortedAsync(Guid incidentId, Guid rescuerId, string? reason)
+        public async Task NotifyRescuerAbortedAsync(Guid incidentId, Guid rescuerId, Guid? operatorId, string? reason)
         {
             try
             {
-                await _hubContext.Clients.Group(OperatorGroup).SendAsync("RescuerAborted", new
+                // Prefer notifying the operator currently handling the incident.
+                // If that operator is not connected, fall back to broadcasting to all operators.
+                if (operatorId.HasValue && ConnectedOperators.ContainsKey(operatorId.Value.ToString()))
                 {
-                    IncidentId = incidentId,
-                    RescuerId = rescuerId,
-                    Reason = reason,
-                    UpdatedAt = DateTime.UtcNow
-                });
+                    await _hubContext.Clients.User(operatorId.Value.ToString()).SendAsync("RescuerAborted", new
+                    {
+                        IncidentId = incidentId,
+                        RescuerId = rescuerId,
+                        OperatorId = operatorId.Value,
+                        Reason = reason,
+                        UpdatedAt = DateTime.UtcNow
+                    });
 
-                _logger.LogInformation("Broadcasted RescuerAborted for {IncidentId} to operator group", incidentId);
+                    _logger.LogInformation("Sent RescuerAborted for {IncidentId} to operator {OperatorId}", incidentId, operatorId.Value);
+                }
+                else
+                {
+                    await _hubContext.Clients.Group(OperatorGroup).SendAsync("RescuerAborted", new
+                    {
+                        IncidentId = incidentId,
+                        RescuerId = rescuerId,
+                        OperatorId = operatorId,
+                        Reason = reason,
+                        UpdatedAt = DateTime.UtcNow
+                    });
+
+                    _logger.LogInformation("Broadcasted RescuerAborted for {IncidentId} to operator group", incidentId);
+                }
             }
             catch (Exception ex)
             {
@@ -227,5 +242,6 @@ namespace SnakeAid.Api.Services
                     "SignalR_Operator_Notification_Error");
             }
         }
+
     }
 }

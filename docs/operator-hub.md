@@ -98,9 +98,11 @@ Nếu bạn “moved operator out”, các chỗ này phải chuyển qua Operat
 
 ### C) Event hiện do `MissionHub` gửi cho operator
 
-- `MissionHub.UpdateLocation` đang gọi `_rescuerHubContext.Clients.Group(OperatorGroup).SendAsync("IncidentLocationUpdated", ...)`
+- `MissionHub.UpdateLocation` đang gọi `_rescuerHubContext.Clients.Group(OperatorGroup).SendAsync("IncidentLocationUpdated", ...)` (dùng cho vị trí member cập nhật, không phải event “case mới”)
 
 ✅ Cần chuyển sang dùng `IHubContext<OperatorHub>`.
+
+> *Lưu ý:* Event “case mới được tạo” hiện dùng tên **`NewIncidentCreated`** (và vẫn giữ `IncidentLocationUpdated` làm legacy). 
 
 ---
 

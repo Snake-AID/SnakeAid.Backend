@@ -134,22 +134,39 @@ namespace SnakeAid.Api.Controllers
             return Ok(ApiResponseBuilder.BuildSuccessResponse(result, "User incidents retrieved"));
         }
 
-        /// <summary>
-        /// Operator claims an incident for handling
-        /// </summary>
-        [HttpPost("{incidentId}/claim")]
-        [SwaggerOperation(Summary = "Claim Incident", Description = "Claim a pending incident. Returns 409 if another operator claimed first.")]
-        [SwaggerResponse(200, "Incident claimed successfully", typeof(ApiResponse<CreateIncidentResponse>))]
-        [SwaggerResponse(409, "Incident already claimed")]
-        public async Task<IActionResult> ClaimIncident(Guid incidentId)
+        [HttpGet("active")]
+        [Authorize(Roles = "Operator,Admin")]
+        [SwaggerOperation(Summary = "Get Active Incidents", Description = "Retrieve active incidents (not finished/cancelled) for operator dashboard and map.")]
+        [SwaggerResponse(200, "Success", typeof(ApiResponse<PagedData<OperatorIncidentSummaryResponse>>))]
+        public async Task<IActionResult> GetActiveIncidents(
+            [FromQuery] string? status = null,
+            [FromQuery] DateTimeOffset? since = null,
+            [FromQuery] DateTimeOffset? until = null,
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 50)
         {
-            var operatorId = GetCurrentUserId();
-            var result = await _incidentService.ClaimIncidentAsync(incidentId, operatorId);
-            return Ok(ApiResponseBuilder.BuildSuccessResponse(result, "Incident claimed successfully."));
+            var statuses = ParseStatuses(status);
+            var result = await _incidentService.GetActiveIncidentsAsync(statuses, since, until, page, pageSize);
+            return Ok(ApiResponseBuilder.BuildSuccessResponse(result));
+        }
+
+        private static IEnumerable<SnakebiteIncidentStatus>? ParseStatuses(string? csvStatuses)
+        {
+            if (string.IsNullOrWhiteSpace(csvStatuses))
+                return null;
+
+            var values = csvStatuses
+                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Select(v => Enum.TryParse<SnakebiteIncidentStatus>(v, true, out var parsed) ? (SnakebiteIncidentStatus?)parsed : null)
+                .Where(x => x.HasValue)
+                .Select(x => x.Value)
+                .ToList();
+
+            return values.Count > 0 ? values : null;
         }
 
         /// <summary>
-        /// Operator confirms incident is real after contact
+        /// Operator confirms incident is real after contact (and claims it if not already claimed)
         /// </summary>
         [HttpPost("{incidentId}/confirm")]
         [SwaggerOperation(Summary = "Confirm Incident", Description = "Confirm incident after operator contact. Returns 409 on concurrency conflict.")]
