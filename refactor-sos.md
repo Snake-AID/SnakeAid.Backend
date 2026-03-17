@@ -1,5 +1,57 @@
 ## Tổng kết Refactor: Ride-hailing → Rescue Center Dispatch
 
+### Trạng thái codebase hiện tại
+
+Ghi chú này phản ánh backend production hiện tại, không tính các trang demo/admin sandbox chỉ phục vụ phát triển.
+
+Ước lượng tổng thể:
+
+```
+Khoảng 60% hoàn thành so với mục tiêu trong tài liệu này.
+```
+
+Tóm tắt nhanh:
+
+```
+Done / gần Done:
+- Data model xương sống đã có: OperatorProfile, WorkShift, ShiftAssignment, IncidentCallLog
+- SnakebiteIncident đã có các field mới như HandlingOperatorId, ConfirmedAt, DispatchedAt, AssignedRescuerId
+- RescuerRequest đã được dùng làm dispatch request
+- Core API backend đã có: claim, confirm, dispatch, rescuer accept, rescuer decline
+- Có API snapshot cho rescuer/operator on-duty
+- Có realtime feed cho operator group và rescuer qua SignalR
+- Shift CRUD + assign + checkin/checkout đã có
+
+Partial:
+- State machine chưa khớp hoàn toàn với tài liệu bên dưới
+- Realtime operator đang dùng group "Operators" trong hub/service hiện có, chưa có OperatorHub tách riêng
+- Candidate rescuer filtering cho dispatch vẫn dựa nhiều vào IsOnline/IsAvailable/IsOnDuty; chưa chuẩn hóa thành một flow chọn ứng viên production hoàn chỉnh
+- IncidentCallLog entity đã có trong schema nhưng flow nghiệp vụ call outcome chưa hoàn chỉnh
+
+Missing / chưa thấy hoàn chỉnh:
+- False alarm flow production đầy đủ
+- Redispatch endpoint / flow riêng
+- Operator disconnect -> release case về queue
+- Background escalation cho incident Pending quá lâu
+- Chuẩn hóa concurrency handling theo đúng blueprint cuối cùng
+```
+
+Lưu ý quan trọng về status hiện tại:
+
+```
+Tài liệu này dùng các status mục tiêu như Confirmed và Dispatched.
+Code hiện tại đang vận hành thực tế với Verified và Assigned là chính.
+
+Hiện trạng gần đúng:
+- Pending
+- OperatorContacting
+- Verified     (đang đóng vai trò "đã xác nhận, chờ điều phối")
+- Assigned     (rescuer đã nhận lệnh, mission mở)
+- FalseAlarm / Cancelled / Finished / NoRescuerFound
+
+Vì vậy, xem các phần bên dưới như "target design" nhiều hơn là "100% implemented state machine".
+```
+
 ---
 
 ### Phần 1 — Database Models
