@@ -16,8 +16,6 @@ namespace SnakeAid.Service.Interfaces
 
         Task<CreateIncidentResponse> CancelIncidentAsync(Guid incidentId);
 
-        Task<CreateIncidentResponse> ClaimIncidentAsync(Guid incidentId, Guid operatorId);
-
         Task<CreateIncidentResponse> ConfirmIncidentAsync(Guid incidentId, Guid operatorId);
 
         Task<CreateIncidentResponse> DispatchIncidentAsync(Guid incidentId, Guid rescuerId, Guid operatorId);
@@ -39,5 +37,12 @@ namespace SnakeAid.Service.Interfaces
         Task<IdentifySnakeResponse> IdentifySnakeByFilterAsync(Guid incidentId, IdentifyByFilterRequest request);
 
         Task<PagedData<DetailSnakebiteIncidentResponse>> GetUserIncidentsAsync(Guid userId, SnakebiteIncidentStatus? status, int page, int pageSize);
+
+        Task<PagedData<OperatorIncidentSummaryResponse>> GetActiveIncidentsAsync(
+            IEnumerable<SnakebiteIncidentStatus>? statuses,
+            DateTimeOffset? since,
+            DateTimeOffset? until,
+            int page,
+            int pageSize);
     }
 }

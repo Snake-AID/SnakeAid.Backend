@@ -6,8 +6,6 @@ namespace SnakeAid.Service.Interfaces
 
         Task NotifyIncidentClaimedAsync(Guid incidentId, Guid operatorId);
 
-        Task NotifyOperatorContactingAsync(Guid incidentId, Guid operatorId);
-
         Task NotifyIncidentCancelledAsync(Guid incidentId, string? reason);
 
         Task NotifyIncidentFalseAlarmAsync(Guid incidentId, Guid operatorId, string? reason);
@@ -20,6 +18,6 @@ namespace SnakeAid.Service.Interfaces
 
         Task NotifyRescuerDeclinedAsync(Guid incidentId, Guid rescuerId, string? reason);
 
-        Task NotifyRescuerAbortedAsync(Guid incidentId, Guid rescuerId, string? reason);
+        Task NotifyRescuerAbortedAsync(Guid incidentId, Guid rescuerId, Guid? operatorId, string? reason);
     }
 }

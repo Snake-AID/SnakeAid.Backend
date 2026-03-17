@@ -437,10 +437,18 @@ namespace SnakeAid.Service.Implements
                 // PUSH NOTIFICATION: Notify Member about rescuer abort AFTER transaction committed
                 await _notificationService.NotifyMissionCancelledAsync(incidentId, reason);
 
-                // Notify operators that rescuer aborted and the incident is ready for re-dispatch
+                // Notify the operator who is handling this incident that the rescuer aborted and the incident is ready for re-dispatch
+                // (If no operator is currently handling it, fallback to broadcasting to all operators)
                 if (rescuerId.HasValue)
                 {
-                    await _operatorRealtimeNotificationService.NotifyRescuerAbortedAsync(incidentId, rescuerId.Value, reason);
+                    // Fetch the current handling operator for this incident
+                    var incident = await _unitOfWork.GetRepository<SnakebiteIncident>().FirstOrDefaultAsync(
+                        predicate: i => i.Id == incidentId,
+                        asNoTracking: true);
+
+                    var handlingOperatorId = incident?.HandlingOperatorId;
+
+                    await _operatorRealtimeNotificationService.NotifyRescuerAbortedAsync(incidentId, rescuerId.Value, handlingOperatorId, reason);
                 }
 
                 // NOTE: In new operator-dispatch flow, re-dispatching is handled manually by operator.

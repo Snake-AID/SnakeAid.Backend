@@ -44,75 +44,12 @@ namespace SnakeAid.Service.Implements
             _rescueMissionService = rescueMissionService;
         }
 
-        public async Task<CreateIncidentResponse> ClaimIncidentAsync(Guid incidentId, Guid operatorId)
-        {
-            try
-            {
-                var response = await _unitOfWork.ExecuteInTransactionAsync(async () =>
-                {
-                    var operatorAccount = await _unitOfWork.GetRepository<Account>().FirstOrDefaultAsync(
-                        predicate: a => a.Id == operatorId
-                    );
-
-                    if (operatorAccount == null)
-                    {
-                        throw new NotFoundException("Operator account not found.");
-                    }
-
-                    if (operatorAccount.Role != AccountRole.Operator && operatorAccount.Role != AccountRole.Admin)
-                    {
-                        throw new ForbiddenException("Only operators can claim incidents.");
-                    }
-
-                    var incident = await _unitOfWork.GetRepository<SnakebiteIncident>().FirstOrDefaultAsync(
-                        predicate: i => i.Id == incidentId,
-                        asNoTracking: false
-                    );
-
-                    if (incident == null)
-                    {
-                        throw new NotFoundException("Snakebite incident not found.");
-                    }
-
-                    if (incident.HandlingOperatorId.HasValue)
-                    {
-                        throw new ConflictException("Incident is already claimed by another operator.");
-                    }
-
-                    if (incident.Status != SnakebiteIncidentStatus.Pending)
-                    {
-                        throw new ConflictException($"Incident is no longer claimable with status: {incident.Status}");
-                    }
-
-                    incident.HandlingOperatorId = operatorId;
-                    incident.Status = SnakebiteIncidentStatus.OperatorContacting;
-                    _unitOfWork.GetRepository<SnakebiteIncident>().Update(incident);
-
-                    return incident.Adapt<CreateIncidentResponse>();
-                });
-
-                // Notify operators that the incident has been claimed and is being contacted.
-                await _operatorRealtimeNotificationService.NotifyIncidentClaimedAsync(incidentId, operatorId);
-
-                return response;
-            }
-            catch (DbUpdateConcurrencyException ex)
-            {
-                _logger.LogWarning(ex, "Concurrency conflict while claiming incident {IncidentId}", incidentId);
-                throw new ConflictException("Incident was claimed or updated by another operator. Please refresh and try again.");
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error claiming incident {IncidentId}: {Message}", incidentId, ex.Message);
-                throw;
-            }
-        }
-
         public async Task<CreateIncidentResponse> ConfirmIncidentAsync(Guid incidentId, Guid operatorId)
         {
             try
             {
-                return await _unitOfWork.ExecuteInTransactionAsync(async () =>
+                var isNewClaim = false;
+                var response = await _unitOfWork.ExecuteInTransactionAsync(async () =>
                 {
                     var incident = await _unitOfWork.GetRepository<SnakebiteIncident>().FirstOrDefaultAsync(
                         predicate: i => i.Id == incidentId
@@ -123,27 +60,37 @@ namespace SnakeAid.Service.Implements
                         throw new NotFoundException("Snakebite incident not found.");
                     }
 
-                    if (incident.HandlingOperatorId != operatorId)
+                    if (!incident.HandlingOperatorId.HasValue)
+                    {
+                        incident.HandlingOperatorId = operatorId;
+                        isNewClaim = true;
+                    }
+                    else if (incident.HandlingOperatorId != operatorId)
                     {
                         throw new ConflictException("Incident is being handled by another operator.");
                     }
 
-                    if (incident.Status != SnakebiteIncidentStatus.OperatorContacting && incident.Status != SnakebiteIncidentStatus.Verified)
+                    if (incident.Status != SnakebiteIncidentStatus.Pending && incident.Status != SnakebiteIncidentStatus.Verified)
                     {
                         throw new BadRequestException($"Cannot confirm incident with status: {incident.Status}");
                     }
 
-                    if (incident.Status == SnakebiteIncidentStatus.Verified)
+                    if (incident.Status != SnakebiteIncidentStatus.Verified)
                     {
-                        return incident.Adapt<CreateIncidentResponse>();
+                        incident.Status = SnakebiteIncidentStatus.Verified;
+                        incident.ConfirmedAt = DateTime.UtcNow;
+                        _unitOfWork.GetRepository<SnakebiteIncident>().Update(incident);
                     }
-
-                    incident.Status = SnakebiteIncidentStatus.Verified;
-                    incident.ConfirmedAt = DateTime.UtcNow;
-                    _unitOfWork.GetRepository<SnakebiteIncident>().Update(incident);
 
                     return incident.Adapt<CreateIncidentResponse>();
                 });
+
+                if (isNewClaim)
+                {
+                    await _operatorRealtimeNotificationService.NotifyIncidentClaimedAsync(incidentId, operatorId);
+                }
+
+                return response;
             }
             catch (DbUpdateConcurrencyException ex)
             {
@@ -230,8 +177,8 @@ namespace SnakeAid.Service.Implements
 
                     if (continueCalling)
                     {
-                        // Keep in contacting state
-                        incident.Status = SnakebiteIncidentStatus.OperatorContacting;
+                        // Keep the incident claimed by this operator but stay in Pending state
+                        incident.Status = SnakebiteIncidentStatus.Pending;
                     }
                     else
                     {
@@ -590,7 +537,6 @@ namespace SnakeAid.Service.Implements
                         SnakebiteIncidentStatus.Cancelled,
                         SnakebiteIncidentStatus.Finished,
                         SnakebiteIncidentStatus.NoRescuerFound,
-                        SnakebiteIncidentStatus.Paid,
                         SnakebiteIncidentStatus.Disputed,
                         SnakebiteIncidentStatus.Completed,
                         SnakebiteIncidentStatus.FalseAlarm
@@ -1291,6 +1237,46 @@ namespace SnakeAid.Service.Implements
             catch (System.Exception ex)
             {
                 _logger.LogError(ex, "Error retrieving user incidents for user {UserId}: {Message}", userId, ex.Message);
+                throw;
+            }
+        }
+
+        public Task<PagedData<OperatorIncidentSummaryResponse>> GetActiveIncidentsAsync(
+            IEnumerable<SnakebiteIncidentStatus>? statuses,
+            DateTimeOffset? since,
+            DateTimeOffset? until,
+            int page,
+            int pageSize)
+        {
+            try
+            {
+                var defaultStatuses = new[]
+                {
+                    SnakebiteIncidentStatus.Pending,
+                    SnakebiteIncidentStatus.Verified,
+                    SnakebiteIncidentStatus.Assigned,
+                    SnakebiteIncidentStatus.Disputed,
+                };
+
+                var effectiveStatuses = (statuses != null && statuses.Any())
+                    ? statuses
+                    : defaultStatuses;
+
+                var repo = _unitOfWork.GetRepository<SnakebiteIncident>();
+                return repo.GetPagingListAsync<OperatorIncidentSummaryResponse>(
+                    predicate: i =>
+                        effectiveStatuses.Contains(i.Status) &&
+                        (!since.HasValue || i.CreatedAt >= since.Value.UtcDateTime) &&
+                        (!until.HasValue || i.CreatedAt <= until.Value.UtcDateTime),
+                    include: q => q.Include(i => i.Missions),
+                    orderBy: q => q.OrderByDescending(i => i.CreatedAt),
+                    page: page,
+                    size: pageSize,
+                    selector: i => i.Adapt<OperatorIncidentSummaryResponse>());
+            }
+            catch (System.Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving active incidents: {Message}", ex.Message);
                 throw;
             }
         }
