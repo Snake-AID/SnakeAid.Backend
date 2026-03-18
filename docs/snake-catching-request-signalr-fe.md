@@ -28,24 +28,26 @@ Backend hiện phát các event sau:
   - `SnakeCatchingRequestAssigned`
   - `SnakeCatchingRequestCancelled`
 
-### Payload
+### Payload (actual backend `newResponse`)
 
-- `SnakeCatchingRequestCreated`, `SnakeCatchingRequestAccepted`, `SnakeCatchingRequestAssigned`
-  - payload theo `CreateSnakeCatchingRequestResponse`
+Lưu ý: backend đang gửi payload rút gọn theo từng event, **không phải full DTO**.
+
+- `SnakeCatchingRequestCreated`
+  - `{ id, userId, address, locationCoordinates, additionalDetails, status, estimatedPrice, distanceKm, createdAt, user }`
+- `SnakeCatchingRequestAccepted`
+  - `{ id, status, confirmedAt, prePaidAt, isPrePaid }`
+- `SnakeCatchingRequestAssigned`
+  - `{ id, status, assignedAt, assignedRescuerId, assignedRescuer }`
 - `SnakeCatchingRequestCancelled`
-  - payload theo `DetailSnakeCatchingRequestResponse`
+  - `{ id, userId, status, cancellationReason }`
 
-Các field quan trọng FE thường dùng:
+Các field FE nên ưu tiên để merge state:
 - `id`
 - `status`
-- `userId`
-- `handlingOperatorId`
-- `assignedRescuerId`
-- `assignedAt`, `confirmedAt`, `dispatchedAt`
-- `cancellationReason`
-- `estimatedPrice`, `distanceKm`
-- `address`, `lat`, `lng`
-- `details`, `media`, `missions`
+- `userId` (chỉ có ở `Created`, `Cancelled`)
+- `confirmedAt`, `prePaidAt`, `isPrePaid` (chỉ có ở `Accepted`)
+- `assignedRescuerId`, `assignedAt` (chỉ có ở `Assigned`)
+- `cancellationReason` (chỉ có ở `Cancelled`)
 
 ---
 
@@ -100,30 +102,49 @@ Nếu không join group này, operator sẽ không nhận event broadcast theo g
 ## 4) Subscribe event trên FE
 
 ```ts
-type SnakeCatchingRequestRealtimeEvent = {
+type SnakeCatchingRequestCreatedEvent = {
   id: string;
-  status: string;
   userId: string;
-  handlingOperatorId?: string | null;
-  assignedRescuerId?: string | null;
-  cancellationReason?: string | null;
-  assignedAt?: string | null;
-  confirmedAt?: string | null;
-  dispatchedAt?: string | null;
-  address?: string;
-  lat?: number;
-  lng?: number;
+  address: string;
+  locationCoordinates: unknown;
+  additionalDetails: string;
+  status: string;
   estimatedPrice?: number | null;
   distanceKm?: number | null;
+  createdAt?: string | null;
+  user?: unknown;
+};
+
+type SnakeCatchingRequestAcceptedEvent = {
+  id: string;
+  status: string;
+  confirmedAt?: string | null;
+  prePaidAt?: string | null;
+  isPrePaid: boolean;
+};
+
+type SnakeCatchingRequestAssignedEvent = {
+  id: string;
+  status: string;
+  assignedAt?: string | null;
+  assignedRescuerId?: string | null;
+  assignedRescuer?: unknown;
+};
+
+type SnakeCatchingRequestCancelledEvent = {
+  id: string;
+  userId: string;
+  status: string;
+  cancellationReason?: string | null;
 };
 
 export function bindSnakeCatchingRequestEvents(
   connection: signalR.HubConnection,
   handlers: {
-    onCreated?: (data: SnakeCatchingRequestRealtimeEvent) => void;
-    onAccepted?: (data: SnakeCatchingRequestRealtimeEvent) => void;
-    onAssigned?: (data: SnakeCatchingRequestRealtimeEvent) => void;
-    onCancelled?: (data: SnakeCatchingRequestRealtimeEvent) => void;
+    onCreated?: (data: SnakeCatchingRequestCreatedEvent) => void;
+    onAccepted?: (data: SnakeCatchingRequestAcceptedEvent) => void;
+    onAssigned?: (data: SnakeCatchingRequestAssignedEvent) => void;
+    onCancelled?: (data: SnakeCatchingRequestCancelledEvent) => void;
   }
 ) {
   connection.on("SnakeCatchingRequestCreated", (data) => handlers.onCreated?.(data));
@@ -149,7 +170,7 @@ export function unbindSnakeCatchingRequestEvents(connection: signalR.HubConnecti
 - `SnakeCatchingRequestCreated`
   - Insert request mới lên đầu list hoặc refresh list nhẹ.
 - `SnakeCatchingRequestAccepted`
-  - Update row: `status = OperatorContacting`, set `handlingOperatorId`.
+  - Update row: `status = Confirmed`, set `confirmedAt`, `prePaidAt`, `isPrePaid` nếu có.
 - `SnakeCatchingRequestAssigned`
   - Update row: `status = Assigned`, set `assignedRescuerId`, `assignedAt`.
 - `SnakeCatchingRequestCancelled`
