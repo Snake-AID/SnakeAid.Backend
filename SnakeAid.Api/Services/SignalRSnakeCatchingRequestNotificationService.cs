@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.SignalR;
 using SnakeAid.Api.Hubs;
+using SnakeAid.Core.Domains;
 using SnakeAid.Core.Exceptions;
-using SnakeAid.Core.Responses.SnakeCatchingRequest;
 using SnakeAid.Service.Interfaces;
 
 namespace SnakeAid.Api.Services
@@ -20,84 +20,131 @@ namespace SnakeAid.Api.Services
             _logger = logger;
         }
 
-        public Task NotifyRequestCreatedAsync(CreateSnakeCatchingRequestResponse response)
+        public Task NotifyRequestCreatedAsync(
+            Guid requestId,
+            Guid userId,
+            string? address,
+            double? lat,
+            double? lng,
+            string? additionalDetails,
+            RequestStatus status,
+            decimal? estimatedPrice,
+            double? distanceKm,
+            DateTime? createdAt,
+            string? userName,
+            string? userPhone)
             => SafeExecuteAsync(async () =>
             {
+                var safeLat = NormalizeDouble(lat);
+                var safeLng = NormalizeDouble(lng);
+                var safeDistance = NormalizeDouble(distanceKm);
+
                 var newResponse = new
                 {
-                    response.Id,
-                    response.UserId,
-                    response.Address,
-                    response.LocationCoordinates,
-                    response.AdditionalDetails,
-                    response.Status,
-                    response.EstimatedPrice,
-                    response.DistanceKm,
-                    response.CreatedAt,
-                    response.User
+                    Id = requestId,
+                    UserId = userId,
+                    Address = address,
+                    Lat = safeLat,
+                    Lng = safeLng,
+                    AdditionalDetails = additionalDetails,
+                    Status = status,
+                    EstimatedPrice = estimatedPrice,
+                    DistanceKm = safeDistance,
+                    CreatedAt = createdAt,
+                    User = new
+                    {
+                        UserName = userName,
+                        PhoneNumber = userPhone
+                    }
                 };
 
                 await _hubContext.Clients.Group(OperatorGroup).SendAsync("SnakeCatchingRequestCreated", newResponse);
-                await _hubContext.Clients.User(newResponse.UserId.ToString()).SendAsync("SnakeCatchingRequestCreated", newResponse);
-            }, "SnakeCatchingRequestCreated", response.Id);
+                await _hubContext.Clients.User(userId.ToString()).SendAsync("SnakeCatchingRequestCreated", newResponse);
+            }, "SnakeCatchingRequestCreated", requestId);
 
-        public Task NotifyRequestConfirmedAsync(CreateSnakeCatchingRequestResponse response)
+        public Task NotifyRequestConfirmedAsync(
+            Guid requestId,
+            Guid userId,
+            RequestStatus status,
+            DateTime? confirmedAt,
+            DateTime? prePaidAt,
+            bool isPrePaid)
             => SafeExecuteAsync(async () =>
             {
                 var newResponse = new
                 {
-                    response.Id,
-                    response.Status,
-                    response.ConfirmedAt,
-                    response.PrePaidAt,
-                    response.IsPrePaid
+                    Id = requestId,
+                    Status = status,
+                    ConfirmedAt = confirmedAt,
+                    PrePaidAt = prePaidAt,
+                    IsPrePaid = isPrePaid
                 };
 
                 await _hubContext.Clients.Group(OperatorGroup).SendAsync("SnakeCatchingRequestAccepted", newResponse);
-                await _hubContext.Clients.User(response.UserId.ToString()).SendAsync("SnakeCatchingRequestAccepted", newResponse);
-            }, "SnakeCatchingRequestAccepted", response.Id);
+                await _hubContext.Clients.User(userId.ToString()).SendAsync("SnakeCatchingRequestAccepted", newResponse);
+            }, "SnakeCatchingRequestAccepted", requestId);
 
-        public Task NotifyRequestAssignedAsync(CreateSnakeCatchingRequestResponse response)
+        public Task NotifyRequestAssignedAsync(
+            Guid requestId,
+            Guid userId,
+            RequestStatus status,
+            DateTime? assignedAt,
+            Guid? assignedRescuerId,
+            string? assignedRescuerName,
+            string? assignedRescuerPhone)
             => SafeExecuteAsync(async () =>
             {
                 var newResponse = new
                 {
-                    response.Id,
-                    response.Status,
-                    response.AssignedAt,
-                    response.AssignedRescuerId,
-                    response.AssignedRescuer
+                    Id = requestId,
+                    Status = status,
+                    AssignedAt = assignedAt,
+                    AssignedRescuerId = assignedRescuerId,
+                    AssignedRescuerName = assignedRescuerName,
+                    AssignedRescuerPhone = assignedRescuerPhone
                 };
 
                 await _hubContext.Clients.Group(OperatorGroup).SendAsync("SnakeCatchingRequestAssigned", newResponse);
-                await _hubContext.Clients.User(response.UserId.ToString()).SendAsync("SnakeCatchingRequestAssigned", newResponse);
+                await _hubContext.Clients.User(userId.ToString()).SendAsync("SnakeCatchingRequestAssigned", newResponse);
 
-                if (response.AssignedRescuerId.HasValue)
+                if (assignedRescuerId.HasValue)
                 {
-                    await _hubContext.Clients.User(newResponse.AssignedRescuerId.Value.ToString()).SendAsync("SnakeCatchingRequestAssigned", newResponse);
+                    await _hubContext.Clients.User(assignedRescuerId.Value.ToString()).SendAsync("SnakeCatchingRequestAssigned", newResponse);
                 }
-            }, "SnakeCatchingRequestAssigned", response.Id);
+            }, "SnakeCatchingRequestAssigned", requestId);
 
-        public Task NotifyRequestCancelledAsync(DetailSnakeCatchingRequestResponse response)
+        public Task NotifyRequestCancelledAsync(
+            Guid requestId,
+            Guid userId,
+            RequestStatus status,
+            string? cancellationReason,
+            Guid? assignedRescuerId)
             => SafeExecuteAsync(async () =>
             {
                 var newResponse = new
                 {
-                    response.Id,
-                    response.UserId,
-                    response.Status,
-                    response.CancellationReason
-                    
+                    Id = requestId,
+                    UserId = userId,
+                    Status = status,
+                    CancellationReason = cancellationReason
                 };
 
                 await _hubContext.Clients.Group(OperatorGroup).SendAsync("SnakeCatchingRequestCancelled", newResponse);
-                await _hubContext.Clients.User(response.UserId.ToString()).SendAsync("SnakeCatchingRequestCancelled", newResponse);
+                await _hubContext.Clients.User(userId.ToString()).SendAsync("SnakeCatchingRequestCancelled", newResponse);
 
-                if (response.AssignedRescuerId.HasValue)
+                if (assignedRescuerId.HasValue)
                 {
-                    await _hubContext.Clients.User(response.AssignedRescuerId.Value.ToString()).SendAsync("SnakeCatchingRequestCancelled", newResponse);
+                    await _hubContext.Clients.User(assignedRescuerId.Value.ToString()).SendAsync("SnakeCatchingRequestCancelled", newResponse);
                 }
-            }, "SnakeCatchingRequestCancelled", response.Id);
+            }, "SnakeCatchingRequestCancelled", requestId);
+
+        private static double? NormalizeDouble(double? value)
+        {
+            if (!value.HasValue)
+                return null;
+
+            return double.IsFinite(value.Value) ? value : null;
+        }
 
         private async Task SafeExecuteAsync(Func<Task> action, string actionName, Guid requestId)
         {

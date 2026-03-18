@@ -319,7 +319,19 @@ namespace SnakeAid.Service.Implements
                     return response;
                 });
 
-                await _snakeCatchingRequestNotificationService.NotifyRequestCreatedAsync(response);
+                await _snakeCatchingRequestNotificationService.NotifyRequestCreatedAsync(
+                    response.Id,
+                    response.UserId,
+                    response.Address,
+                    response.Lat,
+                    response.Lng,
+                    response.AdditionalDetails,
+                    response.Status,
+                    response.EstimatedPrice,
+                    response.DistanceKm,
+                    response.CreatedAt,
+                    response.User?.UserName,
+                    response.User?.PhoneNumber);
 
                 return response;
             }
@@ -403,7 +415,13 @@ namespace SnakeAid.Service.Implements
                     return response;
                 });
 
-                await _snakeCatchingRequestNotificationService.NotifyRequestConfirmedAsync(response);
+                await _snakeCatchingRequestNotificationService.NotifyRequestConfirmedAsync(
+                    response.Id,
+                    response.UserId,
+                    response.Status,
+                    response.ConfirmedAt,
+                    response.PrePaidAt,
+                    response.IsPrePaid);
 
                 return response;
             }
@@ -556,7 +574,14 @@ namespace SnakeAid.Service.Implements
                     return response;
                 });
 
-                await _snakeCatchingRequestNotificationService.NotifyRequestAssignedAsync(response);
+                await _snakeCatchingRequestNotificationService.NotifyRequestAssignedAsync(
+                    response.Id,
+                    response.UserId,
+                    response.Status,
+                    response.AssignedAt,
+                    response.AssignedRescuerId,
+                    response.AssignedRescuer?.Account?.FullName,
+                    response.AssignedRescuer?.PhoneNumber);
 
                 return response;
             }
@@ -963,7 +988,12 @@ namespace SnakeAid.Service.Implements
                     return response;
                 });
 
-                await _snakeCatchingRequestNotificationService.NotifyRequestCancelledAsync(response);
+                await _snakeCatchingRequestNotificationService.NotifyRequestCancelledAsync(
+                    response.Id,
+                    response.UserId,
+                    response.Status,
+                    response.CancellationReason,
+                    response.AssignedRescuerId);
 
                 return response;
             }
@@ -987,10 +1017,8 @@ namespace SnakeAid.Service.Implements
                 var defaultStatuses = new[]
                 {
                     RequestStatus.Pending,
-                    RequestStatus.OperatorContacting,
                     RequestStatus.Confirmed,
                     RequestStatus.Assigned,
-                    RequestStatus.Disputed,
                 };
 
                 var effectiveStatuses = (statuses != null && statuses.Any())
