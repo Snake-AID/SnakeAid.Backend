@@ -23,38 +23,79 @@ namespace SnakeAid.Api.Services
         public Task NotifyRequestCreatedAsync(CreateSnakeCatchingRequestResponse response)
             => SafeExecuteAsync(async () =>
             {
-                await _hubContext.Clients.Group(OperatorGroup).SendAsync("SnakeCatchingRequestCreated", response);
-                await _hubContext.Clients.User(response.UserId.ToString()).SendAsync("SnakeCatchingRequestCreated", response);
+                var newResponse = new
+                {
+                    response.Id,
+                    response.UserId,
+                    response.Address,
+                    response.LocationCoordinates,
+                    response.AdditionalDetails,
+                    response.Status,
+                    response.EstimatedPrice,
+                    response.DistanceKm,
+                    response.CreatedAt,
+                    response.User
+                };
+
+                await _hubContext.Clients.Group(OperatorGroup).SendAsync("SnakeCatchingRequestCreated", newResponse);
+                await _hubContext.Clients.User(newResponse.UserId.ToString()).SendAsync("SnakeCatchingRequestCreated", newResponse);
             }, "SnakeCatchingRequestCreated", response.Id);
 
-        public Task NotifyRequestAcceptedAsync(CreateSnakeCatchingRequestResponse response)
+        public Task NotifyRequestConfirmedAsync(CreateSnakeCatchingRequestResponse response)
             => SafeExecuteAsync(async () =>
             {
-                await _hubContext.Clients.Group(OperatorGroup).SendAsync("SnakeCatchingRequestAccepted", response);
-                await _hubContext.Clients.User(response.UserId.ToString()).SendAsync("SnakeCatchingRequestAccepted", response);
+                var newResponse = new
+                {
+                    response.Id,
+                    response.Status,
+                    response.ConfirmedAt,
+                    response.PrePaidAt,
+                    response.IsPrePaid
+                };
+
+                await _hubContext.Clients.Group(OperatorGroup).SendAsync("SnakeCatchingRequestAccepted", newResponse);
+                await _hubContext.Clients.User(response.UserId.ToString()).SendAsync("SnakeCatchingRequestAccepted", newResponse);
             }, "SnakeCatchingRequestAccepted", response.Id);
 
         public Task NotifyRequestAssignedAsync(CreateSnakeCatchingRequestResponse response)
             => SafeExecuteAsync(async () =>
             {
-                await _hubContext.Clients.Group(OperatorGroup).SendAsync("SnakeCatchingRequestAssigned", response);
-                await _hubContext.Clients.User(response.UserId.ToString()).SendAsync("SnakeCatchingRequestAssigned", response);
+                var newResponse = new
+                {
+                    response.Id,
+                    response.Status,
+                    response.AssignedAt,
+                    response.AssignedRescuerId,
+                    response.AssignedRescuer
+                };
+
+                await _hubContext.Clients.Group(OperatorGroup).SendAsync("SnakeCatchingRequestAssigned", newResponse);
+                await _hubContext.Clients.User(response.UserId.ToString()).SendAsync("SnakeCatchingRequestAssigned", newResponse);
 
                 if (response.AssignedRescuerId.HasValue)
                 {
-                    await _hubContext.Clients.User(response.AssignedRescuerId.Value.ToString()).SendAsync("SnakeCatchingRequestAssigned", response);
+                    await _hubContext.Clients.User(newResponse.AssignedRescuerId.Value.ToString()).SendAsync("SnakeCatchingRequestAssigned", newResponse);
                 }
             }, "SnakeCatchingRequestAssigned", response.Id);
 
         public Task NotifyRequestCancelledAsync(DetailSnakeCatchingRequestResponse response)
             => SafeExecuteAsync(async () =>
             {
-                await _hubContext.Clients.Group(OperatorGroup).SendAsync("SnakeCatchingRequestCancelled", response);
-                await _hubContext.Clients.User(response.UserId.ToString()).SendAsync("SnakeCatchingRequestCancelled", response);
+                var newResponse = new
+                {
+                    response.Id,
+                    response.UserId,
+                    response.Status,
+                    response.CancellationReason
+                    
+                };
+
+                await _hubContext.Clients.Group(OperatorGroup).SendAsync("SnakeCatchingRequestCancelled", newResponse);
+                await _hubContext.Clients.User(response.UserId.ToString()).SendAsync("SnakeCatchingRequestCancelled", newResponse);
 
                 if (response.AssignedRescuerId.HasValue)
                 {
-                    await _hubContext.Clients.User(response.AssignedRescuerId.Value.ToString()).SendAsync("SnakeCatchingRequestCancelled", response);
+                    await _hubContext.Clients.User(response.AssignedRescuerId.Value.ToString()).SendAsync("SnakeCatchingRequestCancelled", newResponse);
                 }
             }, "SnakeCatchingRequestCancelled", response.Id);
 

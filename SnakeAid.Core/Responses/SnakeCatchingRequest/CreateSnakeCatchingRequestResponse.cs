@@ -58,6 +58,9 @@ namespace SnakeAid.Core.Responses.SnakeCatchingRequest
 
         public DateTime? AssignedAt { get; set; }
 
+        public DateTime? PrePaidAt { get; set; }
+        public bool IsPrePaid { get; set; }
+
         public Guid? AssignedRescuerId { get; set; }
 
         public double? DistanceKm { get; set; }
@@ -67,6 +70,9 @@ namespace SnakeAid.Core.Responses.SnakeCatchingRequest
         public string? CancellationReason { get; set; }
 
         public string? Notes { get; set; }
+
+        public DateTime? CreatedAt { get; set; } = DateTime.UtcNow;
+
 
 
         // Navigation properties
