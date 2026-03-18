@@ -6,7 +6,7 @@ namespace SnakeAid.Service.Interfaces
     {
         Task NotifyRequestCreatedAsync(CreateSnakeCatchingRequestResponse response);
 
-        Task NotifyRequestAcceptedAsync(CreateSnakeCatchingRequestResponse response);
+        Task NotifyRequestConfirmedAsync(CreateSnakeCatchingRequestResponse response);
 
         Task NotifyRequestAssignedAsync(CreateSnakeCatchingRequestResponse response);
 

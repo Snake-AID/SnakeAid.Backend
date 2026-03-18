@@ -92,7 +92,7 @@ namespace SnakeAid.Service.Implements
                         "Creating snake catching request at Lng={Lng}, Lat={Lat} (Point.X={X}, Point.Y={Y})",
                         request.Lng, request.Lat, locationPoint.X, locationPoint.Y);
 
-                    
+
                     // Create new SnakeCatchingRequest
                     var newRequest = new SnakeCatchingRequest
                     {
@@ -259,7 +259,7 @@ namespace SnakeAid.Service.Implements
                                         media.Id);
 
                                     var detectionResult = await _snakeAIService.DetectFromReportMediaAsync(media.Id);
-                                    
+
                                     if (detectionResult != null && detectionResult.Results != null && detectionResult.Results.Any())
                                     {
                                         aiResults.Add(detectionResult);
@@ -401,7 +401,7 @@ namespace SnakeAid.Service.Implements
                     return response;
                 });
 
-                await _snakeCatchingRequestNotificationService.NotifyRequestAcceptedAsync(response);
+                await _snakeCatchingRequestNotificationService.NotifyRequestConfirmedAsync(response);
 
                 return response;
             }
@@ -412,7 +412,7 @@ namespace SnakeAid.Service.Implements
             }
         }
 
-        
+
 
         public async Task<CreateSnakeCatchingRequestResponse> AssignSnakeCatchingRequestAsync(
             Guid requestId,
@@ -655,13 +655,13 @@ namespace SnakeAid.Service.Implements
                 }
 
                 var response = request.Adapt<DetailSnakeCatchingRequestResponse>();
-                
+
                 // Ensure Media is properly mapped (explicit mapping for polymorphic relationship)
                 if (request.Media != null && request.Media.Any())
                 {
                     response.Media = request.Media.Adapt<List<ReportMediaResponse>>();
                 }
-                
+
                 response.AIResults = aiResults;
                 if (response.EstimatedPrice.HasValue)
                 {
