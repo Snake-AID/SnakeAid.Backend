@@ -61,14 +61,29 @@ public class WalletPaymentService : IWalletPaymentService
                     throw new InvalidOperationException($"SnakeCatchingRequest {request.SnakeCatchingRequestId} not found");
                 }
 
-                // Validate status - must be OperatorContacting or Finished
-                if (catchingRequest.Status != RequestStatus.Pending && 
-                    catchingRequest.Status != RequestStatus.OperatorContacting &&
-                    catchingRequest.Status != RequestStatus.Finished)
+                // Validate status based on transaction type
+                if (request.TransactionType == TransactionType.CatchingDeposit)
                 {
-                    throw new InvalidOperationException(
-                        $"Cannot create payment for request with status {catchingRequest.Status}. " +
-                        "Request must be Assigned or Finished.");
+                    // Deposit (travel fee) can be paid at initial stages before assignment
+                    if (catchingRequest.Status != RequestStatus.Pending &&
+                        catchingRequest.Status != RequestStatus.Confirmed &&
+                        catchingRequest.Status != RequestStatus.Assigned)
+                    {
+                        throw new InvalidOperationException(
+                            $"Cannot create deposit payment for request with status {catchingRequest.Status}. " +
+                            "Request must be Pending, Confirmed, or Assigned.");
+                    }
+                }
+                else
+                {
+                    // Other snake catching payments should be made after assignment or completion
+                    if (catchingRequest.Status != RequestStatus.Assigned &&
+                        catchingRequest.Status != RequestStatus.Finished)
+                    {
+                        throw new InvalidOperationException(
+                            $"Cannot create payment for request with status {catchingRequest.Status}. " +
+                            "Request must be Assigned or Finished.");
+                    }
                 }
             }
 
