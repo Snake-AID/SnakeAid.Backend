@@ -5,7 +5,6 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
-using Mapster;
 using SnakeAid.Core.Domains;
 using SnakeAid.Core.Exceptions;
 using SnakeAid.Core.Responses.Auth;
@@ -46,41 +45,130 @@ namespace SnakeAid.Service.Implements
         public async Task<OnDutyRescuerSnapshotResponse> GetOnDutyRescuersAsync(
             DateOnly? date,
             Guid? incidentId,
+            Guid? catchingRequestId,
+            bool onlyAvailable,
+            double? maxDistanceKm)
+        {
+            if (incidentId.HasValue && catchingRequestId.HasValue)
+            {
+                throw new ArgumentException("Only one of incidentId or catchingRequestId may be provided.");
+            }
+
+            if (incidentId.HasValue)
+            {
+                return await GetOnDutyRescuersForIncidentAsync(date, incidentId.Value, onlyAvailable, maxDistanceKm);
+            }
+
+            if (catchingRequestId.HasValue)
+            {
+                return await GetOnDutyRescuersForCatchingRequestAsync(date, catchingRequestId.Value, onlyAvailable, maxDistanceKm);
+            }
+
+            // Default: no specific context (neither incident nor catching request) -> return baseline snapshot.
+            return await BuildSnapshotAsync(
+                date ?? DateOnly.FromDateTime(DateTime.UtcNow),
+                DateTime.UtcNow,
+                null,
+                new HashSet<Guid>(),
+                onlyAvailable,
+                maxDistanceKm);
+        }
+
+        public async Task<OnDutyRescuerSnapshotResponse> GetOnDutyRescuersForIncidentAsync(
+            DateOnly? date,
+            Guid incidentId,
             bool onlyAvailable,
             double? maxDistanceKm)
         {
             var targetDate = date ?? DateOnly.FromDateTime(DateTime.UtcNow);
             var nowUtc = DateTime.UtcNow;
 
-            SnakebiteIncident? incident = null;
-            var excludedRescuerIds = new HashSet<Guid>();
-            if (incidentId.HasValue)
+            var incident = await _unitOfWork.GetRepository<SnakebiteIncident>().FirstOrDefaultAsync(
+                predicate: i => i.Id == incidentId);
+
+            if (incident == null)
             {
-                incident = await _unitOfWork.GetRepository<SnakebiteIncident>().FirstOrDefaultAsync(
-                    predicate: i => i.Id == incidentId.Value);
-
-                if (incident == null)
-                {
-                    throw new NotFoundException("Incident not found.");
-                }
-
-                var declinedRescuerIds = await _unitOfWork.GetRepository<RescuerRequest>().CreateBaseQuery(asNoTracking: true)
-                    .Where(r => r.IncidentId == incidentId.Value && r.Status == RescueRequestStatus.Declined)
-                    .Select(r => r.RescuerId)
-                    .Distinct()
-                    .ToListAsync();
-
-                var abortedRescuerIds = await _unitOfWork.GetRepository<RescueMission>().CreateBaseQuery(asNoTracking: true)
-                    .Where(m => m.IncidentId == incidentId.Value && m.Status == RescueMissionStatus.MissionAborted)
-                    .Select(m => m.RescuerId)
-                    .Distinct()
-                    .ToListAsync();
-
-                excludedRescuerIds = declinedRescuerIds
-                    .Concat(abortedRescuerIds)
-                    .ToHashSet();
+                throw new NotFoundException("Incident not found.");
             }
 
+            var excludedRescuerIds = new HashSet<Guid>();
+
+            var declinedRescuerIds = await _unitOfWork.GetRepository<RescuerRequest>().CreateBaseQuery(asNoTracking: true)
+                .Where(r => r.IncidentId == incidentId && r.Status == RescueRequestStatus.Declined)
+                .Select(r => r.RescuerId)
+                .Distinct()
+                .ToListAsync();
+
+            var abortedRescuerIds = await _unitOfWork.GetRepository<RescueMission>().CreateBaseQuery(asNoTracking: true)
+                .Where(m => m.IncidentId == incidentId && m.Status == RescueMissionStatus.MissionAborted)
+                .Select(m => m.RescuerId)
+                .Distinct()
+                .ToListAsync();
+
+            excludedRescuerIds = declinedRescuerIds
+                .Concat(abortedRescuerIds)
+                .ToHashSet();
+
+            return await BuildSnapshotAsync(
+                targetDate,
+                nowUtc,
+                incident.LocationCoordinates,
+                excludedRescuerIds,
+                onlyAvailable,
+                maxDistanceKm);
+        }
+
+        public async Task<OnDutyRescuerSnapshotResponse> GetOnDutyRescuersForCatchingRequestAsync(
+            DateOnly? date,
+            Guid catchingRequestId,
+            bool onlyAvailable,
+            double? maxDistanceKm)
+        {
+            var targetDate = date ?? DateOnly.FromDateTime(DateTime.UtcNow);
+            var nowUtc = DateTime.UtcNow;
+
+            var catchingRequest = await _unitOfWork.GetRepository<SnakeCatchingRequest>().FirstOrDefaultAsync(
+                predicate: r => r.Id == catchingRequestId);
+
+            if (catchingRequest == null)
+            {
+                throw new NotFoundException("Catching request not found.");
+            }
+
+            // Exclude rescuer IDs that already declined or aborted this catching request
+            var excludedRescuerIds = new HashSet<Guid>();
+
+            if (catchingRequest.AssignedRescuerId.HasValue)
+            {
+                excludedRescuerIds.Add(catchingRequest.AssignedRescuerId.Value);
+            }
+
+            var abortedRescuerIds = await _unitOfWork.GetRepository<SnakeCatchingMission>().CreateBaseQuery(asNoTracking: true)
+                .Where(m => m.SnakeCatchingRequestId == catchingRequestId &&
+                            (m.Status == CatchingMissionStatus.MissionAborted || m.Status == CatchingMissionStatus.Cancelled))
+                .Select(m => m.RescuerId)
+                .Distinct()
+                .ToListAsync();
+
+            excludedRescuerIds.UnionWith(abortedRescuerIds);
+
+            return await BuildSnapshotAsync(
+                targetDate,
+                nowUtc,
+                catchingRequest.LocationCoordinates,
+                excludedRescuerIds,
+                onlyAvailable,
+                maxDistanceKm);
+        }
+
+        private async Task<OnDutyRescuerSnapshotResponse> BuildSnapshotAsync(
+            DateOnly targetDate,
+            DateTime nowUtc,
+            NetTopologySuite.Geometries.Point? locationPoint,
+            HashSet<Guid> excludedRescuerIds,
+            bool onlyAvailable,
+            double? maxDistanceKm)
+        {
             var assignments = await _unitOfWork.GetRepository<ShiftAssignment>().GetListAsync(
                 predicate: a => a.Date == targetDate
                                 && (a.Status == ShiftAssignmentStatus.Scheduled || a.Status == ShiftAssignmentStatus.Active),
@@ -95,22 +183,21 @@ namespace SnakeAid.Service.Implements
                 .Select(g => SelectBestAssignment(g.ToList(), nowUtc, targetDate))
                 .Where(a => a != null)
                 .Where(a => !excludedRescuerIds.Contains(a!.RescuerId))
-                .Select(a => BuildRescuerItem(a!, incident, nowUtc, distanceKm: null))
+                .Select(a => BuildRescuerItem(a!, locationPoint, nowUtc, distanceKm: null))
                 .Where(item => !onlyAvailable || (item.IsOnline && item.IsAvailable))
                 .ToList();
 
-            // If we have incident location, compute best available distances via database (PostGIS)
-            if (incident != null && rescuerItems.Any() && rescuerItems.Any(i => i.Latitude.HasValue && i.Longitude.HasValue))
+            // If we have a location point, compute best available distances via database (PostGIS)
+            if (locationPoint != null && rescuerItems.Any() && rescuerItems.Any(i => i.Latitude.HasValue && i.Longitude.HasValue))
             {
                 var rescuerIds = rescuerItems.Select(i => i.RescuerId).ToList();
-                var incidentPoint = incident.LocationCoordinates;
                 var distanceResults = await _unitOfWork.GetRepository<RescuerProfile>()
                     .GetListAsync(
                         predicate: r => rescuerIds.Contains(r.AccountId) && r.LastLocation != null,
                         selector: r => new
                         {
                             Id = r.AccountId,
-                            DistanceKm = EF.Functions.Distance(r.LastLocation!, incidentPoint, true) / 1000
+                            DistanceKm = EF.Functions.Distance(r.LastLocation!, locationPoint, true) / 1000
                         });
 
                 var distanceMap = distanceResults.ToDictionary(x => x.Id, x => (double?)x.DistanceKm);
@@ -133,21 +220,21 @@ namespace SnakeAid.Service.Implements
                 .ToList();
 
             _logger.LogInformation(
-                "Snapshot on-duty rescuers built. Date={Date}, IncidentId={IncidentId}, Count={Count}, OnlyAvailable={OnlyAvailable}, MaxDistanceKm={MaxDistanceKm}",
+                "Snapshot on-duty rescuers built. Date={Date}, Count={Count}, OnlyAvailable={OnlyAvailable}, MaxDistanceKm={MaxDistanceKm}",
                 targetDate,
-                incidentId,
                 rescuerItems.Count,
                 onlyAvailable,
                 maxDistanceKm);
 
             return new OnDutyRescuerSnapshotResponse
             {
-                IncidentId = incidentId,
+                ContextId = null,
                 Date = targetDate,
                 SnapshotAt = nowUtc,
                 Rescuers = rescuerItems
             };
         }
+
 
         private static ShiftAssignment? SelectBestAssignment(List<ShiftAssignment> assignments, DateTime nowUtc, DateOnly targetDate)
         {
@@ -158,7 +245,7 @@ namespace SnakeAid.Service.Implements
                 .FirstOrDefault();
         }
 
-        private static OnDutyRescuerItemResponse BuildRescuerItem(ShiftAssignment assignment, SnakebiteIncident? incident, DateTime nowUtc, double? distanceKm)
+        private static OnDutyRescuerItemResponse BuildRescuerItem(ShiftAssignment assignment, NetTopologySuite.Geometries.Point? locationPoint, DateTime nowUtc, double? distanceKm)
         {
             var rescuer = assignment.Rescuer;
             var isOnDutyNow = IsOnDutyNow(assignment, nowUtc, assignment.Date);

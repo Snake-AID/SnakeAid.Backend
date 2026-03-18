@@ -42,17 +42,24 @@ namespace SnakeAid.Api.Controllers
         [HttpGet("on-duty")]
         [SwaggerOperation(
         Summary = "Get On-Duty Rescuers Snapshot",
-        Description = "Return snapshot data for operator map: on-duty rescuers, online/available status, shift info, and optional distance to incident.")]
+        Description = "Return snapshot data for operator map: on-duty rescuers, online/available status, shift info, and optional distance to incident or catching request.")]
         [SwaggerResponse(200, "Success", typeof(ApiResponse<OnDutyRescuerSnapshotResponse>))]
         public async Task<IActionResult> GetOnDutyRescuers(
         [FromQuery] DateOnly? date,
         [FromQuery] Guid? incidentId,
+        [FromQuery] Guid? catchingRequestId,
         [FromQuery] bool onlyAvailable = true,
         [FromQuery] double? maxDistanceKm = null)
         {
+            if (incidentId.HasValue && catchingRequestId.HasValue)
+            {
+                return BadRequest(ApiResponseBuilder.BuildErrorResponse("Provide only one of incidentId or catchingRequestId."));
+            }
+
             var result = await _operatorSnapshotService.GetOnDutyRescuersAsync(
                 date,
                 incidentId,
+                catchingRequestId,
                 onlyAvailable,
                 maxDistanceKm);
 

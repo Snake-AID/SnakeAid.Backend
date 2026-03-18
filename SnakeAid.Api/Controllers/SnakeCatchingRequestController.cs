@@ -48,6 +48,45 @@ namespace SnakeAid.Api.Controllers
         }
 
         /// <summary>
+        /// Get active snake catching requests for operator dashboard.
+        /// </summary>
+        [HttpGet("active")]
+        [Authorize(Roles = "Operator,Admin")]
+        [SwaggerOperation(
+            Summary = "Get Active Snake Catching Requests",
+            Description = "Retrieve active snake catching requests (pending / confirmed / assigned / disputed) for operator dashboard. Results are paginated.")]
+        [SwaggerResponse(200, "Active requests retrieved successfully", typeof(ApiResponse<PagedData<OperatorSnakeCatchingRequestSummaryResponse>>))]
+        [SwaggerResponse(401, "User not authenticated")]
+        [SwaggerResponse(403, "User is not allowed to access this resource")]
+        [ProducesResponseType(typeof(ApiResponse<PagedData<OperatorSnakeCatchingRequestSummaryResponse>>), StatusCodes.Status200OK)]
+        public async Task<IActionResult> GetActiveSnakeCatchingRequests(
+            [FromQuery] string? status = null,
+            [FromQuery] DateTimeOffset? since = null,
+            [FromQuery] DateTimeOffset? until = null,
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 50)
+        {
+            var statuses = ParseStatuses(status);
+            var result = await _snakeCatchingRequestService.GetActiveRequestsAsync(statuses, since, until, page, pageSize);
+            return Ok(ApiResponseBuilder.BuildSuccessResponse(result, "Active snake catching requests retrieved successfully."));
+        }
+
+        private static IEnumerable<RequestStatus>? ParseStatuses(string? csvStatuses)
+        {
+            if (string.IsNullOrWhiteSpace(csvStatuses))
+                return null;
+
+            var values = csvStatuses
+                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Select(v => Enum.TryParse<RequestStatus>(v, true, out var parsed) ? (RequestStatus?)parsed : null)
+                .Where(x => x.HasValue)
+                .Select(x => x.Value)
+                .ToList();
+
+            return values.Count > 0 ? values : null;
+        }
+
+        /// <summary>
         /// Create a new snake catching request
         /// </summary>
         [HttpPost]

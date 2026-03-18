@@ -8,12 +8,14 @@ using SnakeAid.Core.Requests.PayOs;
 using SnakeAid.Core.Requests.SnakeCatchingRequest;
 using SnakeAid.Core.Responses.Media;
 using SnakeAid.Core.Responses.SnakeCatchingRequest;
+using SnakeAid.Core.Meta;
 using SnakeAid.Core.Responses.SnakeDetection;
 using SnakeAid.Core.Responses.UserFeedback;
 using SnakeAid.Repository.Data;
 using SnakeAid.Repository.Interfaces;
 using SnakeAid.Service.Extensions;
 using SnakeAid.Service.Interfaces;
+using SnakeAid.Core.Responses.SnakebiteIncident;
 
 namespace SnakeAid.Service.Implements
 {
@@ -447,7 +449,7 @@ namespace SnakeAid.Service.Implements
                 }
 
                 // Check if rescuer is online
-                if (!existingAccount.RescuerProfile.IsOnline)
+                if (!existingAccount.RescuerProfile.IsOnline && existingAccount.RescuerProfile.IsAvailable)
                 {
                     throw new BadRequestException("Rescuer must be online to accept requests.");
                 }
@@ -968,6 +970,62 @@ namespace SnakeAid.Service.Implements
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error cancelling snake catching request: {Message}", ex.Message);
+                throw;
+            }
+        }
+
+
+        public async Task<PagedData<OperatorSnakeCatchingRequestSummaryResponse>> GetActiveRequestsAsync(
+            IEnumerable<RequestStatus>? statuses,
+            DateTimeOffset? since,
+            DateTimeOffset? until,
+            int page,
+            int pageSize)
+        {
+            try
+            {
+                var defaultStatuses = new[]
+                {
+                    RequestStatus.Pending,
+                    RequestStatus.OperatorContacting,
+                    RequestStatus.Confirmed,
+                    RequestStatus.Assigned,
+                    RequestStatus.Disputed,
+                };
+
+                var effectiveStatuses = (statuses != null && statuses.Any())
+                    ? statuses
+                    : defaultStatuses;
+
+                var repo = _unitOfWork.GetRepository<SnakeCatchingRequest>();
+                var pagedResult = await repo.GetPagingListAsync<OperatorSnakeCatchingRequestSummaryResponse>(
+                    predicate: r =>
+                        effectiveStatuses.Contains(r.Status) &&
+                        (!since.HasValue || r.CreatedAt >= since.Value.UtcDateTime) &&
+                        (!until.HasValue || r.CreatedAt <= until.Value.UtcDateTime),
+                    orderBy: q => q.OrderByDescending(r => r.CreatedAt),
+                    page: page,
+                    size: pageSize,
+                    selector: r => new OperatorSnakeCatchingRequestSummaryResponse
+                    {
+                        Id = r.Id,
+                        Status = r.Status,
+                        LocationCoordinates = new GeoPointResponse
+                        {
+                            Latitude = r.LocationCoordinates.Y,
+                            Longitude = r.LocationCoordinates.X
+                        },
+                        RequestDate = r.RequestDate,
+                        AssignedRescuerId = r.AssignedRescuerId,
+                        HandlingOperatorId = r.HandlingOperatorId,
+                        Priority = r.Priority
+                    });
+
+                return pagedResult;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving active snake catching requests: {Message}", ex.Message);
                 throw;
             }
         }

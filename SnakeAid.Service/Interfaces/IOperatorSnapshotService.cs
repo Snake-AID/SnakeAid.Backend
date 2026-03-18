@@ -12,6 +12,19 @@ namespace SnakeAid.Service.Interfaces
         Task<OnDutyRescuerSnapshotResponse> GetOnDutyRescuersAsync(
             DateOnly? date,
             Guid? incidentId,
+            Guid? catchingRequestId,
+            bool onlyAvailable,
+            double? maxDistanceKm);
+
+        Task<OnDutyRescuerSnapshotResponse> GetOnDutyRescuersForIncidentAsync(
+            DateOnly? date,
+            Guid incidentId,
+            bool onlyAvailable,
+            double? maxDistanceKm);
+
+        Task<OnDutyRescuerSnapshotResponse> GetOnDutyRescuersForCatchingRequestAsync(
+            DateOnly? date,
+            Guid catchingRequestId,
             bool onlyAvailable,
             double? maxDistanceKm);
 
