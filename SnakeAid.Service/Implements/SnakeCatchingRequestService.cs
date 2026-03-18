@@ -401,6 +401,8 @@ namespace SnakeAid.Service.Implements
                     return response;
                 });
 
+                await _snakeCatchingRequestNotificationService.NotifyRequestConfirmedAsync(response);
+
                 return response;
             }
             catch (Exception ex)
