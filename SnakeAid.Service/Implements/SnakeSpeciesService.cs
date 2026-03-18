@@ -82,5 +82,61 @@ namespace SnakeAid.Service.Implements
                 throw;
             }
         }
+
+        public async Task<List<SearchSnakeSpeciesResponse>> SearchSnakeSpeciesAsync(string query)
+        {
+            try
+            {
+                _logger.LogInformation("Searching snake species with query: {Query}", query);
+
+                if (string.IsNullOrWhiteSpace(query))
+                {
+                    return new List<SearchSnakeSpeciesResponse>();
+                }
+
+                var snakeSpecies = await _unitOfWork.GetRepository<SnakeSpecies>()
+                    .GetListAsync(
+                        predicate: s => s.IsActive &&
+                            (s.ScientificName.Contains(query, StringComparison.OrdinalIgnoreCase) ||
+                             s.CommonName.Contains(query, StringComparison.OrdinalIgnoreCase) ||
+                             s.AlternativeNames.Any(sn => sn.Name.Contains(query, StringComparison.OrdinalIgnoreCase))),
+                        include: query => query
+                            .Include(s => s.SpeciesVenoms)
+                                .ThenInclude(sv => sv.VenomType)
+                            .Include(s => s.SpeciesAntivenoms)
+                                .ThenInclude(sa => sa.Antivenom)
+                    );
+
+                var result = snakeSpecies.Select(s => new SearchSnakeSpeciesResponse
+                {
+                    Id = s.Id,
+                    ScientificName = s.ScientificName,
+                    CommonName = s.CommonName,
+                    ImageUrl = s.ImageUrl,
+                    IsVenomous = s.IsVenomous,
+                    PrimaryVenomType = s.PrimaryVenomType,
+                    Venoms = s.SpeciesVenoms.Select(sv => new Core.Responses.SnakeSpecies.VenomInfo
+                    {
+                        VenomType = sv.VenomType?.Name ?? "Unknown",
+                        Description = sv.VenomType?.Description ?? ""
+                    }).ToList(),
+                    Antivenoms = s.SpeciesAntivenoms.Select(sa => new Core.Responses.SnakeSpecies.AntivenomInfo
+                    {
+                        AntivenomName = sa.Antivenom?.Name ?? "Unknown",
+                        Manufacturer = sa.Antivenom?.Manufacturer ?? "",
+                        Effectiveness = sa.Antivenom?.Description ?? ""
+                    }).ToList()
+                }).ToList();
+
+                _logger.LogInformation("Found {Count} snake species matching query: {Query}", result.Count, query);
+
+                return result;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error searching snake species with query: {Query}", query);
+                throw;
+            }
+        }
     }
 }

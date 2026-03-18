@@ -13,5 +13,10 @@ namespace SnakeAid.Service.Interfaces
         /// Get snake species details by ID
         /// </summary>
         Task<DetailSnakeSpeciesResponse> GetSnakeSpeciesByIdAsync(int id);
+
+        /// <summary>
+        /// Search snake species by text query with venom and antivenom data
+        /// </summary>
+        Task<List<SearchSnakeSpeciesResponse>> SearchSnakeSpeciesAsync(string query);
     }
 }
