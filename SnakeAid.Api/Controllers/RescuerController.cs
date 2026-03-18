@@ -25,6 +25,17 @@ namespace SnakeAid.Api.Controllers
             _operatorSnapshotService = operatorSnapshotService;
         }
 
+        [HttpGet("online")]
+        [SwaggerOperation(
+            Summary = "Get Online Rescuers",
+            Description = "Retrieve all rescuers currently marked as online.")]
+        [SwaggerResponse(200, "Success", typeof(ApiResponse<List<BriefRescuerProfileResponse>>))]
+        public async Task<IActionResult> GetOnlineRescuers()
+        {
+            var result = await _operatorSnapshotService.GetOnlineRescuersAsync();
+            return Ok(ApiResponseBuilder.BuildSuccessResponse(result));
+        }
+
         [HttpGet("on-duty")]
         [SwaggerOperation(
             Summary = "Get On-Duty Rescuers Snapshot",

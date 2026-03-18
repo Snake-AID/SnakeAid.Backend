@@ -5,6 +5,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Mapster;
 using SnakeAid.Core.Domains;
 using SnakeAid.Core.Exceptions;
 using SnakeAid.Core.Responses.Auth;
@@ -28,22 +29,18 @@ namespace SnakeAid.Service.Implements
             _logger = logger;
         }
 
-        public async Task<List<BriefRescuerProfileResponse>> GetRescuerRegistryAsync()
+        public async Task<List<BriefRescuerProfileResponse>> GetOnlineRescuersAsync()
         {
-            var profiles = await _unitOfWork.GetRepository<RescuerProfile>().GetListAsync(
-                include: q => q.Include(p => p.Account));
+            var onlineRescuers = await _unitOfWork.GetRepository<RescuerProfile>().GetListAsync(
+                predicate: r => r.IsOnline,
+                include: q => q.Include(r => r.Account),
+                orderBy: q => q.OrderByDescending(r => r.UpdatedAt));
 
-            return profiles.Select(p => p.Adapt<BriefRescuerProfileResponse>()).ToList();
-        }
+            var response = onlineRescuers.Adapt<List<BriefRescuerProfileResponse>>();
 
-        public async Task<BriefRescuerProfileResponse?> GetRescuerByIdAsync(Guid rescuerId)
-        {
-            var profile = await _unitOfWork.GetRepository<RescuerProfile>().FirstOrDefaultAsync<BriefRescuerProfileResponse>(
-                predicate: p => p.AccountId == rescuerId,
-                include: q => q.Include(p => p.Account),
-                selector: p => p.Adapt<BriefRescuerProfileResponse>());
+            _logger.LogInformation("Retrieved {Count} online rescuer(s).", response.Count);
 
-            return profile == null ? null : profile;
+            return response;
         }
 
         public async Task<OnDutyRescuerSnapshotResponse> GetOnDutyRescuersAsync(
