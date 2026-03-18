@@ -66,12 +66,11 @@ public class WalletPaymentService : IWalletPaymentService
                 {
                     // Deposit (travel fee) can be paid at initial stages before assignment
                     if (catchingRequest.Status != RequestStatus.Pending &&
-                        catchingRequest.Status != RequestStatus.Confirmed &&
-                        catchingRequest.Status != RequestStatus.Assigned)
+                        catchingRequest.Status != RequestStatus.Confirmed)
                     {
                         throw new InvalidOperationException(
                             $"Cannot create deposit payment for request with status {catchingRequest.Status}. " +
-                            "Request must be Pending, Confirmed, or Assigned.");
+                            "Request must be Pending or Confirmed.");
                     }
                 }
                 else
