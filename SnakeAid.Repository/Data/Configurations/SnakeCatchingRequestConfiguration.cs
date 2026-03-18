@@ -21,6 +21,11 @@ namespace SnakeAid.Repository.Data.Configurations
 
             // Relationship với MemberProfile (User) đã config tại MemberProfileConfiguration
 
+            builder.HasOne(r => r.HandlingOperator)
+                .WithMany()
+                .HasForeignKey(r => r.HandlingOperatorId)
+                .OnDelete(DeleteBehavior.SetNull);
+
             // Relationship: Request -> RescuerProfile (AssignedRescuer)
             builder.HasOne(r => r.AssignedRescuer)
                 .WithMany()
@@ -43,6 +48,9 @@ namespace SnakeAid.Repository.Data.Configurations
 
             builder.HasIndex(r => r.AssignedRescuerId)
                 .HasDatabaseName("IX_SnakeCatchingRequests_AssignedRescuerId");
+
+            builder.HasIndex(r => r.HandlingOperatorId)
+                .HasDatabaseName("IX_SnakeCatchingRequests_HandlingOperatorId");
 
             builder.HasIndex(r => r.RequestDate)
                 .HasDatabaseName("IX_SnakeCatchingRequests_RequestDate");

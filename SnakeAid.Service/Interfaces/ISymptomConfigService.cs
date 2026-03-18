@@ -40,5 +40,11 @@ namespace SnakeAid.Service.Interfaces
         /// Get all symptom configurations without pagination
         /// </summary>
         Task<List<SymptomConfigResponse>> GetAllSymptomConfigAsync();
+
+        /// <summary>
+        /// Get symptom configurations grouped by questions for UI display
+        /// Returns a list of questions with their associated options
+        /// </summary>
+        Task<List<GroupedSymptomConfigResponse>> GetGroupedSymptomConfigsForUIAsync();
     }
 }

@@ -2,6 +2,7 @@ using MapsterMapper;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using SnakeAid.Core.Domains;
 using SnakeAid.Core.Meta;
 using SnakeAid.Core.Requests.SnakeCatchingRequest;
 using SnakeAid.Core.Responses.SnakeCatchingRequest;
@@ -33,13 +34,13 @@ namespace SnakeAid.Api.Controllers
         [HttpGet]
         [SwaggerOperation(
             Summary = "Get All Snake Catching Requests",
-            Description = "Retrieve all snake catching requests with user information, media, and snake species details. Results are ordered by request date (newest first)")]
+            Description = "Retrieve snake catching requests with optional AND filters: userId, handlingOperatorId, assignedRescuerId, status. If no filters are provided, returns all. Results are ordered by created time (newest first).")]
         [SwaggerResponse(200, "Requests retrieved successfully", typeof(ApiResponse<List<ListSnakeCatchingRequestResponse>>))]
         [SwaggerResponse(401, "User not authenticated")]
         [ProducesResponseType(typeof(ApiResponse<List<ListSnakeCatchingRequestResponse>>), StatusCodes.Status200OK)]
-        public async Task<IActionResult> GetAllSnakeCatchingRequests()
+        public async Task<IActionResult> GetAllSnakeCatchingRequests([FromQuery] GetAllSnakeCatchingRequestsQuery query)
         {
-            var result = await _snakeCatchingRequestService.GetAllRequestAsync();
+            var result = await _snakeCatchingRequestService.GetAllRequestAsync(query);
             
             return Ok(ApiResponseBuilder.BuildSuccessResponse(
                 result,
@@ -72,14 +73,41 @@ namespace SnakeAid.Api.Controllers
         }
 
         /// <summary>
-        /// Accept a snake catching request as a rescuer
+        /// Confirm a snake catching request as an operator
+        /// </summary>
+        /// <param name="requestId">The ID of the snake catching request to confirm</param>
+        [HttpPatch("confirm/{requestId:guid}")]
+        [SwaggerOperation(
+            Summary = "Confirm Snake Catching Request",
+            Description = "Operator confirm the pending snake catching request")]
+        [SwaggerResponse(200, "Request confirmed successfully", typeof(ApiResponse<CreateSnakeCatchingRequestResponse>))]
+        [SwaggerResponse(400, "Invalid request")]
+        [SwaggerResponse(401, "User not authenticated")]
+        [SwaggerResponse(403, "User is not a rescuer")]
+        [SwaggerResponse(404, "Request not found")]
+        [ProducesResponseType(typeof(ApiResponse<CreateSnakeCatchingRequestResponse>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> ConfirmSnakeCatchingRequest([FromRoute] Guid requestId)
+        {
+
+            var result = await _snakeCatchingRequestService.ConfirmSnakeCatchingRequestAsync(requestId);
+
+            return Ok(ApiResponseBuilder.BuildSuccessResponse(
+                result,
+                "Snake catching request confirmed successfully!"));
+        }
+
+
+        /// <summary>
+        /// Asign a snake catching request for the rescuer
         /// </summary>
         /// <param name="requestId">The ID of the snake catching request to accept</param>
-        [HttpPost("accept/{requestId:guid}")]
+        [HttpPost("assign/{requestId:guid}")]
         [SwaggerOperation(
-            Summary = "Accept Snake Catching Request",
-            Description = "Rescuer accepts a pending snake catching request and creates a new mission")]
-        [SwaggerResponse(200, "Request accepted successfully", typeof(ApiResponse<CreateSnakeCatchingRequestResponse>))]
+            Summary = "Assign Snake Catching Request",
+            Description = "Operatpr assigns a rescuer for the pending snake catching request and creates a new mission")]
+        [SwaggerResponse(200, "Request assigned successfully", typeof(ApiResponse<CreateSnakeCatchingRequestResponse>))]
         [SwaggerResponse(400, "Invalid request (already assigned, not pending, or rescuer offline)")]
         [SwaggerResponse(401, "User not authenticated")]
         [SwaggerResponse(403, "User is not a rescuer")]
@@ -87,15 +115,13 @@ namespace SnakeAid.Api.Controllers
         [ProducesResponseType(typeof(ApiResponse<CreateSnakeCatchingRequestResponse>), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
         [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
-        public async Task<IActionResult> AcceptSnakeCatchingRequest([FromRoute] Guid requestId, [FromBody] AcceptSnakeCatchingRequestRequest request)
+        public async Task<IActionResult> AssignSnakeCatchingRequest([FromRoute] Guid requestId, [FromBody] AssignSnakeCatchingRequestRequest request)
         {
-            var rescuerId = GetCurrentUserId();
-
-            var result = await _snakeCatchingRequestService.AcceptSnakeCatchingRequestAsync(rescuerId, requestId, request);
+            var result = await _snakeCatchingRequestService.AssignSnakeCatchingRequestAsync(requestId, request);
             
             return Ok(ApiResponseBuilder.BuildSuccessResponse(
                 result,
-                "Snake catching request accepted successfully! Mission created."));
+                "Snake catching request assigned successfully! Mission created."));
         }
 
         /// <summary>

@@ -93,6 +93,21 @@ namespace SnakeAid.Api.Controllers
         }
 
         /// <summary>
+        /// Get symptom configurations grouped for UI display
+        /// Returns questions with their options for easy rendering on client
+        /// </summary>
+        [HttpGet("grouped-for-ui")]
+        [SwaggerOperation(
+            Summary = "Get Symptom Configurations Grouped for UI",
+            Description = "Get active symptom configurations organized as questions with options, optimized for client-side rendering")]
+        [SwaggerResponse(200, "Success", typeof(ApiResponse<List<GroupedSymptomConfigResponse>>))]
+        public async Task<IActionResult> GetSymptomConfigsGroupedForUI()
+        {
+            var result = await _symptomConfigService.GetGroupedSymptomConfigsForUIAsync();
+            return Ok(ApiResponseBuilder.BuildSuccessResponse(result, "Symptom configurations retrieved successfully for UI display"));
+        }
+
+        /// <summary>
         /// Update an existing symptom configuration
         /// </summary>
         [HttpPut("{id}")]

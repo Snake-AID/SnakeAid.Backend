@@ -6,6 +6,7 @@ using SnakeAid.Core.Meta;
 using SnakeAid.Core.Requests.Auth;
 using SnakeAid.Core.Responses.Auth;
 using SnakeAid.Service.Interfaces;
+using SnakeAid.Core.Validators;
 using Swashbuckle.AspNetCore.Annotations;
 
 namespace SnakeAid.Api.Controllers;
@@ -49,6 +50,7 @@ public class AuthController : BaseController<AuthController>
     /// Login with email and password
     /// </summary>
     [HttpPost("login")]
+    [ValidateModel]
     [SwaggerOperation(Summary = "Login", Description = "Authenticate user with email and password")]
     [SwaggerResponse(200, "Login successful", typeof(ApiResponse<AuthResponse>))]
     [SwaggerResponse(401, "Invalid credentials")]
@@ -56,6 +58,18 @@ public class AuthController : BaseController<AuthController>
     public async Task<IActionResult> Login([FromBody] LoginRequest request)
     {
         var result = await _authService.LoginAsync(request);
+        return Ok(ApiResponseBuilder.BuildSuccessResponse(result, "Login successful."));
+    }
+
+    [HttpPost("login/v2")]
+    [ValidateModel]
+    [SwaggerOperation(Summary = "Login", Description = "Authenticate user with email and password")]
+    [SwaggerResponse(200, "Login successful", typeof(ApiResponse<AuthResponse>))]
+    [SwaggerResponse(401, "Invalid credentials")]
+    [SwaggerResponse(403, "Account locked or inactive")]
+    public async Task<IActionResult> LoginV2([FromBody] LoginRequestV2 request)
+    {
+        var result = await _authService.LoginV2Async(request);
         return Ok(ApiResponseBuilder.BuildSuccessResponse(result, "Login successful."));
     }
 

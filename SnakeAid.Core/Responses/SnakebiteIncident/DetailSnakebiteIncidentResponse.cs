@@ -4,16 +4,9 @@ using SnakeAid.Core.Responses.FirstAid;
 using SnakeAid.Core.Responses.Media;
 using SnakeAid.Core.Responses.MemberProfile;
 using SnakeAid.Core.Responses.RescueMission;
-using SnakeAid.Core.Responses.RescueRequestSession;
 using SnakeAid.Core.Responses.RescuerProfile;
-using SnakeAid.Core.Responses.SymptomConfig;
-using System;
-using System.Collections.Generic;
+using SnakeAid.Core.Responses.SnakeSpecies;
 using System.ComponentModel.DataAnnotations;
-using System.ComponentModel.DataAnnotations.Schema;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace SnakeAid.Core.Responses.SnakebiteIncident
 {
@@ -23,7 +16,7 @@ namespace SnakeAid.Core.Responses.SnakebiteIncident
 
         public GeoPointResponse LocationCoordinates { get; set; }
 
-        public string? SymptomsReport { get; set; }
+        public List<ReportSymptom>? SymptomsReport { get; set; }
 
         public SnakebiteIncidentStatus Status { get; set; } = SnakebiteIncidentStatus.Pending;
 

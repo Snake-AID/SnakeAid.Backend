@@ -40,6 +40,8 @@ namespace SnakeAid.Core.Domains
         [Required]
         public int CompletedMissions { get; set; } = 0;
 
+        [Required]
+        public bool IsAvailable { get; set; } = false;
 
         // Navigation properties
         public Account Account { get; set; }

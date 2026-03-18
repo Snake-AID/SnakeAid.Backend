@@ -1,5 +1,6 @@
+using SnakeAid.Core.Domains;
+using SnakeAid.Core.Meta;
 using SnakeAid.Core.Requests;
-using SnakeAid.Core.Requests.RescueRequestSession;
 using SnakeAid.Core.Requests.SnakebiteIncident;
 using SnakeAid.Core.Responses.SnakebiteIncident;
 
@@ -11,20 +12,19 @@ namespace SnakeAid.Service.Interfaces
 
         Task<DetailSnakebiteIncidentResponse> GetDetailIncidentAsync(Guid incidentId);
 
-        Task<CreateIncidentResponse> RaiseSessionRangeAsync(RaiseSessionRangeRequest request);
-
         Task<UpdateSymptomReportResponse> UpdateSymptomReportAsync(Guid incidentId, UpdateSymptomReportRequest request);
 
         Task<CreateIncidentResponse> CancelIncidentAsync(Guid incidentId);
 
-        // Trigger rescue: Tạo session initial, broadcast requests
-        Task<TriggerRescueResponse> TriggerRescueAsync(Guid incidentId);
+        Task<CreateIncidentResponse> ClaimIncidentAsync(Guid incidentId, Guid operatorId);
 
-        // Start rescue session for existing incident (separated from CreateIncident)
-        Task<TriggerRescueResponse> StartRescueAsync(Guid incidentId);
+        Task<CreateIncidentResponse> ConfirmIncidentAsync(Guid incidentId, Guid operatorId);
 
-        // Handle rescuer accept (từ SignalR callback)
-        Task<AcceptRescueResponse> AcceptRescueAsync(Guid requestId, Guid rescuerId);
+        Task<CreateIncidentResponse> DispatchIncidentAsync(Guid incidentId, Guid rescuerId, Guid operatorId);
+
+        Task<AcceptRescueResponse> AcceptDispatchRequestAsync(Guid requestId, Guid rescuerId);
+
+        Task<RejectRescueResponse> DeclineDispatchRequestAsync(Guid requestId, Guid rescuerId, string? reason);
 
         // Debug: Get media info
         Task<object> GetMediaDebugInfoAsync(Guid incidentId);
@@ -34,5 +34,6 @@ namespace SnakeAid.Service.Interfaces
 
         Task<IdentifySnakeResponse> IdentifySnakeByFilterAsync(Guid incidentId, IdentifyByFilterRequest request);
 
+        Task<PagedData<DetailSnakebiteIncidentResponse>> GetUserIncidentsAsync(Guid userId, SnakebiteIncidentStatus? status, int page, int pageSize);
     }
 }

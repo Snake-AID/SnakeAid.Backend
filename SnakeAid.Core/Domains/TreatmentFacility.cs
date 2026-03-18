@@ -5,6 +5,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 using System.Linq;
 using System.Threading.Tasks;
 using NetTopologySuite.Geometries;
+using SnakeAid.Core.Enums;
 
 namespace SnakeAid.Core.Domains
 {
@@ -16,7 +17,6 @@ namespace SnakeAid.Core.Domains
         [Required]
         [MaxLength(200)]
         public string Name { get; set; }
-
         [Required]
         [MaxLength(500)]
         public string Address { get; set; }

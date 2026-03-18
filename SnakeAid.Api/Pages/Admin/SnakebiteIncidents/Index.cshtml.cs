@@ -20,11 +20,11 @@ namespace SnakeAid.Api.Pages.Admin.SnakebiteIncidents
 
         public async Task OnGetAsync()
         {
-            // Eager-load common related entities (user -> account, assigned rescuer, sessions -> requests -> rescuer -> account, media)
+            // Eager-load related entities (user -> account, assigned rescuer, dispatch requests -> rescuer -> account)
             Func<IQueryable<SnakebiteIncident>, IQueryable<SnakebiteIncident>> include = query => query
                 .Include(i => i.User).ThenInclude(u => u.Account)
                 .Include(i => i.AssignedRescuer).ThenInclude(r => r.Account)
-                .Include(i => i.Sessions).ThenInclude(s => s.Requests).ThenInclude(r => r.Rescuer).ThenInclude(rp => rp.Account);
+                .Include(i => i.DispatchRequests).ThenInclude(r => r.Rescuer).ThenInclude(rp => rp.Account);
 
             Incidents = (await _unitOfWork.GetRepository<SnakebiteIncident>().GetListAsync(include: include, asNoTracking: true)).ToList();
             await Incidents.AttachReportMediaAsync(_unitOfWork, MediaReferenceType.SnakebiteIncident);

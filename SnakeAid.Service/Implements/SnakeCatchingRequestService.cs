@@ -6,6 +6,7 @@ using SnakeAid.Core.Domains;
 using SnakeAid.Core.Exceptions;
 using SnakeAid.Core.Requests.PayOs;
 using SnakeAid.Core.Requests.SnakeCatchingRequest;
+using SnakeAid.Core.Responses.Media;
 using SnakeAid.Core.Responses.SnakeCatchingRequest;
 using SnakeAid.Core.Responses.SnakeDetection;
 using SnakeAid.Core.Responses.UserFeedback;
@@ -24,6 +25,7 @@ namespace SnakeAid.Service.Implements
         private readonly ILocationIqService _locationIqService;
         private readonly IPayOsPaymentService _payOsPaymentService;
         private readonly ISnakeAIService _snakeAIService;
+        private readonly ISnakeCatchingRequestNotificationService _snakeCatchingRequestNotificationService;
         private readonly decimal additionalSnakePrice = 100000;
 
         public SnakeCatchingRequestService(
@@ -32,7 +34,8 @@ namespace SnakeAid.Service.Implements
             IConfiguration configuration,
             ILocationIqService locationIqService,
             IPayOsPaymentService payOsPaymentService,
-            ISnakeAIService snakeAIService)
+            ISnakeAIService snakeAIService,
+            ISnakeCatchingRequestNotificationService snakeCatchingRequestNotificationService)
         {
             _unitOfWork = unitOfWork;
             _logger = logger;
@@ -40,6 +43,7 @@ namespace SnakeAid.Service.Implements
             _locationIqService = locationIqService;
             _payOsPaymentService = payOsPaymentService;
             _snakeAIService = snakeAIService;
+            _snakeCatchingRequestNotificationService = snakeCatchingRequestNotificationService;
         }
 
         public async Task<CreateSnakeCatchingRequestResponse> CreateSnakeCatchingRequestAsync(
@@ -53,7 +57,14 @@ namespace SnakeAid.Service.Implements
                     throw new BadRequestException("Request data cannot be null.");
                 }
 
-                return await _unitOfWork.ExecuteInTransactionAsync(async () =>
+                // Calculate estimated price based on distance from center (before creating request to avoid unnecessary calculations if validation fails)
+                var estimatedPrice = await CalculateEstimatedPriceFromCenterAsync(
+                    request.Lng,
+                    request.Lat,
+                    $"create request for user {userId}");
+
+
+                var response = await _unitOfWork.ExecuteInTransactionAsync(async () =>
                 {
                     // Validate user exists and has member profile
                     var existingAccount = await _unitOfWork.GetRepository<Account>().FirstOrDefaultAsync(
@@ -81,6 +92,7 @@ namespace SnakeAid.Service.Implements
                         "Creating snake catching request at Lng={Lng}, Lat={Lat} (Point.X={X}, Point.Y={Y})",
                         request.Lng, request.Lat, locationPoint.X, locationPoint.Y);
 
+                    
                     // Create new SnakeCatchingRequest
                     var newRequest = new SnakeCatchingRequest
                     {
@@ -93,7 +105,8 @@ namespace SnakeAid.Service.Implements
                         Priority = RequestPriority.Normal,
                         RequestDate = DateTime.UtcNow,
                         PreferredTime = DateTime.UtcNow,
-                        Notes = request.Notes
+                        Notes = request.Notes,
+                        EstimatedPrice = estimatedPrice
                     };
 
                     // Handle snake species identification if provided
@@ -123,8 +136,6 @@ namespace SnakeAid.Service.Implements
                         }
                     }
 
-                    var aiResults = new List<SnakeDetectionResponse>();
-
                     // Handle media if provided
                     if (request.MediaIdList != null && request.MediaIdList.Any())
                     {
@@ -139,37 +150,8 @@ namespace SnakeAid.Service.Implements
                             existingMedia.ReferenceId = newRequest.Id;
 
                             _unitOfWork.GetRepository<ReportMedia>().Update(existingMedia);
-
-                            if (existingMedia.Purpose == MediaPurpose.SnakeIdentification)
-                            {
-                                // If media is for snake identification, call SnakeAIService to identify species
-                                try
-                                {
-                                    var identifiedSpecies = await _snakeAIService.DetectFromReportMediaAsync(existingMedia.Id);
-                                    if (identifiedSpecies != null)
-                                    {
-                                        _logger.LogInformation(
-                                            "Snake species identified by AI for media {MediaId}: {SpeciesName}",
-                                            existingMedia.Id, identifiedSpecies.Results.First().Snake.CommonName);
-                                        aiResults.Add(identifiedSpecies);
-                                    }
-                                    else
-                                    {
-                                        _logger.LogWarning(
-                                            "Snake AI service could not identify species for media {MediaId}",
-                                            existingMedia.Id);
-                                    }
-                                }
-                                catch (Exception ex)
-                                {
-                                    // Log the error but don't fail the entire request creation if AI detection fails
-                                    _logger.LogError(ex, "Error calling Snake AI service for media {MediaId}: {Message}", existingMedia.Id, ex.Message);
-                                }
-                            }
                         }
                     }
-
-
 
                     // Save the request
                     await _unitOfWork.GetRepository<SnakeCatchingRequest>().InsertAsync(newRequest);
@@ -180,6 +162,7 @@ namespace SnakeAid.Service.Implements
                         predicate: r => r.Id == newRequest.Id,
                         include: query => query
                             .Include(r => r.User)
+                            .Include(r => r.HandlingOperator)
                             .Include(r => r.Details)
                                 .ThenInclude(d => d.SnakeSpecies)
                     );
@@ -189,9 +172,131 @@ namespace SnakeAid.Service.Implements
                         throw new Exception("Failed to retrieve created request.");
                     }
 
+                    // Attach media using extension method (handles polymorphic relationship)
                     await createdRequest.AttachReportMediaAsync(_unitOfWork, MediaReferenceType.SnakeCatchingRequest);
 
+                    _logger.LogInformation(
+                        "After AttachReportMediaAsync: Media count = {Count}",
+                        createdRequest.Media?.Count ?? 0);
+
                     var response = createdRequest.Adapt<CreateSnakeCatchingRequestResponse>();
+
+                    // Ensure Media is properly mapped (explicit mapping for polymorphic relationship)
+                    if (createdRequest.Media != null && createdRequest.Media.Any())
+                    {
+                        response.Media = createdRequest.Media.Adapt<List<ReportMediaResponse>>();
+                    }
+
+                    // Load AI recognition results from media with SnakeIdentification purpose
+                    var aiResults = new List<SnakeDetectionResponse>();
+                    if (createdRequest.Media != null && createdRequest.Media.Any())
+                    {
+                        var identificationMedia = createdRequest.Media.Where(m => m.Purpose == MediaPurpose.SnakeIdentification).ToList();
+                        _logger.LogInformation(
+                            "Found {Count} media with SnakeIdentification purpose",
+                            identificationMedia.Count);
+
+                        foreach (var media in identificationMedia)
+                        {
+                            _logger.LogInformation(
+                                "Processing media {MediaId}, RequiresAI: {RequiresAI}, IsProcessed: {IsProcessed}, AIResults count: {Count}",
+                                media.Id, media.RequiresAIProcessing, media.IsProcessed, media.AIRecognitionResults?.Count ?? 0);
+
+                            // Check if this media has completed AI recognition results
+                            var completedResults = media.AIRecognitionResults
+                                ?.Where(r => r.Status == RecognitionStatus.Completed && r.DetectedSpecies != null)
+                                .ToList();
+
+                            if (completedResults != null && completedResults.Any())
+                            {
+                                _logger.LogInformation(
+                                    "Media {MediaId} has {Count} completed AI recognition results",
+                                    media.Id, completedResults.Count);
+
+                                foreach (var recognitionResult in completedResults)
+                                {
+                                    var detectionResponse = new SnakeDetectionResponse
+                                    {
+                                        Metadata = new AiMetadata
+                                        {
+                                            ModelVersion = recognitionResult.AIModel?.Version,
+                                            ImageWidth = 0,
+                                            ImageHeight = 0,
+                                            DetectionCount = 1,
+                                            Warnings = null
+                                        },
+                                        RecognitionResultId = recognitionResult.Id,
+                                        Results = new List<DetectionResult>
+                                        {
+                                            new DetectionResult
+                                            {
+                                                Ai = new AiDetection
+                                                {
+                                                    ClassId = 0,
+                                                    ClassName = recognitionResult.YoloClassName,
+                                                    Confidence = (float)recognitionResult.Confidence,
+                                                    BBox = new SnakeBBox()
+                                                },
+                                                Snake = recognitionResult.DetectedSpecies
+                                            }
+                                        }
+                                    };
+
+                                    aiResults.Add(detectionResponse);
+                                    _logger.LogInformation(
+                                        "Added AI recognition result for media {MediaId}: {SpeciesName}",
+                                        media.Id, recognitionResult.DetectedSpecies?.CommonName ?? "Unknown");
+                                }
+                            }
+                            else if (media.RequiresAIProcessing && !media.IsProcessed)
+                            {
+                                // Media requires AI processing and hasn't been processed yet
+                                // Call AI detection synchronously and wait for results
+                                try
+                                {
+                                    _logger.LogInformation(
+                                        "Media {MediaId} requires AI processing - calling detection API now",
+                                        media.Id);
+
+                                    var detectionResult = await _snakeAIService.DetectFromReportMediaAsync(media.Id);
+                                    
+                                    if (detectionResult != null && detectionResult.Results != null && detectionResult.Results.Any())
+                                    {
+                                        aiResults.Add(detectionResult);
+                                        _logger.LogInformation(
+                                            "AI detection completed for media {MediaId}: {SpeciesName}",
+                                            media.Id, detectionResult.Results.First().Snake?.CommonName ?? "Unknown");
+                                    }
+                                    else
+                                    {
+                                        _logger.LogWarning(
+                                            "AI detection returned no results for media {MediaId}",
+                                            media.Id);
+                                    }
+                                }
+                                catch (Exception ex)
+                                {
+                                    // Log the error but don't fail the entire request creation if AI detection fails
+                                    _logger.LogError(ex,
+                                        "AI detection failed for media {MediaId}: {Message}",
+                                        media.Id, ex.Message);
+                                }
+                            }
+                            else
+                            {
+                                _logger.LogWarning(
+                                    "Media {MediaId} has no completed AI results. Status of results: {Statuses}",
+                                    media.Id,
+                                    media.AIRecognitionResults != null
+                                        ? string.Join(", ", media.AIRecognitionResults.Select(r => $"{r.Status} (Species: {(r.DetectedSpecies != null ? "Yes" : "No")})"))
+                                        : "No results");
+                            }
+                        }
+                    }
+                    else
+                    {
+                        _logger.LogInformation("No media attached to this request");
+                    }
 
                     // Add AI detection results to response
                     response.AIResults = aiResults;
@@ -211,6 +316,10 @@ namespace SnakeAid.Service.Implements
 
                     return response;
                 });
+
+                await _snakeCatchingRequestNotificationService.NotifyRequestCreatedAsync(response);
+
+                return response;
             }
             catch (Exception ex)
             {
@@ -219,95 +328,13 @@ namespace SnakeAid.Service.Implements
             }
         }
 
-
-
-        public async Task<CreateSnakeCatchingRequestResponse> AcceptSnakeCatchingRequestAsync(
-            Guid rescuerId,
-            Guid requestId,
-            AcceptSnakeCatchingRequestRequest request)
+        public async Task<CreateSnakeCatchingRequestResponse> ConfirmSnakeCatchingRequestAsync(Guid requestId)
         {
             try
             {
-                // Step 1: Validate rescuer exists and has rescuer profile (OUTSIDE transaction)
-                var existingAccount = await _unitOfWork.GetRepository<Account>().FirstOrDefaultAsync(
-                    predicate: a => a.Id == rescuerId,
-                    include: r => r.Include(i => i.RescuerProfile)
-                );
-
-                if (existingAccount == null)
+                var response = await _unitOfWork.ExecuteInTransactionAsync(async () =>
                 {
-                    throw new NotFoundException("Account not found.");
-                }
-
-                if (existingAccount.RescuerProfile == null)
-                {
-                    throw new BadRequestException("Rescuer profile not found. Only rescuers can accept requests.");
-                }
-
-                // Check if rescuer is online
-                if (!existingAccount.RescuerProfile.IsOnline)
-                {
-                    throw new BadRequestException("Rescuer must be online to accept requests.");
-                }
-
-                // Step 2: Get snake catching request to retrieve coordinates (OUTSIDE transaction)
-                var snakeRequestForCoords = await _unitOfWork.GetRepository<SnakeCatchingRequest>().FirstOrDefaultAsync(
-                    predicate: r => r.Id == requestId,
-                    include: query => query.Include(r => r.User)
-                );
-
-                if (snakeRequestForCoords == null)
-                {
-                    throw new NotFoundException("Snake catching request not found.");
-                }
-
-                // Pre-validate request status
-                if (snakeRequestForCoords.Status != RequestStatus.Pending)
-                {
-                    throw new BadRequestException($"Request cannot be accepted. Current status: {snakeRequestForCoords.Status}");
-                }
-
-                // Check if request is already assigned
-                if (snakeRequestForCoords.AssignedRescuerId.HasValue)
-                {
-                    throw new BadRequestException("This request has already been assigned to another rescuer.");
-                }
-
-                // Step 3: Calculate distance and price BEFORE transaction (external HTTP call)
-                decimal estimatedPrice;
-                try
-                {
-                    // Log coordinates for debugging
-                    _logger.LogInformation(
-                        "Calculating distance - Rescuer (Source): Lng={SourceLng}, Lat={SourceLat} | " +
-                        "Request (Dest): Lng={DestLng}, Lat={DestLat} (from Point.X/Y)",
-                        request.Lng, request.Lat,
-                        snakeRequestForCoords.LocationCoordinates.X,
-                        snakeRequestForCoords.LocationCoordinates.Y);
-
-                    var (distanceInKm, priceInVnd) = await _locationIqService.CalculateDistanceAndPriceAsync(
-                        request.Lng,
-                        request.Lat,
-                        snakeRequestForCoords.LocationCoordinates.X, // Longitude
-                        snakeRequestForCoords.LocationCoordinates.Y  // Latitude
-                    );
-
-                    estimatedPrice = priceInVnd;
-
-                    _logger.LogInformation(
-                        "Distance calculated for RequestId {RequestId}: {Distance} km, Price: {Price} VND",
-                        requestId, distanceInKm.ToString("F2"), estimatedPrice);
-                }
-                catch (ExternalServiceException ex)
-                {
-                    _logger.LogWarning(ex, "Failed to calculate distance, using default price of 50000 VND");
-                    estimatedPrice = 50000; // Fallback price
-                }
-
-                // Step 4: Start transaction for DB operations ONLY
-                return await _unitOfWork.ExecuteInTransactionAsync(async () =>
-                {
-                    // Re-fetch and re-validate inside transaction to ensure data consistency (optimistic locking)
+                    // fetch and validate inside transaction to ensure data consistency (optimistic locking)
                     var snakeRequest = await _unitOfWork.GetRepository<SnakeCatchingRequest>().FirstOrDefaultAsync(
                         predicate: r => r.Id == requestId,
                         include: query => query.Include(r => r.User)
@@ -318,51 +345,19 @@ namespace SnakeAid.Service.Implements
                         throw new NotFoundException("Snake catching request not found.");
                     }
 
-                    // Re-validate status inside transaction (race condition protection)
+                    // validate status inside transaction (race condition protection)
                     if (snakeRequest.Status != RequestStatus.Pending)
                     {
                         throw new BadRequestException($"Request cannot be accepted. Current status: {snakeRequest.Status}");
                     }
 
-                    // Re-check if request is already assigned (race condition protection)
-                    if (snakeRequest.AssignedRescuerId.HasValue)
-                    {
-                        throw new BadRequestException("This request has already been assigned to another rescuer.");
-                    }
-
-                    // Check for existing active mission to prevent duplicate active missions
-                    // Aborted missions are kept for history; only block if there's a non-terminal mission
-                    var activeMission = await _unitOfWork.GetRepository<SnakeCatchingMission>().FirstOrDefaultAsync(
-                        predicate: m => m.SnakeCatchingRequestId == requestId
-                                     && m.Status != CatchingMissionStatus.MissionAborted
-                                     && m.Status != CatchingMissionStatus.Cancelled
-                    );
-
-                    if (activeMission != null)
-                    {
-                        throw new BadRequestException($"An active mission already exists for this request with status: {activeMission.Status}");
-                    }
 
                     // Update the request with pre-calculated price
-                    snakeRequest.AssignedRescuerId = rescuerId;
-                    snakeRequest.AssignedAt = DateTime.UtcNow;
-                    snakeRequest.Status = RequestStatus.Assigned;
-                    snakeRequest.EstimatedPrice = estimatedPrice;
+                    snakeRequest.ConfirmedAt = DateTime.UtcNow;
+                    snakeRequest.Status = RequestStatus.Confirmed;
 
                     _unitOfWork.GetRepository<SnakeCatchingRequest>().Update(snakeRequest);
 
-                    // Create a new mission for this request
-                    var newMission = new SnakeCatchingMission
-                    {
-                        Id = Guid.NewGuid(),
-                        RescuerId = rescuerId,
-                        SnakeCatchingRequestId = requestId,
-                        Status = CatchingMissionStatus.Preparing,
-                        Price = estimatedPrice,
-                        EstimatedCost = estimatedPrice
-                    };
-
-                    await _unitOfWork.GetRepository<SnakeCatchingMission>().InsertAsync(newMission);
                     await _unitOfWork.CommitAsync();
 
                     // Reload the request with all navigation properties for response
@@ -370,6 +365,7 @@ namespace SnakeAid.Service.Implements
                         predicate: r => r.Id == requestId,
                         include: query => query
                             .Include(r => r.User)
+                            .Include(r => r.HandlingOperator)
                             .Include(r => r.AssignedRescuer)
                                 .ThenInclude(ar => ar.Account)
                             .Include(r => r.Missions)
@@ -398,12 +394,169 @@ namespace SnakeAid.Service.Implements
                         }
                     }
 
-                    _logger.LogInformation(
-                        "Snake catching request accepted successfully. RequestId: {RequestId}, RescuerId: {RescuerId}, EstimatedPrice: {Price} VND",
-                        requestId, rescuerId, estimatedPrice);
+                    //_logger.LogInformation(
+                    //    "Snake catching request accepted successfully. RequestId: {RequestId}, RescuerId: {RescuerId}, EstimatedPrice: {Price} VND",
+                    //    requestId, rescuerId, estimatedPrice);
 
                     return response;
                 });
+
+                await _snakeCatchingRequestNotificationService.NotifyRequestConfirmedAsync(response);
+
+                return response;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error confirming snake catching request: {Message}", ex.Message);
+                throw;
+            }
+        }
+
+        
+
+        public async Task<CreateSnakeCatchingRequestResponse> AssignSnakeCatchingRequestAsync(
+            Guid requestId,
+            AssignSnakeCatchingRequestRequest request)
+        {
+            try
+            {
+                if (request == null)
+                {
+                    throw new BadRequestException("Request data cannot be null.");
+                }
+
+                if (request.rescuerId == Guid.Empty)
+                {
+                    throw new BadRequestException("Rescuer ID is required.");
+                }
+
+                // Step 1: Validate rescuer exists and has rescuer profile (OUTSIDE transaction)
+                var existingAccount = await _unitOfWork.GetRepository<Account>().FirstOrDefaultAsync(
+                    predicate: a => a.Id == request.rescuerId,
+                    include: r => r.Include(i => i.RescuerProfile)
+                );
+
+                if (existingAccount == null)
+                {
+                    throw new NotFoundException("Account not found.");
+                }
+
+                if (existingAccount.RescuerProfile == null)
+                {
+                    throw new BadRequestException("Rescuer profile not found. Only rescuers can accept requests.");
+                }
+
+                // Check if rescuer is online
+                if (!existingAccount.RescuerProfile.IsOnline)
+                {
+                    throw new BadRequestException("Rescuer must be online to accept requests.");
+                }
+
+                // Step 2: Start transaction for DB operations ONLY
+                var response = await _unitOfWork.ExecuteInTransactionAsync(async () =>
+                {
+                    // fetch and validate inside transaction to ensure data consistency (optimistic locking)
+                    var snakeRequest = await _unitOfWork.GetRepository<SnakeCatchingRequest>().FirstOrDefaultAsync(
+                        predicate: r => r.Id == requestId,
+                        include: query => query.Include(r => r.User)
+                    );
+
+                    if (snakeRequest == null)
+                    {
+                        throw new NotFoundException("Snake catching request not found.");
+                    }
+
+                    // validate status inside transaction (race condition protection)
+                    if (snakeRequest.Status != RequestStatus.Confirmed)
+                    {
+                        throw new BadRequestException($"Request cannot be accepted. Current status: {snakeRequest.Status}");
+                    }
+
+                    // check if request is already assigned (race condition protection)
+                    if (snakeRequest.AssignedRescuerId.HasValue)
+                    {
+                        throw new BadRequestException("This request has already been assigned to another rescuer.");
+                    }
+
+                    // Check for existing active mission to prevent duplicate active missions
+                    // Aborted missions are kept for history; only block if there's a non-terminal mission
+                    var activeMission = await _unitOfWork.GetRepository<SnakeCatchingMission>().FirstOrDefaultAsync(
+                        predicate: m => m.SnakeCatchingRequestId == requestId
+                                     && m.Status != CatchingMissionStatus.MissionAborted
+                                     && m.Status != CatchingMissionStatus.Cancelled
+                    );
+
+                    if (activeMission != null)
+                    {
+                        throw new BadRequestException($"An active mission already exists for this request with status: {activeMission.Status}");
+                    }
+
+                    // Update the request with pre-calculated price
+                    snakeRequest.AssignedRescuerId = request.rescuerId;
+                    snakeRequest.AssignedAt = DateTime.UtcNow;
+                    snakeRequest.Status = RequestStatus.Assigned;
+
+                    _unitOfWork.GetRepository<SnakeCatchingRequest>().Update(snakeRequest);
+
+                    // Create a new mission for this request
+                    decimal basePrice = _configuration.GetValue<decimal>("Price:CatchingBasePrice");
+                    var newMission = new SnakeCatchingMission
+                    {
+                        Id = Guid.NewGuid(),
+                        RescuerId = request.rescuerId,
+                        SnakeCatchingRequestId = requestId,
+                        Status = CatchingMissionStatus.Preparing,
+                        Price = basePrice,
+                        EstimatedCost = snakeRequest.EstimatedPrice,
+                    };
+
+                    await _unitOfWork.GetRepository<SnakeCatchingMission>().InsertAsync(newMission);
+                    await _unitOfWork.CommitAsync();
+
+                    // Reload the request with all navigation properties for response
+                    var updatedRequest = await _unitOfWork.GetRepository<SnakeCatchingRequest>().FirstOrDefaultAsync(
+                        predicate: r => r.Id == requestId,
+                        include: query => query
+                            .Include(r => r.User)
+                            .Include(r => r.HandlingOperator)
+                            .Include(r => r.AssignedRescuer)
+                                .ThenInclude(ar => ar.Account)
+                            .Include(r => r.Missions)
+                                .ThenInclude(m => m.CatchingEnvironment)
+                            .Include(r => r.Missions)
+                                .ThenInclude(m => m.MissionDetails)
+                                    .ThenInclude(md => md.SnakeSpecies)
+                            .Include(r => r.Details)
+                                .ThenInclude(d => d.SnakeSpecies)
+                    );
+
+                    if (updatedRequest == null)
+                    {
+                        throw new Exception("Failed to retrieve updated request.");
+                    }
+
+                    await updatedRequest.AttachReportMediaAsync(_unitOfWork, MediaReferenceType.SnakeCatchingRequest);
+
+                    var response = updatedRequest.Adapt<CreateSnakeCatchingRequestResponse>();
+                    if (response.EstimatedPrice.HasValue)
+                    {
+                        var perKmRate = _configuration.GetValue<decimal>("LocationIq:PricePerKilometer");
+                        if (perKmRate > 0)
+                        {
+                            response.DistanceKm = (double)(response.EstimatedPrice.Value / perKmRate);
+                        }
+                    }
+
+                    //_logger.LogInformation(
+                    //    "Snake catching request accepted successfully. RequestId: {RequestId}, RescuerId: {RescuerId}, EstimatedPrice: {Price} VND",
+                    //    requestId, rescuerId, estimatedPrice);
+
+                    return response;
+                });
+
+                await _snakeCatchingRequestNotificationService.NotifyRequestAssignedAsync(response);
+
+                return response;
             }
             catch (Exception ex)
             {
@@ -422,6 +575,7 @@ namespace SnakeAid.Service.Implements
                     include: query => query
                         .Include(r => r.User)
                             .ThenInclude(u => u.Account)
+                        .Include(r => r.HandlingOperator)
                         .Include(r => r.AssignedRescuer)
                             .ThenInclude(ar => ar.Account)
                         .Include(r => r.Missions)
@@ -501,6 +655,13 @@ namespace SnakeAid.Service.Implements
                 }
 
                 var response = request.Adapt<DetailSnakeCatchingRequestResponse>();
+                
+                // Ensure Media is properly mapped (explicit mapping for polymorphic relationship)
+                if (request.Media != null && request.Media.Any())
+                {
+                    response.Media = request.Media.Adapt<List<ReportMediaResponse>>();
+                }
+                
                 response.AIResults = aiResults;
                 if (response.EstimatedPrice.HasValue)
                 {
@@ -519,11 +680,13 @@ namespace SnakeAid.Service.Implements
                     }
                 }
 
-                // Load feedbacks for assigned rescuer if exists
+                // Load feedbacks for this specific request
                 if (request.AssignedRescuerId.HasValue)
                 {
                     var feedbacks = await _unitOfWork.GetRepository<UserFeedback>().GetListAsync(
-                        predicate: f => f.TargetUserId == request.AssignedRescuerId.Value,
+                        predicate: f => f.TargetUserId == request.AssignedRescuerId.Value &&
+                                       f.ReferenceId == requestId &&
+                                       f.Type == FeedbackType.Catching,
                         include: query => query
                             .Include(f => f.Rater)
                             .Include(f => f.TargetUser),
@@ -555,12 +718,26 @@ namespace SnakeAid.Service.Implements
             }
         }
 
-        public async Task<List<ListSnakeCatchingRequestResponse>> GetAllRequestAsync()
+        public async Task<List<ListSnakeCatchingRequestResponse>> GetAllRequestAsync(GetAllSnakeCatchingRequestsQuery? query = null)
         {
             try
             {
+                query ??= new GetAllSnakeCatchingRequestsQuery();
+
+                var userId = query.UserId;
+                var handlingOperatorId = query.HandlingOperatorId;
+                var assignedRescuerId = query.AssignedRescuerId;
+                var status = query.Status;
+
+                var hasFilter = userId.HasValue || handlingOperatorId.HasValue || assignedRescuerId.HasValue || status.HasValue;
+
                 // Get all snake catching requests with related data
                 var requests = await _unitOfWork.GetRepository<SnakeCatchingRequest>().GetListAsync(
+                    predicate: r => !hasFilter
+                        || (!userId.HasValue || r.UserId == userId.Value)
+                        && (!handlingOperatorId.HasValue || r.HandlingOperatorId == handlingOperatorId.Value)
+                        && (!assignedRescuerId.HasValue || r.AssignedRescuerId == assignedRescuerId.Value)
+                        && (!status.HasValue || r.Status == status.Value),
                     include: query => query
                         .Include(r => r.User)
                             .ThenInclude(u => u.Account)
@@ -568,7 +745,7 @@ namespace SnakeAid.Service.Implements
                             .ThenInclude(r => r.Account)
                         .Include(r => r.Details)
                             .ThenInclude(d => d.SnakeSpecies),
-                    orderBy: q => q.OrderByDescending(r => r.RequestDate)
+                    orderBy: q => q.OrderByDescending(r => r.CreatedAt)
                 );
 
                 await requests.AttachReportMediaAsync(_unitOfWork, MediaReferenceType.SnakeCatchingRequest);
@@ -588,6 +765,56 @@ namespace SnakeAid.Service.Implements
             }
         }
 
+        private (double centerLng, double centerLat) GetCenterCoordinates()
+        {
+            var centerLng = _configuration.GetValue<double?>("Center:Longitude");
+            var centerLat = _configuration.GetValue<double?>("Center:Latitude");
+
+            if (!centerLng.HasValue || !centerLat.HasValue)
+            {
+                throw new BadRequestException("Center coordinates are missing in appsettings (Center:Longitude, Center:Latitude).");
+            }
+
+            return (centerLng.Value, centerLat.Value);
+        }
+
+        private async Task<decimal> CalculateEstimatedPriceFromCenterAsync(double destinationLng, double destinationLat, string context)
+        {
+            var (centerLng, centerLat) = GetCenterCoordinates();
+
+            try
+            {
+                _logger.LogInformation(
+                    "Calculating estimated price from center for {Context} - Source: Lng={SourceLng}, Lat={SourceLat} | Dest: Lng={DestLng}, Lat={DestLat}",
+                    context,
+                    centerLng,
+                    centerLat,
+                    destinationLng,
+                    destinationLat);
+
+                var (distanceInKm, priceInVnd) = await _locationIqService.CalculateDistanceAndPriceAsync(
+                    centerLng,
+                    centerLat,
+                    destinationLng,
+                    destinationLat);
+
+                _logger.LogInformation(
+                    "Estimated price calculated for {Context}: {Distance} km, Price: {Price} VND",
+                    context,
+                    distanceInKm.ToString("F2"),
+                    priceInVnd);
+
+                return priceInVnd;
+            }
+            catch (ExternalServiceException ex)
+            {
+                _logger.LogWarning(ex,
+                    "Failed to calculate distance from center for {Context}, using fallback price of 50000 VND",
+                    context);
+                return 50000;
+            }
+        }
+
         public async Task<DetailSnakeCatchingRequestResponse> CancelSnakeCatchingRequestAsync(
             Guid userId,
             Guid requestId,
@@ -600,7 +827,7 @@ namespace SnakeAid.Service.Implements
                     throw new BadRequestException("Cancellation reason is required.");
                 }
 
-                return await _unitOfWork.ExecuteInTransactionAsync(async () =>
+                var response = await _unitOfWork.ExecuteInTransactionAsync(async () =>
                 {
                     // Get the snake catching request with missions
                     var snakeCatchingRequest = await _unitOfWork.GetRepository<SnakeCatchingRequest>().FirstOrDefaultAsync(
@@ -691,6 +918,7 @@ namespace SnakeAid.Service.Implements
                         include: query => query
                             .Include(r => r.User)
                                 .ThenInclude(u => u.Account)
+                            .Include(r => r.HandlingOperator)
                             .Include(r => r.AssignedRescuer)
                                 .ThenInclude(ar => ar.Account)
                             .Include(r => r.Missions)
@@ -732,6 +960,10 @@ namespace SnakeAid.Service.Implements
 
                     return response;
                 });
+
+                await _snakeCatchingRequestNotificationService.NotifyRequestCancelledAsync(response);
+
+                return response;
             }
             catch (Exception ex)
             {

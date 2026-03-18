@@ -149,14 +149,6 @@ namespace SnakeAid.Api
                     .AsImplementedInterfaces()
                     .WithScopedLifetime());
 
-                // Register SessionTimeoutBackgroundService as singleton
-                // It implements both IHostedService and ISessionTimeoutService
-                builder.Services.AddSingleton<SnakeAid.Service.Implements.SessionTimeoutBackgroundService>();
-                builder.Services.AddSingleton<SnakeAid.Service.Interfaces.ISessionTimeoutService>(provider =>
-                    provider.GetRequiredService<SnakeAid.Service.Implements.SessionTimeoutBackgroundService>());
-                builder.Services.AddSingleton<IHostedService>(provider =>
-                    provider.GetRequiredService<SnakeAid.Service.Implements.SessionTimeoutBackgroundService>());
-
                 builder.Services.AddSingleton<SnakeAid.Service.Implements.ConsultationLifecycleBackgroundService>();
                 builder.Services.AddSingleton<IHostedService>(provider =>
                     provider.GetRequiredService<SnakeAid.Service.Implements.ConsultationLifecycleBackgroundService>());
@@ -307,7 +299,7 @@ namespace SnakeAid.Api
                         // app.ApplyMigrations<SnakeAidDbContext>();
                     }
 
-                    // // Seed data (mở ra nếu seed lại dữ liệu)
+                    // // // Seed data (mở ra nếu seed lại dữ liệu)
                     // using (var scope = app.Services.CreateScope())
                     // {
                     //     var context = scope.ServiceProvider.GetRequiredService<SnakeAidDbContext>();
@@ -343,8 +335,6 @@ namespace SnakeAid.Api
                 app.UseSerilogUi(options => options.WithRoutePrefix("logs"));
 
                 // Map SignalR Hub with specific CORS policy
-                app.MapHub<TestChatHub>("/chat-hub").RequireCors("SignalRCorsPolicy");
-
                 app.MapHub<RescuerHub>("/rescuer-hub").RequireCors("SignalRCorsPolicy");
 
                 app.MapHub<MissionHub>("/mission-hub").RequireCors("SignalRCorsPolicy");

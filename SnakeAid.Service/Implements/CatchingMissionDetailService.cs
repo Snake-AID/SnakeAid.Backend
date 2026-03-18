@@ -85,5 +85,93 @@ namespace SnakeAid.Service.Implements
                 throw;
             }
         }
+
+        public async Task<CatchingMissionDetailResponse> UpdateCatchingMissionDetailAsync(Guid id, UpdateCatchingMissionDetailRequest request)
+        {
+            try
+            {
+                if (request == null)
+                {
+                    throw new BadRequestException("Request data cannot be null.");
+                }
+
+                return await _unitOfWork.ExecuteInTransactionAsync(async () =>
+                {
+                    // Get existing mission detail
+                    var missionDetail = await _unitOfWork.GetRepository<CatchingMissionDetail>()
+                        .FirstOrDefaultAsync(predicate: md => md.Id == id);
+
+                    if (missionDetail == null)
+                    {
+                        throw new NotFoundException($"Catching mission detail with ID {id} not found.");
+                    }
+
+                    // Validate SnakeSpecies exists
+                    var snakeSpecies = await _unitOfWork.GetRepository<SnakeSpecies>()
+                        .FirstOrDefaultAsync(predicate: s => s.Id == request.SnakeSpeciesId);
+
+                    if (snakeSpecies == null)
+                    {
+                        throw new NotFoundException($"Snake species with ID {request.SnakeSpeciesId} not found.");
+                    }
+
+                    // Update the mission detail
+                    missionDetail.SnakeSpeciesId = request.SnakeSpeciesId;
+                    missionDetail.Quantity = request.Quantity;
+                    missionDetail.UpdatedAt = DateTime.UtcNow;
+
+                    _unitOfWork.GetRepository<CatchingMissionDetail>().Update(missionDetail);
+                    await _unitOfWork.CommitAsync();
+
+                    _logger.LogInformation(
+                        "Catching mission detail updated successfully. DetailId: {DetailId}, SpeciesId: {SpeciesId}, Quantity: {Quantity}",
+                        id, request.SnakeSpeciesId, request.Quantity);
+
+                    // Map to response and include snake species name
+                    var response = missionDetail.Adapt<CatchingMissionDetailResponse>();
+                    response.SnakeSpeciesName = snakeSpecies.CommonName;
+
+                    return response;
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating catching mission detail: {Message}", ex.Message);
+                throw;
+            }
+        }
+
+        public async Task DeleteCatchingMissionDetailAsync(Guid id)
+        {
+            try
+            {
+                await _unitOfWork.ExecuteInTransactionAsync(async () =>
+                {
+                    // Get existing mission detail
+                    var missionDetail = await _unitOfWork.GetRepository<CatchingMissionDetail>()
+                        .FirstOrDefaultAsync(predicate: md => md.Id == id);
+
+                    if (missionDetail == null)
+                    {
+                        throw new NotFoundException($"Catching mission detail with ID {id} not found.");
+                    }
+
+                    // Delete the mission detail
+                    _unitOfWork.GetRepository<CatchingMissionDetail>().Delete(missionDetail);
+                    await _unitOfWork.CommitAsync();
+
+                    _logger.LogInformation(
+                        "Catching mission detail deleted successfully. DetailId: {DetailId}",
+                        id);
+
+                    return Task.CompletedTask;
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error deleting catching mission detail: {Message}", ex.Message);
+                throw;
+            }
+        }
     }
 }

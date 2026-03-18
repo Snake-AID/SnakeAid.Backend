@@ -32,6 +32,15 @@ namespace SnakeAid.Core.Domains
         [Required]
         public RequestStatus Status { get; set; } = RequestStatus.Pending;
 
+        [Timestamp]
+        public uint Version { get; set; }
+
+        [ForeignKey(nameof(HandlingOperator))]
+        public Guid? HandlingOperatorId { get; set; }
+
+        [MaxLength(1000)]
+        public string? OperatorNotes { get; set; }
+
         [Required]
         public RequestPriority Priority { get; set; } = RequestPriority.Normal;
 
@@ -40,7 +49,13 @@ namespace SnakeAid.Core.Domains
 
         public DateTime? PreferredTime { get; set; }
 
+        public DateTime? DispatchedAt { get; set; }
+
+        public DateTime? ConfirmedAt { get; set; }
+
         public DateTime? AssignedAt { get; set; }
+        public DateTime? PrePaidAt { get; set; }
+        public bool IsPrePaid { get; set; } = false;
 
         [ForeignKey(nameof(AssignedRescuer))]
         public Guid? AssignedRescuerId { get; set; }
@@ -57,6 +72,7 @@ namespace SnakeAid.Core.Domains
 
         // Navigation properties
         public MemberProfile User { get; set; }
+        public Account? HandlingOperator { get; set; }
         public RescuerProfile? AssignedRescuer { get; set; }
         public ICollection<SnakeCatchingMission> Missions { get; set; } = new List<SnakeCatchingMission>();
         public ICollection<ReportMedia> Media { get; set; } = new List<ReportMedia>();
@@ -66,13 +82,15 @@ namespace SnakeAid.Core.Domains
     public enum RequestStatus
     {
         Pending = 0,
-        Assigned = 1,
-        Finished = 2,
-        Paid = 3,
-        Disputed = 4,
-        Completed = 5,
-        Cancelled = 6,
-        Expired = 7
+        OperatorContacting = 1,
+        Confirmed = 2,
+        Assigned = 3,
+        Finished = 4,
+        Paid = 5,
+        Disputed = 6,
+        Completed = 7,
+        Cancelled = 8,
+        Expired = 9
     }
 
     public enum RequestPriority

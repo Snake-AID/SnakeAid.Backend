@@ -8,5 +8,7 @@ namespace SnakeAid.Service.Interfaces
     public interface ICatchingMissionDetailService
     {
         Task<CatchingMissionDetailResponse> CreateCatchingMissionDetailAsync(CreateCatchingMissionDetailRequest request);
+        Task<CatchingMissionDetailResponse> UpdateCatchingMissionDetailAsync(Guid id, UpdateCatchingMissionDetailRequest request);
+        Task DeleteCatchingMissionDetailAsync(Guid id);
     }
 }

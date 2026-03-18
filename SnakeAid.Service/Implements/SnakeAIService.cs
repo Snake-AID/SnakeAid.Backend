@@ -8,6 +8,7 @@ using SnakeAid.Core.Responses.SnakeDetection;
 using SnakeAid.Core.Settings;
 using SnakeAid.Repository.Data;
 using SnakeAid.Repository.Interfaces;
+using SnakeAid.Service.Extensions;
 using SnakeAid.Service.Interfaces;
 
 namespace SnakeAid.Service.Implements;
@@ -111,23 +112,16 @@ public class SnakeAIService : ISnakeAIService
                     {
                         var species = mapping.SnakeSpecies;
 
-                        // -- FALLBACK LOGIC FOR FIRST AID --
-                        // Check override first, if null then fallback to VenomType's guide
-                        if (species.FirstAidGuidelineOverride == null && species.SpeciesVenoms.Any())
+                        // Apply merged first aid guideline
+                        var mergedContent = species.GetMergedFirstAidContent();
+                        if (mergedContent != null && species.FirstAidGuidelineOverride == null)
                         {
-                            // Try to find any FirstAidGuideline from linked VenomTypes
-                            var venomWithGuide = species.SpeciesVenoms
-                                .Select(sv => sv.VenomType)
-                                .FirstOrDefault(v => v.FirstAidGuideline != null);
-
-                            if (venomWithGuide != null)
+                            // Only set if no override exists (to preserve override for serialization)
+                            species.FirstAidGuidelineOverride = new FirstAidOverride
                             {
-                                species.FirstAidGuidelineOverride = new FirstAidOverride
-                                {
-                                    Mode = OverrideMode.Append, // Append mode (0)
-                                    Content = venomWithGuide.FirstAidGuideline.Content ?? new FirstAidContent()
-                                };
-                            }
+                                Mode = OverrideMode.Append,
+                                Content = mergedContent
+                            };
                         }
 
                         detectionResult.Snake = species;
@@ -197,8 +191,8 @@ public class SnakeAIService : ISnakeAIService
                 savedRecognitionResult = recognitionResult;
 
                 _logger.LogInformation(
-                    "Saved recognition result {ResultId} for ReportMedia {MediaId}. Mapped: {IsMapped}",
-                    recognitionResult.Id, reportMediaId, recognitionResult.IsMapped);
+                    "Saved recognition result {ResultId} for ReportMedia {MediaId}. Mapped: {IsMapped}, DetectedSpeciesId: {SpeciesId}",
+                    recognitionResult.Id, reportMediaId, recognitionResult.IsMapped, recognitionResult.DetectedSpeciesId);
             }
 
             _logger.LogInformation(
@@ -329,11 +323,8 @@ public class SnakeAIService : ISnakeAIService
                 predicate: r => r.Id == recognitionResultId,
                 include: query => query
                     .Include(r => r.ReportMedia)
-                    .Include(r => r.AIModel)
-                    .Include(r => r.DetectedSpecies)
-                        .ThenInclude(s => s.SpeciesVenoms)
-                            .ThenInclude(sv => sv.VenomType)
-                                .ThenInclude(v => v.FirstAidGuideline), // Include for Fallback
+                    .Include(r => r.AIModel),
+                asNoTracking: false,
                 cancellationToken: ct);
 
         if (recognitionResult == null)
@@ -342,25 +333,30 @@ public class SnakeAIService : ISnakeAIService
             throw new NotFoundException("Recognition result not found.");
         }
 
-        // Restore species logic if available
+        // Chỉ load DetectedSpecies nếu cần
+        if (recognitionResult.DetectedSpeciesId.HasValue)
+        {
+            await _unitOfWork.Context.Entry(recognitionResult)
+                .Reference(r => r.DetectedSpecies)
+                .Query()
+                .Include(s => s.SpeciesVenoms)
+                    .ThenInclude(sv => sv.VenomType)
+                        .ThenInclude(v => v.FirstAidGuideline)
+                .LoadAsync(ct);
+        }
+
+        // Apply merged first aid guideline
         if (recognitionResult.DetectedSpecies != null)
         {
             var species = recognitionResult.DetectedSpecies;
-            // -- FALLBACK LOGIC --
-            if (species.FirstAidGuidelineOverride == null && species.SpeciesVenoms.Any())
+            var mergedContent = species.GetMergedFirstAidContent();
+            if (mergedContent != null && species.FirstAidGuidelineOverride == null)
             {
-                var venomWithGuide = species.SpeciesVenoms
-                     .Select(sv => sv.VenomType)
-                     .FirstOrDefault(v => v.FirstAidGuideline != null);
-
-                if (venomWithGuide != null)
+                species.FirstAidGuidelineOverride = new FirstAidOverride
                 {
-                    species.FirstAidGuidelineOverride = new FirstAidOverride
-                    {
-                        Mode = OverrideMode.Append,
-                        Content = venomWithGuide.FirstAidGuideline.Content ?? new FirstAidContent()
-                    };
-                }
+                    Mode = OverrideMode.Append,
+                    Content = mergedContent
+                };
             }
         }
 

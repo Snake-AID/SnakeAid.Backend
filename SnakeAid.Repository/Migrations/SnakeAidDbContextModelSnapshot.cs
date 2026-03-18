@@ -5,7 +5,6 @@ using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using NetTopologySuite.Geometries;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
-using SnakeAid.Core.Domains;
 using SnakeAid.Repository.Data;
 
 #nullable disable
@@ -1045,6 +1044,54 @@ namespace SnakeAid.Repository.Migrations
                     b.ToTable("FirstAidGuidelines", "SnakeAid");
                 });
 
+            modelBuilder.Entity("SnakeAid.Core.Domains.IncidentCallLog", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CalledAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("Duration")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("IncidentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<Guid>("OperatorId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Outcome")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CalledAt")
+                        .HasDatabaseName("IX_IncidentCallLogs_CalledAt");
+
+                    b.HasIndex("IncidentId")
+                        .HasDatabaseName("IX_IncidentCallLogs_IncidentId");
+
+                    b.HasIndex("OperatorId")
+                        .HasDatabaseName("IX_IncidentCallLogs_OperatorId");
+
+                    b.HasIndex("Outcome")
+                        .HasDatabaseName("IX_IncidentCallLogs_Outcome");
+
+                    b.ToTable("IncidentCallLogs", "SnakeAid");
+                });
+
             modelBuilder.Entity("SnakeAid.Core.Domains.Lesson", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1214,6 +1261,48 @@ namespace SnakeAid.Repository.Migrations
                     b.HasKey("AccountId");
 
                     b.ToTable("MemberProfiles", "SnakeAid");
+                });
+
+            modelBuilder.Entity("SnakeAid.Core.Domains.OperatorProfile", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("CurrentCaseCount")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("IsAcceptingNew")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsOnDuty")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("MaxConcurrentCases")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AccountId")
+                        .IsUnique()
+                        .HasDatabaseName("UX_OperatorProfiles_AccountId");
+
+                    b.HasIndex("IsAcceptingNew")
+                        .HasDatabaseName("IX_OperatorProfiles_IsAcceptingNew");
+
+                    b.HasIndex("IsOnDuty")
+                        .HasDatabaseName("IX_OperatorProfiles_IsOnDuty");
+
+                    b.ToTable("OperatorProfiles", "SnakeAid");
                 });
 
             modelBuilder.Entity("SnakeAid.Core.Domains.Otp", b =>
@@ -1512,7 +1601,16 @@ namespace SnakeAid.Repository.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<decimal?>("DistanceToHospitalKm")
+                        .HasColumnType("numeric(10,2)");
+
                     b.Property<decimal?>("EstimatedCost")
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<int?>("HospitalId")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal?>("HospitalTransferPrice")
                         .HasColumnType("numeric(18,2)");
 
                     b.Property<Guid>("IncidentId")
@@ -1524,6 +1622,9 @@ namespace SnakeAid.Repository.Migrations
 
                     b.Property<decimal>("Price")
                         .HasColumnType("numeric(18,2)");
+
+                    b.Property<bool>("RequiresHospitalization")
+                        .HasColumnType("boolean");
 
                     b.Property<Guid>("RescuerId")
                         .HasColumnType("uuid");
@@ -1539,6 +1640,8 @@ namespace SnakeAid.Repository.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("HospitalId");
+
                     b.HasIndex("IncidentId")
                         .HasDatabaseName("IX_RescueMissions_IncidentId");
 
@@ -1551,54 +1654,6 @@ namespace SnakeAid.Repository.Migrations
                     b.ToTable("RescueMissions", "SnakeAid");
                 });
 
-            modelBuilder.Entity("SnakeAid.Core.Domains.RescueRequestSession", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTime?>("CompletedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<Guid>("IncidentId")
-                        .HasColumnType("uuid");
-
-                    b.Property<int>("RadiusKm")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("RescuersPinged")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("SessionNumber")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("Status")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("TriggerType")
-                        .HasColumnType("integer");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("IncidentId")
-                        .HasDatabaseName("IX_RescueRequestSessions_IncidentId");
-
-                    b.HasIndex("Status")
-                        .HasDatabaseName("IX_RescueRequestSessions_Status");
-
-                    b.HasIndex("IncidentId", "SessionNumber")
-                        .IsUnique()
-                        .HasDatabaseName("IX_RescueRequestSessions_IncidentId_SessionNumber");
-
-                    b.ToTable("RescueRequestSessions", "SnakeAid");
-                });
-
             modelBuilder.Entity("SnakeAid.Core.Domains.RescuerProfile", b =>
                 {
                     b.Property<Guid>("AccountId")
@@ -1609,6 +1664,9 @@ namespace SnakeAid.Repository.Migrations
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsAvailable")
+                        .HasColumnType("boolean");
 
                     b.Property<bool>("IsOnline")
                         .HasColumnType("boolean");
@@ -1638,8 +1696,16 @@ namespace SnakeAid.Repository.Migrations
 
                     b.HasKey("AccountId");
 
+                    b.HasIndex("IsAvailable")
+                        .HasDatabaseName("IX_RescuerProfiles_IsAvailable");
+
                     b.HasIndex("IsOnline")
                         .HasDatabaseName("IX_RescuerProfiles_IsOnline");
+
+                    b.HasIndex("LastLocation")
+                        .HasDatabaseName("IX_RescuerProfiles_LastLocation");
+
+                    NpgsqlIndexBuilderExtensions.HasMethod(b.HasIndex("LastLocation"), "GIST");
 
                     b.HasIndex("Type")
                         .HasDatabaseName("IX_RescuerProfiles_Type");
@@ -1656,14 +1722,18 @@ namespace SnakeAid.Repository.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<DateTime>("ExpiredAt")
+                    b.Property<string>("DeclineReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<DateTime>("DispatchedAt")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<Guid>("IncidentId")
                         .HasColumnType("uuid");
 
-                    b.Property<DateTime>("RequestSentAt")
-                        .HasColumnType("timestamp with time zone");
+                    b.Property<Guid?>("OperatorId")
+                        .HasColumnType("uuid");
 
                     b.Property<Guid>("RescuerId")
                         .HasColumnType("uuid");
@@ -1671,7 +1741,58 @@ namespace SnakeAid.Repository.Migrations
                     b.Property<DateTime?>("ResponseAt")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<Guid>("SessionId")
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DispatchedAt")
+                        .HasDatabaseName("IX_RescuerRequests_DispatchedAt");
+
+                    b.HasIndex("IncidentId")
+                        .HasDatabaseName("IX_RescuerRequests_IncidentId");
+
+                    b.HasIndex("OperatorId")
+                        .HasDatabaseName("IX_RescuerRequests_OperatorId");
+
+                    b.HasIndex("RescuerId")
+                        .HasDatabaseName("IX_RescuerRequests_RescuerId");
+
+                    b.HasIndex("Status")
+                        .HasDatabaseName("IX_RescuerRequests_Status");
+
+                    b.ToTable("RescuerRequests", "SnakeAid");
+                });
+
+            modelBuilder.Entity("SnakeAid.Core.Domains.ShiftAssignment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("CheckInAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("CheckOutAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateOnly>("Date")
+                        .HasColumnType("date");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<Guid>("RescuerId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ShiftId")
                         .HasColumnType("uuid");
 
                     b.Property<int>("Status")
@@ -1682,22 +1803,23 @@ namespace SnakeAid.Repository.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("ExpiredAt")
-                        .HasDatabaseName("IX_RescuerRequests_ExpiredAt");
-
-                    b.HasIndex("IncidentId")
-                        .HasDatabaseName("IX_RescuerRequests_IncidentId");
+                    b.HasIndex("Date")
+                        .HasDatabaseName("IX_ShiftAssignments_Date");
 
                     b.HasIndex("RescuerId")
-                        .HasDatabaseName("IX_RescuerRequests_RescuerId");
+                        .HasDatabaseName("IX_ShiftAssignments_RescuerId");
 
-                    b.HasIndex("SessionId")
-                        .HasDatabaseName("IX_RescuerRequests_SessionId");
+                    b.HasIndex("ShiftId")
+                        .HasDatabaseName("IX_ShiftAssignments_ShiftId");
 
                     b.HasIndex("Status")
-                        .HasDatabaseName("IX_RescuerRequests_Status");
+                        .HasDatabaseName("IX_ShiftAssignments_Status");
 
-                    b.ToTable("RescuerRequests", "SnakeAid");
+                    b.HasIndex("RescuerId", "ShiftId", "Date")
+                        .IsUnique()
+                        .HasDatabaseName("UX_ShiftAssignments_Rescuer_Shift_Date");
+
+                    b.ToTable("ShiftAssignments", "SnakeAid");
                 });
 
             modelBuilder.Entity("SnakeAid.Core.Domains.SnakeAIRecognitionResult", b =>
@@ -1872,11 +1994,23 @@ namespace SnakeAid.Repository.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)");
 
+                    b.Property<DateTime?>("ConfirmedAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("DispatchedAt")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<decimal?>("EstimatedPrice")
                         .HasColumnType("numeric(18,2)");
+
+                    b.Property<Guid?>("HandlingOperatorId")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("IsPrePaid")
+                        .HasColumnType("boolean");
 
                     b.Property<Point>("LocationCoordinates")
                         .IsRequired()
@@ -1885,6 +2019,13 @@ namespace SnakeAid.Repository.Migrations
                     b.Property<string>("Notes")
                         .HasMaxLength(1000)
                         .HasColumnType("character varying(1000)");
+
+                    b.Property<string>("OperatorNotes")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<DateTime?>("PrePaidAt")
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<DateTime?>("PreferredTime")
                         .HasColumnType("timestamp with time zone");
@@ -1904,10 +2045,19 @@ namespace SnakeAid.Repository.Migrations
                     b.Property<Guid>("UserId")
                         .HasColumnType("uuid");
 
+                    b.Property<uint>("Version")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
                     b.HasKey("Id");
 
                     b.HasIndex("AssignedRescuerId")
                         .HasDatabaseName("IX_SnakeCatchingRequests_AssignedRescuerId");
+
+                    b.HasIndex("HandlingOperatorId")
+                        .HasDatabaseName("IX_SnakeCatchingRequests_HandlingOperatorId");
 
                     b.HasIndex("RequestDate")
                         .HasDatabaseName("IX_SnakeCatchingRequests_RequestDate");
@@ -2110,17 +2260,20 @@ namespace SnakeAid.Repository.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)");
 
+                    b.Property<DateTime?>("ConfirmedAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<int>("CurrentRadiusKm")
-                        .HasColumnType("integer");
+                    b.Property<DateTime?>("DispatchedAt")
+                        .HasColumnType("timestamp with time zone");
 
-                    b.Property<int>("CurrentSessionNumber")
-                        .HasColumnType("integer");
-
-                    b.Property<FilterAnswerData>("FilterAnswers")
+                    b.Property<string>("FilterAnswers")
                         .HasColumnType("jsonb");
+
+                    b.Property<Guid?>("HandlingOperatorId")
+                        .HasColumnType("uuid");
 
                     b.Property<int>("IdentificationMethod")
                         .HasColumnType("integer");
@@ -2134,12 +2287,13 @@ namespace SnakeAid.Repository.Migrations
                     b.Property<DateTime?>("IncidentOccurredAt")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<DateTime?>("LastSessionAt")
-                        .HasColumnType("timestamp with time zone");
-
                     b.Property<Point>("LocationCoordinates")
                         .IsRequired()
                         .HasColumnType("geometry(Point, 4326)");
+
+                    b.Property<string>("OperatorNotes")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
 
                     b.Property<int?>("SeverityLevel")
                         .HasColumnType("integer");
@@ -2156,12 +2310,21 @@ namespace SnakeAid.Repository.Migrations
                     b.Property<Guid>("UserId")
                         .HasColumnType("uuid");
 
+                    b.Property<uint>("Version")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
                     b.HasKey("Id");
 
                     b.HasIndex("AIRecognitionResultId");
 
                     b.HasIndex("AssignedRescuerId")
                         .HasDatabaseName("IX_SnakebiteIncidents_AssignedRescuerId");
+
+                    b.HasIndex("HandlingOperatorId")
+                        .HasDatabaseName("IX_SnakebiteIncidents_HandlingOperatorId");
 
                     b.HasIndex("IdentifiedSnakeSpeciesId");
 
@@ -2510,6 +2673,11 @@ namespace SnakeAid.Repository.Migrations
                     b.HasIndex("IsActive")
                         .HasDatabaseName("IX_TreatmentFacilities_IsActive");
 
+                    b.HasIndex("Location")
+                        .HasDatabaseName("IX_TreatmentFacilities_Location");
+
+                    NpgsqlIndexBuilderExtensions.HasMethod(b.HasIndex("Location"), "GIST");
+
                     b.HasIndex("Name")
                         .HasDatabaseName("IX_TreatmentFacilities_Name");
 
@@ -2696,6 +2864,46 @@ namespace SnakeAid.Repository.Migrations
                         .HasDatabaseName("IX_WalletWithdraws_WalletId");
 
                     b.ToTable("WalletWithdraws", "SnakeAid");
+                });
+
+            modelBuilder.Entity("SnakeAid.Core.Domains.WorkShift", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<TimeSpan>("EndTime")
+                        .HasColumnType("interval");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<int>("RequiredRescuers")
+                        .HasColumnType("integer");
+
+                    b.Property<TimeSpan>("StartTime")
+                        .HasColumnType("interval");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Name")
+                        .HasDatabaseName("IX_WorkShifts_Name");
+
+                    b.HasIndex("StartTime", "EndTime")
+                        .HasDatabaseName("IX_WorkShifts_StartTime_EndTime");
+
+                    b.ToTable("WorkShifts", "SnakeAid");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserClaim<System.Guid>", b =>
@@ -3002,6 +3210,25 @@ namespace SnakeAid.Repository.Migrations
                     b.Navigation("SnakeSpecies");
                 });
 
+            modelBuilder.Entity("SnakeAid.Core.Domains.IncidentCallLog", b =>
+                {
+                    b.HasOne("SnakeAid.Core.Domains.SnakebiteIncident", "Incident")
+                        .WithMany()
+                        .HasForeignKey("IncidentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("SnakeAid.Core.Domains.Account", "Operator")
+                        .WithMany()
+                        .HasForeignKey("OperatorId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Incident");
+
+                    b.Navigation("Operator");
+                });
+
             modelBuilder.Entity("SnakeAid.Core.Domains.LibraryMedia", b =>
                 {
                     b.HasOne("SnakeAid.Core.Domains.SnakeSpecies", "SnakeSpecies")
@@ -3024,6 +3251,17 @@ namespace SnakeAid.Repository.Migrations
                     b.HasOne("SnakeAid.Core.Domains.Account", "Account")
                         .WithOne("MemberProfile")
                         .HasForeignKey("SnakeAid.Core.Domains.MemberProfile", "AccountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Account");
+                });
+
+            modelBuilder.Entity("SnakeAid.Core.Domains.OperatorProfile", b =>
+                {
+                    b.HasOne("SnakeAid.Core.Domains.Account", "Account")
+                        .WithMany()
+                        .HasForeignKey("AccountId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
@@ -3079,6 +3317,10 @@ namespace SnakeAid.Repository.Migrations
 
             modelBuilder.Entity("SnakeAid.Core.Domains.RescueMission", b =>
                 {
+                    b.HasOne("SnakeAid.Core.Domains.TreatmentFacility", "Hospital")
+                        .WithMany()
+                        .HasForeignKey("HospitalId");
+
                     b.HasOne("SnakeAid.Core.Domains.SnakebiteIncident", "Incident")
                         .WithMany("Missions")
                         .HasForeignKey("IncidentId")
@@ -3091,20 +3333,11 @@ namespace SnakeAid.Repository.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.Navigation("Hospital");
+
                     b.Navigation("Incident");
 
                     b.Navigation("Rescuer");
-                });
-
-            modelBuilder.Entity("SnakeAid.Core.Domains.RescueRequestSession", b =>
-                {
-                    b.HasOne("SnakeAid.Core.Domains.SnakebiteIncident", "Incident")
-                        .WithMany("Sessions")
-                        .HasForeignKey("IncidentId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Incident");
                 });
 
             modelBuilder.Entity("SnakeAid.Core.Domains.RescuerProfile", b =>
@@ -3121,10 +3354,14 @@ namespace SnakeAid.Repository.Migrations
             modelBuilder.Entity("SnakeAid.Core.Domains.RescuerRequest", b =>
                 {
                     b.HasOne("SnakeAid.Core.Domains.SnakebiteIncident", "Incident")
-                        .WithMany("AllRequests")
+                        .WithMany("DispatchRequests")
                         .HasForeignKey("IncidentId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.HasOne("SnakeAid.Core.Domains.Account", "Operator")
+                        .WithMany()
+                        .HasForeignKey("OperatorId");
 
                     b.HasOne("SnakeAid.Core.Domains.RescuerProfile", "Rescuer")
                         .WithMany("RescuerRequests")
@@ -3132,17 +3369,30 @@ namespace SnakeAid.Repository.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("SnakeAid.Core.Domains.RescueRequestSession", "Session")
-                        .WithMany("Requests")
-                        .HasForeignKey("SessionId")
+                    b.Navigation("Incident");
+
+                    b.Navigation("Operator");
+
+                    b.Navigation("Rescuer");
+                });
+
+            modelBuilder.Entity("SnakeAid.Core.Domains.ShiftAssignment", b =>
+                {
+                    b.HasOne("SnakeAid.Core.Domains.RescuerProfile", "Rescuer")
+                        .WithMany()
+                        .HasForeignKey("RescuerId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("SnakeAid.Core.Domains.WorkShift", "Shift")
+                        .WithMany("Assignments")
+                        .HasForeignKey("ShiftId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.Navigation("Incident");
-
                     b.Navigation("Rescuer");
 
-                    b.Navigation("Session");
+                    b.Navigation("Shift");
                 });
 
             modelBuilder.Entity("SnakeAid.Core.Domains.SnakeAIRecognitionResult", b =>
@@ -3224,6 +3474,11 @@ namespace SnakeAid.Repository.Migrations
                         .HasForeignKey("AssignedRescuerId")
                         .OnDelete(DeleteBehavior.SetNull);
 
+                    b.HasOne("SnakeAid.Core.Domains.Account", "HandlingOperator")
+                        .WithMany()
+                        .HasForeignKey("HandlingOperatorId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("SnakeAid.Core.Domains.MemberProfile", "User")
                         .WithMany("SnakeCatchingRequests")
                         .HasForeignKey("UserId")
@@ -3231,6 +3486,8 @@ namespace SnakeAid.Repository.Migrations
                         .IsRequired();
 
                     b.Navigation("AssignedRescuer");
+
+                    b.Navigation("HandlingOperator");
 
                     b.Navigation("User");
                 });
@@ -3268,6 +3525,11 @@ namespace SnakeAid.Repository.Migrations
                         .HasForeignKey("AssignedRescuerId")
                         .OnDelete(DeleteBehavior.SetNull);
 
+                    b.HasOne("SnakeAid.Core.Domains.Account", "HandlingOperator")
+                        .WithMany()
+                        .HasForeignKey("HandlingOperatorId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("SnakeAid.Core.Domains.SnakeSpecies", "IdentifiedSnakeSpecies")
                         .WithMany()
                         .HasForeignKey("IdentifiedSnakeSpeciesId");
@@ -3281,6 +3543,8 @@ namespace SnakeAid.Repository.Migrations
                     b.Navigation("AIRecognitionResult");
 
                     b.Navigation("AssignedRescuer");
+
+                    b.Navigation("HandlingOperator");
 
                     b.Navigation("IdentifiedSnakeSpecies");
 
@@ -3468,11 +3732,6 @@ namespace SnakeAid.Repository.Migrations
                     b.Navigation("AIRecognitionResults");
                 });
 
-            modelBuilder.Entity("SnakeAid.Core.Domains.RescueRequestSession", b =>
-                {
-                    b.Navigation("Requests");
-                });
-
             modelBuilder.Entity("SnakeAid.Core.Domains.RescuerProfile", b =>
                 {
                     b.Navigation("CatchingMissions");
@@ -3511,11 +3770,9 @@ namespace SnakeAid.Repository.Migrations
 
             modelBuilder.Entity("SnakeAid.Core.Domains.SnakebiteIncident", b =>
                 {
-                    b.Navigation("AllRequests");
+                    b.Navigation("DispatchRequests");
 
                     b.Navigation("Missions");
-
-                    b.Navigation("Sessions");
                 });
 
             modelBuilder.Entity("SnakeAid.Core.Domains.Specialization", b =>
@@ -3533,6 +3790,11 @@ namespace SnakeAid.Repository.Migrations
                     b.Navigation("SpeciesVenoms");
 
                     b.Navigation("SymptomConfigs");
+                });
+
+            modelBuilder.Entity("SnakeAid.Core.Domains.WorkShift", b =>
+                {
+                    b.Navigation("Assignments");
                 });
 #pragma warning restore 612, 618
         }

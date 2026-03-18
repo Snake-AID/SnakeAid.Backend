@@ -1,6 +1,8 @@
 using Mapster;
 using SnakeAid.Core.Domains;
+using SnakeAid.Core.Responses.Auth;
 using SnakeAid.Core.Responses.MemberProfile;
+using SnakeAid.Core.Responses.RescuerProfile;
 using SnakeAid.Core.Responses.SnakeCatchingRequest;
 
 namespace SnakeAid.Core.Mappings
@@ -12,18 +14,22 @@ namespace SnakeAid.Core.Mappings
             TypeAdapterConfig<SnakeCatchingRequest, CreateSnakeCatchingRequestResponse>
                 .NewConfig()
                 .PreserveReference(true) // Enable circular reference handling
-                .MaxDepth(3) // Limit mapping depth to prevent infinite loops
+                .MaxDepth(5) // Increase depth to allow Media mapping
                 .Map(dest => dest.LocationCoordinates, src => src.LocationCoordinates)
                 .Map(dest => dest.Lng, src => src.LocationCoordinates.X)
-                .Map(dest => dest.Lat, src => src.LocationCoordinates.Y);
+                .Map(dest => dest.Lat, src => src.LocationCoordinates.Y)
+                .Map(dest => dest.HandlingOperator, src => src.HandlingOperator)
+                .Map(dest => dest.Media, src => src.Media); // Explicitly map Media
 
             TypeAdapterConfig<SnakeCatchingRequest, DetailSnakeCatchingRequestResponse>
                 .NewConfig()
                 .PreserveReference(true) // Enable circular reference handling
-                .MaxDepth(3) // Limit mapping depth to prevent infinite loops
+                .MaxDepth(5) // Increase depth to allow Media mapping
                 .Map(dest => dest.LocationCoordinates, src => src.LocationCoordinates)
                 .Map(dest => dest.Lng, src => src.LocationCoordinates.X)
-                .Map(dest => dest.Lat, src => src.LocationCoordinates.Y);
+                .Map(dest => dest.Lat, src => src.LocationCoordinates.Y)
+                .Map(dest => dest.HandlingOperator, src => src.HandlingOperator)
+                .Map(dest => dest.Media, src => src.Media); // Explicitly map Media
 
             // Configure MemberProfile mapping to ignore circular collections
             TypeAdapterConfig<MemberProfile, MemberProfile>
@@ -43,11 +49,18 @@ namespace SnakeAid.Core.Mappings
                 .PreserveReference(true)
                 .MaxDepth(2);
 
+            TypeAdapterConfig<Account, UserInfo>
+                .NewConfig();
+
             // Configure MemberProfile to BriefMemberProfileResponse mapping
             TypeAdapterConfig<MemberProfile, BriefMemberProfileResponse>
                 .NewConfig()
                 .Map(dest => dest.UserName, src => src.Account.UserName)
                 .Map(dest => dest.Email, src => src.Account.Email)
+                .Map(dest => dest.PhoneNumber, src => src.Account.PhoneNumber);
+
+            TypeAdapterConfig<RescuerProfile, BriefRescuerProfileResponse>
+                .NewConfig()
                 .Map(dest => dest.PhoneNumber, src => src.Account.PhoneNumber);
         }
     }

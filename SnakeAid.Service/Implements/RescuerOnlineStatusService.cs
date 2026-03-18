@@ -37,6 +37,7 @@ namespace SnakeAid.Service.Implements
             if (rescuerProfile != null)
             {
                 rescuerProfile.IsOnline = true;
+                rescuerProfile.IsAvailable = true;
                 rescuerProfile.UpdatedAt = DateTime.UtcNow;
                 _unitOfWork.GetRepository<RescuerProfile>().Update(rescuerProfile);
                 await _unitOfWork.CommitAsync();
@@ -64,6 +65,7 @@ namespace SnakeAid.Service.Implements
             if (rescuerProfile != null)
             {
                 rescuerProfile.IsOnline = false;
+                rescuerProfile.IsAvailable = false;
                 rescuerProfile.UpdatedAt = DateTime.UtcNow;
                 rescuerProfile.LastLocationUpdate = DateTime.UtcNow;
                 _unitOfWork.GetRepository<RescuerProfile>().Update(rescuerProfile);

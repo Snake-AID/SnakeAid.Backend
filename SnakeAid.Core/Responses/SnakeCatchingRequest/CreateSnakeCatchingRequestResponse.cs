@@ -3,6 +3,7 @@ using SnakeAid.Core.Domains;
 using SnakeAid.Core.Responses.Media;
 using SnakeAid.Core.Responses.MemberProfile;
 using SnakeAid.Core.Responses.RescuerProfile;
+using SnakeAid.Core.Responses.Auth;
 using SnakeAid.Core.Responses.SnakeCatchingMission;
 using SnakeAid.Core.Responses.SnakeDetection;
 using System;
@@ -39,13 +40,26 @@ namespace SnakeAid.Core.Responses.SnakeCatchingRequest
 
         public RequestStatus Status { get; set; }
 
+        public uint Version { get; set; }
+
+        public Guid? HandlingOperatorId { get; set; }
+
+        public string? OperatorNotes { get; set; }
+
         public RequestPriority Priority { get; set; }
 
         public DateTime RequestDate { get; set; }
 
         public DateTime? PreferredTime { get; set; }
 
+        public DateTime? DispatchedAt { get; set; }
+
+        public DateTime? ConfirmedAt { get; set; }
+
         public DateTime? AssignedAt { get; set; }
+
+        public DateTime? PrePaidAt { get; set; }
+        public bool IsPrePaid { get; set; }
 
         public Guid? AssignedRescuerId { get; set; }
 
@@ -57,9 +71,13 @@ namespace SnakeAid.Core.Responses.SnakeCatchingRequest
 
         public string? Notes { get; set; }
 
+        public DateTime? CreatedAt { get; set; } = DateTime.UtcNow;
+
+
 
         // Navigation properties
         public BriefMemberProfileResponse User { get; set; }
+        public UserInfo? HandlingOperator { get; set; }
         public BriefRescuerProfileResponse? AssignedRescuer { get; set; }
         public List<CreateSnakeCatchingMissionResponse> Missions { get; set; } = new List<CreateSnakeCatchingMissionResponse>();
         public List<ReportMediaResponse> Media { get; set; } = new List<ReportMediaResponse>();

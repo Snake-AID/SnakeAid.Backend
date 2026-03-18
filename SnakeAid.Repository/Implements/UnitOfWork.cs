@@ -32,6 +32,11 @@ namespace SnakeAid.Repository.Implements
         #region Transaction Management
         public async Task<T> ExecuteInTransactionAsync<T>(Func<Task<T>> operation)
         {
+            if (Context.Database.CurrentTransaction != null)
+            {
+                return await operation();
+            }
+
             var executionStrategy = Context.Database.CreateExecutionStrategy();
             return await executionStrategy.ExecuteAsync(async () =>
             {
@@ -54,6 +59,12 @@ namespace SnakeAid.Repository.Implements
 
         public async Task ExecuteInTransactionAsync(Func<Task> operation)
         {
+            if (Context.Database.CurrentTransaction != null)
+            {
+                await operation();
+                return;
+            }
+
             var executionStrategy = Context.Database.CreateExecutionStrategy();
             await executionStrategy.ExecuteAsync(async () =>
             {

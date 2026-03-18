@@ -259,8 +259,8 @@
                 </div>
 
                 <div style="display: flex; align-items: center; gap: 8px;">
-                    <span class="metric-lbl">Sessions</span>
-                    <div class="count-bubble">@(incident.Sessions?.Count ?? 0)</div>
+                    <span class="metric-lbl">Dispatches</span>
+                    <div class="count-bubble">@(incident.DispatchRequests?.Count ?? 0)</div>
                 </div>
 
                 <div style="display: flex; align-items: center; gap: 8px;">
@@ -277,44 +277,35 @@
                 <div class="timeline-wrapper">
                     <h3 style="font-size: 1.2rem; margin: 0 0 16px 0;"><i class="bi bi-terminal-split"></i> Deployment Lifecycle</h3>
                     
-                    @if (incident.Sessions?.Any() == true) {
-                        @foreach (var s in incident.Sessions.OrderBy(x => x.SessionNumber))
+                    @if (incident.DispatchRequests?.Any() == true) {
+                        @foreach (var r in incident.DispatchRequests.OrderBy(x => x.DispatchedAt))
                         {
                             <div class="timeline-item">
                                 <div class="timeline-marker"></div>
                                 <div class="session-card">
                                     <div class="session-header">
-                                        <span class="session-title">Session Phase #@s.SessionNumber</span>
-                                        <span class="metric-lbl">@s.CreatedAt.ToString("HH:mm:ss")</span>
+                                        <span class="session-title">Dispatch @r.DispatchedAt.ToString("HH:mm:ss")</span>
+                                        <span class="metric-lbl">@r.Status</span>
                                     </div>
-                                    
                                     <div class="request-nodes">
-                                        @if (s.Requests?.Any() == true) {
-                                            @foreach (var r in s.Requests) {
-                                                <div class="request-node">
-                                                    <div class="req-rescuer">
-                                                        <i class="bi bi-person-badge"></i>
-                                                        <span>@(r.Rescuer?.Account?.FullName ?? "Unknown")</span>
-                                                    </div>
-                                                    @{
-                                                        var rs = r.Status.ToString().ToLower();
-                                                        var rsCls = "rs-timeout";
-                                                        if (rs == "accepted") rsCls = "rs-accepted";
-                                                        else if (rs == "rejected") rsCls = "rs-rejected";
-                                                    }
-                                                    <span class="req-status @rsCls">@r.Status</span>
-                                                </div>
+                                        <div class="request-node">
+                                            <div class="req-rescuer">
+                                                <i class="bi bi-person-badge"></i>
+                                                <span>@(r.Rescuer?.Account?.FullName ?? "Unknown")</span>
+                                            </div>
+                                            @{
+                                                var rs = r.Status.ToString().ToLower();
+                                                var rsCls = rs == "accepted" ? "rs-accepted" : rs == "declined" ? "rs-rejected" : "rs-timeout";
                                             }
-                                        } else {
-                                            <div style="color: var(--text-muted); font-size: 0.85rem; font-style: italic;">Broadcast initiated but no responses recorded</div>
-                                        }
+                                            <span class="req-status @rsCls">@r.Status</span>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
                         }
                     } else {
                         <div class="empty-visual" style="padding: 30px;">
-                            <p style="margin: 0;">Lifecycle data unavailable for this incident</p>
+                            <p style="margin: 0;">No dispatch requests for this incident</p>
                         </div>
                     }
                 </div>
