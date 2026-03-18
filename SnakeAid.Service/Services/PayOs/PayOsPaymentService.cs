@@ -46,12 +46,12 @@ public class PayOsPaymentService : IPayOsPaymentService
     {
         try
         {
-            _logger.LogInformation("{Prefix} Creating payment link for ReferenceId {RequestId}, TransactionType {TransactionType}", 
+            _logger.LogInformation("{Prefix} Creating payment link for ReferenceId {RequestId}, TransactionType {TransactionType}",
                 LogPrefix, request.SnakeCatchingRequestId, request.TransactionType);
 
             // SenderId is the current user
             var senderId = currentUserId;
-            
+
             // ReceiverId is always the system account
             var receiverId = Guid.Parse(systemId);
 
@@ -72,13 +72,29 @@ public class PayOsPaymentService : IPayOsPaymentService
                     throw new InvalidOperationException($"SnakeCatchingRequest {request.SnakeCatchingRequestId} not found");
                 }
 
-                // Validate status - must be Assigned or Finished
-                if (catchingRequest.Status != RequestStatus.Assigned && 
-                    catchingRequest.Status != RequestStatus.Finished)
+                // Validate status based on transaction type
+                if (request.TransactionType == TransactionType.CatchingDeposit)
                 {
-                    throw new InvalidOperationException(
-                        $"Cannot create payment for request with status {catchingRequest.Status}. " +
-                        "Request must be Assigned or Finished.");
+                    // Deposit (travel fee) can be paid at initial stages before assignment
+                    if (catchingRequest.Status != RequestStatus.Pending &&
+                        catchingRequest.Status != RequestStatus.Confirmed &&
+                        catchingRequest.Status != RequestStatus.Assigned)
+                    {
+                        throw new InvalidOperationException(
+                            $"Cannot create deposit payment for request with status {catchingRequest.Status}. " +
+                            "Request must be Pending, Confirmed, or Assigned.");
+                    }
+                }
+                else
+                {
+                    // Other snake catching payments should be made after assignment or completion
+                    if (catchingRequest.Status != RequestStatus.Assigned &&
+                        catchingRequest.Status != RequestStatus.Finished)
+                    {
+                        throw new InvalidOperationException(
+                            $"Cannot create payment for request with status {catchingRequest.Status}. " +
+                            "Request must be Assigned or Finished.");
+                    }
                 }
             }
 
@@ -100,7 +116,7 @@ public class PayOsPaymentService : IPayOsPaymentService
             // Check if payment already exists for this request
             var existingTransaction = await _unitOfWork.GetRepository<Transaction>()
                 .FirstOrDefaultAsync(
-                    predicate: t => t.ReferenceId == request.SnakeCatchingRequestId && 
+                    predicate: t => t.ReferenceId == request.SnakeCatchingRequestId &&
                                    t.TransactionType == request.TransactionType,
                     asNoTracking: false,
                     cancellationToken: cancellationToken);
@@ -115,7 +131,7 @@ public class PayOsPaymentService : IPayOsPaymentService
                 }
 
                 // If no ExternalTransactionId, payment was not completed - allow retry
-                _logger.LogInformation("{Prefix} Found pending unpaid transaction {TransactionId}. Cancelling old payment link and allowing retry.", 
+                _logger.LogInformation("{Prefix} Found pending unpaid transaction {TransactionId}. Cancelling old payment link and allowing retry.",
                     LogPrefix, existingTransaction.Id);
 
                 // Try to cancel old payment link on PayOS
@@ -124,7 +140,7 @@ public class PayOsPaymentService : IPayOsPaymentService
                     var oldOrderCode = ExtractOrderCodeFromDescription(existingTransaction.Description);
                     if (oldOrderCode > 0)
                     {
-                        _logger.LogInformation("{Prefix} Cancelling old PayOS payment link with orderCode {OrderCode}", 
+                        _logger.LogInformation("{Prefix} Cancelling old PayOS payment link with orderCode {OrderCode}",
                             LogPrefix, oldOrderCode);
                         await _payOsClient.CancelPaymentLinkAsync(oldOrderCode, "Creating new payment link for retry", cancellationToken);
                     }
@@ -138,7 +154,7 @@ public class PayOsPaymentService : IPayOsPaymentService
                 // Delete old transaction to allow creating new one
                 _unitOfWork.GetRepository<Transaction>().Delete(existingTransaction);
                 await _unitOfWork.CommitAsync();
-                
+
                 _logger.LogInformation("{Prefix} Deleted old pending transaction, allowing new payment creation", LogPrefix);
             }
 
@@ -238,7 +254,7 @@ public class PayOsPaymentService : IPayOsPaymentService
             var descriptionPattern = $"SNAKEAID-{orderCode}";
             var transaction = await _unitOfWork.GetRepository<Transaction>()
                 .FirstOrDefaultAsync(
-                    predicate: t => t.Description != null && 
+                    predicate: t => t.Description != null &&
                                    t.Description.StartsWith(descriptionPattern),
                     asNoTracking: false,
                     cancellationToken: cancellationToken);
@@ -548,7 +564,7 @@ public class PayOsPaymentService : IPayOsPaymentService
         // PayOS limits description to 25 characters max
         const int maxLength = 25;
         var baseDescription = $"SNAKEAID-{orderCode}";
-        
+
         if (!string.IsNullOrWhiteSpace(additionalInfo))
         {
             // Try to append part of additionalInfo if space allows
@@ -560,9 +576,9 @@ public class PayOsPaymentService : IPayOsPaymentService
             }
             return combined;
         }
-        
-        return baseDescription.Length > maxLength 
-            ? baseDescription.Substring(0, maxLength) 
+
+        return baseDescription.Length > maxLength
+            ? baseDescription.Substring(0, maxLength)
             : baseDescription;
     }
 
@@ -623,10 +639,10 @@ public class PayOsPaymentService : IPayOsPaymentService
                 .GetListAsync(
                     predicate: t => t.ReferenceId == request.SnakeCatchingRequestId &&
                                    t.ExternalTransactionId != null &&
-                                   (t.TransactionType == TransactionType.CatchingDeposit || 
+                                   (t.TransactionType == TransactionType.CatchingDeposit ||
                                    t.TransactionType == TransactionType.CatchingPayment ||
-                                   t.TransactionType == TransactionType.ConsultationPayment || 
-                                   t.TransactionType == TransactionType.RescuerReward),  
+                                   t.TransactionType == TransactionType.ConsultationPayment ||
+                                   t.TransactionType == TransactionType.RescuerReward),
                     asNoTracking: false,
                     cancellationToken: cancellationToken);
 
@@ -745,7 +761,7 @@ public class PayOsPaymentService : IPayOsPaymentService
 
             await _unitOfWork.GetRepository<Transaction>().InsertAsync(transferTransaction);
 
-            
+
 
             await _unitOfWork.CommitAsync();
 
