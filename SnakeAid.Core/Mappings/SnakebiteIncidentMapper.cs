@@ -43,6 +43,16 @@ namespace SnakeAid.Core.Mappings
                     src.Missions.Count(m => m.Status == RescueMissionStatus.MissionAborted))
                 // Map Media with AI detection results
                 .Map(dest => dest.Media, src => src.Media);
+
+            config.NewConfig<SnakebiteIncident, OperatorIncidentSummaryResponse>()
+                .Map(dest => dest.ActiveMissionStatus, src =>
+                    src.Missions
+                        .Where(m => m.Status != RescueMissionStatus.MissionAborted && m.Status != RescueMissionStatus.Cancelled && m.Status != RescueMissionStatus.MissionCompleted && m.Status != RescueMissionStatus.MissionUncompleted)
+                        .OrderByDescending(m => m.CreatedAt)
+                        .Select(m => (RescueMissionStatus?)m.Status)
+                        .FirstOrDefault())
+                .Map(dest => dest.NeedsRedispatch, src =>
+                    src.Missions.Any(m => m.Status == RescueMissionStatus.MissionAborted || m.Status == RescueMissionStatus.MissionUncompleted));
         }
     }
 }

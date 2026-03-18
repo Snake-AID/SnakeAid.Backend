@@ -5,7 +5,7 @@ namespace SnakeAid.Core.Responses.RescuerProfile
 {
     public class OnDutyRescuerSnapshotResponse
     {
-        public Guid? IncidentId { get; set; }
+        public Guid? ContextId { get; set; }
         public DateOnly Date { get; set; }
         public DateTime SnapshotAt { get; set; }
         public List<OnDutyRescuerItemResponse> Rescuers { get; set; } = new();

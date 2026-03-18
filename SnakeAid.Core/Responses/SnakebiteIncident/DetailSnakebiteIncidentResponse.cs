@@ -20,13 +20,6 @@ namespace SnakeAid.Core.Responses.SnakebiteIncident
 
         public SnakebiteIncidentStatus Status { get; set; } = SnakebiteIncidentStatus.Pending;
 
-        // Session ping info
-        public int CurrentSessionNumber { get; set; }
-
-        public int CurrentRadiusKm { get; set; }
-
-        public DateTime? LastSessionAt { get; set; }
-
         // Assigned rescuer info
         public DateTime? AssignedAt { get; set; }
 

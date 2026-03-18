@@ -156,6 +156,21 @@ public class ApiExceptionHandlerMiddleware
                 "BUSINESS_ERROR",
                 null
             ),
+            BadRequestException badRequestEx => (
+                badRequestEx.Message,
+                "BAD_REQUEST",
+                null
+            ),
+            ForbiddenException forbiddenEx => (
+                forbiddenEx.Message,
+                "FORBIDDEN",
+                null
+            ),
+            ConflictException conflictEx => (
+                conflictEx.Message,
+                "CONFLICT",
+                null
+            ),
             TooManyRequestsException rateLimitEx => (
                 rateLimitEx.Message,
                 "RATE_LIMIT_EXCEEDED",

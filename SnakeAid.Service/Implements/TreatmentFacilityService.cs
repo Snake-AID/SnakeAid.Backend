@@ -133,7 +133,7 @@ namespace SnakeAid.Service.Implements
             }
         }
 
-        public async Task<TreatmentFacilityResponse> UpdateTreatmentFacilityAsync(UpdateTreatmentFacilityRequest request)
+        public async Task<TreatmentFacilityResponse> UpdateTreatmentFacilityAsync(int id, UpdateTreatmentFacilityRequest request)
         {
             try
             {
@@ -141,7 +141,7 @@ namespace SnakeAid.Service.Implements
 
                 var repo = _unitOfWork.GetRepository<TreatmentFacility>();
 
-                var existingFacility = await repo.FirstOrDefaultAsync(predicate: f => f.Id == request.Id);
+                var existingFacility = await repo.FirstOrDefaultAsync(predicate: f => f.Id == id);
 
                 if (existingFacility == null)
                     throw new InvalidOperationException("Treatment facility not found.");
@@ -181,7 +181,7 @@ namespace SnakeAid.Service.Implements
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error updating treatment facility with Id {id}", request.Id);
+                _logger.LogError(ex, "Error updating treatment facility with Id {id}", id);
                 throw;
             }
         }

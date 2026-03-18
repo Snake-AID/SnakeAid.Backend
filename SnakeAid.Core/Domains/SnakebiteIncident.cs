@@ -82,17 +82,14 @@ namespace SnakeAid.Core.Domains
     public enum SnakebiteIncidentStatus
     {
         Pending = 0,              // Chờ Operator nhận
-        OperatorContacting = 1,   // Operator đang gọi xác nhận
-        Verified = 2,            // Xác nhận thật, chờ điều phối
-        Assigned = 3,             // Rescuer đã acknowledge, đang chuẩn bị
-        EnRoute = 4,              // Rescuer đang trên đường
-        FalseAlarm = 5,           // Báo động giả
-        Finished = 6,
-        Cancelled = 7,
-        NoRescuerFound = 8,
-        Paid = 9,
-        Disputed = 10,
-        Completed = 11
+        Verified = 1,            // Xác nhận thật, chờ điều phối
+        Assigned = 2,             // Rescuer đã acknowledge, đang chuẩn bị
+        FalseAlarm = 3,           // Báo động giả
+        Finished = 4,
+        Cancelled = 5,
+        NoRescuerFound = 6,
+        Disputed = 7,
+        Completed = 8
     }
 
     public enum SnakeIdentificationMethod

@@ -69,6 +69,7 @@ namespace SnakeAid.Api.Pages.Admin.DispatchOperator
                 .Include(i => i.DispatchRequests)
                     .ThenInclude(r => r.Rescuer)
                         .ThenInclude(r => r.Account)
+                .Include(i => i.Missions)
                 .OrderByDescending(i => i.CreatedAt)
                 .Take(12)
                 .ToListAsync();
@@ -89,33 +90,46 @@ namespace SnakeAid.Api.Pages.Admin.DispatchOperator
             var payload = new
             {
                 Seeded = true,
-                Incidents = incidents.Select(incident => new
+                Incidents = incidents.Select(incident =>
                 {
-                    incident.Id,
-                    Status = incident.Status.ToString(),
-                    incident.HandlingOperatorId,
-                    incident.AssignedRescuerId,
-                    incident.CreatedAt,
-                    incident.ConfirmedAt,
-                    incident.DispatchedAt,
-                    UserName = incident.User.Account.FullName,
-                    UserPhone = incident.User.Account.PhoneNumber,
-                    Latitude = incident.LocationCoordinates.Y,
-                    Longitude = incident.LocationCoordinates.X,
-                    AssignedRescuerName = incident.AssignedRescuer?.Account?.FullName,
-                    DispatchRequests = incident.DispatchRequests
-                        .OrderByDescending(r => r.DispatchedAt)
-                        .Select(request => new
-                        {
-                            request.Id,
-                            request.RescuerId,
-                            RescuerName = request.Rescuer.Account.FullName,
-                            Status = request.Status.ToString(),
-                            request.DispatchedAt,
-                            request.ResponseAt,
-                            request.DeclineReason
-                        })
-                        .ToList()
+                    var excludedRescuerIds = incident.DispatchRequests
+                        .Where(request => request.Status == RescueRequestStatus.Declined)
+                        .Select(request => request.RescuerId)
+                        .Concat(incident.Missions
+                            .Where(mission => mission.Status == RescueMissionStatus.MissionAborted)
+                            .Select(mission => mission.RescuerId))
+                        .Distinct()
+                        .ToList();
+
+                    return new
+                    {
+                        incident.Id,
+                        Status = incident.Status.ToString(),
+                        incident.HandlingOperatorId,
+                        incident.AssignedRescuerId,
+                        incident.CreatedAt,
+                        incident.ConfirmedAt,
+                        incident.DispatchedAt,
+                        UserName = incident.User.Account.FullName,
+                        UserPhone = incident.User.Account.PhoneNumber,
+                        Latitude = incident.LocationCoordinates.Y,
+                        Longitude = incident.LocationCoordinates.X,
+                        AssignedRescuerName = incident.AssignedRescuer?.Account?.FullName,
+                        ExcludedRescuerIds = excludedRescuerIds,
+                        DispatchRequests = incident.DispatchRequests
+                            .OrderByDescending(r => r.DispatchedAt)
+                            .Select(request => new
+                            {
+                                request.Id,
+                                request.RescuerId,
+                                RescuerName = request.Rescuer.Account.FullName,
+                                Status = request.Status.ToString(),
+                                request.DispatchedAt,
+                                request.ResponseAt,
+                                request.DeclineReason
+                            })
+                            .ToList()
+                    };
                 }),
                 Rescuers = rescuers.Select(rescuer =>
                 {

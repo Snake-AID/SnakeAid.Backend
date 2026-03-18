@@ -15,7 +15,7 @@ namespace SnakeAid.Service.Interfaces
 
         public Task<TreatmentFacilityResponse> CreateTreatmentFacilityAsync(CreateTreatmentFacilityRequest request);
 
-        public Task<TreatmentFacilityResponse> UpdateTreatmentFacilityAsync(UpdateTreatmentFacilityRequest request);
+        public Task<TreatmentFacilityResponse> UpdateTreatmentFacilityAsync(int id, UpdateTreatmentFacilityRequest request);
 
         public Task<bool> DeleteTreatmentFacilityAsync(int id);
     }

@@ -23,6 +23,7 @@ namespace SnakeAid.Service.Implements
         private readonly IConfiguration _configuration;
         private readonly IOperatorRealtimeNotificationService _operatorRealtimeNotificationService;
         private readonly IRescueNotificationService _rescueNotificationService;
+        private readonly IMissionNotificationService _missionNotificationService;
         private readonly IRescueMissionService _rescueMissionService;
 
         public SnakebiteIncidentService(
@@ -31,6 +32,7 @@ namespace SnakeAid.Service.Implements
             IConfiguration configuration,
             IOperatorRealtimeNotificationService operatorRealtimeNotificationService,
             IRescueNotificationService rescueNotificationService,
+            IMissionNotificationService missionNotificationService,
             IRescueMissionService rescueMissionService)
         {
             _unitOfWork = unitOfWork;
@@ -38,32 +40,19 @@ namespace SnakeAid.Service.Implements
             _configuration = configuration;
             _operatorRealtimeNotificationService = operatorRealtimeNotificationService;
             _rescueNotificationService = rescueNotificationService;
+            _missionNotificationService = missionNotificationService;
             _rescueMissionService = rescueMissionService;
         }
 
-        public async Task<CreateIncidentResponse> ClaimIncidentAsync(Guid incidentId, Guid operatorId)
+        public async Task<CreateIncidentResponse> ConfirmIncidentAsync(Guid incidentId, Guid operatorId)
         {
             try
             {
+                var isNewClaim = false;
                 var response = await _unitOfWork.ExecuteInTransactionAsync(async () =>
                 {
-                    var operatorAccount = await _unitOfWork.GetRepository<Account>().FirstOrDefaultAsync(
-                        predicate: a => a.Id == operatorId
-                    );
-
-                    if (operatorAccount == null)
-                    {
-                        throw new NotFoundException("Operator account not found.");
-                    }
-
-                    if (operatorAccount.Role != AccountRole.Operator && operatorAccount.Role != AccountRole.Admin)
-                    {
-                        throw new ForbiddenException("Only operators can claim incidents.");
-                    }
-
                     var incident = await _unitOfWork.GetRepository<SnakebiteIncident>().FirstOrDefaultAsync(
-                        predicate: i => i.Id == incidentId,
-                        asNoTracking: false
+                        predicate: i => i.Id == incidentId
                     );
 
                     if (incident == null)
@@ -71,45 +60,55 @@ namespace SnakeAid.Service.Implements
                         throw new NotFoundException("Snakebite incident not found.");
                     }
 
-                    if (incident.HandlingOperatorId.HasValue)
+                    if (!incident.HandlingOperatorId.HasValue)
                     {
-                        throw new ConflictException("Incident is already claimed by another operator.");
+                        incident.HandlingOperatorId = operatorId;
+                        isNewClaim = true;
+                    }
+                    else if (incident.HandlingOperatorId != operatorId)
+                    {
+                        throw new ConflictException("Incident is being handled by another operator.");
                     }
 
-                    if (incident.Status != SnakebiteIncidentStatus.Pending)
+                    if (incident.Status != SnakebiteIncidentStatus.Pending && incident.Status != SnakebiteIncidentStatus.Verified)
                     {
-                        throw new ConflictException($"Incident is no longer claimable with status: {incident.Status}");
+                        throw new BadRequestException($"Cannot confirm incident with status: {incident.Status}");
                     }
 
-                    incident.HandlingOperatorId = operatorId;
-                    incident.Status = SnakebiteIncidentStatus.OperatorContacting;
-                    _unitOfWork.GetRepository<SnakebiteIncident>().Update(incident);
+                    if (incident.Status != SnakebiteIncidentStatus.Verified)
+                    {
+                        incident.Status = SnakebiteIncidentStatus.Verified;
+                        incident.ConfirmedAt = DateTime.UtcNow;
+                        _unitOfWork.GetRepository<SnakebiteIncident>().Update(incident);
+                    }
 
                     return incident.Adapt<CreateIncidentResponse>();
                 });
 
-                // Notify operators that the incident has been claimed and is being contacted.
-                await _operatorRealtimeNotificationService.NotifyIncidentClaimedAsync(incidentId, operatorId);
+                if (isNewClaim)
+                {
+                    await _operatorRealtimeNotificationService.NotifyIncidentClaimedAsync(incidentId, operatorId);
+                }
 
                 return response;
             }
             catch (DbUpdateConcurrencyException ex)
             {
-                _logger.LogWarning(ex, "Concurrency conflict while claiming incident {IncidentId}", incidentId);
-                throw new ConflictException("Incident was claimed or updated by another operator. Please refresh and try again.");
+                _logger.LogWarning(ex, "Concurrency conflict while confirming incident {IncidentId}", incidentId);
+                throw new ConflictException("Incident was updated by another operator. Please refresh and try again.");
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error claiming incident {IncidentId}: {Message}", incidentId, ex.Message);
+                _logger.LogError(ex, "Error confirming incident {IncidentId}: {Message}", incidentId, ex.Message);
                 throw;
             }
         }
 
-        public async Task<CreateIncidentResponse> ConfirmIncidentAsync(Guid incidentId, Guid operatorId)
+        public async Task<CreateIncidentResponse> MarkIncidentFalseAlarmAsync(Guid incidentId, Guid operatorId, string? reason)
         {
             try
             {
-                return await _unitOfWork.ExecuteInTransactionAsync(async () =>
+                var response = await _unitOfWork.ExecuteInTransactionAsync(async () =>
                 {
                     var incident = await _unitOfWork.GetRepository<SnakebiteIncident>().FirstOrDefaultAsync(
                         predicate: i => i.Id == incidentId
@@ -125,31 +124,85 @@ namespace SnakeAid.Service.Implements
                         throw new ConflictException("Incident is being handled by another operator.");
                     }
 
-                    if (incident.Status != SnakebiteIncidentStatus.OperatorContacting && incident.Status != SnakebiteIncidentStatus.Verified)
-                    {
-                        throw new BadRequestException($"Cannot confirm incident with status: {incident.Status}");
-                    }
+                    incident.Status = SnakebiteIncidentStatus.FalseAlarm;
+                    incident.OperatorNotes = string.IsNullOrWhiteSpace(incident.OperatorNotes)
+                        ? reason
+                        : string.Join("\n", incident.OperatorNotes, reason);
 
-                    if (incident.Status == SnakebiteIncidentStatus.Verified)
-                    {
-                        return incident.Adapt<CreateIncidentResponse>();
-                    }
-
-                    incident.Status = SnakebiteIncidentStatus.Verified;
-                    incident.ConfirmedAt = DateTime.UtcNow;
                     _unitOfWork.GetRepository<SnakebiteIncident>().Update(incident);
 
                     return incident.Adapt<CreateIncidentResponse>();
                 });
+
+                await _operatorRealtimeNotificationService.NotifyIncidentFalseAlarmAsync(incidentId, operatorId, reason);
+
+                return response;
             }
             catch (DbUpdateConcurrencyException ex)
             {
-                _logger.LogWarning(ex, "Concurrency conflict while confirming incident {IncidentId}", incidentId);
+                _logger.LogWarning(ex, "Concurrency conflict while marking incident {IncidentId} as false alarm", incidentId);
                 throw new ConflictException("Incident was updated by another operator. Please refresh and try again.");
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error confirming incident {IncidentId}: {Message}", incidentId, ex.Message);
+                _logger.LogError(ex, "Error marking incident {IncidentId} as false alarm: {Message}", incidentId, ex.Message);
+                throw;
+            }
+        }
+
+        public async Task<CreateIncidentResponse> ReportIncidentNoAnswerAsync(Guid incidentId, Guid operatorId, bool continueCalling, string? note)
+        {
+            try
+            {
+                var response = await _unitOfWork.ExecuteInTransactionAsync(async () =>
+                {
+                    var incident = await _unitOfWork.GetRepository<SnakebiteIncident>().FirstOrDefaultAsync(
+                        predicate: i => i.Id == incidentId
+                    );
+
+                    if (incident == null)
+                    {
+                        throw new NotFoundException("Snakebite incident not found.");
+                    }
+
+                    if (incident.HandlingOperatorId != operatorId)
+                    {
+                        throw new ConflictException("Incident is being handled by another operator.");
+                    }
+
+                    // Preserve the operator's note, if any
+                    incident.OperatorNotes = string.IsNullOrWhiteSpace(incident.OperatorNotes)
+                        ? note
+                        : string.Join("\n", incident.OperatorNotes, note);
+
+                    if (continueCalling)
+                    {
+                        // Keep the incident claimed by this operator but stay in Pending state
+                        incident.Status = SnakebiteIncidentStatus.Pending;
+                    }
+                    else
+                    {
+                        // Release the incident back to the queue for other operators
+                        incident.Status = SnakebiteIncidentStatus.Pending;
+                        incident.HandlingOperatorId = null;
+                    }
+
+                    _unitOfWork.GetRepository<SnakebiteIncident>().Update(incident);
+                    return incident.Adapt<CreateIncidentResponse>();
+                });
+
+                await _operatorRealtimeNotificationService.NotifyIncidentNoAnswerAsync(incidentId, operatorId, note, continueCalling);
+
+                return response;
+            }
+            catch (DbUpdateConcurrencyException ex)
+            {
+                _logger.LogWarning(ex, "Concurrency conflict while reporting no-answer for incident {IncidentId}", incidentId);
+                throw new ConflictException("Incident was updated by another operator. Please refresh and try again.");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error reporting no-answer for incident {IncidentId}: {Message}", incidentId, ex.Message);
                 throw;
             }
         }
@@ -193,6 +246,28 @@ namespace SnakeAid.Service.Implements
                         throw new NotFoundException("Rescuer not found.");
                     }
 
+                    var hasDeclinedIncident = await _unitOfWork.GetRepository<RescuerRequest>().CreateBaseQuery(asNoTracking: true)
+                        .AnyAsync(r =>
+                            r.IncidentId == incidentId
+                            && r.RescuerId == rescuer.AccountId
+                            && r.Status == RescueRequestStatus.Declined);
+
+                    if (hasDeclinedIncident)
+                    {
+                        throw new ConflictException("Rescuer already declined this incident and is excluded from re-dispatch.");
+                    }
+
+                    var hasAbortedMission = await _unitOfWork.GetRepository<RescueMission>().CreateBaseQuery(asNoTracking: true)
+                        .AnyAsync(m =>
+                            m.IncidentId == incidentId
+                            && m.RescuerId == rescuer.AccountId
+                            && m.Status == RescueMissionStatus.MissionAborted);
+
+                    if (hasAbortedMission)
+                    {
+                        throw new ConflictException("Rescuer already aborted this incident and is excluded from re-dispatch.");
+                    }
+
                     if (!rescuer.IsOnline)
                     {
                         throw new BadRequestException("Rescuer is currently offline.");
@@ -217,6 +292,18 @@ namespace SnakeAid.Service.Implements
                     {
                         throw new BadRequestException("Rescuer is not currently on shift.");
                     }
+
+                    // // Ensure only one active pending dispatch request exists per incident
+                    // var existingPendingRequests = await _unitOfWork.GetRepository<RescuerRequest>().GetListAsync(
+                    //     predicate: r => r.IncidentId == incidentId && r.Status == RescueRequestStatus.Pending);
+
+                    // foreach (var pending in existingPendingRequests)
+                    // {
+                    //     pending.Status = RescueRequestStatus.Cancelled;
+                    //     pending.ResponseAt = DateTime.UtcNow;
+                    //     pending.DeclineReason = "Auto-cancelled due to new dispatch request.";
+                    //     _unitOfWork.GetRepository<RescuerRequest>().Update(pending);
+                    // }
 
                     var dispatchRequest = new RescuerRequest
                     {
@@ -346,7 +433,7 @@ namespace SnakeAid.Service.Implements
         {
             try
             {
-                return await _unitOfWork.ExecuteInTransactionAsync(async () =>
+                var (response, incident) = await _unitOfWork.ExecuteInTransactionAsync(async () =>
                 {
                     var request = await _unitOfWork.GetRepository<RescuerRequest>().FirstOrDefaultAsync(
                         predicate: r => r.Id == requestId,
@@ -366,6 +453,8 @@ namespace SnakeAid.Service.Implements
                     if (incident == null)
                         throw new NotFoundException("Associated incident not found.");
 
+
+
                     // Mark as declined
                     request.Status = RescueRequestStatus.Declined;
                     request.ResponseAt = DateTime.UtcNow;
@@ -373,8 +462,16 @@ namespace SnakeAid.Service.Implements
                     _unitOfWork.GetRepository<RescuerRequest>().Update(request);
 
                     // Return incident to Verified so operator can dispatch again
-                    incident.Status = SnakebiteIncidentStatus.Verified;
-                    _unitOfWork.GetRepository<SnakebiteIncident>().Update(incident);
+                    // Only update if the incident has not already moved into a later state
+                    if (incident.Status == SnakebiteIncidentStatus.Verified)
+                    {
+                        _unitOfWork.GetRepository<SnakebiteIncident>().Update(incident);
+                    }
+                    else
+                    {
+                        _logger.LogWarning("DeclineDispatchRequest: incident {IncidentId} is in status {Status}; skipping status reset.",
+                            incident.Id, incident.Status);
+                    }
 
                     // Ensure rescuer stays available
                     var rescuerProfile = await _unitOfWork.GetRepository<RescuerProfile>().FirstOrDefaultAsync(
@@ -392,15 +489,16 @@ namespace SnakeAid.Service.Implements
                         RejectedAt = DateTime.UtcNow,
                         Message = string.IsNullOrWhiteSpace(reason) ? "Dispatch request was declined." : reason
                     };
-
-                    // Notify rescuer (caller) that the request has been declined
-                    await _rescueNotificationService.NotifyRescuerDeclinedAsync(rescuerId.ToString(), response);
-
-                    // Notify operators that the rescuer declined the dispatch
-                    await _operatorRealtimeNotificationService.NotifyRescuerDeclinedAsync(incident.Id, rescuerId, reason);
-
-                    return response;
+                    return (response, incident);
                 });
+
+                // Notify rescuer (caller) that the request has been declined
+                await _rescueNotificationService.NotifyRescuerDeclinedAsync(rescuerId.ToString(), response);
+
+                // Notify operators that the rescuer declined the dispatch
+                await _operatorRealtimeNotificationService.NotifyRescuerDeclinedAsync(incident.Id, rescuerId, reason);
+
+                return response;
             }
             catch (DbUpdateConcurrencyException ex)
             {
@@ -414,32 +512,191 @@ namespace SnakeAid.Service.Implements
             }
         }
 
-        public async Task<CreateIncidentResponse> CancelIncidentAsync(Guid incidentId)
+        public async Task<RejectRescueResponse> CancelDispatchRequestAsync(Guid requestId, Guid operatorId)
         {
             try
             {
-                return await _unitOfWork.ExecuteInTransactionAsync(async () =>
+                var (response, incident, rescuerId) = await _unitOfWork.ExecuteInTransactionAsync(async () =>
                 {
-                    var existingIncident = await _unitOfWork.GetRepository<SnakebiteIncident>().FirstOrDefaultAsync(
-                            predicate: s => s.Id == incidentId
-                        );
-                    if (existingIncident == null)
+                    var request = await _unitOfWork.GetRepository<RescuerRequest>().FirstOrDefaultAsync(
+                        predicate: r => r.Id == requestId,
+                        include: q => q.Include(r => r.Incident)
+                    );
+
+                    if (request == null)
+                        throw new NotFoundException("Dispatch request not found.");
+
+                    if (request.Status != RescueRequestStatus.Pending)
+                        throw new ConflictException("Dispatch request is not in a pending state.");
+
+                    var incident = request.Incident;
+                    if (incident == null)
+                        throw new NotFoundException("Associated incident not found.");
+
+                    if (incident.HandlingOperatorId != operatorId)
+                        throw new ConflictException("Incident is being handled by another operator.");
+
+                    // Mark as cancelled
+                    request.Status = RescueRequestStatus.Cancelled;
+                    request.ResponseAt = DateTime.UtcNow;
+                    request.DeclineReason = "Cancelled by Operator";
+                    _unitOfWork.GetRepository<RescuerRequest>().Update(request);
+
+                    // Return incident to Verified so operator can dispatch again
+                    // Only update if the incident has not already moved into a later state
+                    if (incident.Status == SnakebiteIncidentStatus.Verified)
+                    {
+                        _unitOfWork.GetRepository<SnakebiteIncident>().Update(incident);
+                    }
+
+                    var response = new RejectRescueResponse
+                    {
+                        RequestId = request.Id,
+                        RejectedAt = DateTime.UtcNow,
+                        Message = "Dispatch request was cancelled by operator."
+                    };
+                    return (response, incident, request.RescuerId);
+                });
+
+                // Notify rescuer (caller) that the request has been cancelled
+                await _rescueNotificationService.NotifyRequestCancelledAsync(rescuerId.ToString(), requestId);
+
+                // Notify operators that the dispatch was cancelled
+                await _operatorRealtimeNotificationService.NotifyRescuerDeclinedAsync(incident.Id, rescuerId, "Cancelled by Operator");
+
+                return response;
+            }
+            catch (DbUpdateConcurrencyException ex)
+            {
+                _logger.LogWarning(ex, "Concurrency conflict while cancelling dispatch request {RequestId}", requestId);
+                throw new ConflictException("Dispatch request was updated by another process. Please refresh and try again.");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error cancelling dispatch request {RequestId}: {Message}", requestId, ex.Message);
+                throw;
+            }
+        }
+
+        public async Task<CreateIncidentResponse> CancelIncidentAsync(Guid incidentId)
+        {
+            const string cancelReason = "Member cancelled the SOS";
+            List<(string RescuerId, Guid RequestId)> pendingNotifies = new();
+            Guid? affectedMissionId = null;
+
+            try
+            {
+                var response = await _unitOfWork.ExecuteInTransactionAsync(async () =>
+                {
+                    var incident = await _unitOfWork.GetRepository<SnakebiteIncident>().FirstOrDefaultAsync(
+                        predicate: s => s.Id == incidentId
+                    );
+
+                    if (incident == null)
                     {
                         throw new NotFoundException("Snakebite incident not found.");
                     }
 
-                    // only in Pending or Assigned status can be cancelled
-                    if (existingIncident.Status != SnakebiteIncidentStatus.Pending && existingIncident.Status != SnakebiteIncidentStatus.Assigned)
+                    // Can't cancel already finalized incidents
+                    var nonCancellableStatuses = new[]
                     {
-                        throw new BadRequestException($"Cannot cancel incident with status: {existingIncident.Status}");
+                        SnakebiteIncidentStatus.Cancelled,
+                        SnakebiteIncidentStatus.Finished,
+                        SnakebiteIncidentStatus.NoRescuerFound,
+                        SnakebiteIncidentStatus.Disputed,
+                        SnakebiteIncidentStatus.Completed,
+                        SnakebiteIncidentStatus.FalseAlarm
+                    };
+
+                    if (nonCancellableStatuses.Contains(incident.Status))
+                    {
+                        throw new BadRequestException($"Cannot cancel incident with status: {incident.Status}");
                     }
 
-                    existingIncident.Status = SnakebiteIncidentStatus.Cancelled;
-                    _unitOfWork.GetRepository<SnakebiteIncident>().Update(existingIncident);
+                    // If a mission has already been created and is in EnRoute/RescuerArrived, reject cancellation
+                    var inProgressMission = await _unitOfWork.GetRepository<RescueMission>().FirstOrDefaultAsync(
+                        predicate: m => m.IncidentId == incidentId &&
+                                        (m.Status == RescueMissionStatus.EnRoute || m.Status == RescueMissionStatus.RescuerArrived)
+                    );
 
-                    var responseData = existingIncident.Adapt<CreateIncidentResponse>();
-                    return responseData;
+                    if (inProgressMission != null)
+                    {
+                        throw new BadRequestException("Cannot cancel incident while the rescuer is already en-route or has arrived.");
+                    }
+
+                    // If a mission has already been created and is in Preparing, cancel it.
+                    var activeMission = await _unitOfWork.GetRepository<RescueMission>().FirstOrDefaultAsync(
+                        predicate: m => m.IncidentId == incidentId && m.Status == RescueMissionStatus.Preparing,
+                        include: q => q.Include(m => m.Rescuer)
+                    );
+
+                    if (activeMission != null)
+                    {
+                        affectedMissionId = activeMission.Id;
+
+                        activeMission.Status = RescueMissionStatus.Cancelled;
+                        activeMission.CancellationReason = cancelReason;
+                        activeMission.UpdatedAt = DateTime.UtcNow;
+
+                        // Reset incident to Cancelled
+                        incident.Status = SnakebiteIncidentStatus.Cancelled;
+                        incident.AssignedRescuerId = null;
+                        incident.AssignedAt = null;
+                        incident.DispatchedAt = null;
+
+                        // Free rescuer
+                        if (activeMission.Rescuer != null)
+                        {
+                            activeMission.Rescuer.IsAvailable = true;
+                            _unitOfWork.GetRepository<RescuerProfile>().Update(activeMission.Rescuer);
+                        }
+
+                        _unitOfWork.GetRepository<RescueMission>().Update(activeMission);
+                        _unitOfWork.GetRepository<SnakebiteIncident>().Update(incident);
+
+                        return incident.Adapt<CreateIncidentResponse>();
+                    }
+
+                    // No active mission yet: cancel pending dispatch requests
+                    var pendingRequests = await _unitOfWork.GetRepository<RescuerRequest>().GetListAsync(
+                        predicate: r => r.IncidentId == incidentId && r.Status == RescueRequestStatus.Pending
+                    );
+
+                    foreach (var req in pendingRequests)
+                    {
+                        req.Status = RescueRequestStatus.Cancelled;
+                        req.ResponseAt = DateTime.UtcNow;
+                        req.DeclineReason = cancelReason;
+                        _unitOfWork.GetRepository<RescuerRequest>().Update(req);
+
+                        pendingNotifies.Add((req.RescuerId.ToString(), req.Id));
+                    }
+
+                    incident.Status = SnakebiteIncidentStatus.Cancelled;
+                    incident.AssignedRescuerId = null;
+                    incident.AssignedAt = null;
+                    incident.DispatchedAt = null;
+                    _unitOfWork.GetRepository<SnakebiteIncident>().Update(incident);
+
+                    return incident.Adapt<CreateIncidentResponse>();
                 });
+
+                // Notify operator dashboard that the incident was cancelled by the member
+                await _operatorRealtimeNotificationService.NotifyIncidentCancelledAsync(incidentId, cancelReason);
+
+                // Notify any rescuer who had a pending dispatch request
+                foreach (var (rescuerId, requestId) in pendingNotifies)
+                {
+                    await _rescueNotificationService.NotifyRequestCancelledAsync(rescuerId, requestId);
+                }
+
+                // If there was an active mission, notify via mission hub as well
+                if (affectedMissionId.HasValue)
+                {
+                    await _missionNotificationService.NotifyMissionCancelledAsync(incidentId, cancelReason);
+                }
+
+                return response;
             }
             catch (Exception ex)
             {
@@ -1046,6 +1303,84 @@ namespace SnakeAid.Service.Implements
             catch (System.Exception ex)
             {
                 _logger.LogError(ex, "Error retrieving user incidents for user {UserId}: {Message}", userId, ex.Message);
+                throw;
+            }
+        }
+
+        public Task<PagedData<OperatorIncidentSummaryResponse>> GetActiveIncidentsAsync(
+            IEnumerable<SnakebiteIncidentStatus>? statuses,
+            DateTimeOffset? since,
+            DateTimeOffset? until,
+            int page,
+            int pageSize)
+        {
+            try
+            {
+                var defaultStatuses = new[]
+                {
+                    SnakebiteIncidentStatus.Pending,
+                    SnakebiteIncidentStatus.Verified,
+                    SnakebiteIncidentStatus.Assigned,
+                    SnakebiteIncidentStatus.Disputed,
+                };
+
+                var effectiveStatuses = (statuses != null && statuses.Any())
+                    ? statuses
+                    : defaultStatuses;
+
+                var repo = _unitOfWork.GetRepository<SnakebiteIncident>();
+                return repo.GetPagingListAsync<OperatorIncidentSummaryResponse>(
+                    predicate: i =>
+                        effectiveStatuses.Contains(i.Status) &&
+                        (!since.HasValue || i.CreatedAt >= since.Value.UtcDateTime) &&
+                        (!until.HasValue || i.CreatedAt <= until.Value.UtcDateTime),
+                    include: q => q.Include(i => i.Missions),
+                    orderBy: q => q.OrderByDescending(i => i.CreatedAt),
+                    page: page,
+                    size: pageSize,
+                    selector: i => i.Adapt<OperatorIncidentSummaryResponse>());
+            }
+            catch (System.Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving active incidents: {Message}", ex.Message);
+                throw;
+            }
+        }
+
+        public async Task<List<DispatchRequestResponse>> GetDispatchRequestsAsync(Guid incidentId)
+        {
+            try
+            {
+                var incident = await _unitOfWork.GetRepository<SnakebiteIncident>().FirstOrDefaultAsync(
+                    predicate: i => i.Id == incidentId);
+
+                if (incident == null)
+                {
+                    throw new NotFoundException($"Snakebite incident with ID {incidentId} not found.");
+                }
+
+                var repo = _unitOfWork.GetRepository<RescuerRequest>();
+                var incidentRequests = await repo.GetListAsync(
+                    predicate: r => r.IncidentId == incidentId,
+                    include: q => q.Include(r => r.Rescuer).ThenInclude(rescuer => rescuer.Account)
+                );
+
+                return incidentRequests.Select(r => new DispatchRequestResponse
+                {
+                    RequestId = r.Id,
+                    RescuerId = r.RescuerId,
+                    RescuerName = r.Rescuer.Account.FullName,
+                    RescuerPhone = r.Rescuer.Account.PhoneNumber ?? string.Empty,
+                    Status = r.Status,
+                    CreatedAt = r.CreatedAt,
+                    ResponseAt = r.ResponseAt,
+                    DeclineReason = r.DeclineReason
+                }).ToList();
+
+            }
+            catch (System.Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving dispatch requests for incident {IncidentId}: {Message}", incidentId, ex.Message);
                 throw;
             }
         }

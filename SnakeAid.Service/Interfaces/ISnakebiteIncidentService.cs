@@ -16,15 +16,21 @@ namespace SnakeAid.Service.Interfaces
 
         Task<CreateIncidentResponse> CancelIncidentAsync(Guid incidentId);
 
-        Task<CreateIncidentResponse> ClaimIncidentAsync(Guid incidentId, Guid operatorId);
-
         Task<CreateIncidentResponse> ConfirmIncidentAsync(Guid incidentId, Guid operatorId);
 
         Task<CreateIncidentResponse> DispatchIncidentAsync(Guid incidentId, Guid rescuerId, Guid operatorId);
 
+        Task<CreateIncidentResponse> MarkIncidentFalseAlarmAsync(Guid incidentId, Guid operatorId, string? reason);
+
+        Task<CreateIncidentResponse> ReportIncidentNoAnswerAsync(Guid incidentId, Guid operatorId, bool continueCalling, string? note);
+
         Task<AcceptRescueResponse> AcceptDispatchRequestAsync(Guid requestId, Guid rescuerId);
 
         Task<RejectRescueResponse> DeclineDispatchRequestAsync(Guid requestId, Guid rescuerId, string? reason);
+
+        Task<RejectRescueResponse> CancelDispatchRequestAsync(Guid requestId, Guid operatorId);
+
+        Task<List<DispatchRequestResponse>> GetDispatchRequestsAsync(Guid incidentId);
 
         // Debug: Get media info
         Task<object> GetMediaDebugInfoAsync(Guid incidentId);
@@ -35,5 +41,12 @@ namespace SnakeAid.Service.Interfaces
         Task<IdentifySnakeResponse> IdentifySnakeByFilterAsync(Guid incidentId, IdentifyByFilterRequest request);
 
         Task<PagedData<DetailSnakebiteIncidentResponse>> GetUserIncidentsAsync(Guid userId, SnakebiteIncidentStatus? status, int page, int pageSize);
+
+        Task<PagedData<OperatorIncidentSummaryResponse>> GetActiveIncidentsAsync(
+            IEnumerable<SnakebiteIncidentStatus>? statuses,
+            DateTimeOffset? since,
+            DateTimeOffset? until,
+            int page,
+            int pageSize);
     }
 }

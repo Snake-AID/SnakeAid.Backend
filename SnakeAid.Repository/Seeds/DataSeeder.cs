@@ -290,6 +290,53 @@ namespace SnakeAid.Repository.Seeds
             }
 
             // ==================================================================================
+            // SEED WORK SHIFTS
+            // ==================================================================================
+            // (Used by operator/dispatch dashboard for shift planning)
+            if (!context.WorkShifts.Any())
+            {
+                var workShifts = new List<WorkShift>
+                {
+                    new WorkShift
+                    {
+                        Id = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"),
+                        Name = "Ca sáng",
+                        StartTime = new TimeSpan(6, 0, 0),
+                        EndTime = new TimeSpan(14, 0, 0),
+                        RequiredRescuers = 4,
+                        IsActive = true,
+                        CreatedAt = DateTime.UtcNow,
+                        UpdatedAt = DateTime.UtcNow
+                    },
+                    new WorkShift
+                    {
+                        Id = Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"),
+                        Name = "Ca chiều",
+                        StartTime = new TimeSpan(14, 0, 0),
+                        EndTime = new TimeSpan(22, 0, 0),
+                        RequiredRescuers = 4,
+                        IsActive = true,
+                        CreatedAt = DateTime.UtcNow,
+                        UpdatedAt = DateTime.UtcNow
+                    },
+                    new WorkShift
+                    {
+                        Id = Guid.Parse("cccccccc-cccc-cccc-cccc-cccccccccccc"),
+                        Name = "Ca đêm",
+                        StartTime = new TimeSpan(22, 0, 0),
+                        EndTime = new TimeSpan(6, 0, 0),
+                        RequiredRescuers = 4,
+                        IsActive = true,
+                        CreatedAt = DateTime.UtcNow,
+                        UpdatedAt = DateTime.UtcNow
+                    }
+                };
+
+                context.WorkShifts.AddRange(workShifts);
+                await context.SaveChangesAsync();
+            }
+
+            // ==================================================================================
             // SEED SNAKE SPECIES
             // ==================================================================================
             // No direct dependency

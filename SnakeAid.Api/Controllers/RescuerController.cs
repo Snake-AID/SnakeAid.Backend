@@ -44,12 +44,19 @@ namespace SnakeAid.Api.Controllers
         public async Task<IActionResult> GetOnDutyRescuers(
             [FromQuery] DateOnly? date,
             [FromQuery] Guid? incidentId,
+            [FromQuery] Guid? catchingRequestId,
             [FromQuery] bool onlyAvailable = true,
             [FromQuery] double? maxDistanceKm = null)
         {
+            if (incidentId.HasValue && catchingRequestId.HasValue)
+            {
+                return BadRequest(ApiResponseBuilder.BuildErrorResponse("Provide only one of incidentId or catchingRequestId."));
+            }
+
             var result = await _operatorSnapshotService.GetOnDutyRescuersAsync(
                 date,
                 incidentId,
+                catchingRequestId,
                 onlyAvailable,
                 maxDistanceKm);
 

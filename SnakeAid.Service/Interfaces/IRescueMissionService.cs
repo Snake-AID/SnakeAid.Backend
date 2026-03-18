@@ -17,6 +17,8 @@ namespace SnakeAid.Service.Interfaces
         Task CompleteMissionAsync(Guid missionId, List<Guid> evidenceMediaIds, string? completionNotes);
 
         // User cancel mission: Set status to Cancelled, no new session
+        // NOTE: This method is kept for backwards compatibility; prefer cancelling via the incident cancel endpoint.
+        [Obsolete("Use ISnakebiteIncidentService.CancelIncidentAsync instead")]
         Task UserCancelMissionAsync(Guid missionId, string reason);
 
         // Rescuer abort mission: Set status to MissionAborted, create new session with increased radius

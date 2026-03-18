@@ -27,7 +27,13 @@ namespace SnakeAid.Api.Services
         public static readonly Guid DEMO_OPERATOR_A_ID = Guid.Parse("33333333-3333-3333-3333-333333333331");
 
         public static readonly Guid DEMO_OPERATOR_B_ID = Guid.Parse("33333333-3333-3333-3333-333333333332");
+        public static readonly Guid DEMO_ADMIN_ID = Guid.Parse("55555555-5555-5555-5555-555555555551");
         public static readonly Guid DEMO_SHIFT_ID = Guid.Parse("44444444-4444-4444-4444-444444444441");
+
+        // Standard shift templates (used by demo dashboard/dispatch)
+        public static readonly Guid DEMO_SHIFT_MORNING_ID = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
+        public static readonly Guid DEMO_SHIFT_AFTERNOON_ID = Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
+        public static readonly Guid DEMO_SHIFT_NIGHT_ID = Guid.Parse("cccccccc-cccc-cccc-cccc-cccccccccccc");
 
         // Demo locations (HCMC area)
         private static readonly GeometryFactory _geometryFactory = NetTopologySuite.NtsGeometryServices.Instance.CreateGeometryFactory(srid: 4326);
@@ -219,9 +225,13 @@ namespace SnakeAid.Api.Services
                 }
 
                 await _dbContext.SaveChangesAsync();
+
+                // Ensure we have an admin account for demo purposes
+                await EnsureDemoAdminAsync();
+
                 await EnsureDemoDataIntegrityAsync();
 
-                _logger.LogInformation("Demo data seeded successfully: 1 user + 4 rescuers with profiles");
+                _logger.LogInformation("Demo data seeded successfully: 1 user + 4 rescuers with profiles + admin account");
                 return true;
             }
             catch (Exception ex)
@@ -231,11 +241,40 @@ namespace SnakeAid.Api.Services
             }
         }
 
+        private async Task EnsureDemoAdminAsync()
+        {
+            var admin = await _userManager.FindByIdAsync(DEMO_ADMIN_ID.ToString());
+            if (admin != null) return;
+
+            admin = new Account
+            {
+                Id = DEMO_ADMIN_ID,
+                UserName = "demo_admin",
+                Email = "demo.admin@snakeaid.test",
+                FullName = "Demo Admin",
+                PhoneNumber = "0905555555",
+                Role = AccountRole.Admin,
+                IsActive = true,
+                EmailConfirmed = true,
+                PhoneNumberConfirmed = true,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            };
+
+            var result = await _userManager.CreateAsync(admin, "Demo@123");
+            if (!result.Succeeded)
+            {
+                _logger.LogError("Failed to create demo admin: {Errors}", string.Join(", ", result.Errors.Select(e => e.Description)));
+            }
+        }
+
         private async Task EnsureDemoDataIntegrityAsync()
         {
+            await EnsureDemoAdminAsync();
             await EnsureDemoMemberProfileAsync();
             await EnsureDemoRescuersAsync();
             await EnsureDemoOperatorsAsync();
+            await EnsureDemoShiftTemplatesAsync();
             await EnsureDispatchShiftSetupAsync();
         }
 
@@ -398,28 +437,70 @@ namespace SnakeAid.Api.Services
             await _dbContext.SaveChangesAsync();
         }
 
-        private async Task EnsureDispatchShiftSetupAsync()
+        private async Task EnsureDemoShiftTemplatesAsync()
         {
-            var demoShift = await _dbContext.WorkShifts.FirstOrDefaultAsync(s => s.Id == DEMO_SHIFT_ID);
-            if (demoShift == null)
+            var templates = new[]
             {
-                demoShift = new WorkShift
+                new WorkShift
                 {
-                    Id = DEMO_SHIFT_ID,
-                    Name = "Demo Dispatch Shift",
-                    StartTime = TimeSpan.Zero,
-                    EndTime = new TimeSpan(23, 59, 0),
+                    Id = DEMO_SHIFT_MORNING_ID,
+                    Name = "Ca sáng",
+                    StartTime = new TimeSpan(6, 0, 0),
+                    EndTime = new TimeSpan(14, 0, 0),
                     RequiredRescuers = 4,
                     IsActive = true,
                     CreatedAt = DateTime.UtcNow,
                     UpdatedAt = DateTime.UtcNow
-                };
+                },
+                new WorkShift
+                {
+                    Id = DEMO_SHIFT_AFTERNOON_ID,
+                    Name = "Ca chiều",
+                    StartTime = new TimeSpan(14, 0, 0),
+                    EndTime = new TimeSpan(22, 0, 0),
+                    RequiredRescuers = 4,
+                    IsActive = true,
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
+                },
+                new WorkShift
+                {
+                    Id = DEMO_SHIFT_NIGHT_ID,
+                    Name = "Ca đêm",
+                    StartTime = new TimeSpan(22, 0, 0),
+                    EndTime = new TimeSpan(6, 0, 0),
+                    RequiredRescuers = 4,
+                    IsActive = true,
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
+                }
+            };
 
-                await _dbContext.WorkShifts.AddAsync(demoShift);
-                await _dbContext.SaveChangesAsync();
+            foreach (var shift in templates)
+            {
+                var existing = await _dbContext.WorkShifts.FindAsync(shift.Id);
+                if (existing == null)
+                {
+                    await _dbContext.WorkShifts.AddAsync(shift);
+                }
             }
 
+            await _dbContext.SaveChangesAsync();
+        }
+
+        private async Task EnsureDispatchShiftSetupAsync()
+        {
+            // For demo purposes, assign each demo rescuer to a set of shifts for today.
+            // We distribute them in an alternating pattern so not everyone is on the same shift.
             var shiftDate = DateOnly.FromDateTime(DateTime.UtcNow);
+
+            var shiftTemplates = new[]
+            {
+                DEMO_SHIFT_MORNING_ID,
+                DEMO_SHIFT_AFTERNOON_ID,
+                DEMO_SHIFT_NIGHT_ID
+            };
+
             var rescuerIds = new[]
             {
                 DEMO_RESCUER_A_ID,
@@ -428,40 +509,51 @@ namespace SnakeAid.Api.Services
                 DEMO_RESCUER_D_ID
             };
 
-            foreach (var rescuerId in rescuerIds)
+            for (var i = 0; i < rescuerIds.Length; i++)
             {
+                var rescuerId = rescuerIds[i];
+
                 if (!await _dbContext.RescuerProfiles.AnyAsync(r => r.AccountId == rescuerId))
                 {
                     _logger.LogWarning("Skipping shift assignment for rescuer {RescuerId} because RescuerProfile is missing", rescuerId);
                     continue;
                 }
 
-                var existingAssignment = await _dbContext.ShiftAssignments.FirstOrDefaultAsync(a =>
-                    a.RescuerId == rescuerId &&
-                    a.ShiftId == DEMO_SHIFT_ID &&
-                    a.Date == shiftDate);
-
-                if (existingAssignment != null)
+                for (var j = 0; j < shiftTemplates.Length; j++)
                 {
-                    existingAssignment.Status = ShiftAssignmentStatus.Active;
-                    existingAssignment.CheckInAt ??= DateTime.UtcNow;
-                    existingAssignment.UpdatedAt = DateTime.UtcNow;
-                    _dbContext.ShiftAssignments.Update(existingAssignment);
-                    continue;
+                    // Alternate: rescuer index + shift index even -> assign
+                    if ((i + j) % 2 != 0)
+                        continue;
+
+                    var shiftId = shiftTemplates[j];
+
+                    var existingAssignment = await _dbContext.ShiftAssignments.FirstOrDefaultAsync(a =>
+                        a.RescuerId == rescuerId &&
+                        a.ShiftId == shiftId &&
+                        a.Date == shiftDate);
+
+                    if (existingAssignment != null)
+                    {
+                        existingAssignment.Status = ShiftAssignmentStatus.Active;
+                        existingAssignment.CheckInAt ??= DateTime.UtcNow;
+                        existingAssignment.UpdatedAt = DateTime.UtcNow;
+                        _dbContext.ShiftAssignments.Update(existingAssignment);
+                        continue;
+                    }
+
+                    await _dbContext.ShiftAssignments.AddAsync(new ShiftAssignment
+                    {
+                        Id = Guid.NewGuid(),
+                        RescuerId = rescuerId,
+                        ShiftId = shiftId,
+                        Date = shiftDate,
+                        Status = ShiftAssignmentStatus.Active,
+                        CheckInAt = DateTime.UtcNow,
+                        CreatedAt = DateTime.UtcNow,
+                        UpdatedAt = DateTime.UtcNow,
+                        Notes = "Auto-generated for dispatch demo"
+                    });
                 }
-
-                await _dbContext.ShiftAssignments.AddAsync(new ShiftAssignment
-                {
-                    Id = Guid.NewGuid(),
-                    RescuerId = rescuerId,
-                    ShiftId = DEMO_SHIFT_ID,
-                    Date = shiftDate,
-                    Status = ShiftAssignmentStatus.Active,
-                    CheckInAt = DateTime.UtcNow,
-                    CreatedAt = DateTime.UtcNow,
-                    UpdatedAt = DateTime.UtcNow,
-                    Notes = "Auto-generated for dispatch demo"
-                });
             }
 
             await _dbContext.SaveChangesAsync();
@@ -482,7 +574,8 @@ namespace SnakeAid.Api.Services
                     DEMO_RESCUER_C_ID,
                     DEMO_RESCUER_D_ID,
                     DEMO_OPERATOR_A_ID,
-                    DEMO_OPERATOR_B_ID
+                    DEMO_OPERATOR_B_ID,
+                    DEMO_ADMIN_ID
                 };
 
                 _logger.LogInformation("Starting cleanup of demo data...");
@@ -622,6 +715,7 @@ namespace SnakeAid.Api.Services
             status.RescuerDExists = await _userManager.FindByIdAsync(DEMO_RESCUER_D_ID.ToString()) != null;
             status.OperatorAExists = await _userManager.FindByIdAsync(DEMO_OPERATOR_A_ID.ToString()) != null;
             status.OperatorBExists = await _userManager.FindByIdAsync(DEMO_OPERATOR_B_ID.ToString()) != null;
+            status.AdminExists = await _userManager.FindByIdAsync(DEMO_ADMIN_ID.ToString()) != null;
 
             status.MemberProfileExists = await _dbContext.MemberProfiles.AnyAsync(m => m.AccountId == DEMO_USER_ID);
             status.RescuerProfileCount = await _dbContext.RescuerProfiles.CountAsync(r =>
@@ -651,6 +745,7 @@ namespace SnakeAid.Api.Services
         public bool RescuerDExists { get; set; }
         public bool OperatorAExists { get; set; }
         public bool OperatorBExists { get; set; }
+        public bool AdminExists { get; set; }
         public bool MemberProfileExists { get; set; }
         public int RescuerProfileCount { get; set; }
         public int OperatorProfileCount { get; set; }
@@ -664,7 +759,8 @@ namespace SnakeAid.Api.Services
             RescuerCExists &&
             RescuerDExists &&
             OperatorAExists &&
-            OperatorBExists;
+            OperatorBExists &&
+            AdminExists;
 
         public bool IsDispatchReady =>
             IsSeeded &&

@@ -12,7 +12,8 @@ Tài liệu này mô tả toàn bộ **luồng sự kiện realtime** hiện đa
 - Sau khi tạo xong, server gọi:
   - `NotifyNewIncidentCreatedAsync(...)`
 - **SignalR event** gửi tới group **`Operators`**:
-  - Event name: **`IncidentLocationUpdated`**
+  - Event name: **`NewIncidentCreated`** (preferred)
+  - Legacy event name (vẫn gửi để tương thích): **`IncidentLocationUpdated`**
   - Payload có:
     - `IncidentId`
     - `MemberId`
@@ -38,13 +39,13 @@ Tài liệu này mô tả toàn bộ **luồng sự kiện realtime** hiện đa
 
 ---
 
-## 3) Operator claim incident (lấy vụ để xử lý)
+## 3) Operator claim + confirm incident (đã contact và verify ca này ko false alarn)
 
 ### 🟢 Event tới Operator
 
-- Khi operator gọi **`POST /api/incidents/{id}/claim`**:
-  - `HandlingOperatorId` được set
-  - incident chuyển sang trạng thái **`OperatorContacting`**
+- Khi operator gọi **`POST /api/incidents/{id}/confirm`** (đã hợp nhất claim + confirm):
+  - Nếu chưa có operator nào giữ case thì `HandlingOperatorId` được set (claim)
+  - Nếu status đang là `Pending`, sẽ chuyển sang **`Verified`** (confirm)
   - Server gửi **SignalR event** tới **group `Operators`**:
     - Event name: **`IncidentClaimed`**
     - Payload: `{ IncidentId, OperatorId, UpdatedAt }`
@@ -127,7 +128,7 @@ Tài liệu này mô tả toàn bộ **luồng sự kiện realtime** hiện đa
 
 | Event name | Gửi từ | Nhóm đối tượng nhận | Ghi chú |
 |------------|--------|---------------------|---------|
-| `IncidentLocationUpdated` | Khi tạo SOS | `Operators` | Hiển thị map vụ mới |
+| `NewIncidentCreated` (preferred) / `IncidentLocationUpdated` (legacy) | Khi tạo SOS | `Operators` | Hiển thị map vụ mới |
 | `RescuerOnlineStatus` | Rescuer join/leave | `Operators` | Theo dõi online rescuer |
 | `IncidentClaimed` | Operator claim | `Operators` | Báo đã có operator đang xử lý |
 | `DispatchRequested` | Operator dispatch | `Rescuer` + `Monitors` + `Operators` | Gửi tới rescuer và dashboard |

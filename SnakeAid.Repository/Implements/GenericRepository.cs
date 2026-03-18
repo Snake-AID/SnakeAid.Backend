@@ -1,5 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Query;
+using Microsoft.Extensions.Logging;
 using SnakeAid.Core.Meta;
 using SnakeAid.Repository.Interfaces;
 using System.Linq.Expressions;
@@ -10,11 +11,13 @@ namespace SnakeAid.Repository.Implements
     {
         protected readonly DbContext _dbContext;
         protected readonly DbSet<T> _dbSet;
+        protected readonly ILogger<GenericRepository<T>>? _logger;
 
-        public GenericRepository(DbContext context)
+        public GenericRepository(DbContext context, ILogger<GenericRepository<T>>? logger = null)
         {
             _dbContext = context;
             _dbSet = context.Set<T>();
+            _logger = logger;
         }
 
         public void Dispose()
@@ -257,8 +260,9 @@ namespace SnakeAid.Repository.Implements
                 entry.State = EntityState.Modified;
                 return true;
             }
-            catch (Exception)
+            catch (Exception ex)
             {
+                _logger?.LogError(ex, "Error updating entity of type {EntityType}", typeof(T).Name);
                 return false;
             }
         }
@@ -298,8 +302,9 @@ namespace SnakeAid.Repository.Implements
 
                 return true;
             }
-            catch
+            catch (Exception ex)
             {
+                _logger?.LogError(ex, "Error updating entity of type {EntityType}", typeof(T).Name);
                 return false;
             }
         }
@@ -356,11 +361,13 @@ namespace SnakeAid.Repository.Implements
 
                 return true;
             }
-            catch
+            catch (Exception ex)
             {
+                _logger?.LogError(ex, "Error updating entities of type {EntityType}", typeof(T).Name);
                 return false;
             }
         }
+
 
         #endregion
 
@@ -375,8 +382,9 @@ namespace SnakeAid.Repository.Implements
                 _dbSet.Remove(entity);
                 return true;
             }
-            catch (Exception)
+            catch (Exception ex)
             {
+                _logger?.LogError(ex, "Error deleting entity of type {EntityType}", typeof(T).Name);
                 return false;
             }
         }
@@ -391,8 +399,9 @@ namespace SnakeAid.Repository.Implements
                 _dbSet.RemoveRange(entities);
                 return true;
             }
-            catch (Exception)
+            catch (Exception ex)
             {
+                _logger?.LogError(ex, "Error deleting entities of type {EntityType}", typeof(T).Name);
                 return false;
             }
         }

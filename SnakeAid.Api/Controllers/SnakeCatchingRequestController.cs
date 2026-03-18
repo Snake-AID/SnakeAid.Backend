@@ -41,10 +41,49 @@ namespace SnakeAid.Api.Controllers
         public async Task<IActionResult> GetAllSnakeCatchingRequests([FromQuery] GetAllSnakeCatchingRequestsQuery query)
         {
             var result = await _snakeCatchingRequestService.GetAllRequestAsync(query);
-            
+
             return Ok(ApiResponseBuilder.BuildSuccessResponse(
                 result,
                 $"Retrieved {result.Count} snake catching request(s) successfully."));
+        }
+
+        /// <summary>
+        /// Get active snake catching requests for operator dashboard.
+        /// </summary>
+        [HttpGet("active")]
+        [Authorize(Roles = "Operator,Admin")]
+        [SwaggerOperation(
+            Summary = "Get Active Snake Catching Requests",
+            Description = "Retrieve active snake catching requests (pending / confirmed / assigned / disputed) for operator dashboard. Results are paginated.")]
+        [SwaggerResponse(200, "Active requests retrieved successfully", typeof(ApiResponse<PagedData<OperatorSnakeCatchingRequestSummaryResponse>>))]
+        [SwaggerResponse(401, "User not authenticated")]
+        [SwaggerResponse(403, "User is not allowed to access this resource")]
+        [ProducesResponseType(typeof(ApiResponse<PagedData<OperatorSnakeCatchingRequestSummaryResponse>>), StatusCodes.Status200OK)]
+        public async Task<IActionResult> GetActiveSnakeCatchingRequests(
+            [FromQuery] string? status = null,
+            [FromQuery] DateTimeOffset? since = null,
+            [FromQuery] DateTimeOffset? until = null,
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 50)
+        {
+            var statuses = ParseStatuses(status);
+            var result = await _snakeCatchingRequestService.GetActiveRequestsAsync(statuses, since, until, page, pageSize);
+            return Ok(ApiResponseBuilder.BuildSuccessResponse(result, "Active snake catching requests retrieved successfully."));
+        }
+
+        private static IEnumerable<RequestStatus>? ParseStatuses(string? csvStatuses)
+        {
+            if (string.IsNullOrWhiteSpace(csvStatuses))
+                return null;
+
+            var values = csvStatuses
+                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Select(v => Enum.TryParse<RequestStatus>(v, true, out var parsed) ? (RequestStatus?)parsed : null)
+                .Where(x => x.HasValue)
+                .Select(x => x.Value)
+                .ToList();
+
+            return values.Count > 0 ? values : null;
         }
 
         /// <summary>
@@ -66,7 +105,7 @@ namespace SnakeAid.Api.Controllers
             var userId = GetCurrentUserId();
 
             var result = await _snakeCatchingRequestService.CreateSnakeCatchingRequestAsync(userId, request);
-            
+
             return Ok(ApiResponseBuilder.BuildSuccessResponse(
                 result,
                 "Snake catching request created successfully! Our team will review and assign a rescuer soon."));
@@ -118,7 +157,7 @@ namespace SnakeAid.Api.Controllers
         public async Task<IActionResult> AssignSnakeCatchingRequest([FromRoute] Guid requestId, [FromBody] AssignSnakeCatchingRequestRequest request)
         {
             var result = await _snakeCatchingRequestService.AssignSnakeCatchingRequestAsync(requestId, request);
-            
+
             return Ok(ApiResponseBuilder.BuildSuccessResponse(
                 result,
                 "Snake catching request assigned successfully! Mission created."));
@@ -132,15 +171,15 @@ namespace SnakeAid.Api.Controllers
         [SwaggerOperation(
             Summary = "Get Snake Catching Request Details",
             Description = "Retrieve detailed information about a specific snake catching request including user, rescuer, media, and mission information")]
-        [SwaggerResponse(200, "Request details retrieved successfully", typeof(ApiResponse<CreateSnakeCatchingRequestResponse>))]
+        [SwaggerResponse(200, "Request details retrieved successfully", typeof(ApiResponse<DetailSnakeCatchingRequestResponse>))]
         [SwaggerResponse(401, "User not authenticated")]
         [SwaggerResponse(404, "Request not found")]
-        [ProducesResponseType(typeof(ApiResponse<CreateSnakeCatchingRequestResponse>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ApiResponse<DetailSnakeCatchingRequestResponse>), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
         public async Task<IActionResult> GetSnakeCatchingRequestDetail([FromRoute] Guid requestId)
         {
             var result = await _snakeCatchingRequestService.GetDetailAsync(requestId);
-            
+
             return Ok(ApiResponseBuilder.BuildSuccessResponse(
                 result,
                 "Snake catching request details retrieved successfully."));
@@ -167,13 +206,13 @@ namespace SnakeAid.Api.Controllers
         [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
         [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
         public async Task<IActionResult> CancelSnakeCatchingRequest(
-            [FromRoute] Guid requestId, 
+            [FromRoute] Guid requestId,
             [FromBody] CancelSnakeCatchingRequestRequest request)
         {
             var userId = GetCurrentUserId();
 
             var result = await _snakeCatchingRequestService.CancelSnakeCatchingRequestAsync(userId, requestId, request);
-            
+
             return Ok(ApiResponseBuilder.BuildSuccessResponse(
                 result,
                 "Snake catching request cancelled successfully."));

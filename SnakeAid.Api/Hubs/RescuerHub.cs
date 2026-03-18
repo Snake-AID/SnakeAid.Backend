@@ -260,9 +260,17 @@ namespace SnakeAid.Api.Hubs
                     UpdatedAt = DateTime.UtcNow
                 });
             }
+
+            // Also remove operator tracking if this connection belonged to a connected operator
+            var operatorId = Context.Items.ContainsKey("OperatorId") ? Context.Items["OperatorId"]?.ToString() : null;
+            if (!string.IsNullOrEmpty(operatorId))
+            {
+                SignalROperatorRealtimeNotificationService.RemoveOperatorConnection(operatorId);
+                _logger.LogWarning("Removed operator connection tracking for operator {OperatorId} on disconnect.", operatorId);
+            }
             else
             {
-                _logger.LogWarning("⚠️ OnDisconnectedAsync called for UNKNOWN connection {ConnectionId} (never called JoinAsRescuer?)", Context.ConnectionId);
+                _logger.LogWarning("⚠️ OnDisconnectedAsync: no OperatorId found in Context.Items for connection {ConnectionId}", Context.ConnectionId);
             }
 
             await base.OnDisconnectedAsync(exception);
@@ -345,6 +353,13 @@ namespace SnakeAid.Api.Hubs
 
             await Groups.AddToGroupAsync(Context.ConnectionId, OperatorGroup);
             Context.Items["OperatorId"] = resolvedOperatorId;
+
+            // Track connected operator so we can later fall back to broadcast if they go offline
+            if (!string.IsNullOrEmpty(resolvedOperatorId))
+            {
+                SignalROperatorRealtimeNotificationService.AddOperatorConnection(resolvedOperatorId, Context.ConnectionId);
+            }
+
             _logger.LogInformation("Operator joined realtime group. ConnectionId={ConnectionId}", Context.ConnectionId);
 
             // Update operator online status (like rescuer joins)
@@ -377,6 +392,9 @@ namespace SnakeAid.Api.Hubs
             if (!string.IsNullOrEmpty(operatorId))
             {
                 await _operatorOnlineStatusService.SetOffDutyAsync(operatorId);
+
+                // Remove operator connection tracking so fallback broadcast can occur
+                SignalROperatorRealtimeNotificationService.RemoveOperatorConnection(operatorId);
 
                 await Clients.Group(OperatorGroup).SendAsync("OperatorOnlineStatus", new
                 {

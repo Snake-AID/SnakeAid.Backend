@@ -134,22 +134,39 @@ namespace SnakeAid.Api.Controllers
             return Ok(ApiResponseBuilder.BuildSuccessResponse(result, "User incidents retrieved"));
         }
 
-        /// <summary>
-        /// Operator claims an incident for handling
-        /// </summary>
-        [HttpPost("{incidentId}/claim")]
-        [SwaggerOperation(Summary = "Claim Incident", Description = "Claim a pending incident. Returns 409 if another operator claimed first.")]
-        [SwaggerResponse(200, "Incident claimed successfully", typeof(ApiResponse<CreateIncidentResponse>))]
-        [SwaggerResponse(409, "Incident already claimed")]
-        public async Task<IActionResult> ClaimIncident(Guid incidentId)
+        [HttpGet("active")]
+        [Authorize(Roles = "Operator,Admin")]
+        [SwaggerOperation(Summary = "Get Active Incidents", Description = "Retrieve active incidents (not finished/cancelled) for operator dashboard and map.")]
+        [SwaggerResponse(200, "Success", typeof(ApiResponse<PagedData<OperatorIncidentSummaryResponse>>))]
+        public async Task<IActionResult> GetActiveIncidents(
+            [FromQuery] string? status = null,
+            [FromQuery] DateTimeOffset? since = null,
+            [FromQuery] DateTimeOffset? until = null,
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 50)
         {
-            var operatorId = GetCurrentUserId();
-            var result = await _incidentService.ClaimIncidentAsync(incidentId, operatorId);
-            return Ok(ApiResponseBuilder.BuildSuccessResponse(result, "Incident claimed successfully."));
+            var statuses = ParseStatuses(status);
+            var result = await _incidentService.GetActiveIncidentsAsync(statuses, since, until, page, pageSize);
+            return Ok(ApiResponseBuilder.BuildSuccessResponse(result));
+        }
+
+        private static IEnumerable<SnakebiteIncidentStatus>? ParseStatuses(string? csvStatuses)
+        {
+            if (string.IsNullOrWhiteSpace(csvStatuses))
+                return null;
+
+            var values = csvStatuses
+                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Select(v => Enum.TryParse<SnakebiteIncidentStatus>(v, true, out var parsed) ? (SnakebiteIncidentStatus?)parsed : null)
+                .Where(x => x.HasValue)
+                .Select(x => x.Value)
+                .ToList();
+
+            return values.Count > 0 ? values : null;
         }
 
         /// <summary>
-        /// Operator confirms incident is real after contact
+        /// Operator confirms incident is real after contact (and claims it if not already claimed)
         /// </summary>
         [HttpPost("{incidentId}/confirm")]
         [SwaggerOperation(Summary = "Confirm Incident", Description = "Confirm incident after operator contact. Returns 409 on concurrency conflict.")]
@@ -160,6 +177,36 @@ namespace SnakeAid.Api.Controllers
             var operatorId = GetCurrentUserId();
             var result = await _incidentService.ConfirmIncidentAsync(incidentId, operatorId);
             return Ok(ApiResponseBuilder.BuildSuccessResponse(result, "Incident confirmed."));
+        }
+
+        /// <summary>
+        /// Operator marks incident as a false alarm
+        /// </summary>
+        [HttpPost("{incidentId}/false-alarm")]
+        [SwaggerOperation(Summary = "Mark Incident as False Alarm", Description = "Mark an incident as a false alarm after operator call.")]
+        [SwaggerResponse(200, "Incident marked as false alarm", typeof(ApiResponse<CreateIncidentResponse>))]
+        [SwaggerResponse(404, "Incident not found")]
+        [SwaggerResponse(409, "Incident updated by another operator")]
+        public async Task<IActionResult> MarkFalseAlarm(Guid incidentId, [FromBody] MarkFalseAlarmRequest request)
+        {
+            var operatorId = GetCurrentUserId();
+            var result = await _incidentService.MarkIncidentFalseAlarmAsync(incidentId, operatorId, request?.Reason);
+            return Ok(ApiResponseBuilder.BuildSuccessResponse(result, "Incident marked as false alarm."));
+        }
+
+        /// <summary>
+        /// Operator reports no answer from member
+        /// </summary>
+        [HttpPost("{incidentId}/no-answer")]
+        [SwaggerOperation(Summary = "Report No Answer", Description = "Report that the member did not answer the operator's call. Operator can choose to continue calling or release the case.")]
+        [SwaggerResponse(200, "No answer recorded", typeof(ApiResponse<CreateIncidentResponse>))]
+        [SwaggerResponse(404, "Incident not found")]
+        [SwaggerResponse(409, "Incident updated by another operator")]
+        public async Task<IActionResult> ReportNoAnswer(Guid incidentId, [FromBody] ReportNoAnswerRequest request)
+        {
+            var operatorId = GetCurrentUserId();
+            var result = await _incidentService.ReportIncidentNoAnswerAsync(incidentId, operatorId, request?.ContinueCalling ?? true, request?.Note);
+            return Ok(ApiResponseBuilder.BuildSuccessResponse(result, "No answer recorded."));
         }
 
         /// <summary>
@@ -174,6 +221,37 @@ namespace SnakeAid.Api.Controllers
             var operatorId = GetCurrentUserId();
             var result = await _incidentService.DispatchIncidentAsync(incidentId, request.RescuerId, operatorId);
             return Ok(ApiResponseBuilder.BuildSuccessResponse(result, "Incident dispatched."));
+        }
+
+        /// <summary>
+        /// Operator cancels a dispatch request
+        /// </summary>
+        [HttpPost("dispatch-requests/{requestId}/cancel")]
+        [SwaggerOperation(Summary = "Cancel Dispatch Request", Description = "Cancel a pending dispatch request sent to a rescuer.")]
+        [SwaggerResponse(200, "Dispatch request cancelled", typeof(ApiResponse<RejectRescueResponse>))]
+        [SwaggerResponse(404, "Dispatch request not found")]
+        [SwaggerResponse(409, "Dispatch request is not pending or updated by another process")]
+        public async Task<IActionResult> CancelDispatchRequest(Guid requestId)
+        {
+            var operatorId = GetCurrentUserId();
+            var result = await _incidentService.CancelDispatchRequestAsync(requestId, operatorId);
+            return Ok(ApiResponseBuilder.BuildSuccessResponse(result, "Dispatch request cancelled."));
+        }
+
+        /// <summary>
+        /// Get dispatch requests for a given incident.
+        /// </summary>
+        /// <remarks>
+        /// Frontend can call this endpoint to get the list of dispatch requests associated with the specified incident Id.
+        /// </remarks>
+        [HttpGet("{incidentId}/dispatch-requests")]
+        [SwaggerOperation(Summary = "Get Dispatch Requests for Incident", Description = "Retrieve all dispatch requests for a specific incident (by incidentId).")]
+        [SwaggerResponse(200, "Dispatch requests retrieved", typeof(ApiResponse<IEnumerable<DispatchRequestResponse>>))]
+        [SwaggerResponse(404, "Incident not found")]
+        public async Task<IActionResult> GetDispatchRequests(Guid incidentId)
+        {
+            var result = await _incidentService.GetDispatchRequestsAsync(incidentId);
+            return Ok(ApiResponseBuilder.BuildSuccessResponse(result, "Dispatch requests retrieved."));
         }
     }
 }

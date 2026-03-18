@@ -1,4 +1,5 @@
-﻿using SnakeAid.Core.Requests.SnakeCatchingRequest;
+﻿using SnakeAid.Core.Meta;
+using SnakeAid.Core.Requests.SnakeCatchingRequest;
 using SnakeAid.Core.Domains;
 using SnakeAid.Core.Responses.SnakeCatchingRequest;
 using System;
@@ -20,6 +21,13 @@ namespace SnakeAid.Service.Interfaces
         Task<DetailSnakeCatchingRequestResponse> GetDetailAsync(Guid requestId);
 
         Task<List<ListSnakeCatchingRequestResponse>> GetAllRequestAsync(GetAllSnakeCatchingRequestsQuery? query = null);
+
+        Task<PagedData<OperatorSnakeCatchingRequestSummaryResponse>> GetActiveRequestsAsync(
+            IEnumerable<RequestStatus>? statuses,
+            DateTimeOffset? since,
+            DateTimeOffset? until,
+            int page,
+            int pageSize);
 
         Task<DetailSnakeCatchingRequestResponse> CancelSnakeCatchingRequestAsync(Guid userId, Guid requestId, CancelSnakeCatchingRequestRequest request);
 

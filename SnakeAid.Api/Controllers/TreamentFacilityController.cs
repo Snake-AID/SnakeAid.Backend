@@ -57,14 +57,14 @@ namespace SnakeAid.Api.Controllers
             return Ok(ApiResponseBuilder.BuildSuccessResponse(result));
         }
 
-        [HttpPut("")]
+        [HttpPut("{id}")]
         [SwaggerOperation(Summary = "Update Treatment Facility.", Description = "Update Treatment Facility.")]
         [SwaggerResponse(200, "Success", typeof(ApiResponse<IEnumerable<TreatmentFacilityResponse>>))]
         [SwaggerResponse(404, "Treatment facility not found")]
         [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> UpdateTreatmentFacility([FromBody] UpdateTreatmentFacilityRequest request)
+        public async Task<IActionResult> UpdateTreatmentFacility([FromRoute] int id, [FromBody] UpdateTreatmentFacilityRequest request)
         {
-            var result = await _treatmentFacilityService.UpdateTreatmentFacilityAsync(request);
+            var result = await _treatmentFacilityService.UpdateTreatmentFacilityAsync(id, request);
             return Ok(ApiResponseBuilder.BuildSuccessResponse(result));
         }
 

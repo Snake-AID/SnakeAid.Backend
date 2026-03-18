@@ -8,9 +8,6 @@ namespace SnakeAid.Core.Requests.TreatmentFacility
 {
     public class UpdateTreatmentFacilityRequest
     {
-        [Required]
-        [Range(1, int.MaxValue, ErrorMessage = "Valid Facility Id must be provided")]
-        public int Id { get; set; }
 
         [Required(ErrorMessage = "Facility Name must be provided")]
         [MaxLength(200)]

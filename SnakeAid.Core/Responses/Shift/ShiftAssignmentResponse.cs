@@ -12,5 +12,7 @@ namespace SnakeAid.Core.Responses.Shift
         public DateTime? CheckInAt { get; set; }
         public DateTime? CheckOutAt { get; set; }
         public string? Notes { get; set; }
+
+        public WorkShiftResponse Shift { get; set; }
     }
 }
