@@ -769,7 +769,8 @@ namespace SnakeAid.Service.Implements
                     UserId = existingAccount.Id,
                     LocationCoordinates = locationPoint,
                     Status = SnakebiteIncidentStatus.Pending,
-                    IncidentOccurredAt = DateTime.UtcNow
+                    IncidentOccurredAt = DateTime.UtcNow,
+                    Address = request.Address ?? string.Empty,
                 };
 
                 await _unitOfWork.GetRepository<SnakebiteIncident>().InsertAsync(newIncident);
