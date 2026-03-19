@@ -127,6 +127,12 @@ namespace SnakeAid.Api
                 // Register PayOS Client
                 builder.Services.AddScoped<SnakeAid.Service.Interfaces.IPayOsClient, SnakeAid.Service.Services.PayOs.PayOsClient>();
 
+                // Register PayOS Provider
+                builder.Services.AddScoped<SnakeAid.Service.Interfaces.IPayOsProvider, SnakeAid.Service.Services.PayOs.PayOsProvider>();
+
+                // Register Payment Orchestrator
+                builder.Services.AddScoped<SnakeAid.Service.Interfaces.IPaymentOrchestrator, SnakeAid.Service.Implements.PaymentOrchestrator>();
+
                 // Register Email services
                 builder.Services.AddHttpClient(); // For ResendEmailSender
                 builder.Services.AddScoped<SnakeAid.Service.Implements.Email.Providers.ResendEmailSender>();

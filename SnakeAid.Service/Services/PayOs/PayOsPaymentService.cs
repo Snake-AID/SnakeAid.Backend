@@ -17,7 +17,7 @@ namespace SnakeAid.Service.Services.PayOs;
 
 public class PayOsPaymentService : IPayOsPaymentService
 {
-    private readonly IPayOsClient _payOsClient;
+    private readonly IPayOsProvider _payOsProvider;
     private readonly IUnitOfWork _unitOfWork;
     private readonly PayOsOptions _options;
     private readonly ILogger<PayOsPaymentService> _logger;
@@ -28,12 +28,12 @@ public class PayOsPaymentService : IPayOsPaymentService
     private readonly int commissionFee = 200000;
 
     public PayOsPaymentService(
-        IPayOsClient payOsClient,
+        IPayOsProvider payOsProvider,
         IUnitOfWork unitOfWork,
         IOptions<PayOsOptions> options,
         ILogger<PayOsPaymentService> logger)
     {
-        _payOsClient = payOsClient;
+        _payOsProvider = payOsProvider;
         _unitOfWork = unitOfWork;
         _options = options.Value;
         _logger = logger;
@@ -142,7 +142,7 @@ public class PayOsPaymentService : IPayOsPaymentService
                     {
                         _logger.LogInformation("{Prefix} Cancelling old PayOS payment link with orderCode {OrderCode}",
                             LogPrefix, oldOrderCode);
-                        await _payOsClient.CancelPaymentLinkAsync(oldOrderCode, "Creating new payment link for retry", cancellationToken);
+                        await _payOsProvider.CancelPaymentLinkAsync(oldOrderCode, "Creating new payment link for retry", cancellationToken);
                     }
                 }
                 catch (Exception ex)
@@ -185,26 +185,21 @@ public class PayOsPaymentService : IPayOsPaymentService
             // For now, we'll use the AssignedRescuerId from the request
 
             // Create PayOS payment link
-            var amountInt = Convert.ToInt32(Math.Round(request.Amount, MidpointRounding.AwayFromZero));
-            var payOsResult = await _payOsClient.CreatePaymentLinkAsync(
-                new PayOsLinkCreateContext
+            var payOsResult = await _payOsProvider.CreatePaymentLinkAsync(
+                new PayOsCreatePaymentRequest
                 {
                     OrderCode = orderCode,
-                    Amount = amountInt,
+                    Amount = request.Amount,
                     Description = description,
-                    CancelUrl = _options.CancelUrl,
-                    ReturnUrl = _options.ReturnUrl,
-                    Items = new[]
-                    {
-                        new PayOsItemPayload
-                        {
-                            Name = DefaultItemName,
-                            Quantity = 1,
-                            Price = amountInt
-                        }
-                    }
+                    ItemName = DefaultItemName,
+                    Quantity = 1
                 },
                 cancellationToken);
+
+            if (!payOsResult.Success)
+            {
+                throw new InvalidOperationException($"Failed to create PayOS payment link: {payOsResult.ErrorMessage}");
+            }
 
             await _unitOfWork.CommitAsync();
 
@@ -265,14 +260,14 @@ public class PayOsPaymentService : IPayOsPaymentService
             }
 
             // Cancel on PayOS
-            var payOsResult = await _payOsClient.CancelPaymentLinkAsync(
+            var payOsResult = await _payOsProvider.CancelPaymentLinkAsync(
                 orderCode,
                 request.CancellationReason,
                 cancellationToken);
 
-            if (payOsResult == null)
+            if (!payOsResult.Success)
             {
-                throw new InvalidOperationException($"Failed to cancel payment link {orderCode} on PayOS");
+                throw new InvalidOperationException($"Failed to cancel payment link {orderCode} on PayOS: {payOsResult.ErrorMessage}");
             }
 
             // Delete transaction (or you can keep it and mark as cancelled in description)
@@ -285,7 +280,7 @@ public class PayOsPaymentService : IPayOsPaymentService
             {
                 OrderCode = orderCode,
                 Status = payOsResult.Status,
-                Amount = payOsResult.Amount,
+                Amount = Convert.ToInt32(Math.Round(payOsResult.Amount, MidpointRounding.AwayFromZero)),
                 AmountPaid = payOsResult.AmountPaid,
                 AmountRemaining = payOsResult.AmountRemaining,
                 Message = "Payment link cancelled successfully"
@@ -309,7 +304,7 @@ public class PayOsPaymentService : IPayOsPaymentService
 
         _logger.LogInformation("{Prefix} [Webhook] Processing PayOS webhook", LogPrefix);
 
-        var webhook = _payOsClient.VerifyWebhook(rawPayload);
+        var webhook = _payOsProvider.VerifyWebhook(rawPayload);
 
         return await ProcessWebhookCoreAsync(webhook, triggeredManually: false, cancellationToken);
     }
@@ -338,7 +333,7 @@ public class PayOsPaymentService : IPayOsPaymentService
         }
 
         // Get payment info from PayOS
-        var linkInfo = await _payOsClient.GetPaymentLinkInformationAsync(orderCode, cancellationToken);
+        var linkInfo = await _payOsProvider.GetPaymentLinkInformationAsync(orderCode, cancellationToken);
         if (linkInfo == null)
         {
             throw new InvalidOperationException($"Unable to retrieve payment information for orderCode {orderCode}");
