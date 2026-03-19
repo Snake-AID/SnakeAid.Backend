@@ -16,6 +16,8 @@ namespace SnakeAid.Core.Responses.SnakebiteIncident
 
         public GeoPointResponse LocationCoordinates { get; set; }
 
+        public string Address { get; set; }
+
         public List<ReportSymptom>? SymptomsReport { get; set; }
 
         public SnakebiteIncidentStatus Status { get; set; } = SnakebiteIncidentStatus.Pending;
