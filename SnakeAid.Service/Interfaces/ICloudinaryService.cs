@@ -17,4 +17,8 @@ public interface ICloudinaryService
         ClaimsPrincipal user,
         string domain,
         CancellationToken cancellationToken = default);
+
+    Task<bool> DeleteByUrlAsync(
+        string mediaUrl,
+        CancellationToken cancellationToken = default);
 }

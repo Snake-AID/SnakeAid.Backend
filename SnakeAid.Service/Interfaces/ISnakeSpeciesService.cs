@@ -18,5 +18,7 @@ namespace SnakeAid.Service.Interfaces
         /// Search snake species by text query with venom and antivenom data
         /// </summary>
         Task<List<SearchSnakeSpeciesResponse>> SearchSnakeSpeciesAsync(string query);
+
+
     }
 }
