@@ -235,7 +235,7 @@ public class WalletPaymentService : IWalletPaymentService
 
                 if (catchingRequest != null)
                 {
-                    catchingRequest.Status = RequestStatus.Paid;
+                    catchingRequest.Status = RequestStatus.Completed;
                     _unitOfWork.GetRepository<SnakeCatchingRequest>().Update(catchingRequest);
 
                     _logger.LogInformation("{Prefix} SnakeCatchingRequest {RequestId} status updated to Paid",
