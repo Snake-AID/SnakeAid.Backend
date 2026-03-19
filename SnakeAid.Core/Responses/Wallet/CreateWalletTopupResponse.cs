@@ -6,7 +6,7 @@ public class CreateWalletTopupResponse
 {
     public Guid TransactionId { get; set; }
     public Guid UserId { get; set; }
-    public int Amount { get; set; }
+    public decimal Amount { get; set; }
     public string Status { get; set; } = string.Empty;
     public string? CheckoutUrl { get; set; }
     public long OrderCode { get; set; }

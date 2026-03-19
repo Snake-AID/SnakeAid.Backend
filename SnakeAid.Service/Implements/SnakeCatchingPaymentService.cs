@@ -2,7 +2,6 @@ using System.Text.RegularExpressions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using SnakeAid.Core.Mappings;
 using SnakeAid.Core.Domains;
 using SnakeAid.Core.Requests.PayOs;
 using SnakeAid.Core.Responses.PayOs;
@@ -41,8 +40,7 @@ public class SnakeCatchingPaymentService : ISnakeCatchingPaymentService
         Guid currentUserId,
         CancellationToken cancellationToken)
     {
-        var paymentContext = request.ToPaymentContext(currentUserId);
-        var paymentResult = await CreatePaymentLinkAsync(paymentContext, cancellationToken);
+        var paymentResult = await CreateSnakeCatchingPaymentLinkInternalAsync(request, currentUserId, cancellationToken);
 
         if (!paymentResult.Success)
         {
@@ -117,7 +115,7 @@ public class SnakeCatchingPaymentService : ISnakeCatchingPaymentService
         }
 
         var webhook = _paymentGateway.VerifyWebhook(rawPayload);
-        var result = await ProcessWebhookAsync(Guid.Empty, PaymentReferenceType.SnakeCatching, rawPayload, cancellationToken);
+        var result = await ProcessSnakeCatchingWebhookInternalAsync(rawPayload, cancellationToken);
 
         return new PayOsWebhookResponse
         {
@@ -135,7 +133,7 @@ public class SnakeCatchingPaymentService : ISnakeCatchingPaymentService
         Guid transactionId,
         CancellationToken cancellationToken)
     {
-        var result = await ConfirmPaymentAsync(transactionId, cancellationToken);
+        var result = await ConfirmSnakeCatchingPaymentInternalAsync(transactionId, cancellationToken);
 
         return new PayOsWebhookResponse
         {
@@ -168,28 +166,21 @@ public class SnakeCatchingPaymentService : ISnakeCatchingPaymentService
         return await ConfirmSnakeCatchingPaymentAsync(transaction.Id, cancellationToken);
     }
 
-    public async Task<PaymentResult> CreatePaymentLinkAsync(
-        PaymentContext context,
+    private async Task<SnakeCatchingPaymentOperationResult> CreateSnakeCatchingPaymentLinkInternalAsync(
+        CreateSnakeCatchingPaymentRequest request,
+        Guid currentUserId,
         CancellationToken cancellationToken)
     {
-        // Validate this is for snake catching
-        if (context.ReferenceType != PaymentReferenceType.SnakeCatching)
-        {
-            throw new InvalidOperationException($"{LogPrefix} Only handles SnakeCatching payments, got {context.ReferenceType}");
-        }
-
         try
         {
+            var requestId = request.SnakeCatchingRequestId;
+            var transactionType = request.TransactionType;
+            var senderId = currentUserId;
+            var amount = request.Amount;
+            var paymentDescription = $"Snake catching payment - {requestId}";
+
             _logger.LogInformation("{Prefix} Creating payment link for ReferenceId {RequestId}",
-                LogPrefix, context.ReferenceId);
-
-            // Extract transaction type from metadata
-            var transactionType = context.Metadata?.TryGetValue("TransactionType", out var type) == true
-                ? Enum.Parse<TransactionType>(type.ToString()!)
-                : TransactionType.CatchingPayment;
-
-            // SenderId is the current user
-            var senderId = context.SenderId;
+                LogPrefix, requestId);
 
             // ReceiverId is always the system account
             var receiverId = Guid.Parse(systemId);
@@ -204,11 +195,11 @@ public class SnakeCatchingPaymentService : ISnakeCatchingPaymentService
             {
                 // Validate SnakeCatchingRequest exists
                 var catchingRequest = await _unitOfWork.GetRepository<SnakeCatchingRequest>()
-                    .GetByIdAsync(context.ReferenceId);
+                    .GetByIdAsync(requestId);
 
                 if (catchingRequest == null)
                 {
-                    throw new InvalidOperationException($"SnakeCatchingRequest {context.ReferenceId} not found");
+                    throw new InvalidOperationException($"SnakeCatchingRequest {requestId} not found");
                 }
 
                 // Validate status based on transaction type
@@ -238,7 +229,7 @@ public class SnakeCatchingPaymentService : ISnakeCatchingPaymentService
             }
 
             // Validate amount
-            if (context.Amount <= 0)
+            if (amount <= 0)
             {
                 throw new InvalidOperationException("Payment amount must be greater than 0");
             }
@@ -255,7 +246,7 @@ public class SnakeCatchingPaymentService : ISnakeCatchingPaymentService
             // Check if payment already exists for this request
             var existingTransaction = await _unitOfWork.GetRepository<Transaction>()
                 .FirstOrDefaultAsync(
-                    predicate: t => t.ReferenceId == context.ReferenceId &&
+                    predicate: t => t.ReferenceId == requestId &&
                                    t.TransactionType == transactionType,
                     asNoTracking: false,
                     cancellationToken: cancellationToken);
@@ -266,7 +257,7 @@ public class SnakeCatchingPaymentService : ISnakeCatchingPaymentService
                 if (!string.IsNullOrEmpty(existingTransaction.ExternalTransactionId))
                 {
                     throw new InvalidOperationException(
-                        $"Payment already completed for request {context.ReferenceId}");
+                        $"Payment already completed for request {requestId}");
                 }
 
                 // If no ExternalTransactionId, payment was not completed - allow retry
@@ -299,15 +290,15 @@ public class SnakeCatchingPaymentService : ISnakeCatchingPaymentService
 
             // Generate orderCode
             var orderCode = GenerateOrderCode();
-            var description = BuildDescription(orderCode, context.Description);
+            var description = BuildDescription(orderCode, paymentDescription);
 
             // Create Transaction record (Pending)
             var transaction = new Transaction
             {
                 Id = Guid.NewGuid(),
                 UserId = senderId,
-                ReferenceId = context.ReferenceId,
-                Amount = context.Amount,
+                ReferenceId = requestId,
+                Amount = amount,
                 Currency = "VND",
                 TransactionType = transactionType,
                 Description = description,  // Contains orderCode
@@ -323,7 +314,7 @@ public class SnakeCatchingPaymentService : ISnakeCatchingPaymentService
                 new PayOsCreatePaymentRequest
                 {
                     OrderCode = orderCode,
-                    Amount = context.Amount,
+                    Amount = amount,
                     Description = description,
                     ItemName = DefaultItemName,
                     Quantity = 1
@@ -340,12 +331,11 @@ public class SnakeCatchingPaymentService : ISnakeCatchingPaymentService
             _logger.LogInformation("{Prefix} Payment link created. TransactionId={TransactionId}, TransactionType={TransactionType}, OrderCode={OrderCode}, CheckoutUrl={CheckoutUrl}",
                 LogPrefix, transaction.Id, transactionType, orderCode, payOsResult.CheckoutUrl);
 
-            return new PaymentResult
+            return new SnakeCatchingPaymentOperationResult
             {
-                ReferenceId = context.ReferenceId,
-                ReferenceType = PaymentReferenceType.SnakeCatching,
+                ReferenceId = requestId,
                 TransactionId = transaction.Id,
-                Amount = context.Amount,
+                Amount = amount,
                 Status = "Pending",
                 CheckoutUrl = payOsResult.CheckoutUrl,
                 OrderCode = orderCode,
@@ -367,12 +357,11 @@ public class SnakeCatchingPaymentService : ISnakeCatchingPaymentService
         catch (Exception ex)
         {
             _logger.LogError(ex, "{Prefix} Failed to create payment link for ReferenceId {RequestId}",
-                LogPrefix, context.ReferenceId);
+                LogPrefix, request.SnakeCatchingRequestId);
 
-            return new PaymentResult
+            return new SnakeCatchingPaymentOperationResult
             {
-                ReferenceId = context.ReferenceId,
-                ReferenceType = PaymentReferenceType.SnakeCatching,
+                ReferenceId = request.SnakeCatchingRequestId,
                 Success = false,
                 ErrorMessage = ex.Message,
                 GatewayRawResponse = ex
@@ -380,24 +369,16 @@ public class SnakeCatchingPaymentService : ISnakeCatchingPaymentService
         }
     }
 
-    public async Task<PaymentResult> ProcessWebhookAsync(
-        Guid referenceId,
-        PaymentReferenceType referenceType,
+    private async Task<SnakeCatchingPaymentOperationResult> ProcessSnakeCatchingWebhookInternalAsync(
         string rawWebhookPayload,
         CancellationToken cancellationToken)
     {
-        // Validate this is for snake catching
-        if (referenceType != PaymentReferenceType.SnakeCatching)
-        {
-            throw new InvalidOperationException($"{LogPrefix} Only handles SnakeCatching payments, got {referenceType}");
-        }
-
         if (string.IsNullOrWhiteSpace(rawWebhookPayload))
         {
             throw new ArgumentException("Webhook payload cannot be empty", nameof(rawWebhookPayload));
         }
 
-        _logger.LogInformation("{Prefix} Processing PayOS webhook for ReferenceId {ReferenceId}", LogPrefix, referenceId);
+        _logger.LogInformation("{Prefix} Processing snake catching PayOS webhook", LogPrefix);
 
         try
         {
@@ -407,12 +388,10 @@ public class SnakeCatchingPaymentService : ISnakeCatchingPaymentService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "{Prefix} Failed to process webhook for ReferenceId {ReferenceId}", LogPrefix, referenceId);
+            _logger.LogError(ex, "{Prefix} Failed to process snake catching webhook", LogPrefix);
 
-            return new PaymentResult
+            return new SnakeCatchingPaymentOperationResult
             {
-                ReferenceId = referenceId,
-                ReferenceType = PaymentReferenceType.SnakeCatching,
                 Success = false,
                 ErrorMessage = ex.Message,
                 GatewayRawResponse = ex
@@ -420,7 +399,7 @@ public class SnakeCatchingPaymentService : ISnakeCatchingPaymentService
         }
     }
 
-    public async Task<PaymentResult> ConfirmPaymentAsync(
+    private async Task<SnakeCatchingPaymentOperationResult> ConfirmSnakeCatchingPaymentInternalAsync(
         Guid transactionId,
         CancellationToken cancellationToken)
     {
@@ -477,10 +456,8 @@ public class SnakeCatchingPaymentService : ISnakeCatchingPaymentService
         {
             _logger.LogError(ex, "{Prefix} Failed to confirm payment for Transaction {TransactionId}", LogPrefix, transactionId);
 
-            return new PaymentResult
+            return new SnakeCatchingPaymentOperationResult
             {
-                ReferenceId = Guid.Empty,
-                ReferenceType = PaymentReferenceType.SnakeCatching,
                 TransactionId = transactionId,
                 Success = false,
                 ErrorMessage = ex.Message,
@@ -815,7 +792,7 @@ public class SnakeCatchingPaymentService : ISnakeCatchingPaymentService
         }
     }
 
-    private async Task<PaymentResult> ProcessWebhookCoreAsync(
+    private async Task<SnakeCatchingPaymentOperationResult> ProcessWebhookCoreAsync(
         PayOsWebhookData webhook,
         bool triggeredManually,
         CancellationToken cancellationToken)
@@ -826,8 +803,6 @@ public class SnakeCatchingPaymentService : ISnakeCatchingPaymentService
             LogPrefix, sourceTag, webhook.OrderCode, webhook.Success, webhook.Amount, webhook.TransactionReference);
 
         Guid transactionId = Guid.Empty;
-        Guid? payoutTransactionId = null;
-
         try
         {
             // Find transaction by orderCode in Description
@@ -940,10 +915,9 @@ public class SnakeCatchingPaymentService : ISnakeCatchingPaymentService
             _logger.LogInformation("{Prefix}{SourceTag} Webhook processing completed. TransactionId={TransactionId}, Success={Success}",
                 LogPrefix, sourceTag, transactionId, webhook.Success);
 
-            return new PaymentResult
+            return new SnakeCatchingPaymentOperationResult
             {
                 ReferenceId = transaction.ReferenceId,
-                ReferenceType = PaymentReferenceType.SnakeCatching,
                 TransactionId = transactionId,
                 Amount = webhook.Amount,
                 Status = webhook.Success ? "Paid" : "Failed",
@@ -958,10 +932,8 @@ public class SnakeCatchingPaymentService : ISnakeCatchingPaymentService
             _logger.LogError(ex, "{Prefix}{SourceTag} Failed to process webhook for OrderCode {OrderCode}",
                 LogPrefix, sourceTag, webhook.OrderCode);
 
-            return new PaymentResult
+            return new SnakeCatchingPaymentOperationResult
             {
-                ReferenceId = Guid.Empty,
-                ReferenceType = PaymentReferenceType.SnakeCatching,
                 TransactionId = transactionId,
                 Success = false,
                 ErrorMessage = ex.Message,
@@ -1135,5 +1107,21 @@ public class SnakeCatchingPaymentService : ISnakeCatchingPaymentService
     {
         return linkInfo.Status.Equals("PAID", StringComparison.OrdinalIgnoreCase) ||
                (linkInfo.AmountPaid > 0 && linkInfo.AmountPaid >= linkInfo.Amount);
+    }
+
+    private sealed class SnakeCatchingPaymentOperationResult
+    {
+        public Guid ReferenceId { get; init; }
+        public Guid TransactionId { get; init; }
+        public decimal Amount { get; init; }
+        public string Status { get; init; } = string.Empty;
+        public string CheckoutUrl { get; init; } = string.Empty;
+        public long OrderCode { get; init; }
+        public string PaymentLinkId { get; init; } = string.Empty;
+        public DateTime? ExpiresAt { get; init; }
+        public string Provider { get; init; } = "PayOS";
+        public object? GatewayRawResponse { get; init; }
+        public bool Success { get; init; }
+        public string? ErrorMessage { get; init; }
     }
 }

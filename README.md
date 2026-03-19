@@ -61,12 +61,12 @@ This project strictly adheres to **Clean Architecture / Onion Architecture** pri
 
 ```csharp
 [HttpPost("payment-callback")]
-public async Task<IActionResult> HandleCallback([FromBody] PaymentResult result)
+public async Task<IActionResult> HandleCallback([FromBody] PayOsWebhookData webhook)
 {
     await ExecuteInTransactionAsync(async () => {
-        var booking = await Context.Bookings.FindAsync(result.OrderId);
+        var booking = await Context.Bookings.FindAsync(webhook.OrderCode);
 
-        if (result.IsSuccess) {
+        if (webhook.Success) {
             booking.Status = BookingStatus.Confirmed;
         } else {
             booking.Status = BookingStatus.Cancelled;
