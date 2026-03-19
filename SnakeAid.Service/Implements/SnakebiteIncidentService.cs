@@ -24,7 +24,7 @@ namespace SnakeAid.Service.Implements
         private readonly IOperatorRealtimeNotificationService _operatorRealtimeNotificationService;
         private readonly IRescueNotificationService _rescueNotificationService;
         private readonly IMissionNotificationService _missionNotificationService;
-        private readonly IRescueMissionService _rescueMissionService;
+        private readonly ISnakeRescueMissionService _snakeRescueMissionService;
 
         public SnakebiteIncidentService(
             IUnitOfWork<SnakeAidDbContext> unitOfWork,
@@ -33,7 +33,7 @@ namespace SnakeAid.Service.Implements
             IOperatorRealtimeNotificationService operatorRealtimeNotificationService,
             IRescueNotificationService rescueNotificationService,
             IMissionNotificationService missionNotificationService,
-            IRescueMissionService rescueMissionService)
+            ISnakeRescueMissionService SnakeRescueMissionService)
         {
             _unitOfWork = unitOfWork;
             _logger = logger;
@@ -41,7 +41,7 @@ namespace SnakeAid.Service.Implements
             _operatorRealtimeNotificationService = operatorRealtimeNotificationService;
             _rescueNotificationService = rescueNotificationService;
             _missionNotificationService = missionNotificationService;
-            _rescueMissionService = rescueMissionService;
+            _snakeRescueMissionService = SnakeRescueMissionService;
         }
 
         public async Task<CreateIncidentResponse> ConfirmIncidentAsync(Guid incidentId, Guid operatorId)
@@ -391,7 +391,7 @@ namespace SnakeAid.Service.Implements
                     if (incident.Status != SnakebiteIncidentStatus.Verified)
                         throw new BadRequestException($"Cannot accept dispatch when incident is in status: {incident.Status}");
 
-                    var mission = await _rescueMissionService.CreateMissionAsync(incident.Id, rescuerId, price: 0);
+                    var mission = await _snakeRescueMissionService.CreateMissionAsync(incident.Id, rescuerId, price: 0);
 
                     // Update request
                     request.Status = RescueRequestStatus.Accepted;

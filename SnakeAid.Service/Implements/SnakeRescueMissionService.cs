@@ -18,10 +18,10 @@ using SnakeAid.Service.Interfaces;
 
 namespace SnakeAid.Service.Implements
 {
-    public class RescueMissionService : IRescueMissionService
+    public class SnakeRescueMissionService : ISnakeRescueMissionService
     {
         private readonly IUnitOfWork<SnakeAidDbContext> _unitOfWork;
-        private readonly ILogger<RescueMissionService> _logger;
+        private readonly ILogger<SnakeRescueMissionService> _logger;
         private readonly IConfiguration _configuration;
 
         // Default price for rescue mission (có thể lấy từ SystemSetting sau)
@@ -35,9 +35,9 @@ namespace SnakeAid.Service.Implements
         private readonly IMissionNotificationService _notificationService;
         private readonly IOperatorRealtimeNotificationService _operatorRealtimeNotificationService;
 
-        public RescueMissionService(
+        public SnakeRescueMissionService(
             IUnitOfWork<SnakeAidDbContext> unitOfWork,
-            ILogger<RescueMissionService> logger,
+            ILogger<SnakeRescueMissionService> logger,
             IConfiguration configuration,
             ILocationIqService locationIqService,
             IMissionNotificationService notificationService,
