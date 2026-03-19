@@ -32,11 +32,12 @@ namespace SnakeAid.Service.Implements
         {
             try
             {
-                var scheduledFee = request.ScheduledConsultationFee ?? request.ConsultationFee;
-                if (!scheduledFee.HasValue)
+                if (!request.ScheduledConsultationFee.HasValue)
                 {
                     throw new ValidationException("ScheduledConsultationFee is required.");
                 }
+
+                var scheduledFee = request.ScheduledConsultationFee.Value;
 
                 var profile = await _unitOfWork.GetRepository<ExpertProfile>().FirstOrDefaultAsync(
                     predicate: p => p.AccountId == expertId,
@@ -46,8 +47,8 @@ namespace SnakeAid.Service.Implements
                 if (profile == null) throw new NotFoundException("Expert profile not found.");
 
                 profile.Biography = request.Biography;
-                profile.ConsultationFee = scheduledFee.Value;
-                profile.EmergencyConsultationFee = request.EmergencyConsultationFee ?? scheduledFee.Value;
+                profile.ConsultationFee = scheduledFee;
+                profile.EmergencyConsultationFee = request.EmergencyConsultationFee ?? scheduledFee;
 
                 _unitOfWork.GetRepository<ExpertProfile>().Update(profile);
                 await _unitOfWork.CommitAsync();
@@ -266,7 +267,6 @@ namespace SnakeAid.Service.Implements
                     AvatarUrl = p.Account?.AvatarUrl,
                     Biography = p.Biography,
                     IsOnline = p.IsOnline,
-                    ConsultationFee = scheduledFee,
                     ScheduledConsultationFee = scheduledFee,
                     EmergencyConsultationFee = emergencyFee,
                     Rating = p.Rating,
