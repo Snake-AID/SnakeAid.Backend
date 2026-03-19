@@ -339,6 +339,7 @@ namespace SnakeAid.Api
 
                 app.MapHub<MissionHub>("/mission-hub").RequireCors("SignalRCorsPolicy");
                 app.MapHub<ExpertHub>("/hubs/expert").RequireCors("SignalRCorsPolicy");
+                app.MapHub<ConsultationHub>("/hubs/consultation").RequireCors("SignalRCorsPolicy");
 
                 // Map Razor pages
                 app.MapRazorPages();
