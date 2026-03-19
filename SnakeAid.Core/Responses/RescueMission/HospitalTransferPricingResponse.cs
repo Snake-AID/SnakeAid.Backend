@@ -11,16 +11,8 @@ namespace SnakeAid.Core.Responses.RescueMission
 
         public string HospitalName { get; set; } = string.Empty;
 
-        public decimal DistanceKm { get; set; }
+        public bool RequiresHospitalization { get; set; }
 
-        public decimal PricePerKm { get; set; }
-
-        public decimal HospitalTransferPrice { get; set; }
-
-        public decimal BaseMissionPrice { get; set; }
-
-        public decimal TotalPrice { get; set; }
-
-        public DateTime CalculatedAt { get; set; }
+        public DateTime UpdatedAt { get; set; }
     }
 }

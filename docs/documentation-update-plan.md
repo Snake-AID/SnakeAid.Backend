@@ -152,7 +152,7 @@ operator-dispatch-refactor/
 
 **Documentation gap:**
 - Need to add detailed method signatures and purposes
-- Need to document integration points with `SnakebiteIncidentService` and `RescueMissionService`
+- Need to document integration points with `SnakebiteIncidentService` and `SnakeRescueMissionService`
 - Need to update realtime events list
 
 **Reference:** Commit `db1d8f603cd538e39354074b36d5d7952cf293f0`
@@ -309,7 +309,7 @@ Assigned
   - `MarkIncidentFalseAlarmAsync` method
   - `ReportIncidentNoAnswerAsync` method
   - Enhanced `CancelIncidentAsync` with operator notification
-- `RescueMissionService` added:
+- `SnakeRescueMissionService` added:
   - Enhanced `RescuerAbortMissionAsync` with operator notification
   - Marked `UserCancelMissionAsync` as obsolete
 

@@ -22,5 +22,7 @@ namespace SnakeAid.Core.Requests.SnakebiteIncident
         [Required]
         [Range(-90, 90)]
         public double Lat { get; set; }
+
+        public string? Address { get; set; }
     }
 }
