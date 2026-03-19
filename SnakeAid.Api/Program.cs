@@ -124,14 +124,14 @@ namespace SnakeAid.Api
                 builder.Services.Configure<SnakeAid.Core.Settings.PayOsOptions>(
                     builder.Configuration.GetSection("PayOS"));
 
-                // Register PayOS Client
-                builder.Services.AddScoped<SnakeAid.Service.Interfaces.IPayOsClient, SnakeAid.Service.Services.PayOs.PayOsClient>();
+                // Register payment gateway
+                builder.Services.AddScoped<SnakeAid.Service.Interfaces.IPaymentGateway, SnakeAid.Service.Services.PayOs.PayOsGateway>();
 
-                // Register PayOS Provider
-                builder.Services.AddScoped<SnakeAid.Service.Interfaces.IPayOsProvider, SnakeAid.Service.Services.PayOs.PayOsProvider>();
+                // Register Snake Catching Payment Service
+                builder.Services.AddScoped<SnakeAid.Service.Interfaces.ISnakeCatchingPaymentService, SnakeAid.Service.Implements.SnakeCatchingPaymentService>();
 
-                // Register Snake Catching Payment Orchestrator (migrated from generic PaymentOrchestrator)
-                builder.Services.AddScoped<SnakeAid.Service.Interfaces.IPaymentOrchestrator, SnakeAid.Service.Implements.SnakeCatchingPaymentOrchestrator>();
+                // Register Wallet Topup Service
+                builder.Services.AddScoped<SnakeAid.Service.Interfaces.IWalletTopupService, SnakeAid.Service.Implements.WalletTopupService>();
 
                 // Register Email services
                 builder.Services.AddHttpClient(); // For ResendEmailSender

@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 using SnakeAid.Core.Meta;
 using SnakeAid.Core.Requests.PayOs;
 using SnakeAid.Core.Responses.PayOs;
+using SnakeAid.Core.Requests.Wallet;
 using SnakeAid.Core.Responses.Wallet;
 using SnakeAid.Service.Interfaces;
 using Swashbuckle.AspNetCore.Annotations;
