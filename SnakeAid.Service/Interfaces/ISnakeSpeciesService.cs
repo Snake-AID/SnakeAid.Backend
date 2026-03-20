@@ -22,9 +22,24 @@ namespace SnakeAid.Service.Interfaces
         Task<List<SearchSnakeSpeciesResponse>> SearchSnakeSpeciesAsync(string query);
 
         /// <summary>
+        /// Create snake species
+        /// </summary>
+        Task<DetailSnakeSpeciesResponse> CreateSnakeSpeciesAsync(CreateSnakeSpeciesRequest request, CancellationToken ct = default);
+
+        /// <summary>
+        /// Update snake species
+        /// </summary>
+        Task<DetailSnakeSpeciesResponse> UpdateSnakeSpeciesAsync(int id, UpdateSnakeSpeciesRequest request, CancellationToken ct = default);
+
+        /// <summary>
+        /// Delete snake species
+        /// </summary>
+        Task DeleteSnakeSpeciesAsync(int id, CancellationToken ct = default);
+
+        /// <summary>
         /// Create snake species from excel file (4 sheets) and image upload
         /// </summary>
-        Task<DetailSnakeSpeciesResponse> CreateSnakeSpeciesFromExcelAsync(CreateSnakeSpeciesFromExcelRequest request, ClaimsPrincipal user, CancellationToken ct = default);
+        Task<DetailSnakeSpeciesResponse> CreateSnakeSpeciesWithFileAsync(CreateSnakeSpeciesWithFileRequest request, ClaimsPrincipal user, CancellationToken ct = default);
 
 
     }

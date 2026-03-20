@@ -149,7 +149,158 @@ namespace SnakeAid.Service.Implements
             }
         }
 
-        public async Task<DetailSnakeSpeciesResponse> CreateSnakeSpeciesFromExcelAsync(CreateSnakeSpeciesFromExcelRequest request, ClaimsPrincipal user, CancellationToken ct = default)
+        public async Task<DetailSnakeSpeciesResponse> CreateSnakeSpeciesAsync(CreateSnakeSpeciesRequest request, CancellationToken ct = default)
+        {
+            if (request == null)
+            {
+                throw new BadRequestException("Request data cannot be null.");
+            }
+
+            var scientificName = request.ScientificName.Trim();
+            var slug = request.Slug.Trim();
+
+            await ValidateSnakeSpeciesUniquenessAsync(scientificName, slug, null, ct);
+
+            var entity = new SnakeSpecies
+            {
+                ScientificName = scientificName,
+                Slug = slug,
+                CommonName = request.CommonName?.Trim() ?? string.Empty,
+                ImageUrl = request.ImageUrl.Trim(),
+                Description = request.Description?.Trim() ?? string.Empty,
+                IdentificationSummary = request.IdentificationSummary?.Trim() ?? string.Empty,
+                PrimaryVenomType = request.PrimaryVenomType,
+                Identification = request.Identification,
+                SymptomsByTime = request.SymptomsByTime,
+                FirstAidGuidelineOverride = request.FirstAidGuidelineOverride,
+                RiskLevel = request.RiskLevel,
+                IsVenomous = request.IsVenomous,
+                IsActive = request.IsActive,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            };
+
+            await EnsureSnakeSpeciesIdSequenceAsync(ct);
+            await _unitOfWork.GetRepository<SnakeSpecies>().InsertAsync(entity, ct);
+            await _unitOfWork.CommitAsync();
+
+            await SyncRelationsAfterCreateOrUpdateAsync(entity.Id, request.VenomIds, request.AntivenomIds, request.AlternativeNames, ct);
+
+            return entity.Adapt<DetailSnakeSpeciesResponse>();
+        }
+
+        public async Task<DetailSnakeSpeciesResponse> UpdateSnakeSpeciesAsync(int id, UpdateSnakeSpeciesRequest request, CancellationToken ct = default)
+        {
+            if (request == null)
+            {
+                throw new BadRequestException("Request data cannot be null.");
+            }
+
+            var repository = _unitOfWork.GetRepository<SnakeSpecies>();
+            var entity = await repository.FirstOrDefaultAsync(predicate: x => x.Id == id, asNoTracking: false, cancellationToken: ct);
+
+            if (entity == null)
+            {
+                throw new NotFoundException($"Snake species with ID {id} not found.");
+            }
+
+            var updatedScientificName = entity.ScientificName;
+            var updatedSlug = entity.Slug;
+
+            if (!string.IsNullOrWhiteSpace(request.ScientificName))
+            {
+                updatedScientificName = request.ScientificName.Trim();
+                entity.ScientificName = updatedScientificName;
+            }
+
+            if (!string.IsNullOrWhiteSpace(request.Slug))
+            {
+                updatedSlug = request.Slug.Trim();
+                entity.Slug = updatedSlug;
+            }
+
+            await ValidateSnakeSpeciesUniquenessAsync(updatedScientificName, updatedSlug, id, ct);
+
+            if (request.CommonName != null)
+            {
+                entity.CommonName = request.CommonName.Trim();
+            }
+
+            if (request.ImageUrl != null)
+            {
+                entity.ImageUrl = request.ImageUrl.Trim();
+            }
+
+            if (request.Description != null)
+            {
+                entity.Description = request.Description.Trim();
+            }
+
+            if (request.IdentificationSummary != null)
+            {
+                entity.IdentificationSummary = request.IdentificationSummary.Trim();
+            }
+
+            if (request.PrimaryVenomType.HasValue)
+            {
+                entity.PrimaryVenomType = request.PrimaryVenomType;
+            }
+
+            if (request.Identification != null)
+            {
+                entity.Identification = request.Identification;
+            }
+
+            if (request.SymptomsByTime != null)
+            {
+                entity.SymptomsByTime = request.SymptomsByTime;
+            }
+
+            if (request.FirstAidGuidelineOverride != null)
+            {
+                entity.FirstAidGuidelineOverride = request.FirstAidGuidelineOverride;
+            }
+
+            if (request.RiskLevel.HasValue)
+            {
+                entity.RiskLevel = request.RiskLevel.Value;
+            }
+
+            if (request.IsVenomous.HasValue)
+            {
+                entity.IsVenomous = request.IsVenomous.Value;
+            }
+
+            if (request.IsActive.HasValue)
+            {
+                entity.IsActive = request.IsActive.Value;
+            }
+
+            entity.UpdatedAt = DateTime.UtcNow;
+
+            repository.Update(entity);
+            await _unitOfWork.CommitAsync();
+
+            await SyncRelationsAfterCreateOrUpdateAsync(id, request.VenomIds, request.AntivenomIds, request.AlternativeNames, ct);
+
+            return entity.Adapt<DetailSnakeSpeciesResponse>();
+        }
+
+        public async Task DeleteSnakeSpeciesAsync(int id, CancellationToken ct = default)
+        {
+            var repository = _unitOfWork.GetRepository<SnakeSpecies>();
+            var entity = await repository.FirstOrDefaultAsync(predicate: x => x.Id == id, asNoTracking: false, cancellationToken: ct);
+
+            if (entity == null)
+            {
+                throw new NotFoundException($"Snake species with ID {id} not found.");
+            }
+
+            repository.Delete(entity);
+            await _unitOfWork.CommitAsync();
+        }
+
+        public async Task<DetailSnakeSpeciesResponse> CreateSnakeSpeciesWithFileAsync(CreateSnakeSpeciesWithFileRequest request, ClaimsPrincipal user, CancellationToken ct = default)
         {
             if (request == null)
             {
@@ -195,21 +346,7 @@ namespace SnakeAid.Service.Implements
                 throw new BadRequestException("Excel file format is invalid. Please verify all required sheets and columns.");
             }
 
-            var scientificNameExists = await _unitOfWork.GetRepository<SnakeSpecies>()
-                .ExistsAsync(s => s.ScientificName == parsed.BasicInfo.ScientificName, ct);
-
-            if (scientificNameExists)
-            {
-                throw new BadRequestException($"Snake species with scientific name '{parsed.BasicInfo.ScientificName}' already exists.");
-            }
-
-            var slugExists = await _unitOfWork.GetRepository<SnakeSpecies>()
-                .ExistsAsync(s => s.Slug == parsed.BasicInfo.Slug, ct);
-
-            if (slugExists)
-            {
-                throw new BadRequestException($"Snake species with slug '{parsed.BasicInfo.Slug}' already exists.");
-            }
+            await ValidateSnakeSpeciesUniquenessAsync(parsed.BasicInfo.ScientificName, parsed.BasicInfo.Slug, null, ct);
 
             var createdLibraryMedia = await _libraryMediaService.CreateAsync(new CreateLibraryMediaRequest
             {
@@ -246,6 +383,188 @@ namespace SnakeAid.Service.Implements
             await ApplyPostCreateMappingsAsync(entity.Id, createdLibraryMedia.Id, parsed, ct);
 
             return entity.Adapt<DetailSnakeSpeciesResponse>();
+        }
+
+        private async Task ValidateSnakeSpeciesUniquenessAsync(string scientificName, string slug, int? excludeId, CancellationToken ct)
+        {
+            var scientificNameExists = await _unitOfWork.GetRepository<SnakeSpecies>()
+                .ExistsAsync(
+                    s => s.ScientificName == scientificName && (!excludeId.HasValue || s.Id != excludeId.Value),
+                    ct);
+
+            if (scientificNameExists)
+            {
+                throw new BadRequestException($"Snake species with scientific name '{scientificName}' already exists.");
+            }
+
+            var slugExists = await _unitOfWork.GetRepository<SnakeSpecies>()
+                .ExistsAsync(
+                    s => s.Slug == slug && (!excludeId.HasValue || s.Id != excludeId.Value),
+                    ct);
+
+            if (slugExists)
+            {
+                throw new BadRequestException($"Snake species with slug '{slug}' already exists.");
+            }
+        }
+
+        private async Task SyncRelationsAfterCreateOrUpdateAsync(
+            int snakeSpeciesId,
+            List<int>? venomIds,
+            List<int>? antivenomIds,
+            List<string>? alternativeNames,
+            CancellationToken ct)
+        {
+            var hasChanges = false;
+
+            if (venomIds != null)
+            {
+                await SyncVenomMappingsAsync(snakeSpeciesId, venomIds, ct);
+                hasChanges = true;
+            }
+
+            if (antivenomIds != null)
+            {
+                await SyncAntivenomMappingsAsync(snakeSpeciesId, antivenomIds, ct);
+                hasChanges = true;
+            }
+
+            if (alternativeNames != null)
+            {
+                await SyncAlternativeNamesAsync(snakeSpeciesId, alternativeNames, ct);
+                hasChanges = true;
+            }
+
+            if (hasChanges)
+            {
+                await _unitOfWork.CommitAsync();
+            }
+        }
+
+        private async Task SyncVenomMappingsAsync(int snakeSpeciesId, List<int> venomIds, CancellationToken ct)
+        {
+            var normalizedIds = venomIds
+                .Where(id => id > 0)
+                .Distinct()
+                .ToHashSet();
+
+            var venomRepository = _unitOfWork.GetRepository<VenomType>();
+            var validVenomIds = await venomRepository.GetListAsync(
+                predicate: v => normalizedIds.Contains(v.Id),
+                cancellationToken: ct);
+
+            if (validVenomIds.Count != normalizedIds.Count)
+            {
+                throw new NotFoundException("One or more venom IDs were not found.");
+            }
+
+            var mappingRepository = _unitOfWork.GetRepository<SpeciesVenom>();
+            var existingMappings = await mappingRepository.GetListAsync(
+                predicate: x => x.SnakeSpeciesId == snakeSpeciesId,
+                cancellationToken: ct);
+
+            foreach (var mapping in existingMappings.Where(x => !normalizedIds.Contains(x.VenomTypeId)))
+            {
+                mappingRepository.Delete(mapping);
+            }
+
+            var existingIds = existingMappings.Select(x => x.VenomTypeId).ToHashSet();
+            foreach (var venomId in normalizedIds.Where(id => !existingIds.Contains(id)))
+            {
+                await mappingRepository.InsertAsync(new SpeciesVenom
+                {
+                    SnakeSpeciesId = snakeSpeciesId,
+                    VenomTypeId = venomId
+                }, ct);
+            }
+        }
+
+        private async Task SyncAntivenomMappingsAsync(int snakeSpeciesId, List<int> antivenomIds, CancellationToken ct)
+        {
+            var normalizedIds = antivenomIds
+                .Where(id => id > 0)
+                .Distinct()
+                .ToHashSet();
+
+            var antivenomRepository = _unitOfWork.GetRepository<Antivenom>();
+            var validAntivenomIds = await antivenomRepository.GetListAsync(
+                predicate: a => normalizedIds.Contains(a.Id),
+                cancellationToken: ct);
+
+            if (validAntivenomIds.Count != normalizedIds.Count)
+            {
+                throw new NotFoundException("One or more antivenom IDs were not found.");
+            }
+
+            var mappingRepository = _unitOfWork.GetRepository<SpeciesAntivenom>();
+            var existingMappings = await mappingRepository.GetListAsync(
+                predicate: x => x.SnakeSpeciesId == snakeSpeciesId,
+                cancellationToken: ct);
+
+            foreach (var mapping in existingMappings.Where(x => !normalizedIds.Contains(x.AntivenomId)))
+            {
+                mappingRepository.Delete(mapping);
+            }
+
+            var existingIds = existingMappings.Select(x => x.AntivenomId).ToHashSet();
+            foreach (var antivenomId in normalizedIds.Where(id => !existingIds.Contains(id)))
+            {
+                await mappingRepository.InsertAsync(new SpeciesAntivenom
+                {
+                    SnakeSpeciesId = snakeSpeciesId,
+                    AntivenomId = antivenomId,
+                    IsActive = true,
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
+                }, ct);
+            }
+        }
+
+        private async Task SyncAlternativeNamesAsync(int snakeSpeciesId, List<string> alternativeNames, CancellationToken ct)
+        {
+            var normalizedNames = alternativeNames
+                .Where(name => !string.IsNullOrWhiteSpace(name))
+                .Select(name => name.Trim())
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+            var repository = _unitOfWork.GetRepository<SnakeSpeciesName>();
+            var existingNames = await repository.GetListAsync(
+                predicate: x => x.SnakeSpeciesId == snakeSpeciesId,
+                cancellationToken: ct);
+
+            foreach (var item in existingNames.Where(x => !normalizedNames.Contains(x.Name)))
+            {
+                repository.Delete(item);
+            }
+
+            var existingNameSet = existingNames
+                .Where(x => normalizedNames.Contains(x.Name))
+                .Select(x => x.Name)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+            var allExistingSlugs = await repository.GetListAsync(
+                predicate: x => true,
+                cancellationToken: ct);
+
+            var reservedSlugs = allExistingSlugs
+                .Select(x => x.Slug)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+            foreach (var name in normalizedNames.Where(name => !existingNameSet.Contains(name)))
+            {
+                var slug = GenerateUniqueSlug(null, name, reservedSlugs);
+                reservedSlugs.Add(slug);
+
+                await repository.InsertAsync(new SnakeSpeciesName
+                {
+                    Name = name,
+                    Slug = slug,
+                    SnakeSpeciesId = snakeSpeciesId,
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
+                }, ct);
+            }
         }
 
         private static IXLWorksheet GetWorksheet(XLWorkbook workbook, int position, string logicalName)
