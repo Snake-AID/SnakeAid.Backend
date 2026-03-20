@@ -48,5 +48,11 @@ namespace SnakeAid.Core.Responses.SnakeSpecies
         public bool IsVenomous { get; set; } = false;
 
         public bool IsActive { get; set; } = true;
+
+        public List<string> AlternativeNames { get; set; } = new();
+
+        public List<VenomInfo> Venoms { get; set; } = new();
+
+        public List<AntivenomInfo> Antivenoms { get; set; } = new();
     }
 }

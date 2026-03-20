@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Http;
 
 namespace SnakeAid.Core.Requests.SnakeSpecies;
 
-public class CreateSnakeSpeciesFromExcelRequest
+public class CreateSnakeSpeciesWithFileRequest
 {
     [Required]
     public IFormFile ExcelFile { get; set; } = default!;
