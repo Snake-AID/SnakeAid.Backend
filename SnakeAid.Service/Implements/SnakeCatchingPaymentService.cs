@@ -832,6 +832,29 @@ public class SnakeCatchingPaymentService : ISnakeCatchingPaymentService
                 transaction.CreatedAt = webhook.TransactionDateTime ?? DateTime.UtcNow;
                 _unitOfWork.GetRepository<Transaction>().Update(transaction);
 
+                // Check for existing processed transaction with same ExternalTransactionId (idempotency guard)
+                var existingTransaction = await _unitOfWork.GetRepository<Transaction>()
+                    .FirstOrDefaultAsync(
+                        predicate: t => t.ExternalTransactionId == webhook.TransactionReference
+                                     && t.TransactionType == TransactionType.WalletTopup,
+                        cancellationToken: cancellationToken);
+
+                if (existingTransaction != null)
+                {
+                    _logger.LogInformation("{Prefix}{SourceTag} Webhook already processed for TransactionReference {TransactionRef}, skipping side-effects",
+                        LogPrefix, sourceTag, webhook.TransactionReference);
+                    return new SnakeCatchingPaymentOperationResult
+                    {
+                        ReferenceId = transaction.ReferenceId,
+                        TransactionId = transactionId,
+                        Amount = webhook.Amount,
+                        Status = "AlreadyProcessed",
+                        Provider = "PayOS",
+                        GatewayRawResponse = webhook,
+                        Success = true
+                    };
+                }
+
                 // Add amount to system wallet
                 var systemAccountId = Guid.Parse(systemId);
                 var systemWallet = await _unitOfWork.GetRepository<Wallet>()

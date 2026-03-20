@@ -97,8 +97,9 @@ public class WalletTopupService : IWalletTopupService
             };
 
             await _unitOfWork.GetRepository<Transaction>().InsertAsync(transaction);
+            await _unitOfWork.CommitAsync();
 
-            // Create PayOS payment link
+            // Create PayOS payment link after ensuring DB record exists
             var payOsResult = await _paymentGateway.CreatePaymentLinkAsync(
                 new PayOsCreatePaymentRequest
                 {
@@ -112,10 +113,15 @@ public class WalletTopupService : IWalletTopupService
 
             if (!payOsResult.Success)
             {
+                // Payment link creation failed - clean up the transaction record
+                _logger.LogWarning("{Prefix} PayOS payment link creation failed, cleaning up transaction {TransactionId}. Error: {Error}",
+                    LogPrefix, transaction.Id, payOsResult.ErrorMessage);
+
+                _unitOfWork.GetRepository<Transaction>().Delete(transaction);
+                await _unitOfWork.CommitAsync();
+
                 throw new InvalidOperationException($"Failed to create PayOS payment link: {payOsResult.ErrorMessage}");
             }
-
-            await _unitOfWork.CommitAsync();
 
             _logger.LogInformation("{Prefix} Wallet top-up payment link created. TransactionId={TransactionId}, OrderCode={OrderCode}, CheckoutUrl={CheckoutUrl}",
                 LogPrefix, transaction.Id, orderCode, payOsResult.CheckoutUrl);
