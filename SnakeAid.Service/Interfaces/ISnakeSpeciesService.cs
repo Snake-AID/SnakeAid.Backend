@@ -1,3 +1,5 @@
+using System.Security.Claims;
+using SnakeAid.Core.Requests.SnakeSpecies;
 using SnakeAid.Core.Responses.SnakeSpecies;
 
 namespace SnakeAid.Service.Interfaces
@@ -18,5 +20,12 @@ namespace SnakeAid.Service.Interfaces
         /// Search snake species by text query with venom and antivenom data
         /// </summary>
         Task<List<SearchSnakeSpeciesResponse>> SearchSnakeSpeciesAsync(string query);
+
+        /// <summary>
+        /// Create snake species from excel file (4 sheets) and image upload
+        /// </summary>
+        Task<DetailSnakeSpeciesResponse> CreateSnakeSpeciesFromExcelAsync(CreateSnakeSpeciesFromExcelRequest request, ClaimsPrincipal user, CancellationToken ct = default);
+
+
     }
 }
