@@ -243,7 +243,7 @@ namespace SnakeAid.Service.Implements
             await _unitOfWork.GetRepository<SnakeSpecies>().InsertAsync(entity, ct);
             await _unitOfWork.CommitAsync();
 
-            await ApplyPostCreateMappingsAsync(entity.Id, parsed, ct);
+            await ApplyPostCreateMappingsAsync(entity.Id, createdLibraryMedia.Id, parsed, ct);
 
             return entity.Adapt<DetailSnakeSpeciesResponse>();
         }
@@ -679,12 +679,31 @@ namespace SnakeAid.Service.Implements
                 .ToList();
         }
 
-        private async Task ApplyPostCreateMappingsAsync(int snakeSpeciesId, ParsedSnakeSpeciesExcel parsed, CancellationToken ct)
+        private async Task ApplyPostCreateMappingsAsync(int snakeSpeciesId, Guid libraryMediaId, ParsedSnakeSpeciesExcel parsed, CancellationToken ct)
         {
+            await LinkLibraryMediaToSpeciesAsync(libraryMediaId, snakeSpeciesId, ct);
             await AddAntivenomMappingsAsync(snakeSpeciesId, parsed.Antivenoms, ct);
             await AddVenomMappingsAsync(snakeSpeciesId, parsed.Venoms, ct);
             await AddAlternativeNamesAsync(snakeSpeciesId, parsed.AlternativeNames, ct);
             await _unitOfWork.CommitAsync();
+        }
+
+        private async Task LinkLibraryMediaToSpeciesAsync(Guid libraryMediaId, int snakeSpeciesId, CancellationToken ct)
+        {
+            var libraryMediaRepository = _unitOfWork.GetRepository<LibraryMedia>();
+            var libraryMedia = await libraryMediaRepository.FirstOrDefaultAsync(
+                predicate: x => x.Id == libraryMediaId,
+                asNoTracking: false,
+                cancellationToken: ct);
+
+            if (libraryMedia == null)
+            {
+                throw new NotFoundException($"LibraryMedia with ID {libraryMediaId} not found.");
+            }
+
+            libraryMedia.SnakeSpeciesId = snakeSpeciesId;
+            libraryMedia.UpdatedAt = DateTime.UtcNow;
+            libraryMediaRepository.Update(libraryMedia);
         }
 
         private async Task AddAntivenomMappingsAsync(int snakeSpeciesId, List<AntivenomSheetRow> rows, CancellationToken ct)
