@@ -80,7 +80,7 @@ namespace SnakeAid.Service.Implements
 
                 _logger.LogInformation("Successfully retrieved snake species with ID: {Id}", id);
 
-                return snakeSpecies.Adapt<DetailSnakeSpeciesResponse>();
+                return MapToDetailResponse(snakeSpecies);
             }
             catch (NotFoundException)
             {
@@ -186,7 +186,7 @@ namespace SnakeAid.Service.Implements
 
             await SyncRelationsAfterCreateOrUpdateAsync(entity.Id, request.VenomIds, request.AntivenomIds, request.AlternativeNames, ct);
 
-            return entity.Adapt<DetailSnakeSpeciesResponse>();
+            return await BuildDetailResponseAsync(entity.Id, ct);
         }
 
         public async Task<DetailSnakeSpeciesResponse> UpdateSnakeSpeciesAsync(int id, UpdateSnakeSpeciesRequest request, CancellationToken ct = default)
@@ -283,7 +283,7 @@ namespace SnakeAid.Service.Implements
 
             await SyncRelationsAfterCreateOrUpdateAsync(id, request.VenomIds, request.AntivenomIds, request.AlternativeNames, ct);
 
-            return entity.Adapt<DetailSnakeSpeciesResponse>();
+            return await BuildDetailResponseAsync(id, ct);
         }
 
         public async Task DeleteSnakeSpeciesAsync(int id, CancellationToken ct = default)
@@ -382,7 +382,54 @@ namespace SnakeAid.Service.Implements
 
             await ApplyPostCreateMappingsAsync(entity.Id, createdLibraryMedia.Id, parsed, ct);
 
-            return entity.Adapt<DetailSnakeSpeciesResponse>();
+            return await BuildDetailResponseAsync(entity.Id, ct);
+        }
+
+        private async Task<DetailSnakeSpeciesResponse> BuildDetailResponseAsync(int id, CancellationToken ct)
+        {
+            var snakeSpecies = await _unitOfWork.GetRepository<SnakeSpecies>()
+                .FirstOrDefaultAsync(
+                    predicate: s => s.Id == id,
+                    include: query => query
+                        .Include(s => s.AlternativeNames)
+                        .Include(s => s.SpeciesAntivenoms)
+                            .ThenInclude(sa => sa.Antivenom)
+                        .Include(s => s.SpeciesVenoms)
+                            .ThenInclude(sv => sv.VenomType),
+                    cancellationToken: ct);
+
+            if (snakeSpecies == null)
+            {
+                throw new NotFoundException($"Snake species with ID {id} not found.");
+            }
+
+            return MapToDetailResponse(snakeSpecies);
+        }
+
+        private static DetailSnakeSpeciesResponse MapToDetailResponse(SnakeSpecies snakeSpecies)
+        {
+            var response = snakeSpecies.Adapt<DetailSnakeSpeciesResponse>();
+            response.AlternativeNames = snakeSpecies.AlternativeNames
+                .Select(x => x.Name)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+            response.Venoms = snakeSpecies.SpeciesVenoms
+                .Select(sv => new VenomInfo
+                {
+                    VenomType = sv.VenomType?.Name ?? "Unknown",
+                    Description = sv.VenomType?.Description ?? string.Empty
+                })
+                .ToList();
+            response.Antivenoms = snakeSpecies.SpeciesAntivenoms
+                .Select(sa => new AntivenomInfo
+                {
+                    AntivenomName = sa.Antivenom?.Name ?? "Unknown",
+                    Manufacturer = sa.Antivenom?.Manufacturer ?? string.Empty,
+                    Effectiveness = sa.Antivenom?.Description ?? string.Empty
+                })
+                .ToList();
+
+            return response;
         }
 
         private async Task ValidateSnakeSpeciesUniquenessAsync(string scientificName, string slug, int? excludeId, CancellationToken ct)
