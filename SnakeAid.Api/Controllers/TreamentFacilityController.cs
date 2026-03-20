@@ -36,6 +36,25 @@ namespace SnakeAid.Api.Controllers
             return Ok(ApiResponseBuilder.BuildSuccessResponse(result));
         }
 
+        [HttpGet("filter")]
+        [SwaggerOperation(Summary = "Filter Treatment Facilities", Description = "Get paginated treatment facilities filtered by name, active status and antivenom ID")]
+        [SwaggerResponse(200, "Success", typeof(ApiResponse<PagedData<TreatmentFacilityResponse>>))]
+        public async Task<IActionResult> FilterTreatmentFacilities([FromQuery] GetTreatmentFacilityRequest request)
+        {
+            var result = await _treatmentFacilityService.FilterTreatmentFacilitiesAsync(request);
+            return Ok(ApiResponseBuilder.BuildSuccessResponse(result));
+        }
+
+        [HttpGet("{id}")]
+        [SwaggerOperation(Summary = "Get Treatment Facility by ID", Description = "Get treatment facility detail by ID")]
+        [SwaggerResponse(200, "Success", typeof(ApiResponse<TreatmentFacilityResponse>))]
+        [SwaggerResponse(404, "Treatment facility not found")]
+        public async Task<IActionResult> GetTreatmentFacilityById([FromRoute] int id)
+        {
+            var result = await _treatmentFacilityService.GetTreatmentFacilityByIdAsync(id);
+            return Ok(ApiResponseBuilder.BuildSuccessResponse(result));
+        }
+
         [HttpGet("find-hospital")]
         [SwaggerOperation(Summary = "Find Treatment Facility by Location", Description = "Find the nearest active treatment facility based on latitude and longitude")]
         [SwaggerResponse(200, "Success", typeof(ApiResponse<IEnumerable<TreatmentFacilityResponse>>))]
