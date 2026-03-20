@@ -239,6 +239,7 @@ namespace SnakeAid.Service.Implements
                 UpdatedAt = DateTime.UtcNow
             };
 
+            await EnsureSnakeSpeciesIdSequenceAsync(ct);
             await _unitOfWork.GetRepository<SnakeSpecies>().InsertAsync(entity, ct);
             await _unitOfWork.CommitAsync();
 
@@ -901,6 +902,18 @@ namespace SnakeAid.Service.Implements
             var slug = Regex.Replace(withoutDiacritics, "[^a-z0-9]+", "-");
             slug = Regex.Replace(slug, "-+", "-").Trim('-');
             return slug;
+        }
+
+        private async Task EnsureSnakeSpeciesIdSequenceAsync(CancellationToken ct)
+        {
+            const string sql = @"
+SELECT setval(
+    pg_get_serial_sequence('""SnakeAid"".""SnakeSpecies""', 'Id'),
+    GREATEST((SELECT COALESCE(MAX(""Id""), 1) FROM ""SnakeAid"".""SnakeSpecies""), 1),
+    true
+);";
+
+            await _unitOfWork.Context.Database.ExecuteSqlRawAsync(sql, ct);
         }
 
         private sealed class ParsedSnakeSpeciesExcel
