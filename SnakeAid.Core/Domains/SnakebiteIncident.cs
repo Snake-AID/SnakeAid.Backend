@@ -21,6 +21,8 @@ namespace SnakeAid.Core.Domains
         [Column(TypeName = "geometry(Point, 4326)")]
         public Point LocationCoordinates { get; set; }
 
+        public string Address { get; set; } = string.Empty;
+
         [Column(TypeName = "jsonb")]
         public ICollection<ReportSymptom>? SymptomsReport { get; set; } = new List<ReportSymptom>();
 

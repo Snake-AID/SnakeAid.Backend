@@ -31,8 +31,9 @@ namespace SnakeAid.Core.Responses.RescueMission
         public string? Notes { get; set; }
         public string? CancellationReason { get; set; }
 
-        // Cost tracking
-        public decimal? EstimatedCost { get; set; }
+        // Distance from rescue center to incident (pricing basis)
+        public decimal? DistanceFromCenterKm { get; set; }
+        public decimal? CostFromCenter { get; set; }
         public decimal? ActualCost { get; set; }
 
         /// Distance from rescuer to incident (calculated on demand)
@@ -49,14 +50,12 @@ namespace SnakeAid.Core.Responses.RescueMission
     {
         public Guid Id { get; set; }
         public GeoPointResponse LocationCoordinates { get; set; } = null!;
+        public string? Address { get; set; }
         public SnakebiteIncidentStatus Status { get; set; }
         public List<ReportSymptom>? SymptomsReport { get; set; }
         public int? SeverityLevel { get; set; }
         public DateTime? IncidentOccurredAt { get; set; }
         public DateTime? AssignedAt { get; set; }
-        public int CurrentSessionNumber { get; set; }
-        public int CurrentRadiusKm { get; set; }
-
         public SnakeSpeciesResponse? IdentifiedSnake { get; set; }
 
         /// Context về cách xác định loài rắn (nếu có)

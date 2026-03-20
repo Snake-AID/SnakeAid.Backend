@@ -10,7 +10,6 @@ namespace SnakeAid.Core.Responses.Expert
         public string Name { get; set; } = string.Empty;
         public string? AvatarUrl { get; set; }
         public string Biography { get; set; } = string.Empty;
-        public decimal ConsultationFee { get; set; }
         public decimal ScheduledConsultationFee { get; set; }
         public decimal EmergencyConsultationFee { get; set; }
         public decimal Rating { get; set; }

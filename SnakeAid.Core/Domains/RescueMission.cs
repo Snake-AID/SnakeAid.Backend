@@ -28,6 +28,14 @@ namespace SnakeAid.Core.Domains
         [Range(0, double.MaxValue)]
         public decimal Price { get; set; }
 
+        [Column(TypeName = "numeric(10,2)")]
+        [Range(0, 9999.99)]
+        public decimal? DistanceFromCenterKm { get; set; }
+
+        [Column(TypeName = "numeric(18,2)")]
+        [Range(0, double.MaxValue)]
+        public decimal? CostFromCenter { get; set; }
+
         public DateTime? StartedAt { get; set; }
 
         public DateTime? ArrivedAt { get; set; }
@@ -42,10 +50,6 @@ namespace SnakeAid.Core.Domains
 
         [Column(TypeName = "numeric(18,2)")]
         [Range(0, double.MaxValue)]
-        public decimal? EstimatedCost { get; set; }
-
-        [Column(TypeName = "numeric(18,2)")]
-        [Range(0, double.MaxValue)]
         public decimal? ActualCost { get; set; }
 
         // Hospital Transfer Information
@@ -53,14 +57,6 @@ namespace SnakeAid.Core.Domains
 
         [ForeignKey(nameof(Hospital))]
         public int? HospitalId { get; set; }
-
-        [Column(TypeName = "numeric(10,2)")]
-        [Range(0, 9999.99)]
-        public decimal? DistanceToHospitalKm { get; set; }
-
-        [Column(TypeName = "numeric(18,2)")]
-        [Range(0, double.MaxValue)]
-        public decimal? HospitalTransferPrice { get; set; }
 
         // Navigation properties
         public SnakebiteIncident Incident { get; set; }

@@ -5,7 +5,7 @@ using System.Threading.Tasks;
 
 namespace SnakeAid.Service.Interfaces
 {
-    public interface IRescueMissionService
+    public interface ISnakeRescueMissionService
     {
         // Tạo mission khi rescuer accept request
         Task<RescueMission> CreateMissionAsync(Guid incidentId, Guid rescuerId, decimal price);

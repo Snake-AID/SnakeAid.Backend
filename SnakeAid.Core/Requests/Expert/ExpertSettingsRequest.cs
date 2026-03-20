@@ -10,9 +10,6 @@ namespace SnakeAid.Core.Requests.Expert
         public string Biography { get; set; } = string.Empty;
 
         [Range(typeof(decimal), "0", "999999.99")]
-        public decimal? ConsultationFee { get; set; }
-
-        [Range(typeof(decimal), "0", "999999.99")]
         public decimal? ScheduledConsultationFee { get; set; }
 
         [Range(typeof(decimal), "0", "999999.99")]

@@ -154,7 +154,7 @@ namespace SnakeAid.Api.Controllers
         {
             try
             {
-                var missionService = HttpContext.RequestServices.GetRequiredService<IRescueMissionService>();
+                var missionService = HttpContext.RequestServices.GetRequiredService<ISnakeRescueMissionService>();
                 await missionService.RescuerAbortMissionAsync(missionId, reason ?? "Rescuer cancelled");
                 return Ok(new { missionId, message = "Mission aborted. Incident reset to Confirmed for operator re-dispatch." });
             }
@@ -172,7 +172,7 @@ namespace SnakeAid.Api.Controllers
             {
                 if (!Enum.TryParse<RescueMissionStatus>(status, true, out var missionStatus))
                     return BadRequest(new { error = "Invalid mission status" });
-                var missionService = HttpContext.RequestServices.GetRequiredService<IRescueMissionService>();
+                var missionService = HttpContext.RequestServices.GetRequiredService<ISnakeRescueMissionService>();
                 await missionService.UpdateMissionStatusAsync(missionId, missionStatus);
                 return Ok(new { missionId, newStatus = status, message = $"Mission status updated to {status}" });
             }

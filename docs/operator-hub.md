@@ -64,7 +64,7 @@ Nếu muốn “migrate” operator sang **OperatorHub riêng**, thì bạn cầ
 
 ### A) Event từ service / workflow gọi `IOperatorRealtimeNotificationService`
 
-_(đang được gọi từ `SnakebiteIncidentService`, `RescueMissionService`, etc.)_
+_(đang được gọi từ `SnakebiteIncidentService`, `SnakeRescueMissionService`, etc.)_
 
 ✅ Các method hiện đang tồn tại trong `SignalROperatorRealtimeNotificationService`:
 
@@ -121,7 +121,7 @@ Nếu bạn “moved operator out”, các chỗ này phải chuyển qua Operat
 Các service hiện đang gọi `_operatorRealtimeNotificationService`:
 
 - `SnakebiteIncidentService` (claim / contact / dispatch / false alarm / no answer / cancel)
-- `RescueMissionService` (abort -> `NotifyRescuerAbortedAsync`)
+- `SnakeRescueMissionService` (abort -> `NotifyRescuerAbortedAsync`)
 
 ✅ Đây là “điểm an toàn”: service không cần đổi nếu chỉ đổi nội bộ của `SignalROperatorRealtimeNotificationService` sang OperatorHub.
 
