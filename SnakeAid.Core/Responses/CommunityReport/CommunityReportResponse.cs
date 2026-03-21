@@ -7,7 +7,7 @@ namespace SnakeAid.Core.Responses.CommunityReport
         public string? ReporterName { get; set; }
         public double Longitude { get; set; }
         public double Latitude { get; set; }
-        public string? AdditionalDetails { get; set; }
+        public string? Notes { get; set; }
         public DateTime CreatedAt { get; set; }
         public DateTime UpdatedAt { get; set; }
     }

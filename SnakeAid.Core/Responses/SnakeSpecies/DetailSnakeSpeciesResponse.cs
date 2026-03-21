@@ -13,33 +13,31 @@ namespace SnakeAid.Core.Responses.SnakeSpecies
     {
         public int Id { get; set; }
 
-        [MaxLength(500)]
         public string ScientificName { get; set; }
 
-        [MaxLength(200)]
+
         public string Slug { get; set; }
 
-        [MaxLength(500)]
+
         public string CommonName { get; set; }
 
-        [MaxLength(2000)]
+
         public string ImageUrl { get; set; }
 
-        [MaxLength(2000)]
+
         public string Description { get; set; }
 
-        [MaxLength(2000)]
+
         public string IdentificationSummary { get; set; }
 
         public PrimaryVenomType? PrimaryVenomType { get; set; }
 
-        [Column(TypeName = "jsonb")]
+
         public IdentificationFeature? Identification { get; set; }
 
-        [Column(TypeName = "jsonb")]
+
         public List<SymptomTimeline>? SymptomsByTime { get; set; }
 
-        [Column(TypeName = "jsonb")]
         public FirstAidOverride? FirstAidGuidelineOverride { get; set; }
 
         [Range(0.0, 10.0)]

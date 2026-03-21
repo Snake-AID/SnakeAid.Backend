@@ -81,6 +81,10 @@ namespace SnakeAid.Repository.Data.Configurations
             builder.HasIndex(i => i.HandlingOperatorId)
                 .HasDatabaseName("IX_SnakebiteIncidents_HandlingOperatorId");
 
+            builder.HasIndex(i => i.LocationCoordinates)
+                .HasMethod("GIST")
+                .HasDatabaseName("IX_SnakebiteIncidents_Location");
+
             // Ignore polymorphic collection so EF core doesn't create Shadow Foreign Keys
             builder.Ignore(i => i.Media);
         }
