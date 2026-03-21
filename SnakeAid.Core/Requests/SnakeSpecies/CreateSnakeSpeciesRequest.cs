@@ -17,8 +17,7 @@ public class CreateSnakeSpeciesRequest
     public string CommonName { get; set; } = string.Empty;
 
     [Required]
-    [MaxLength(2000)]
-    public string ImageUrl { get; set; } = string.Empty;
+    public Guid MediaId { get; set; }
 
     [MaxLength(2000)]
     public string Description { get; set; } = string.Empty;

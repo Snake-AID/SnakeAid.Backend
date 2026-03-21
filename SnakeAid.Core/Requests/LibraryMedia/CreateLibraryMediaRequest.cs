@@ -12,9 +12,5 @@ public class CreateLibraryMediaRequest
     [Required]
     public MediaType MediaType { get; set; }
 
-    public bool IsActive { get; set; } = true;
-
-    public bool IsPublic { get; set; } = true;
-
     public int? SnakeSpeciesId { get; set; }
 }
