@@ -11,9 +11,14 @@ public class ConsultationPaymentResponse
     public string Currency { get; set; } = "VND";
     public ConsultationPaymentMethod PaymentMethod { get; set; }
     public string Status { get; set; } = string.Empty;
-    public decimal UserWalletBalanceAfter { get; set; }
-    public decimal SystemWalletBalanceAfter { get; set; }
-    public DateTime PaidAtUtc { get; set; }
+    public decimal? UserWalletBalanceAfter { get; set; }
+    public decimal? SystemWalletBalanceAfter { get; set; }
+    public DateTime? PaidAtUtc { get; set; }
+    public string? Provider { get; set; }
+    public string? CheckoutUrl { get; set; }
+    public long? OrderCode { get; set; }
+    public string? PaymentLinkId { get; set; }
+    public string? ExternalTransactionId { get; set; }
 }
 
 public enum ConsultationPaymentReferenceType

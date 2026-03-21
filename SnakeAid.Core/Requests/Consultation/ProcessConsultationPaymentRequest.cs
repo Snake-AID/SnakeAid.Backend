@@ -10,5 +10,6 @@ public class ProcessConsultationPaymentRequest
 
 public enum ConsultationPaymentMethod
 {
-    WalletBalance = 0
+    WalletBalance = 0,
+    PayOs = 1
 }
