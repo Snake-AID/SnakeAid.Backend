@@ -12,5 +12,8 @@ namespace SnakeAid.Core.Requests.CommunityReport
 
         [MaxLength(2000)]
         public string? Notes { get; set; }
+
+        public int? SnakeSpeciesId { get; set; }
+
     }
 }
