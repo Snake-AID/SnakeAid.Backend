@@ -29,6 +29,7 @@ namespace SnakeAid.Service.Implements
         private readonly ISnakeAIService _snakeAIService;
         private readonly ISnakeCatchingRequestNotificationService _snakeCatchingRequestNotificationService;
         private readonly decimal additionalSnakePrice = 100000;
+        private readonly decimal transferPrice = 150000;
 
         public SnakeCatchingRequestService(
             IUnitOfWork<SnakeAidDbContext> unitOfWork,
@@ -823,7 +824,8 @@ namespace SnakeAid.Service.Implements
                     centerLng,
                     centerLat,
                     destinationLng,
-                    destinationLat);
+                    destinationLat,
+                    transferPrice);
 
                 _logger.LogInformation(
                     "Estimated price calculated for {Context}: {Distance} km, Price: {Price} VND",

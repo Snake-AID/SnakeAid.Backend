@@ -32,8 +32,6 @@ namespace SnakeAid.Core.Responses.RescueMission
         public string? Notes { get; set; }
         public string? CancellationReason { get; set; }
 
-        public decimal? EstimatedCost { get; set; }
-
         public decimal? ActualCost { get; set; }
     }
 }

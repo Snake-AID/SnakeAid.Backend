@@ -391,12 +391,15 @@ namespace SnakeAid.Service.Implements
                     if (incident.Status != SnakebiteIncidentStatus.Verified)
                         throw new BadRequestException($"Cannot accept dispatch when incident is in status: {incident.Status}");
 
-                    var mission = await _snakeRescueMissionService.CreateMissionAsync(incident.Id, rescuerId, price: 0);
+                    var mission = await _snakeRescueMissionService.CreateMissionAsync(incident.Id, rescuerId);
 
-                    // Update request
+                    // Detach loaded navigation object to avoid EF track conflict (same Incident loaded in CreateMissionAsync)
+                    request.Incident = null;
+
+                    // Update request status only
                     request.Status = RescueRequestStatus.Accepted;
                     request.ResponseAt = DateTime.UtcNow;
-                    _unitOfWork.GetRepository<RescuerRequest>().Update(request);
+                    _unitOfWork.GetRepository<RescuerRequest>().UpdateProperties(request, r => r.Status, r => r.ResponseAt);
 
                     var response = new AcceptRescueResponse
                     {
@@ -774,7 +777,6 @@ namespace SnakeAid.Service.Implements
                 };
 
                 await _unitOfWork.GetRepository<SnakebiteIncident>().InsertAsync(newIncident);
-                await _unitOfWork.CommitAsync();
 
                 return newIncident.Adapt<CreateIncidentResponse>();
             });
@@ -1322,7 +1324,6 @@ namespace SnakeAid.Service.Implements
                     SnakebiteIncidentStatus.Pending,
                     SnakebiteIncidentStatus.Verified,
                     SnakebiteIncidentStatus.Assigned,
-                    SnakebiteIncidentStatus.Disputed,
                 };
 
                 var effectiveStatuses = (statuses != null && statuses.Any())
@@ -1363,7 +1364,9 @@ namespace SnakeAid.Service.Implements
                 var repo = _unitOfWork.GetRepository<RescuerRequest>();
                 var incidentRequests = await repo.GetListAsync(
                     predicate: r => r.IncidentId == incidentId,
-                    include: q => q.Include(r => r.Rescuer).ThenInclude(rescuer => rescuer.Account)
+                    include: q => q.Include(r => r.Rescuer)
+                                    .ThenInclude(rescuer => rescuer.Account),
+                    orderBy: q => q.OrderByDescending(r => r.CreatedAt)
                 );
 
                 return incidentRequests.Select(r => new DispatchRequestResponse

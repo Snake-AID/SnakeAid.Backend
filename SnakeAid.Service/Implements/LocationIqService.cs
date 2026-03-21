@@ -106,7 +106,7 @@ public class LocationIqService : ILocationIqService
             catch (ExternalServiceException ex) when (ex.Data.Contains("StatusCode"))
             {
                 var statusCode = (HttpStatusCode)ex.Data["StatusCode"]!;
-                
+
                 if (statusCode == HttpStatusCode.TooManyRequests)
                 {
                     // 429 - Rate limit hit, mark key as failed and try next
@@ -114,7 +114,7 @@ public class LocationIqService : ILocationIqService
                     _logger.LogWarning(
                         "API key hit rate limit (429). Trying next available key. Attempt {Attempt}/{MaxRetries}",
                         retryCount + 1, maxRetries);
-                    
+
                     lastException = ex;
                     retryCount++;
                     continue;
@@ -126,12 +126,12 @@ public class LocationIqService : ILocationIqService
                     _logger.LogWarning(
                         "LocationIQ server error ({StatusCode}). Trying next available key. Attempt {Attempt}/{MaxRetries}",
                         statusCode, retryCount + 1, maxRetries);
-                    
+
                     lastException = ex;
                     retryCount++;
                     continue;
                 }
-                
+
                 // Other errors (4xx except 429), don't retry
                 throw;
             }
@@ -141,7 +141,7 @@ public class LocationIqService : ILocationIqService
         _logger.LogError(
             "Failed to calculate distance after {Attempts} attempts with different API keys",
             retryCount);
-        
+
         throw new ExternalServiceException(
             $"Failed to calculate distance after {retryCount} attempts. All API keys failed or are rate limited.",
             lastException);
@@ -169,7 +169,7 @@ public class LocationIqService : ILocationIqService
 
             _logger.LogInformation(
                 "Calling LocationIQ Directions API: Source({SourceLng},{SourceLat}) -> Dest({DestLng},{DestLat}), URL: {Url}",
-                sourceLng, sourceLat, destLng, destLat, 
+                sourceLng, sourceLat, destLng, destLat,
                 requestUrl.Replace(apiKey, "***"));
 
             var response = await _httpClient.GetAsync(requestUrl);
@@ -191,7 +191,7 @@ public class LocationIqService : ILocationIqService
                 exception.Data["StatusCode"] = response.StatusCode;
                 throw exception;
             }
-            
+
             var directionsResponse = JsonSerializer.Deserialize<DirectionsResponse>(jsonContent, new JsonSerializerOptions
             {
                 PropertyNameCaseInsensitive = true
@@ -215,7 +215,7 @@ public class LocationIqService : ILocationIqService
                     sourceLng, sourceLat, destLng, destLat,
                     directionsResponse.Code ?? "null",
                     jsonContent);
-                    
+
                 throw new ExternalServiceException(
                     "No route available between coordinates - possibly no road connection exists");
             }
@@ -223,7 +223,7 @@ public class LocationIqService : ILocationIqService
             // Get distance from first route
             var route = directionsResponse.Routes[0];
             var distanceInMeters = route.Distance;
-            
+
             // Check for valid distance value
             if (double.IsNaN(distanceInMeters) || double.IsInfinity(distanceInMeters) || distanceInMeters <= 0)
             {
@@ -234,11 +234,11 @@ public class LocationIqService : ILocationIqService
                     sourceLng, sourceLat, destLng, destLat,
                     distanceInMeters,
                     directionsResponse.Code ?? "null");
-                    
+
                 throw new ExternalServiceException(
                     "No valid route found between the coordinates (distance is zero or invalid)");
             }
-            
+
             var distanceInKm = distanceInMeters / 1000.0;
 
             _logger.LogInformation(
@@ -286,7 +286,7 @@ public class LocationIqService : ILocationIqService
         }
     }
 
-    public decimal CalculatePrice(double distanceInKm)
+    public decimal CalculatePrice(double distanceInKm, decimal pricePerKilometer)
     {
         if (distanceInKm < 0)
         {
@@ -295,14 +295,14 @@ public class LocationIqService : ILocationIqService
 
         // Round distance to 2 decimal places before calculating price
         var roundedDistance = Math.Round(distanceInKm, 2);
-        var price = (decimal)roundedDistance * _options.PricePerKilometer;
+        var price = (decimal)roundedDistance * pricePerKilometer;
 
         // Round price to nearest 1000 VND
         var roundedPrice = Math.Round(price / 1000, MidpointRounding.AwayFromZero) * 1000;
 
         _logger.LogInformation(
             "Price calculated: {Distance} km × {PricePerKm} = {Price} VND",
-            roundedDistance, _options.PricePerKilometer, roundedPrice);
+            roundedDistance, pricePerKilometer, roundedPrice);
 
         return roundedPrice;
     }
@@ -311,10 +311,11 @@ public class LocationIqService : ILocationIqService
         double sourceLng,
         double sourceLat,
         double destLng,
-        double destLat)
+        double destLat,
+        decimal pricePerKilometer)
     {
         var distance = await CalculateDistanceAsync(sourceLng, sourceLat, destLng, destLat);
-        var price = CalculatePrice(distance);
+        var price = CalculatePrice(distance, pricePerKilometer);
 
         return (distance, price);
     }
