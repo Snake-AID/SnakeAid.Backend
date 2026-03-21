@@ -4,6 +4,7 @@ using SnakeAid.Core.Domains;
 using SnakeAid.Core.Exceptions;
 using SnakeAid.Core.Requests.CommunityReport;
 using SnakeAid.Core.Responses.CommunityReport;
+using SnakeAid.Core.Responses.SnakeSpecies;
 using SnakeAid.Repository.Data;
 using SnakeAid.Repository.Interfaces;
 using SnakeAid.Service.Interfaces;
@@ -35,18 +36,33 @@ namespace SnakeAid.Service.Implements
                 throw new NotFoundException("User not found.");
             }
 
+            SnakeSpecies? snakeSpecies = null;
+            if (request.SnakeSpeciesId.HasValue)
+            {
+                snakeSpecies = await _unitOfWork.GetRepository<SnakeSpecies>()
+                    .FirstOrDefaultAsync(predicate: s => s.Id == request.SnakeSpeciesId.Value);
+
+                if (snakeSpecies == null)
+                {
+                    throw new NotFoundException($"Snake species with id '{request.SnakeSpeciesId.Value}' not found.");
+                }
+            }
+
             var report = new CommunityReport
             {
                 Id = Guid.NewGuid(),
                 UserId = userId,
                 LocationCoordinates = new Point(request.Longitude, request.Latitude) { SRID = 4326 },
-                Notes = request.Notes
+                Notes = request.Notes,
+                SnakeSpeciesId = request.SnakeSpeciesId
+
             };
 
             await _unitOfWork.GetRepository<CommunityReport>().InsertAsync(report);
             await _unitOfWork.CommitAsync();
 
             report.User = userExists;
+            report.SnakeSpecies = snakeSpecies;
             return ToResponse(report);
         }
 
@@ -55,7 +71,8 @@ namespace SnakeAid.Service.Implements
             var report = await _unitOfWork.GetRepository<CommunityReport>()
                 .FirstOrDefaultAsync(
                     predicate: r => r.Id == id,
-                    include: query => query.Include(r => r.User));
+                    include: query => query.Include(r => r.User)
+                                           .Include(r => r.SnakeSpecies));
 
             if (report == null)
             {
@@ -74,7 +91,8 @@ namespace SnakeAid.Service.Implements
                 .GetListAsync(
                     predicate: isAdmin ? null : r => r.UserId == currentUserId,
                     orderBy: query => query.OrderByDescending(r => r.CreatedAt),
-                    include: query => query.Include(r => r.User));
+                    include: query => query.Include(r => r.User)
+                                           .Include(r => r.SnakeSpecies));
 
             return reports.Select(ToResponse).ToList();
         }
@@ -89,7 +107,8 @@ namespace SnakeAid.Service.Implements
             var report = await _unitOfWork.GetRepository<CommunityReport>()
                 .FirstOrDefaultAsync(
                     predicate: r => r.Id == id,
-                    include: query => query.Include(r => r.User),
+                    include: query => query.Include(r => r.User)
+                                           .Include(r => r.SnakeSpecies),
                     asNoTracking: false);
 
             if (report == null)
@@ -112,6 +131,18 @@ namespace SnakeAid.Service.Implements
             if (request.Notes != null)
             {
                 report.Notes = request.Notes;
+            }
+
+            if (request.SnakeSpeciesId.HasValue)
+            {
+                var snakeSpeciesExists = await _unitOfWork.GetRepository<SnakeSpecies>()
+                    .FirstOrDefaultAsync(predicate: s => s.Id == request.SnakeSpeciesId.Value);
+                if (snakeSpeciesExists == null)
+                {
+                    throw new NotFoundException($"Snake species with id '{request.SnakeSpeciesId.Value}' not found.");
+                }
+                report.SnakeSpeciesId = request.SnakeSpeciesId;
+                report.SnakeSpecies = snakeSpeciesExists;
             }
 
             _unitOfWork.GetRepository<CommunityReport>().Update(report);
@@ -166,6 +197,22 @@ namespace SnakeAid.Service.Implements
                 Longitude = report.LocationCoordinates?.X ?? 0,
                 Latitude = report.LocationCoordinates?.Y ?? 0,
                 Notes = report.Notes,
+                SnakeSpecies = report.SnakeSpecies == null
+                    ? null
+                    : new SnakeSpeciesResponse
+                    {
+                        Id = report.SnakeSpecies.Id,
+                        ScientificName = report.SnakeSpecies.ScientificName,
+                        Slug = report.SnakeSpecies.Slug,
+                        CommonName = report.SnakeSpecies.CommonName,
+                        ImageUrl = report.SnakeSpecies.ImageUrl,
+                        Description = report.SnakeSpecies.Description,
+                        IdentificationSummary = report.SnakeSpecies.IdentificationSummary,
+                        PrimaryVenomType = report.SnakeSpecies.PrimaryVenomType,
+                        RiskLevel = report.SnakeSpecies.RiskLevel,
+                        IsVenomous = report.SnakeSpecies.IsVenomous,
+                        IsActive = report.SnakeSpecies.IsActive,
+                    },
                 CreatedAt = report.CreatedAt,
                 UpdatedAt = report.UpdatedAt
             };
