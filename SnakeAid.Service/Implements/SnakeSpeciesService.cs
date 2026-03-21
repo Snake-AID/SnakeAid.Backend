@@ -352,8 +352,6 @@ namespace SnakeAid.Service.Implements
             {
                 File = request.ImageFile,
                 MediaType = MediaType.Image,
-                IsActive = true,
-                IsPublic = true,
                 SnakeSpeciesId = null
             }, user, ct);
 
