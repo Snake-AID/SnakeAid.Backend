@@ -13,25 +13,19 @@ namespace SnakeAid.Api.Controllers;
 [Route("api/v1/[controller]")]
 public class PayOsController : BaseController<PayOsController>
 {
-    private readonly IPayOsPaymentService _payOsPaymentService;
+    private readonly ISnakeCatchingPaymentService _snakeCatchingPaymentService;
 
     public PayOsController(
         ILogger<PayOsController> logger,
         IHttpContextAccessor httpContextAccessor,
         IMapper mapper,
-        IPayOsPaymentService payOsPaymentService)
+        ISnakeCatchingPaymentService snakeCatchingPaymentService)
         : base(logger, httpContextAccessor, mapper)
     {
-        _payOsPaymentService = payOsPaymentService;
+        _snakeCatchingPaymentService = snakeCatchingPaymentService;
     }
 
-    /// <summary>
-    /// Create PayOS payment link for snake catching service
-    /// </summary>
-    /// <param name="request">Payment request with catching request ID and amount</param>
-    /// <param name="cancellationToken">Cancellation token</param>
-    /// <returns>Payment link response with checkout URL</returns>
-    [HttpPost("create-payment-link")]
+    [HttpPost("snakecatching/paylink/create")]
     [Authorize]
     [SwaggerOperation(
         Summary = "Create PayOS payment link",
@@ -40,14 +34,15 @@ public class PayOsController : BaseController<PayOsController>
     [ProducesResponseType(typeof(SnakeCatchingPaymentResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-    public async Task<IActionResult> CreatePaymentLink(
+    public async Task<IActionResult> CreateSnakeCatchingPaymentLink(
         [FromBody] CreateSnakeCatchingPaymentRequest request,
         CancellationToken cancellationToken)
     {
         try
         {
             var currentUserId = GetCurrentUserId();
-            var result = await _payOsPaymentService.CreatePaymentLinkAsync(request, currentUserId, cancellationToken);
+            var result = await _snakeCatchingPaymentService.CreateSnakeCatchingPaymentLinkAsync(request, currentUserId, cancellationToken);
+
             return Ok(new
             {
                 success = true,
@@ -75,14 +70,7 @@ public class PayOsController : BaseController<PayOsController>
         }
     }
 
-    /// <summary>
-    /// Cancel PayOS payment link
-    /// </summary>
-    /// <param name="orderCode">PayOS order code</param>
-    /// <param name="request">Cancellation details</param>
-    /// <param name="cancellationToken">Cancellation token</param>
-    /// <returns>Cancellation confirmation</returns>
-    [HttpPost("cancel-payment-link/{orderCode}")]
+    [HttpPost("snakecatching/paylink/cancel/{orderCode}")]
     [Authorize]
     [SwaggerOperation(
         Summary = "Cancel PayOS payment link",
@@ -99,7 +87,7 @@ public class PayOsController : BaseController<PayOsController>
         try
         {
             var payload = request ?? new CancelPaymentLinkRequest();
-            var result = await _payOsPaymentService.CancelPaymentLinkAsync(orderCode, payload, cancellationToken);
+            var result = await _snakeCatchingPaymentService.CancelSnakeCatchingPaymentLinkAsync(orderCode, payload, cancellationToken);
             return Ok(new
             {
                 success = true,
@@ -127,12 +115,6 @@ public class PayOsController : BaseController<PayOsController>
         }
     }
 
-    /// <summary>
-    /// Manually confirm PayOS payment
-    /// </summary>
-    /// <param name="request">Transaction ID to confirm</param>
-    /// <param name="cancellationToken">Cancellation token</param>
-    /// <returns>Payment confirmation result</returns>
     [HttpPost("confirm-payment")]
     [Authorize]
     [SwaggerOperation(
@@ -157,7 +139,7 @@ public class PayOsController : BaseController<PayOsController>
                 });
             }
 
-            var result = await _payOsPaymentService.ConfirmPaymentAsync(request.TransactionId, cancellationToken);
+            var result = await _snakeCatchingPaymentService.ConfirmSnakeCatchingPaymentAsync(request.TransactionId, cancellationToken);
             return Ok(new
             {
                 success = true,
@@ -185,15 +167,6 @@ public class PayOsController : BaseController<PayOsController>
         }
     }
 
-    /// <summary>
-    /// PayOS return URL handler
-    /// </summary>
-    /// <param name="code">PayOS response code (00 = success)</param>
-    /// <param name="id">PayOS transaction ID</param>
-    /// <param name="cancel">Whether payment was cancelled</param>
-    /// <param name="status">Payment status (PAID, CANCELLED, etc.)</param>
-    /// <param name="orderCode">Order code</param>
-    /// <returns>Payment result page</returns>
     [AllowAnonymous]
     [HttpGet("return")]
     [SwaggerOperation(
@@ -223,7 +196,7 @@ public class PayOsController : BaseController<PayOsController>
                     _logger.LogInformation("[PayOS Return] Payment successful, auto-confirming for orderCode={OrderCode}", orderCode);
                     
                     // Call service to confirm payment by orderCode
-                    var confirmResult = await _payOsPaymentService.ConfirmPaymentByOrderCodeAsync(orderCode, cancellationToken);
+                    var confirmResult = await _snakeCatchingPaymentService.ConfirmSnakeCatchingPaymentByOrderCodeAsync(orderCode, cancellationToken);
                     
                     _logger.LogInformation("[PayOS Return] Payment confirmed successfully. OrderCode={OrderCode}, Success={Success}", 
                         orderCode, confirmResult.Success);
@@ -344,15 +317,6 @@ public class PayOsController : BaseController<PayOsController>
         }
     }
 
-    /// <summary>
-    /// PayOS cancel URL handler
-    /// </summary>
-    /// <param name="code">PayOS response code</param>
-    /// <param name="id">PayOS transaction ID</param>
-    /// <param name="cancel">Whether payment was cancelled</param>
-    /// <param name="status">Payment status (CANCELLED, etc.)</param>
-    /// <param name="orderCode">Order code</param>
-    /// <returns>Payment cancellation page</returns>
     [AllowAnonymous]
     [HttpGet("cancel")]
     [SwaggerOperation(
@@ -500,11 +464,6 @@ public class PayOsController : BaseController<PayOsController>
         }
     }
 
-    /// <summary>
-    /// PayOS webhook endpoint
-    /// </summary>
-    /// <param name="cancellationToken">Cancellation token</param>
-    /// <returns>Webhook processing result</returns>
     [AllowAnonymous]
     [HttpPost("webhook")]
     [SwaggerOperation(
@@ -522,7 +481,7 @@ public class PayOsController : BaseController<PayOsController>
 
             _logger.LogInformation("PayOS webhook received. Payload length: {Length}", rawPayload.Length);
 
-            var result = await _payOsPaymentService.ProcessWebhookAsync(rawPayload, cancellationToken);
+            var result = await _snakeCatchingPaymentService.ProcessSnakeCatchingWebhookAsync(rawPayload, cancellationToken);
 
             return Ok(new
             {
@@ -551,12 +510,6 @@ public class PayOsController : BaseController<PayOsController>
         }
     }
 
-    /// <summary>
-    /// Transfer funds from system wallet to rescuer wallet
-    /// </summary>
-    /// <param name="request">Transfer request with SnakeCatchingRequestId</param>
-    /// <param name="cancellationToken">Cancellation token</param>
-    /// <returns>Transfer response with wallet balance details</returns>
     [HttpPost("transfer-to-rescuer")]
     [Authorize]
     [SwaggerOperation(
@@ -572,7 +525,7 @@ public class PayOsController : BaseController<PayOsController>
     {
         try
         {
-            var result = await _payOsPaymentService.TransferToRescuerAsync(request, cancellationToken);
+            var result = await _snakeCatchingPaymentService.TransferSnakeCatchingFundsToRescuerAsync(request, cancellationToken);
             return Ok(new
             {
                 success = true,
