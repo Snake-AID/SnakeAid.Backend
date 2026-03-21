@@ -136,12 +136,12 @@ This document analyzes 9 commits that implement a comprehensive refactor of the 
 **Message:** "Add operator notifications to incident and mission services"
 
 **Files Changed:**
-- [`SnakeAid.Service/Implements/RescueMissionService.cs`](../SnakeAid.Service/Implements/RescueMissionService.cs)
+- [`SnakeAid.Service/Implements/SnakeRescueMissionService.cs`](../SnakeAid.Service/Implements/SnakeRescueMissionService.cs)
 - [`SnakeAid.Service/Implements/SnakebiteIncidentService.cs`](../SnakeAid.Service/Implements/SnakebiteIncidentService.cs)
 
 **Key Code Changes:**
 
-**RescueMissionService:**
+**SnakeRescueMissionService:**
 - Added `IOperatorRealtimeNotificationService` dependency injection
 - Enhanced `RescuerAbortMissionAsync` to call `NotifyRescuerAbortedAsync`
 - Marked `UserCancelMissionAsync` as obsolete with migration guidance
@@ -337,7 +337,7 @@ public class ReportNoAnswerRequest
 - **Enhanced Services:**
   - `AuthService` - Added role validation in `LoginV2Async`
   - `SnakebiteIncidentService` - Added false alarm and no answer handling
-  - `RescueMissionService` - Added operator notifications for rescuer abort events
+  - `SnakeRescueMissionService` - Added operator notifications for rescuer abort events
 - **Deprecated Methods:**
   - `UserCancelMissionAsync` marked as obsolete
 

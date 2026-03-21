@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using SnakeAid.Core.Meta;
 using SnakeAid.Core.Requests.TreatmentFacility;
 using SnakeAid.Core.Responses.TreatmentFacility;
 
@@ -11,7 +12,11 @@ namespace SnakeAid.Service.Interfaces
     {
         public Task<IEnumerable<TreatmentFacilityResponse>> GetNearestActiveTreatmentFacilityAsync(double latitude, double longitude);
 
+        public Task<TreatmentFacilityResponse> GetTreatmentFacilityByIdAsync(int id);
+
         public Task<IEnumerable<TreatmentFacilityResponse>> GetAllTreatmentFacilitiesAsync();
+
+        public Task<PagedData<TreatmentFacilityResponse>> FilterTreatmentFacilitiesAsync(GetTreatmentFacilityRequest request);
 
         public Task<TreatmentFacilityResponse> CreateTreatmentFacilityAsync(CreateTreatmentFacilityRequest request);
 

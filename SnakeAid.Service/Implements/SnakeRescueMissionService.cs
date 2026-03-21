@@ -18,30 +18,35 @@ using SnakeAid.Service.Interfaces;
 
 namespace SnakeAid.Service.Implements
 {
-    public class RescueMissionService : IRescueMissionService
+    public class SnakeRescueMissionService : ISnakeRescueMissionService
     {
         private readonly IUnitOfWork<SnakeAidDbContext> _unitOfWork;
-        private readonly ILogger<RescueMissionService> _logger;
+        private readonly ILogger<SnakeRescueMissionService> _logger;
         private readonly IConfiguration _configuration;
 
         // Default price for rescue mission (có thể lấy từ SystemSetting sau)
         private const decimal DEFAULT_RESCUE_PRICE = 500000m;
         private const decimal PRICE_PER_KM_DEFAULT = 5000m; // VND per km (fallback if config missing)
 
+        private const string RESCUE_CENTER_LAT_KEY = "Pricing:RescueCenterLatitude";
+        private const string RESCUE_CENTER_LNG_KEY = "Pricing:RescueCenterLongitude";
 
+        private readonly ILocationIqService _locationIqService;
         private readonly IMissionNotificationService _notificationService;
         private readonly IOperatorRealtimeNotificationService _operatorRealtimeNotificationService;
 
-        public RescueMissionService(
+        public SnakeRescueMissionService(
             IUnitOfWork<SnakeAidDbContext> unitOfWork,
-            ILogger<RescueMissionService> logger,
+            ILogger<SnakeRescueMissionService> logger,
             IConfiguration configuration,
+            ILocationIqService locationIqService,
             IMissionNotificationService notificationService,
             IOperatorRealtimeNotificationService operatorRealtimeNotificationService)
         {
             _unitOfWork = unitOfWork;
             _logger = logger;
             _configuration = configuration;
+            _locationIqService = locationIqService;
             _notificationService = notificationService;
             _operatorRealtimeNotificationService = operatorRealtimeNotificationService;
         }
@@ -94,6 +99,35 @@ namespace SnakeAid.Service.Implements
                         throw new BadRequestException($"Active mission {existingActiveMission.Id} already exists for this incident.");
                     }
 
+                    // Pricing from rescue center to incident by default when price isn't explicitly provided
+                    decimal missionPrice = price > 0 ? price : DEFAULT_RESCUE_PRICE;
+                    decimal? distanceFromCenterKm = null;
+                    decimal? costFromCenter = null;
+
+                    if (price <= 0)
+                    {
+                        if (incident.LocationCoordinates == null)
+                        {
+                            throw new BadRequestException("Incident location coordinates are not available for pricing.");
+                        }
+
+                        try
+                        {
+                            var (distanceKm, priceVnd) = await CalculatePriceFromCenterAsync(
+                                incident.LocationCoordinates.Y,
+                                incident.LocationCoordinates.X);
+
+                            distanceFromCenterKm = Math.Round((decimal)distanceKm, 2);
+                            costFromCenter = priceVnd;
+                            missionPrice = priceVnd;
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogWarning(ex, "Could not calculate mission price from center location, fallback to default price: {DefaultPrice}", DEFAULT_RESCUE_PRICE);
+                            missionPrice = DEFAULT_RESCUE_PRICE;
+                        }
+                    }
+
                     // Create new mission
                     var mission = new RescueMission
                     {
@@ -101,7 +135,9 @@ namespace SnakeAid.Service.Implements
                         IncidentId = incidentId,
                         RescuerId = rescuerId,
                         Status = RescueMissionStatus.Preparing,
-                        Price = price > 0 ? price : DEFAULT_RESCUE_PRICE,
+                        Price = missionPrice,
+                        DistanceFromCenterKm = distanceFromCenterKm,
+                        CostFromCenter = costFromCenter,
                         CreatedAt = DateTime.UtcNow
                     };
 
@@ -640,6 +676,31 @@ namespace SnakeAid.Service.Implements
             return degrees * Math.PI / 180.0;
         }
 
+        private (double lat, double lng)? GetRescueCenterCoordinates()
+        {
+            var lat = _configuration.GetValue<double?>(RESCUE_CENTER_LAT_KEY);
+            var lng = _configuration.GetValue<double?>(RESCUE_CENTER_LNG_KEY);
+
+            if (!lat.HasValue || !lng.HasValue)
+            {
+                return null;
+            }
+
+            return (lat.Value, lng.Value);
+        }
+
+        private async Task<(double distanceKm, decimal priceVnd)> CalculatePriceFromCenterAsync(double incidentLat, double incidentLng)
+        {
+            var centerCoordinates = GetRescueCenterCoordinates();
+            if (!centerCoordinates.HasValue)
+            {
+                throw new InvalidOperationException("Rescue center coordinates are not configured.");
+            }
+
+            var center = centerCoordinates.Value;
+            return await _locationIqService.CalculateDistanceAndPriceAsync(center.lng, center.lat, incidentLng, incidentLat);
+        }
+
         public async Task<HospitalTransferPricingResponse> ReportHospitalTransferAsync(
             Guid missionId,
             Guid rescuerId,
@@ -667,21 +728,11 @@ namespace SnakeAid.Service.Implements
                 if (hospital == null)
                     throw new NotFoundException("Hospital not found or inactive");
 
-                // Step 3: Get pricing config (from SystemSettings or Configuration)
-                var pricePerKm = _configuration.GetValue<decimal>("Pricing:HospitalTransferPerKm", PRICE_PER_KM_DEFAULT);
-
-                // Step 4: Calculate price (simple multiplication)
-                var transferPrice = request.DistanceToHospitalKm * pricePerKm;
-                var totalPrice = mission.Price + transferPrice;
-
-                // Step 5: Update mission with hospital transfer info
+                // Step 4: Update mission with hospital transfer info (no pricing calculations in this flow)
                 return await _unitOfWork.ExecuteInTransactionAsync(async () =>
                 {
                     mission.RequiresHospitalization = true;
                     mission.HospitalId = request.HospitalId;
-                    mission.DistanceToHospitalKm = request.DistanceToHospitalKm;
-                    mission.HospitalTransferPrice = transferPrice;
-                    mission.ActualCost = totalPrice;
 
                     if (!string.IsNullOrWhiteSpace(request.Notes))
                     {
@@ -694,20 +745,15 @@ namespace SnakeAid.Service.Implements
                     await _unitOfWork.CommitAsync();
 
                     _logger.LogInformation(
-                        "✅ Hospital transfer reported - MissionId: {MissionId}, HospitalId: {HospitalId}, " +
-                        "Distance: {DistanceKm}km, TransferPrice: {TransferPrice} VND, TotalPrice: {TotalPrice} VND",
-                        missionId, request.HospitalId, request.DistanceToHospitalKm, transferPrice, totalPrice);
+                        "✅ Hospital transfer reported - MissionId: {MissionId}, HospitalId: {HospitalId}",
+                        missionId, request.HospitalId);
 
                     return new HospitalTransferPricingResponse
                     {
                         HospitalId = hospital.Id,
                         HospitalName = hospital.Name,
-                        DistanceKm = request.DistanceToHospitalKm,
-                        PricePerKm = pricePerKm,
-                        HospitalTransferPrice = transferPrice,
-                        BaseMissionPrice = mission.Price,
-                        TotalPrice = mission.ActualCost ?? totalPrice,
-                        CalculatedAt = DateTime.UtcNow
+                        RequiresHospitalization = true,
+                        UpdatedAt = DateTime.UtcNow
                     };
                 });
             }

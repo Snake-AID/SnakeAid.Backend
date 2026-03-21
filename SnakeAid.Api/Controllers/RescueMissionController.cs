@@ -19,13 +19,13 @@ namespace SnakeAid.Api.Controllers
     // [Authorize]
     public class RescueMissionController : BaseController<RescueMissionController>
     {
-        private readonly IRescueMissionService _missionService;
+        private readonly ISnakeRescueMissionService _missionService;
 
         public RescueMissionController(
             ILogger<RescueMissionController> logger,
             IHttpContextAccessor httpContextAccessor,
             IMapper mapper,
-            IRescueMissionService missionService)
+            ISnakeRescueMissionService missionService)
             : base(logger, httpContextAccessor, mapper)
         {
             _missionService = missionService;

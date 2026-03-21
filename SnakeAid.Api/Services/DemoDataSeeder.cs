@@ -614,6 +614,37 @@ namespace SnakeAid.Api.Services
                 _dbContext.RescueMissions.RemoveRange(missions);
                 _logger.LogInformation("Removing {Count} rescue missions", missions.Count);
 
+                // 5a. Delete SnakeCatchingMission and SnakeCatchingRequest related to demo rescuers/users
+                var demoCatchingRequestIds = await _dbContext.SnakeCatchingRequests
+                    .Where(r => demoUserIds.Contains(r.UserId)
+                        || (r.AssignedRescuerId.HasValue && demoUserIds.Contains(r.AssignedRescuerId.Value))
+                        || (r.HandlingOperatorId.HasValue && demoUserIds.Contains(r.HandlingOperatorId.Value)))
+                    .Select(r => r.Id)
+                    .ToListAsync();
+
+                var catchingMissions = await _dbContext.SnakeCatchingMissions
+                    .Where(m => demoUserIds.Contains(m.RescuerId) || demoCatchingRequestIds.Contains(m.SnakeCatchingRequestId))
+                    .ToListAsync();
+
+                var catchingMissionDetailItems = await _dbContext.CatchingMissionDetails
+                    .Where(d => catchingMissions.Select(m => m.Id).Contains(d.SnakeCatchingMissionId))
+                    .ToListAsync();
+
+                var catchingRequestDetailItems = await _dbContext.CatchingRequestDetails
+                    .Where(d => demoCatchingRequestIds.Contains(d.SnakeCatchingRequestId))
+                    .ToListAsync();
+
+                _dbContext.CatchingMissionDetails.RemoveRange(catchingMissionDetailItems);
+                _dbContext.CatchingRequestDetails.RemoveRange(catchingRequestDetailItems);
+                _dbContext.SnakeCatchingMissions.RemoveRange(catchingMissions);
+                _logger.LogInformation("Removing {Count} snake catching missions", catchingMissions.Count);
+
+                var catchingRequests = await _dbContext.SnakeCatchingRequests
+                    .Where(r => demoCatchingRequestIds.Contains(r.Id))
+                    .ToListAsync();
+                _dbContext.SnakeCatchingRequests.RemoveRange(catchingRequests);
+                _logger.LogInformation("Removing {Count} snake catching requests", catchingRequests.Count);
+
                 // 6. Delete SnakebiteIncidents
                 var incidents = await _dbContext.SnakebiteIncidents
                     .Where(i => demoIncidentIds.Contains(i.Id))
@@ -627,6 +658,13 @@ namespace SnakeAid.Api.Services
                     .ToListAsync();
                 _dbContext.AppNotifications.RemoveRange(notifications);
                 _logger.LogInformation("Removing {Count} notifications", notifications.Count);
+
+                // 7a. Delete UserFeedback related to demo users (rater or target)
+                var feedbacks = await _dbContext.UserFeedbacks
+                    .Where(f => demoUserIds.Contains(f.RaterId) || demoUserIds.Contains(f.TargetUserId))
+                    .ToListAsync();
+                _dbContext.UserFeedbacks.RemoveRange(feedbacks);
+                _logger.LogInformation("Removing {Count} user feedback entries", feedbacks.Count);
 
                 // 8. Delete Transactions for demo users (if any)
                 var transactions = await _dbContext.Transactions
