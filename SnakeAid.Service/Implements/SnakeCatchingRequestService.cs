@@ -701,7 +701,7 @@ namespace SnakeAid.Service.Implements
                 {
                     foreach (var detail in missionResponse.MissionDetails)
                     {
-                        detail.Price = detail.Quantity * AdditionalSnakePrice;
+                        detail.Price = detail.Quantity * additionalSnakePrice;
                     }
                 }
 

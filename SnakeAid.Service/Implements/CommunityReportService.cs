@@ -40,7 +40,7 @@ namespace SnakeAid.Service.Implements
                 Id = Guid.NewGuid(),
                 UserId = userId,
                 LocationCoordinates = new Point(request.Longitude, request.Latitude) { SRID = 4326 },
-                AdditionalDetails = request.AdditionalDetails
+                Notes = request.Notes
             };
 
             await _unitOfWork.GetRepository<CommunityReport>().InsertAsync(report);
@@ -109,9 +109,9 @@ namespace SnakeAid.Service.Implements
                 report.LocationCoordinates = new Point(request.Longitude.Value, request.Latitude.Value) { SRID = 4326 };
             }
 
-            if (request.AdditionalDetails != null)
+            if (request.Notes != null)
             {
-                report.AdditionalDetails = request.AdditionalDetails;
+                report.Notes = request.Notes;
             }
 
             _unitOfWork.GetRepository<CommunityReport>().Update(report);
@@ -165,7 +165,7 @@ namespace SnakeAid.Service.Implements
                 ReporterName = report.User?.FullName,
                 Longitude = report.LocationCoordinates?.X ?? 0,
                 Latitude = report.LocationCoordinates?.Y ?? 0,
-                AdditionalDetails = report.AdditionalDetails,
+                Notes = report.Notes,
                 CreatedAt = report.CreatedAt,
                 UpdatedAt = report.UpdatedAt
             };

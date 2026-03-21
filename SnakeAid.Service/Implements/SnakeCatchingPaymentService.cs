@@ -94,11 +94,15 @@ public class SnakeCatchingPaymentService : ISnakeCatchingPaymentService
         _unitOfWork.GetRepository<Transaction>().Delete(transaction);
         await _unitOfWork.CommitAsync();
 
+        var catchingRequestId = transaction.ReferenceId;
+
         return new CancelPaymentLinkResponse
         {
+            Success = true,
+            ReferenceId = catchingRequestId,
             OrderCode = orderCode,
-            Status = providerResult.Status,
-            Amount = Convert.ToInt32(Math.Round(providerResult.Amount, MidpointRounding.AwayFromZero)),
+            Status = PaymentStatus.Cancelled,
+            Amount = providerResult.Amount,
             AmountPaid = providerResult.AmountPaid,
             AmountRemaining = providerResult.AmountRemaining,
             Message = "Snake catching payment link cancelled successfully"
