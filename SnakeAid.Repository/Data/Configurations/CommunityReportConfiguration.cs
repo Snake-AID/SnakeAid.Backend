@@ -19,6 +19,13 @@ namespace SnakeAid.Repository.Data.Configurations
             // Indexes
             builder.HasIndex(r => r.UserId)
                 .HasDatabaseName("IX_CommunityReports_UserId");
+
+            builder.HasIndex(i => i.LocationCoordinates)
+                .HasMethod("GIST")
+                .HasDatabaseName("IX_CommunityReports_Location");
+
+            // Ignore polymorphic collection so EF core doesn't create Shadow Foreign Keys
+            builder.Ignore(r => r.Media);
         }
     }
 }
