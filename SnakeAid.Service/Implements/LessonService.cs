@@ -37,6 +37,8 @@ namespace SnakeAid.Service.Implements
                     Id = Guid.NewGuid(),
                     Title = request.Title,
                     Content = request.Content,
+                    Category = request.Category,
+                    IsPublished = request.IsPublished,
                     CreatedAt = DateTime.UtcNow,
                     UpdatedAt = DateTime.UtcNow
                 };
@@ -94,6 +96,16 @@ namespace SnakeAid.Service.Implements
                 if (!string.IsNullOrWhiteSpace(request.Content))
                 {
                     lesson.Content = request.Content;
+                }
+
+                if (request.Category.HasValue)
+                {
+                    lesson.Category = request.Category.Value;
+                }
+
+                if (request.IsPublished.HasValue)
+                {
+                    lesson.IsPublished = request.IsPublished.Value;
                 }
 
                 lesson.UpdatedAt = DateTime.UtcNow;
