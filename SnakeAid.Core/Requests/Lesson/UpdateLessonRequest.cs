@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using SnakeAid.Core.Domains;
 
 namespace SnakeAid.Core.Requests.Lesson
 {
@@ -8,5 +9,10 @@ namespace SnakeAid.Core.Requests.Lesson
         public string? Title { get; set; }
 
         public string? Content { get; set; }
+
+        [EnumDataType(typeof(Category), ErrorMessage = "Category is invalid")]
+        public Category? Category { get; set; }
+
+        public bool? IsPublished { get; set; }
     }
 }
