@@ -14,15 +14,21 @@ namespace SnakeAid.Api.Controllers;
 public class PayOsController : BaseController<PayOsController>
 {
     private readonly ISnakeCatchingPaymentService _snakeCatchingPaymentService;
+    private readonly IConsultationPaymentService _consultationPaymentService;
+    private readonly IPaymentGateway _paymentGateway;
 
     public PayOsController(
         ILogger<PayOsController> logger,
         IHttpContextAccessor httpContextAccessor,
         IMapper mapper,
-        ISnakeCatchingPaymentService snakeCatchingPaymentService)
+        ISnakeCatchingPaymentService snakeCatchingPaymentService,
+        IConsultationPaymentService consultationPaymentService,
+        IPaymentGateway paymentGateway)
         : base(logger, httpContextAccessor, mapper)
     {
         _snakeCatchingPaymentService = snakeCatchingPaymentService;
+        _consultationPaymentService = consultationPaymentService;
+        _paymentGateway = paymentGateway;
     }
 
     [HttpPost("snakecatching/paylink/create")]
@@ -194,9 +200,11 @@ public class PayOsController : BaseController<PayOsController>
                 try
                 {
                     _logger.LogInformation("[PayOS Return] Payment successful, auto-confirming for orderCode={OrderCode}", orderCode);
-                    
-                    // Call service to confirm payment by orderCode
-                    var confirmResult = await _snakeCatchingPaymentService.ConfirmSnakeCatchingPaymentByOrderCodeAsync(orderCode, cancellationToken);
+
+                    var isConsultationOrder = await _consultationPaymentService.IsConsultationPayOsOrderCodeAsync(orderCode, cancellationToken);
+                    var confirmResult = isConsultationOrder
+                        ? await _consultationPaymentService.ConfirmConsultationPaymentByOrderCodeAsync(orderCode, cancellationToken)
+                        : await _snakeCatchingPaymentService.ConfirmSnakeCatchingPaymentByOrderCodeAsync(orderCode, cancellationToken);
                     
                     _logger.LogInformation("[PayOS Return] Payment confirmed successfully. OrderCode={OrderCode}, Success={Success}", 
                         orderCode, confirmResult.Success);
@@ -481,7 +489,11 @@ public class PayOsController : BaseController<PayOsController>
 
             _logger.LogInformation("PayOS webhook received. Payload length: {Length}", rawPayload.Length);
 
-            var result = await _snakeCatchingPaymentService.ProcessSnakeCatchingWebhookAsync(rawPayload, cancellationToken);
+            var webhook = _paymentGateway.VerifyWebhook(rawPayload);
+            var isConsultationOrder = await _consultationPaymentService.IsConsultationPayOsOrderCodeAsync(webhook.OrderCode, cancellationToken);
+            var result = isConsultationOrder
+                ? await _consultationPaymentService.ProcessConsultationWebhookAsync(rawPayload, cancellationToken)
+                : await _snakeCatchingPaymentService.ProcessSnakeCatchingWebhookAsync(rawPayload, cancellationToken);
 
             return Ok(new
             {

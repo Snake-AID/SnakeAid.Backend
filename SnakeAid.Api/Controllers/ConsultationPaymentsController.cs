@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SnakeAid.Core.Meta;
 using SnakeAid.Core.Requests.Consultation;
+using SnakeAid.Core.Requests.PayOs;
 using SnakeAid.Core.Responses.Consultation;
 using SnakeAid.Service.Interfaces;
 
@@ -46,6 +47,16 @@ public class ConsultationPaymentsController : BaseController<ConsultationPayment
     {
         var userId = GetCurrentUserId();
         var result = await _consultationPaymentService.PayEmergencyRequestAsync(userId, requestId, request, cancellationToken);
+        return Ok(ApiResponseBuilder.BuildSuccessResponse(result));
+    }
+
+    [HttpPost("/api/consultation-payments/confirm-payment")]
+    [Authorize(Roles = "User")]
+    public async Task<ActionResult<ApiResponse<ConsultationPaymentResponse>>> ConfirmConsultationPayment(
+        [FromBody] ConfirmPaymentRequest request,
+        CancellationToken cancellationToken)
+    {
+        var result = await _consultationPaymentService.ConfirmConsultationPaymentAsync(request.TransactionId, cancellationToken);
         return Ok(ApiResponseBuilder.BuildSuccessResponse(result));
     }
 }
