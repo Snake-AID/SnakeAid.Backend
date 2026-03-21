@@ -23,19 +23,19 @@ namespace SnakeAid.Service.Implements
     {
         private readonly IUnitOfWork<SnakeAidDbContext> _unitOfWork;
         private readonly ILogger<SnakeCatchingMissionService> _logger;
-        private readonly IPayOsPaymentService _payOsPaymentService;
+        private readonly ISnakeCatchingPaymentService _snakeCatchingPaymentService;
 
-        private readonly decimal basePrice = 500000;
-        private readonly decimal additionalSnakePrice = 100000;
+        private const decimal BasePrice = 500000;
+        private const decimal AdditionalSnakePrice = 100000;
 
         public SnakeCatchingMissionService(
             IUnitOfWork<SnakeAidDbContext> unitOfWork,
             ILogger<SnakeCatchingMissionService> logger,
-            IPayOsPaymentService payOsPaymentService)
+            ISnakeCatchingPaymentService snakeCatchingPaymentService)
         {
             _unitOfWork = unitOfWork;
             _logger = logger;
-            _payOsPaymentService = payOsPaymentService;
+            _snakeCatchingPaymentService = snakeCatchingPaymentService;
         }
 
         public async Task<SnakeCatchingMissionDetailResponse> StartMissionAsync(
@@ -203,15 +203,15 @@ namespace SnakeAid.Service.Implements
                     var snakeQuantity = mission.MissionDetails?.Sum(d => d.Quantity);
                     if (snakeQuantity > 0)
                     {
-                        decimal additionalCosts = snakeQuantity.Value * additionalSnakePrice;
-                        mission.ActualCost = basePrice + additionalCosts + envCost;
+                        decimal additionalCosts = snakeQuantity.Value * AdditionalSnakePrice;
+                        mission.ActualCost = BasePrice + additionalCosts + envCost;
                     }
                     else
                     {
                         mission.ActualCost = 0;
                     }
 
-                    mission.Price = basePrice;
+                    mission.Price = BasePrice;
 
                     // Update mission to MissionCompleted
                     mission.Status = CatchingMissionStatus.MissionCompleted;
@@ -262,7 +262,7 @@ namespace SnakeAid.Service.Implements
                             SnakeSpeciesId = d.SnakeSpeciesId,
                             SnakeSpeciesName = d.SnakeSpecies?.CommonName,
                             Quantity = d.Quantity,
-                            Price = d.Quantity * additionalSnakePrice,
+                            Price = d.Quantity * AdditionalSnakePrice,
                             CreatedAt = d.CreatedAt,
                             UpdatedAt = d.UpdatedAt
                         }).ToList();
@@ -362,7 +362,7 @@ namespace SnakeAid.Service.Implements
                                     TransactionType = TransactionType.CatchingRefund
                                 };
 
-                                var refundResponse = await _payOsPaymentService.RefundTransactionAsync(
+                                var refundResponse = await _snakeCatchingPaymentService.RefundSnakeCatchingTransactionAsync(
                                     refundRequest,
                                     cancellationToken: default);
 

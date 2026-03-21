@@ -6,6 +6,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using SnakeAid.Core.Domains;
+using SnakeAid.Core.Exceptions;
+using SnakeAid.Core.Meta;
 using SnakeAid.Core.Requests.TreatmentFacility;
 using SnakeAid.Core.Responses.TreatmentFacility;
 using SnakeAid.Repository.Data;
@@ -48,6 +50,7 @@ namespace SnakeAid.Service.Implements
                 .GetListAsync<TreatmentFacilityResponse>(
                     predicate: h => h.IsActive &&
                         EF.Functions.IsWithinDistance(h.Location, userPoint, MaxDistanceMeters, true),
+                    include: q => q.Include(h => h.AntivenomStocks),
                     orderBy: q => q.OrderBy(h => h.Location.Distance(userPoint)),
                     selector: h => new TreatmentFacilityResponse
                     {
@@ -57,11 +60,27 @@ namespace SnakeAid.Service.Implements
                         ContactNumber = h.ContactNumber,
                         Latitude = h.Location.Y,
                         Longitude = h.Location.X,
-                        DistanceKm = EF.Functions.Distance(h.Location, userPoint, true) / 1000
+                        DistanceKm = EF.Functions.Distance(h.Location, userPoint, true) / 1000,
+                        AntivenomIds = h.AntivenomStocks.Select(x => x.Id).ToList()
                     }
                 );
 
             return nearbyHospitals;
+        }
+
+        public async Task<TreatmentFacilityResponse> GetTreatmentFacilityByIdAsync(int id)
+        {
+            var facility = await _unitOfWork.GetRepository<TreatmentFacility>()
+                .FirstOrDefaultAsync(
+                    predicate: x => x.Id == id,
+                    include: q => q.Include(x => x.AntivenomStocks));
+
+            if (facility == null)
+            {
+                throw new NotFoundException("Treatment facility not found.");
+            }
+
+            return MapToResponse(facility);
         }
 
 
@@ -70,6 +89,7 @@ namespace SnakeAid.Service.Implements
             var nearbyHospitals = await _unitOfWork
                 .GetRepository<TreatmentFacility>()
                 .GetListAsync<TreatmentFacilityResponse>(
+                    include: q => q.Include(h => h.AntivenomStocks),
                     orderBy: q => q.OrderBy(h => h.Id),
                     selector: h => new TreatmentFacilityResponse
                     {
@@ -79,11 +99,46 @@ namespace SnakeAid.Service.Implements
                         ContactNumber = h.ContactNumber,
                         Latitude = h.Location.Y,
                         Longitude = h.Location.X,
-                        DistanceKm = 0
+                        DistanceKm = 0,
+                        AntivenomIds = h.AntivenomStocks.Select(x => x.Id).ToList()
                     }
                 );
 
             return nearbyHospitals;
+        }
+
+        public async Task<PagedData<TreatmentFacilityResponse>> FilterTreatmentFacilitiesAsync(GetTreatmentFacilityRequest request)
+        {
+            var normalizedName = request.Name?.Trim();
+
+            var pagedData = await _unitOfWork
+                .GetRepository<TreatmentFacility>()
+                .GetPagingListAsync(
+                    selector: h => new TreatmentFacilityResponse
+                    {
+                        Id = h.Id,
+                        Name = h.Name,
+                        Address = h.Address,
+                        ContactNumber = h.ContactNumber,
+                        Latitude = h.Location.Y,
+                        Longitude = h.Location.X,
+                        DistanceKm = 0,
+                        AntivenomIds = h.AntivenomStocks.Select(x => x.Id).ToList()
+                    },
+                    predicate: h =>
+                        (string.IsNullOrWhiteSpace(normalizedName) || h.Name.Contains(normalizedName))
+                        && (!request.IsActive.HasValue || h.IsActive == request.IsActive.Value)
+                        && (!request.AntivenomId.HasValue || h.AntivenomStocks.Any(a => a.Id == request.AntivenomId.Value)),
+                    include: q => q.Include(h => h.AntivenomStocks),
+                    orderBy: q => q.OrderBy(h => h.Id),
+                    page: request.PageNumber,
+                    size: request.PageSize);
+
+            return new PagedData<TreatmentFacilityResponse>
+            {
+                Items = pagedData.Items,
+                Meta = pagedData.Meta
+            };
         }
 
         public async Task<TreatmentFacilityResponse> CreateTreatmentFacilityAsync(CreateTreatmentFacilityRequest request)
@@ -109,22 +164,19 @@ namespace SnakeAid.Service.Implements
                     IsActive = request.IsActive
                 };
 
+                var antivenoms = await ResolveAntivenomsByIdsAsync(request.AntivenomIds);
+                foreach (var antivenom in antivenoms)
+                {
+                    newFacility.AntivenomStocks.Add(antivenom);
+                }
+
                 var createdFacility = await _unitOfWork.GetRepository<TreatmentFacility>().InsertAsync(newFacility);
                 var result = await _unitOfWork.CommitAsync();
 
                 if (result <= 0)
                     throw new InvalidOperationException("Failed to create treatment facility.");
 
-                return new TreatmentFacilityResponse
-                {
-                    Id = createdFacility.Id,
-                    Name = createdFacility.Name,
-                    Address = createdFacility.Address,
-                    ContactNumber = createdFacility.ContactNumber,
-                    Latitude = createdFacility.Location.Y,
-                    Longitude = createdFacility.Location.X,
-                    DistanceKm = 0
-                };
+                return MapToResponse(createdFacility);
             }
             catch (Exception ex)
             {
@@ -141,7 +193,10 @@ namespace SnakeAid.Service.Implements
 
                 var repo = _unitOfWork.GetRepository<TreatmentFacility>();
 
-                var existingFacility = await repo.FirstOrDefaultAsync(predicate: f => f.Id == id);
+                var existingFacility = await repo.FirstOrDefaultAsync(
+                    predicate: f => f.Id == id,
+                    include: q => q.Include(x => x.AntivenomStocks),
+                    asNoTracking: false);
 
                 if (existingFacility == null)
                     throw new InvalidOperationException("Treatment facility not found.");
@@ -162,22 +217,23 @@ namespace SnakeAid.Service.Implements
                 existingFacility.ContactNumber = request.ContactNumber;
                 existingFacility.IsActive = request.IsActive;
 
+                if (request.AntivenomIds != null)
+                {
+                    var antivenoms = await ResolveAntivenomsByIdsAsync(request.AntivenomIds);
+                    existingFacility.AntivenomStocks.Clear();
+                    foreach (var antivenom in antivenoms)
+                    {
+                        existingFacility.AntivenomStocks.Add(antivenom);
+                    }
+                }
+
                 repo.Update(existingFacility);
                 var result = await _unitOfWork.CommitAsync();
 
                 if (result <= 0)
                     throw new InvalidOperationException("Failed to update treatment facility.");
 
-                return new TreatmentFacilityResponse
-                {
-                    Id = existingFacility.Id,
-                    Name = existingFacility.Name,
-                    Address = existingFacility.Address,
-                    ContactNumber = existingFacility.ContactNumber,
-                    Latitude = existingFacility.Location.Y,
-                    Longitude = existingFacility.Location.X,
-                    DistanceKm = 0
-                };
+                return MapToResponse(existingFacility);
             }
             catch (Exception ex)
             {
@@ -212,6 +268,50 @@ namespace SnakeAid.Service.Implements
                 _logger.LogError(ex, "Error updating treatment facility with Id {id}", id);
                 throw;
             }
+        }
+
+        private async Task<List<Antivenom>> ResolveAntivenomsByIdsAsync(List<int>? antivenomIds)
+        {
+            if (antivenomIds == null || antivenomIds.Count == 0)
+            {
+                return new List<Antivenom>();
+            }
+
+            var normalizedIds = antivenomIds
+                .Where(x => x > 0)
+                .Distinct()
+                .ToList();
+
+            if (normalizedIds.Count != antivenomIds.Count)
+            {
+                throw new BadRequestException("AntivenomIds contains invalid value(s).");
+            }
+
+            var antivenoms = await _unitOfWork.GetRepository<Antivenom>()
+                .GetListAsync(predicate: x => normalizedIds.Contains(x.Id), asNoTracking: false);
+
+            var missingIds = normalizedIds.Except(antivenoms.Select(x => x.Id)).ToList();
+            if (missingIds.Count > 0)
+            {
+                throw new NotFoundException($"Antivenom not found for ID(s): {string.Join(", ", missingIds)}");
+            }
+
+            return antivenoms.ToList();
+        }
+
+        private static TreatmentFacilityResponse MapToResponse(TreatmentFacility facility)
+        {
+            return new TreatmentFacilityResponse
+            {
+                Id = facility.Id,
+                Name = facility.Name,
+                Address = facility.Address,
+                ContactNumber = facility.ContactNumber,
+                Latitude = facility.Location.Y,
+                Longitude = facility.Location.X,
+                DistanceKm = 0,
+                AntivenomIds = facility.AntivenomStocks.Select(x => x.Id).ToList()
+            };
         }
     }
 }

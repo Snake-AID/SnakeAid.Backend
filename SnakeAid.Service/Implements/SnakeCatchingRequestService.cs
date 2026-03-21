@@ -25,7 +25,6 @@ namespace SnakeAid.Service.Implements
         private readonly ILogger<SnakeCatchingRequestService> _logger;
         private readonly IConfiguration _configuration;
         private readonly ILocationIqService _locationIqService;
-        private readonly IPayOsPaymentService _payOsPaymentService;
         private readonly ISnakeAIService _snakeAIService;
         private readonly ISnakeCatchingRequestNotificationService _snakeCatchingRequestNotificationService;
         private readonly decimal additionalSnakePrice = 100000;
@@ -36,7 +35,6 @@ namespace SnakeAid.Service.Implements
             ILogger<SnakeCatchingRequestService> logger,
             IConfiguration configuration,
             ILocationIqService locationIqService,
-            IPayOsPaymentService payOsPaymentService,
             ISnakeAIService snakeAIService,
             ISnakeCatchingRequestNotificationService snakeCatchingRequestNotificationService)
         {
@@ -44,7 +42,6 @@ namespace SnakeAid.Service.Implements
             _logger = logger;
             _configuration = configuration;
             _locationIqService = locationIqService;
-            _payOsPaymentService = payOsPaymentService;
             _snakeAIService = snakeAIService;
             _snakeCatchingRequestNotificationService = snakeCatchingRequestNotificationService;
         }
@@ -704,7 +701,7 @@ namespace SnakeAid.Service.Implements
                 {
                     foreach (var detail in missionResponse.MissionDetails)
                     {
-                        detail.Price = detail.Quantity * additionalSnakePrice;
+                        detail.Price = detail.Quantity * AdditionalSnakePrice;
                     }
                 }
 

@@ -119,6 +119,37 @@ public class CloudinaryService : ICloudinaryService
         return MapUploadResult(uploadResult, folder, tags);
     }
 
+    public async Task<bool> DeleteByUrlAsync(string mediaUrl, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(mediaUrl))
+        {
+            return false;
+        }
+
+        if (!TryParsePublicIdAndResourceType(mediaUrl, out var publicId, out var resourceType))
+        {
+            _logger.LogWarning("Cannot parse Cloudinary publicId from URL: {MediaUrl}", mediaUrl);
+            return false;
+        }
+
+        var deletionParams = new DeletionParams(publicId)
+        {
+            ResourceType = resourceType,
+            Invalidate = true
+        };
+
+        var result = await _cloudinary.DestroyAsync(deletionParams);
+
+        if (result.Error is not null)
+        {
+            _logger.LogError("Cloudinary delete failed: {Error}; PublicId: {PublicId}", result.Error.Message, publicId);
+            throw new BadRequestException($"Cloudinary delete failed: {result.Error.Message}");
+        }
+
+        return string.Equals(result.Result, "ok", StringComparison.OrdinalIgnoreCase)
+               || string.Equals(result.Result, "not found", StringComparison.OrdinalIgnoreCase);
+    }
+
     private static void ValidateFile(IFormFile? file, IEnumerable<string> allowedExtensions, long maxSizeBytes, string kind)
     {
         if (file is null || file.Length == 0)
@@ -201,6 +232,71 @@ public class CloudinaryService : ICloudinaryService
             NormalizeSegment(_environment.EnvironmentName),
             domain
         };
+    }
+
+    private static bool TryParsePublicIdAndResourceType(string mediaUrl, out string publicId, out ResourceType resourceType)
+    {
+        publicId = string.Empty;
+        resourceType = ResourceType.Image;
+
+        if (!Uri.TryCreate(mediaUrl, UriKind.Absolute, out var uri))
+        {
+            return false;
+        }
+
+        var segments = uri.AbsolutePath
+            .Trim('/')
+            .Split('/', StringSplitOptions.RemoveEmptyEntries)
+            .ToList();
+
+        var uploadIndex = segments.FindIndex(s => string.Equals(s, "upload", StringComparison.OrdinalIgnoreCase));
+        if (uploadIndex <= 0 || uploadIndex >= segments.Count - 1)
+        {
+            return false;
+        }
+
+        resourceType = ParseResourceType(segments[uploadIndex - 1]);
+        var publicIdSegments = segments.Skip(uploadIndex + 1).ToList();
+
+        if (publicIdSegments.Count == 0)
+        {
+            return false;
+        }
+
+        if (Regex.IsMatch(publicIdSegments[0], "^v\\d+$", RegexOptions.Compiled))
+        {
+            publicIdSegments.RemoveAt(0);
+        }
+
+        if (publicIdSegments.Count == 0)
+        {
+            return false;
+        }
+
+        var lastSegment = publicIdSegments[^1];
+        var extension = Path.GetExtension(lastSegment);
+        if (!string.IsNullOrWhiteSpace(extension))
+        {
+            publicIdSegments[^1] = lastSegment[..^extension.Length];
+        }
+
+        publicId = string.Join("/", publicIdSegments);
+        return !string.IsNullOrWhiteSpace(publicId);
+    }
+
+    private static ResourceType ParseResourceType(string resourceType)
+    {
+        if (string.Equals(resourceType, "video", StringComparison.OrdinalIgnoreCase))
+        {
+            return ResourceType.Video;
+        }
+
+        if (string.Equals(resourceType, "raw", StringComparison.OrdinalIgnoreCase))
+        {
+            return ResourceType.Raw;
+        }
+
+        return ResourceType.Image;
     }
 
     private CloudinaryUploadResult MapUploadResult(UploadResult uploadResult, string folder, IReadOnlyCollection<string> tags)
