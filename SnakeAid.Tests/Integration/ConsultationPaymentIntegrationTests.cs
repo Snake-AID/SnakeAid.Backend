@@ -7,6 +7,7 @@ using SnakeAid.Repository.Data;
 using SnakeAid.Repository.Implements;
 using SnakeAid.Service.Implements;
 using SnakeAid.Service.Interfaces;
+using SnakeAid.Service.Services.PayOs.Models;
 using System.Reflection;
 
 namespace SnakeAid.Tests.Integration;
@@ -136,6 +137,146 @@ public class ConsultationPaymentIntegrationTests
         var systemWallet = await db.Set<Wallet>().FirstAsync(w => w.UserId == SystemUserId);
         Assert.Equal(0m, userWallet.Balance);
         Assert.Equal(500_000m, systemWallet.Balance);
+    }
+
+    [Fact]
+    public async Task PayScheduledBookingAsync_WithPayOs_ShouldCreatePendingIntent_WithoutEscrowingImmediately()
+    {
+        var userId = Guid.NewGuid();
+        var expertId = Guid.NewGuid();
+        var bookingId = Guid.NewGuid();
+        var consultationId = Guid.NewGuid();
+        var slotId = Guid.NewGuid();
+
+        await using var db = CreateDbContext();
+        await SeedAccountsAsync(db, userId, expertId);
+        await SeedWalletsAsync(db, userId, expertId, 500_000m, 0m, 0m);
+
+        db.ExpertTimeSlots.Add(new ExpertTimeSlot
+        {
+            Id = slotId,
+            ExpertId = expertId,
+            StartTime = DateTime.UtcNow.AddHours(1),
+            EndTime = DateTime.UtcNow.AddHours(1.5),
+            Status = TimeSlotStatus.Reserved,
+            Version = 0
+        });
+
+        db.Consultations.Add(new Consultation
+        {
+            Id = consultationId,
+            CallerId = userId,
+            CalleeId = expertId,
+            RoomId = $"consultation-{consultationId:N}",
+            StartTime = DateTime.UtcNow.AddHours(1),
+            Status = ConsultationStatus.Scheduled,
+            Type = ConsultationType.Scheduled
+        });
+
+        db.ConsultationBookings.Add(new ConsultationBooking
+        {
+            Id = bookingId,
+            UserId = userId,
+            ExpertId = expertId,
+            Price = 150_000m,
+            BookedAt = DateTime.UtcNow,
+            PaymentDeadline = DateTime.UtcNow.AddMinutes(15),
+            Status = BookingStatus.PendingPayment,
+            TimeSlotId = slotId,
+            ConsultationId = consultationId
+        });
+
+        await db.SaveChangesAsync();
+
+        var service = CreatePaymentService(db, paymentGateway: new FakePaymentGateway());
+        var response = await service.PayScheduledBookingAsync(userId, bookingId, new ProcessConsultationPaymentRequest
+        {
+            PaymentMethod = ConsultationPaymentMethod.PayOs
+        });
+
+        Assert.Equal("Pending", response.Status);
+        Assert.Equal(ConsultationPaymentMethod.PayOs, response.PaymentMethod);
+        Assert.NotNull(response.CheckoutUrl);
+        Assert.NotNull(response.OrderCode);
+
+        var booking = await db.ConsultationBookings.FirstAsync(x => x.Id == bookingId);
+        Assert.Equal(BookingStatus.PendingPayment, booking.Status);
+
+        var userWallet = await db.Set<Wallet>().FirstAsync(w => w.UserId == userId);
+        var systemWallet = await db.Set<Wallet>().FirstAsync(w => w.UserId == SystemUserId);
+        Assert.Equal(500_000m, userWallet.Balance);
+        Assert.Equal(0m, systemWallet.Balance);
+    }
+
+    [Fact]
+    public async Task ConfirmConsultationPaymentAsync_WithPayOs_ShouldEscrowAndConfirmBooking()
+    {
+        var userId = Guid.NewGuid();
+        var expertId = Guid.NewGuid();
+        var bookingId = Guid.NewGuid();
+        var consultationId = Guid.NewGuid();
+        var slotId = Guid.NewGuid();
+
+        await using var db = CreateDbContext();
+        await SeedAccountsAsync(db, userId, expertId);
+        await SeedWalletsAsync(db, userId, expertId, 500_000m, 0m, 0m);
+
+        db.ExpertTimeSlots.Add(new ExpertTimeSlot
+        {
+            Id = slotId,
+            ExpertId = expertId,
+            StartTime = DateTime.UtcNow.AddHours(1),
+            EndTime = DateTime.UtcNow.AddHours(1.5),
+            Status = TimeSlotStatus.Reserved,
+            Version = 0
+        });
+
+        db.Consultations.Add(new Consultation
+        {
+            Id = consultationId,
+            CallerId = userId,
+            CalleeId = expertId,
+            RoomId = $"consultation-{consultationId:N}",
+            StartTime = DateTime.UtcNow.AddHours(1),
+            Status = ConsultationStatus.Scheduled,
+            Type = ConsultationType.Scheduled
+        });
+
+        db.ConsultationBookings.Add(new ConsultationBooking
+        {
+            Id = bookingId,
+            UserId = userId,
+            ExpertId = expertId,
+            Price = 150_000m,
+            BookedAt = DateTime.UtcNow,
+            PaymentDeadline = DateTime.UtcNow.AddMinutes(15),
+            Status = BookingStatus.PendingPayment,
+            TimeSlotId = slotId,
+            ConsultationId = consultationId
+        });
+
+        await db.SaveChangesAsync();
+
+        var paymentGateway = new FakePaymentGateway();
+        var service = CreatePaymentService(db, paymentGateway: paymentGateway);
+        var pending = await service.PayScheduledBookingAsync(userId, bookingId, new ProcessConsultationPaymentRequest
+        {
+            PaymentMethod = ConsultationPaymentMethod.PayOs
+        });
+
+        var confirmed = await service.ConfirmConsultationPaymentAsync(pending.TransactionId);
+
+        Assert.Equal("Escrowed", confirmed.Status);
+        Assert.Equal(ConsultationPaymentMethod.PayOs, confirmed.PaymentMethod);
+
+        var booking = await db.ConsultationBookings.FirstAsync(x => x.Id == bookingId);
+        Assert.Equal(BookingStatus.Confirmed, booking.Status);
+
+        var paymentTx = await db.Set<Transaction>().FirstAsync(t => t.Id == pending.TransactionId);
+        Assert.False(string.IsNullOrWhiteSpace(paymentTx.ExternalTransactionId));
+
+        var systemWallet = await db.Set<Wallet>().FirstAsync(w => w.UserId == SystemUserId);
+        Assert.Equal(150_000m, systemWallet.Balance);
     }
 
     [Fact]
@@ -274,11 +415,13 @@ public class ConsultationPaymentIntegrationTests
 
     private static ConsultationPaymentService CreatePaymentService(
         SnakeAidDbContext db,
-        IExpertEmergencyNotificationService? notificationService = null)
+        IExpertEmergencyNotificationService? notificationService = null,
+        IPaymentGateway? paymentGateway = null)
     {
         return new ConsultationPaymentService(
             new UnitOfWork<SnakeAidDbContext>(db),
             notificationService ?? new RecordingExpertEmergencyNotificationService(),
+            paymentGateway ?? new FakePaymentGateway(),
             NullLogger<ConsultationPaymentService>.Instance);
     }
 
@@ -375,6 +518,42 @@ public class ConsultationPaymentIntegrationTests
         }
 
         public Task NotifyEmergencyRequestStatusChangedAsync(Guid requestId, object statusData) => Task.CompletedTask;
+    }
+
+    private sealed class FakePaymentGateway : IPaymentGateway
+    {
+        public Task<PayOsPaymentLinkResult> CreatePaymentLinkAsync(PayOsCreatePaymentRequest request, CancellationToken cancellationToken)
+            => Task.FromResult(new PayOsPaymentLinkResult
+            {
+                Success = true,
+                OrderCode = request.OrderCode,
+                PaymentLinkId = $"link-{request.OrderCode}",
+                CheckoutUrl = $"https://payos.test/{request.OrderCode}",
+                Amount = request.Amount,
+                Status = "PENDING",
+                Currency = "VND"
+            });
+
+        public Task<PayOsPaymentLinkResult> CancelPaymentLinkAsync(long orderCode, string? cancellationReason, CancellationToken cancellationToken)
+            => Task.FromResult(new PayOsPaymentLinkResult
+            {
+                Success = true,
+                OrderCode = orderCode,
+                Status = "CANCELLED"
+            });
+
+        public Task<PayOsLinkInformation?> GetPaymentLinkInformationAsync(long orderCode, CancellationToken cancellationToken)
+            => Task.FromResult<PayOsLinkInformation?>(new PayOsLinkInformation
+            {
+                Id = $"link-{orderCode}",
+                OrderCode = orderCode,
+                Amount = 150_000,
+                AmountPaid = 150_000,
+                AmountRemaining = 0,
+                Status = "PAID"
+            });
+
+        public PayOsWebhookData VerifyWebhook(string rawPayload) => throw new NotImplementedException();
     }
 
     private sealed class ConsultationPaymentSqliteDbContext : SnakeAidDbContext
