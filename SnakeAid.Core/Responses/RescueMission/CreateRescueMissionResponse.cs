@@ -1,4 +1,5 @@
 ﻿using SnakeAid.Core.Domains;
+using SnakeAid.Core.Responses.RescuerProfile;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
@@ -23,6 +24,10 @@ namespace SnakeAid.Core.Responses.RescueMission
 
         public decimal Price { get; set; }
 
+        public decimal? CostFromCenter { get; set; }
+
+        public decimal? DistanceFromCenterKm { get; set; }
+
         public DateTime? StartedAt { get; set; }
 
         public DateTime? ArrivedAt { get; set; }
@@ -33,5 +38,7 @@ namespace SnakeAid.Core.Responses.RescueMission
         public string? CancellationReason { get; set; }
 
         public decimal? ActualCost { get; set; }
+
+        public BriefRescuerProfileResponse Rescuer { get; set; }
     }
 }
