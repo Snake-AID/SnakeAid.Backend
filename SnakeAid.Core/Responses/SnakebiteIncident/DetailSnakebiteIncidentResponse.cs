@@ -27,7 +27,6 @@ namespace SnakeAid.Core.Responses.SnakebiteIncident
 
         public Guid? AssignedRescuerId { get; set; }
 
-        [MaxLength(500)]
         public string? CancellationReason { get; set; }
 
         public int? SeverityLevel { get; set; } = 1;

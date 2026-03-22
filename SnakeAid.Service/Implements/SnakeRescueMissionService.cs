@@ -25,8 +25,8 @@ namespace SnakeAid.Service.Implements
         private readonly IConfiguration _configuration;
 
         // Default price for rescue mission (có thể lấy từ SystemSetting sau)
-        private const decimal DEFAULT_RESCUE_PRICE = 500000m;
-        private const decimal PRICE_PER_KM_DEFAULT = 5000m; // VND per km (fallback if config missing)
+        private const decimal DEFAULT_RESCUE_PRICE = 5000m;
+        private const decimal PRICE_PER_KM_DEFAULT = 1000m; // VND per km (fallback if config missing)
 
         private const string RESCUE_CENTER_LAT_KEY = "Pricing:RescueCenterLatitude";
         private const string RESCUE_CENTER_LNG_KEY = "Pricing:RescueCenterLongitude";
@@ -119,7 +119,7 @@ namespace SnakeAid.Service.Implements
 
                         distanceFromCenterKm = Math.Round((decimal)distanceKm, 2);
                         costFromCenter = priceVnd;
-                        missionPrice = priceVnd;
+                        missionPrice += priceVnd;
                     }
                     catch (Exception ex)
                     {
@@ -134,10 +134,11 @@ namespace SnakeAid.Service.Implements
                         IncidentId = incidentId,
                         RescuerId = rescuerId,
                         Status = RescueMissionStatus.Preparing,
-                        Price = missionPrice,
+                        Price = DEFAULT_RESCUE_PRICE, // the price that the service cost (not including cost fee from center)
                         DistanceFromCenterKm = distanceFromCenterKm,
                         CostFromCenter = costFromCenter,
-                        CreatedAt = DateTime.UtcNow
+                        CreatedAt = DateTime.UtcNow,
+                        ActualCost = missionPrice
                     };
 
                     // Update incident status

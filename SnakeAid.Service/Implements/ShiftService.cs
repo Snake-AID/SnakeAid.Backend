@@ -188,6 +188,153 @@ namespace SnakeAid.Service.Implements
             });
         }
 
+        public async Task<List<ShiftAssignmentResponse>> AssignWorkShiftBulkAsync(Guid shiftId, AssignWorkShiftBulkRequest request)
+        {
+            if (request == null)
+            {
+                throw new BadRequestException("Request data cannot be null.");
+            }
+
+            if (request.RescuerIds == null || !request.RescuerIds.Any())
+            {
+                throw new BadRequestException("At least one rescuer id is required.");
+            }
+
+            return await _unitOfWork.ExecuteInTransactionAsync(async () =>
+            {
+                var shift = await _unitOfWork.GetRepository<WorkShift>().FirstOrDefaultAsync(
+                    predicate: s => s.Id == shiftId && s.IsActive);
+
+                if (shift == null)
+                {
+                    throw new NotFoundException("Work shift not found.");
+                }
+
+                var rescuerIds = request.RescuerIds.Distinct().ToList();
+
+                var rescuerProfiles = await _unitOfWork.GetRepository<RescuerProfile>().GetListAsync(
+                    predicate: r => rescuerIds.Contains(r.AccountId));
+
+                var missingRescuerIds = rescuerIds.Except(rescuerProfiles.Select(r => r.AccountId)).ToList();
+                if (missingRescuerIds.Any())
+                {
+                    throw new NotFoundException($"Rescuer(s) not found: {string.Join(',', missingRescuerIds)}");
+                }
+
+                var existingAssignments = await _unitOfWork.GetRepository<ShiftAssignment>().GetListAsync(
+                    predicate: a => a.ShiftId == shiftId && a.Date == request.Date && rescuerIds.Contains(a.RescuerId));
+
+                var alreadyAssignedIds = existingAssignments.Select(a => a.RescuerId).ToHashSet();
+
+                var createdAssignments = new List<ShiftAssignment>();
+
+                foreach (var rescuerId in rescuerIds)
+                {
+                    if (alreadyAssignedIds.Contains(rescuerId))
+                    {
+                        continue;
+                    }
+
+                    var assignment = new ShiftAssignment
+                    {
+                        Id = Guid.NewGuid(),
+                        RescuerId = rescuerId,
+                        ShiftId = shiftId,
+                        Date = request.Date,
+                        Status = ShiftAssignmentStatus.Scheduled,
+                        Notes = request.Notes,
+                        CheckInAt = null,
+                        CheckOutAt = null
+                    };
+
+                    createdAssignments.Add(assignment);
+                }
+
+                if (!createdAssignments.Any())
+                {
+                    return new List<ShiftAssignmentResponse>();
+                }
+
+                await _unitOfWork.GetRepository<ShiftAssignment>().InsertRangeAsync(createdAssignments);
+                await _unitOfWork.CommitAsync();
+
+                _logger.LogInformation("Bulk assigned {Count} rescuer(s) to shift {ShiftId} on {Date}", createdAssignments.Count, shiftId, request.Date);
+                return createdAssignments.Adapt<List<ShiftAssignmentResponse>>();
+            });
+        }
+
+        public async Task<ShiftAssignmentResponse> UpdateShiftAssignmentAsync(Guid assignmentId, UpdateShiftAssignmentRequest request)
+        {
+            if (request == null)
+            {
+                throw new BadRequestException("Request data cannot be null.");
+            }
+
+            return await _unitOfWork.ExecuteInTransactionAsync(async () =>
+            {
+                var assignment = await _unitOfWork.GetRepository<ShiftAssignment>().FirstOrDefaultAsync(
+                    predicate: a => a.Id == assignmentId,
+                    asNoTracking: false);
+
+                if (assignment == null)
+                {
+                    throw new NotFoundException("Shift assignment not found.");
+                }
+
+                var rescuer = await _unitOfWork.GetRepository<RescuerProfile>().FirstOrDefaultAsync(
+                    predicate: r => r.AccountId == request.RescuerId);
+
+                if (rescuer == null)
+                {
+                    throw new NotFoundException("Rescuer not found.");
+                }
+
+                var duplicate = await _unitOfWork.GetRepository<ShiftAssignment>().ExistsAsync(
+                    a => a.Id != assignmentId && a.RescuerId == request.RescuerId && a.ShiftId == assignment.ShiftId && a.Date == request.Date);
+
+                if (duplicate)
+                {
+                    throw new ConflictException("Rescuer already assigned to this shift on selected date.");
+                }
+
+                assignment.RescuerId = request.RescuerId;
+                assignment.Date = request.Date;
+                assignment.Notes = request.Notes;
+
+                if (request.Status.HasValue)
+                {
+                    assignment.Status = request.Status.Value;
+                }
+
+                _unitOfWork.GetRepository<ShiftAssignment>().Update(assignment);
+                await _unitOfWork.CommitAsync();
+
+                _logger.LogInformation("Updated shift assignment {AssignmentId}", assignmentId);
+                return assignment.Adapt<ShiftAssignmentResponse>();
+            });
+        }
+
+        public async Task<bool> DeleteShiftAssignmentAsync(Guid assignmentId)
+        {
+            return await _unitOfWork.ExecuteInTransactionAsync(async () =>
+            {
+                var assignment = await _unitOfWork.GetRepository<ShiftAssignment>().FirstOrDefaultAsync(
+                    predicate: a => a.Id == assignmentId,
+                    asNoTracking: false);
+
+                if (assignment == null)
+                {
+                    throw new NotFoundException("Shift assignment not found.");
+                }
+
+                _unitOfWork.GetRepository<ShiftAssignment>().Delete(assignment);
+                await _unitOfWork.CommitAsync();
+
+                _logger.LogInformation("Deleted shift assignment {AssignmentId}", assignmentId);
+                return true;
+            });
+        }
+
         public async Task<ShiftAssignmentResponse> CheckInAssignmentAsync(Guid assignmentId)
         {
             return await _unitOfWork.ExecuteInTransactionAsync(async () =>
@@ -255,6 +402,23 @@ namespace SnakeAid.Service.Implements
                     .Include(a => a.Shift)
                     .Include(a => a.Rescuer),
                 orderBy: q => q.OrderBy(a => a.Shift.StartTime));
+
+            return assignments.Adapt<List<ShiftAssignmentResponse>>();
+        }
+
+        public async Task<List<ShiftAssignmentResponse>> GetAssignmentsByDateRangeAsync(DateOnly startDate, DateOnly endDate)
+        {
+            if (endDate < startDate)
+            {
+                throw new BadRequestException("endDate must be greater than or equal to startDate.");
+            }
+
+            var assignments = await _unitOfWork.GetRepository<ShiftAssignment>().GetListAsync(
+                predicate: a => a.Date >= startDate && a.Date <= endDate,
+                include: q => q
+                    .Include(a => a.Shift)
+                    .Include(a => a.Rescuer),
+                orderBy: q => q.OrderBy(a => a.Date).ThenBy(a => a.Shift.StartTime));
 
             return assignments.Adapt<List<ShiftAssignmentResponse>>();
         }

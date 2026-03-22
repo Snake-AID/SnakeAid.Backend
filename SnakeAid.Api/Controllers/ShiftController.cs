@@ -7,8 +7,11 @@ using SnakeAid.Core.Validators;
 using SnakeAid.Service.Interfaces;
 using Swashbuckle.AspNetCore.Annotations;
 
+using Microsoft.AspNetCore.Authorization;
+
 namespace SnakeAid.Api.Controllers
 {
+    [Authorize(Roles = "Admin")]
     [Route("api/shifts")]
     [ApiController]
     public class ShiftController : BaseController<ShiftController>
@@ -90,6 +93,18 @@ namespace SnakeAid.Api.Controllers
             return Ok(ApiResponseBuilder.BuildSuccessResponse(result, "Shift assigned successfully."));
         }
 
+        [HttpPost("{id}/assign/bulk")]
+        [ValidateModel]
+        [SwaggerOperation(Summary = "Bulk Assign Shift To Rescuers", Description = "Assign a shift template to multiple rescuers for a specific date")]
+        [SwaggerResponse(200, "Assigned", typeof(ApiResponse<List<ShiftAssignmentResponse>>))]
+        [SwaggerResponse(404, "Work shift not found")]
+        [SwaggerResponse(400, "Bad Request", typeof(ApiResponse<object>))]
+        public async Task<IActionResult> AssignShiftBulk(Guid id, [FromBody] AssignWorkShiftBulkRequest request)
+        {
+            var result = await _shiftService.AssignWorkShiftBulkAsync(id, request);
+            return Ok(ApiResponseBuilder.BuildSuccessResponse(result, "Shift assignments created successfully."));
+        }
+
         [HttpPatch("assignments/{assignmentId}/checkin")]
         [SwaggerOperation(Summary = "Check In Shift Assignment", Description = "Mark a scheduled assignment as active")]
         [SwaggerResponse(200, "Checked in", typeof(ApiResponse<ShiftAssignmentResponse>))]
@@ -113,12 +128,50 @@ namespace SnakeAid.Api.Controllers
         }
 
         [HttpGet("assignments")]
-        [SwaggerOperation(Summary = "Get Shift Assignments By Date", Description = "Get all shift assignments for a specific date")]
+        [SwaggerOperation(Summary = "Get Shift Assignments By Date or Range", Description = "Get shift assignments for a specific date or date range")]
         [SwaggerResponse(200, "Success", typeof(ApiResponse<List<ShiftAssignmentResponse>>))]
-        public async Task<IActionResult> GetAssignmentsByDate([FromQuery] DateOnly date)
+        public async Task<IActionResult> GetAssignmentsByDate([FromQuery] DateOnly? date, [FromQuery] DateOnly? startDate, [FromQuery] DateOnly? endDate)
         {
-            var result = await _shiftService.GetAssignmentsByDateAsync(date);
+            if (startDate.HasValue || endDate.HasValue)
+            {
+                if (!startDate.HasValue || !endDate.HasValue)
+                {
+                    return BadRequest(ApiResponseBuilder.BuildErrorResponse("Both startDate and endDate are required for date range query."));
+                }
+
+                var rangeResult = await _shiftService.GetAssignmentsByDateRangeAsync(startDate.Value, endDate.Value);
+                return Ok(ApiResponseBuilder.BuildSuccessResponse(rangeResult));
+            }
+
+            if (!date.HasValue)
+            {
+                return BadRequest(ApiResponseBuilder.BuildErrorResponse("Either date or startDate/endDate must be provided."));
+            }
+
+            var result = await _shiftService.GetAssignmentsByDateAsync(date.Value);
             return Ok(ApiResponseBuilder.BuildSuccessResponse(result));
+        }
+
+        [HttpPut("assignments/{assignmentId}")]
+        [ValidateModel]
+        [SwaggerOperation(Summary = "Update Shift Assignment", Description = "Update resuer/date/notes/status of an assignment")]
+        [SwaggerResponse(200, "Updated", typeof(ApiResponse<ShiftAssignmentResponse>))]
+        [SwaggerResponse(404, "Shift assignment not found")]
+        [SwaggerResponse(400, "Bad Request", typeof(ApiResponse<object>))]
+        public async Task<IActionResult> UpdateAssignment(Guid assignmentId, [FromBody] UpdateShiftAssignmentRequest request)
+        {
+            var result = await _shiftService.UpdateShiftAssignmentAsync(assignmentId, request);
+            return Ok(ApiResponseBuilder.BuildSuccessResponse(result, "Shift assignment updated successfully."));
+        }
+
+        [HttpDelete("assignments/{assignmentId}")]
+        [SwaggerOperation(Summary = "Delete Shift Assignment", Description = "Remove a rescuer from a shift assignment")]
+        [SwaggerResponse(200, "Deleted", typeof(ApiResponse<bool>))]
+        [SwaggerResponse(404, "Shift assignment not found")]
+        public async Task<IActionResult> DeleteAssignment(Guid assignmentId)
+        {
+            var result = await _shiftService.DeleteShiftAssignmentAsync(assignmentId);
+            return Ok(ApiResponseBuilder.BuildSuccessResponse(result, "Shift assignment deleted successfully."));
         }
     }
 }

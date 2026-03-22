@@ -1288,18 +1288,19 @@ namespace SnakeAid.Service.Implements
             }
         }
 
-        public Task<PagedData<DetailSnakebiteIncidentResponse>> GetUserIncidentsAsync(Guid userId, SnakebiteIncidentStatus? status, int page, int pageSize)
+        public Task<PagedData<ListSnakebiteIncidentResponse>> GetUserIncidentsAsync(Guid userId, SnakebiteIncidentStatus? status, int page, int pageSize)
         {
             try
             {
                 var repo = _unitOfWork.GetRepository<SnakebiteIncident>();
-                var userIncidents = repo.GetPagingListAsync<DetailSnakebiteIncidentResponse>(
+                var userIncidents = repo.GetPagingListAsync<ListSnakebiteIncidentResponse>(
                     predicate: i => i.UserId == userId &&
                                     (!status.HasValue || i.Status == status.Value),
+                    include: q => q.Include(i => i.Missions),
                     page: page,
                     size: pageSize,
                     orderBy: q => q.OrderByDescending(i => i.CreatedAt),
-                    selector: i => i.Adapt<DetailSnakebiteIncidentResponse>()
+                    selector: i => i.Adapt<ListSnakebiteIncidentResponse>()
                 );
                 return userIncidents;
             }

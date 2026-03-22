@@ -46,6 +46,7 @@ public class SnakebiteIncidentPaymentService : ISnakebiteIncidentPaymentService
 
         var incident = await _unitOfWork.GetRepository<SnakebiteIncident>().FirstOrDefaultAsync(
             predicate: i => i.Id == request.SnakebiteIncidentId,
+            include: q => q.Include(i => i.Missions).OrderByDescending(i => i.CreatedAt),
             asNoTracking: true,
             cancellationToken: cancellationToken);
 
@@ -62,6 +63,23 @@ public class SnakebiteIncidentPaymentService : ISnakebiteIncidentPaymentService
         if (incident.Status == SnakebiteIncidentStatus.Completed)
         {
             throw new ConflictException("This incident has already been paid.");
+        }
+
+        if (incident.Status != SnakebiteIncidentStatus.Finished)
+        {
+            throw new ConflictException("Payment is allowed only after the rescue mission is completed.");
+        }
+
+        var successfulMission = incident.Missions.FirstOrDefault(m => m.Status == RescueMissionStatus.MissionCompleted);
+        if (successfulMission == null)
+        {
+            throw new ConflictException("No completed mission was found for this incident.");
+        }
+
+        var expectedAmount = successfulMission.ActualCost ?? successfulMission.Price;
+        if (request.Amount != expectedAmount)
+        {
+            throw new ValidationException($"Payment amount must equal completed mission amount ({expectedAmount}).");
         }
 
         var orderCode = GenerateOrderCode();
@@ -112,6 +130,7 @@ public class SnakebiteIncidentPaymentService : ISnakebiteIncidentPaymentService
 
         var incident = await _unitOfWork.GetRepository<SnakebiteIncident>().FirstOrDefaultAsync(
             predicate: i => i.Id == request.SnakebiteIncidentId,
+            include: q => q.Include(i => i.Missions).OrderByDescending(i => i.CreatedAt),
             asNoTracking: false,
             cancellationToken: cancellationToken);
 
@@ -123,6 +142,28 @@ public class SnakebiteIncidentPaymentService : ISnakebiteIncidentPaymentService
         if (incident.UserId != currentUserId)
         {
             throw new ForbiddenException("You are not allowed to pay for this incident.");
+        }
+
+        if (incident.Status == SnakebiteIncidentStatus.Completed)
+        {
+            throw new ConflictException("This incident has already been paid.");
+        }
+
+        if (incident.Status != SnakebiteIncidentStatus.Finished)
+        {
+            throw new ConflictException("Payment is allowed only after the rescue mission is completed.");
+        }
+
+        var successfulMission = incident.Missions.FirstOrDefault(m => m.Status == RescueMissionStatus.MissionCompleted);
+        if (successfulMission == null)
+        {
+            throw new ConflictException("No completed mission was found for this incident.");
+        }
+
+        var expectedAmount = successfulMission.ActualCost ?? successfulMission.Price;
+        if (request.Amount != expectedAmount)
+        {
+            throw new ValidationException($"Payment amount must equal completed mission amount ({expectedAmount}).");
         }
 
         var userWallet = await GetRequiredWalletAsync(currentUserId, cancellationToken);
@@ -498,8 +539,8 @@ public class SnakebiteIncidentPaymentService : ISnakebiteIncidentPaymentService
 
     private string BuildDescription(long orderCode, string additionalInfo)
     {
-        const int maxLength = 70;
-        var baseDescription = $"SNAKEAID-{orderCode} {additionalInfo}".Trim();
+        const int maxLength = 25;
+        var baseDescription = $"SNAKEAID-{orderCode}".Trim();
         return baseDescription.Length <= maxLength ? baseDescription : baseDescription.Substring(0, maxLength);
     }
 
