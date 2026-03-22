@@ -100,6 +100,7 @@ namespace SnakeAid.Service.Implements
                         Latitude = h.Location.Y,
                         Longitude = h.Location.X,
                         DistanceKm = 0,
+                        IsActive = h.IsActive,
                         AntivenomIds = h.AntivenomStocks.Select(x => x.Id).ToList()
                     }
                 );
@@ -123,6 +124,7 @@ namespace SnakeAid.Service.Implements
                         Latitude = h.Location.Y,
                         Longitude = h.Location.X,
                         DistanceKm = 0,
+                        IsActive = h.IsActive,
                         AntivenomIds = h.AntivenomStocks.Select(x => x.Id).ToList()
                     },
                     predicate: h =>
@@ -312,6 +314,7 @@ namespace SnakeAid.Service.Implements
                 Latitude = facility.Location.Y,
                 Longitude = facility.Location.X,
                 DistanceKm = 0,
+                IsActive = facility.IsActive,
                 AntivenomIds = facility.AntivenomStocks.Select(x => x.Id).ToList()
             };
         }
