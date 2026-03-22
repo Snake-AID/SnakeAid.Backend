@@ -16,5 +16,19 @@ namespace SnakeAid.Core.Domains
 
         [Required]
         public string Content { get; set; }
+
+        [Required]
+        public Category Category { get; set; }
+
+        [Required]
+        public bool IsPublished { get; set; } = true;
+
+    }
+
+    public enum Category
+    {
+        FirstAid = 1,
+        Catching = 2,
+        Safety = 3,
     }
 }

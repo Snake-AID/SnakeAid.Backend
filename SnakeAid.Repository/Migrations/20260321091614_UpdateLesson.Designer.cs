@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using NetTopologySuite.Geometries;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
@@ -12,9 +13,11 @@ using SnakeAid.Repository.Data;
 namespace SnakeAid.Repository.Migrations
 {
     [DbContext(typeof(SnakeAidDbContext))]
-    partial class SnakeAidDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260321091614_UpdateLesson")]
+    partial class UpdateLesson
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -540,18 +543,16 @@ namespace SnakeAid.Repository.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<string>("AdditionalDetails")
+                        .IsRequired()
+                        .HasColumnType("text");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<Point>("LocationCoordinates")
                         .IsRequired()
-                        .HasColumnType("geometry(Point, 4326)");
-
-                    b.Property<string>("Notes")
-                        .HasColumnType("text");
-
-                    b.Property<int?>("SnakeSpeciesId")
-                        .HasColumnType("integer");
+                        .HasColumnType("geometry");
 
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
@@ -560,8 +561,6 @@ namespace SnakeAid.Repository.Migrations
                         .HasColumnType("uuid");
 
                     b.HasKey("Id");
-
-                    b.HasIndex("SnakeSpeciesId");
 
                     b.HasIndex("UserId")
                         .HasDatabaseName("IX_CommunityReports_UserId");
@@ -2306,9 +2305,6 @@ namespace SnakeAid.Repository.Migrations
                         .HasMaxLength(1000)
                         .HasColumnType("character varying(1000)");
 
-                    b.Property<long?>("PayOsOrderCode")
-                        .HasColumnType("bigint");
-
                     b.Property<int?>("SeverityLevel")
                         .HasColumnType("integer");
 
@@ -3054,17 +3050,11 @@ namespace SnakeAid.Repository.Migrations
 
             modelBuilder.Entity("SnakeAid.Core.Domains.CommunityReport", b =>
                 {
-                    b.HasOne("SnakeAid.Core.Domains.SnakeSpecies", "SnakeSpecies")
-                        .WithMany()
-                        .HasForeignKey("SnakeSpeciesId");
-
                     b.HasOne("SnakeAid.Core.Domains.Account", "User")
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
-
-                    b.Navigation("SnakeSpecies");
 
                     b.Navigation("User");
                 });

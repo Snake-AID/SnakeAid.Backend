@@ -161,12 +161,20 @@ namespace SnakeAid.Service.Implements
 
             await ValidateSnakeSpeciesUniquenessAsync(scientificName, slug, null, ct);
 
+            var libraryMedia = await _unitOfWork.GetRepository<LibraryMedia>()
+                .FirstOrDefaultAsync(predicate: x => x.Id == request.MediaId, cancellationToken: ct);
+
+            if (libraryMedia == null)
+            {
+                throw new NotFoundException($"Library media with ID {request.MediaId} not found.");
+            }
+
             var entity = new SnakeSpecies
             {
                 ScientificName = scientificName,
                 Slug = slug,
                 CommonName = request.CommonName?.Trim() ?? string.Empty,
-                ImageUrl = request.ImageUrl.Trim(),
+                ImageUrl = libraryMedia.MediaUrl,
                 Description = request.Description?.Trim() ?? string.Empty,
                 IdentificationSummary = request.IdentificationSummary?.Trim() ?? string.Empty,
                 PrimaryVenomType = request.PrimaryVenomType,
@@ -182,6 +190,9 @@ namespace SnakeAid.Service.Implements
 
             await EnsureSnakeSpeciesIdSequenceAsync(ct);
             await _unitOfWork.GetRepository<SnakeSpecies>().InsertAsync(entity, ct);
+            await _unitOfWork.CommitAsync();
+
+            await LinkLibraryMediaToSpeciesAsync(request.MediaId, entity.Id, ct);
             await _unitOfWork.CommitAsync();
 
             await SyncRelationsAfterCreateOrUpdateAsync(entity.Id, request.VenomIds, request.AntivenomIds, request.AlternativeNames, ct);
@@ -226,9 +237,19 @@ namespace SnakeAid.Service.Implements
                 entity.CommonName = request.CommonName.Trim();
             }
 
-            if (request.ImageUrl != null)
+            Guid? mediaIdToLink = null;
+            if (request.MediaId.HasValue)
             {
-                entity.ImageUrl = request.ImageUrl.Trim();
+                var libraryMedia = await _unitOfWork.GetRepository<LibraryMedia>()
+                    .FirstOrDefaultAsync(predicate: x => x.Id == request.MediaId.Value, cancellationToken: ct);
+
+                if (libraryMedia == null)
+                {
+                    throw new NotFoundException($"Library media with ID {request.MediaId.Value} not found.");
+                }
+
+                entity.ImageUrl = libraryMedia.MediaUrl;
+                mediaIdToLink = request.MediaId.Value;
             }
 
             if (request.Description != null)
@@ -280,6 +301,12 @@ namespace SnakeAid.Service.Implements
 
             repository.Update(entity);
             await _unitOfWork.CommitAsync();
+
+            if (mediaIdToLink.HasValue)
+            {
+                await LinkLibraryMediaToSpeciesAsync(mediaIdToLink.Value, id, ct);
+                await _unitOfWork.CommitAsync();
+            }
 
             await SyncRelationsAfterCreateOrUpdateAsync(id, request.VenomIds, request.AntivenomIds, request.AlternativeNames, ct);
 
@@ -352,8 +379,6 @@ namespace SnakeAid.Service.Implements
             {
                 File = request.ImageFile,
                 MediaType = MediaType.Image,
-                IsActive = true,
-                IsPublic = true,
                 SnakeSpeciesId = null
             }, user, ct);
 

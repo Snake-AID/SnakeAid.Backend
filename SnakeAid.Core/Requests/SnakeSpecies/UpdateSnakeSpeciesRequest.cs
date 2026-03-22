@@ -14,8 +14,7 @@ public class UpdateSnakeSpeciesRequest
     [MaxLength(500)]
     public string? CommonName { get; set; }
 
-    [MaxLength(2000)]
-    public string? ImageUrl { get; set; }
+    public Guid? MediaId { get; set; }
 
     [MaxLength(2000)]
     public string? Description { get; set; }
