@@ -278,16 +278,18 @@ namespace SnakeAid.Service.Implements
                         throw new BadRequestException("Rescuer is currently unavailable.");
                     }
 
-                    // Ensure rescuer is on duty for today's shift
+                    // Ensure rescuer is on duty for current shift window, including overnight assignments.
                     var nowUtc = DateTime.UtcNow;
-                    var targetDate = DateOnly.FromDateTime(nowUtc);
+                    var nowLocal = nowUtc.ToLocalTime();
+                    var targetDate = DateOnly.FromDateTime(nowLocal);
+                    var previousDate = targetDate.AddDays(-1);
                     var assignments = await _unitOfWork.GetRepository<ShiftAssignment>().GetListAsync(
                         predicate: a => a.RescuerId == rescuer.AccountId
-                                        && a.Date == targetDate
+                                        && (a.Date == targetDate || a.Date == previousDate)
                                         && (a.Status == ShiftAssignmentStatus.Scheduled || a.Status == ShiftAssignmentStatus.Active),
                         include: q => q.Include(a => a.Shift));
 
-                    var isOnDutyNow = assignments.Any(a => IsOnDutyNow(a, nowUtc, targetDate));
+                    var isOnDutyNow = assignments.Any(a => a.IsOnDutyNow(nowLocal, targetDate));
                     if (!isOnDutyNow)
                     {
                         throw new BadRequestException("Rescuer is not currently on shift.");
@@ -706,39 +708,6 @@ namespace SnakeAid.Service.Implements
                 _logger.LogError(ex, "Error cancelling snakebite incident: {Message}", ex.Message);
                 throw;
             }
-        }
-
-        private static bool IsOnDutyNow(ShiftAssignment assignment, DateTime nowUtc, DateOnly targetDate)
-        {
-            if (assignment.Status == ShiftAssignmentStatus.Completed
-                || assignment.Status == ShiftAssignmentStatus.Cancelled
-                || assignment.Status == ShiftAssignmentStatus.NoShow)
-            {
-                return false;
-            }
-
-            if (assignment.Date != targetDate)
-            {
-                return false;
-            }
-
-            var nowTime = nowUtc.TimeOfDay;
-            return IsTimeWithinShiftWindow(nowTime, assignment.Shift.StartTime, assignment.Shift.EndTime);
-        }
-
-        private static bool IsTimeWithinShiftWindow(TimeSpan current, TimeSpan start, TimeSpan end)
-        {
-            if (start == end)
-            {
-                return true;
-            }
-
-            if (end < start)
-            {
-                return current >= start || current <= end;
-            }
-
-            return current >= start && current <= end;
         }
 
         public async Task<CreateIncidentResponse> CreateIncidentAsync(CreateIncidentRequest request, Guid userId)

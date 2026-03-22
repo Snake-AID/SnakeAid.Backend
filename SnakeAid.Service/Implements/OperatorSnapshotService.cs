@@ -11,6 +11,7 @@ using SnakeAid.Core.Responses.Auth;
 using SnakeAid.Core.Responses.RescuerProfile;
 using SnakeAid.Repository.Data;
 using SnakeAid.Repository.Interfaces;
+using SnakeAid.Service.Extensions;
 using SnakeAid.Service.Interfaces;
 
 namespace SnakeAid.Service.Implements
@@ -65,9 +66,11 @@ namespace SnakeAid.Service.Implements
             }
 
             // Default: no specific context (neither incident nor catching request) -> return baseline snapshot.
+            var nowUtc = DateTime.UtcNow;
+            var nowLocal = nowUtc.ToLocalTime();
             return await BuildSnapshotAsync(
-                date ?? DateOnly.FromDateTime(DateTime.UtcNow),
-                DateTime.UtcNow,
+                date ?? DateOnly.FromDateTime(nowLocal),
+                nowLocal,
                 null,
                 new HashSet<Guid>(),
                 onlyAvailable,
@@ -80,8 +83,9 @@ namespace SnakeAid.Service.Implements
             bool onlyAvailable,
             double? maxDistanceKm)
         {
-            var targetDate = date ?? DateOnly.FromDateTime(DateTime.UtcNow);
             var nowUtc = DateTime.UtcNow;
+            var nowLocal = nowUtc.ToLocalTime();
+            var targetDate = date ?? DateOnly.FromDateTime(nowLocal);
 
             var incident = await _unitOfWork.GetRepository<SnakebiteIncident>().FirstOrDefaultAsync(
                 predicate: i => i.Id == incidentId);
@@ -124,8 +128,9 @@ namespace SnakeAid.Service.Implements
             bool onlyAvailable,
             double? maxDistanceKm)
         {
-            var targetDate = date ?? DateOnly.FromDateTime(DateTime.UtcNow);
             var nowUtc = DateTime.UtcNow;
+            var nowLocal = nowUtc.ToLocalTime();
+            var targetDate = date ?? DateOnly.FromDateTime(nowLocal);
 
             var catchingRequest = await _unitOfWork.GetRepository<SnakeCatchingRequest>().FirstOrDefaultAsync(
                 predicate: r => r.Id == catchingRequestId);
@@ -169,8 +174,9 @@ namespace SnakeAid.Service.Implements
             bool onlyAvailable,
             double? maxDistanceKm)
         {
+            var previousDate = targetDate.AddDays(-1);
             var assignments = await _unitOfWork.GetRepository<ShiftAssignment>().GetListAsync(
-                predicate: a => a.Date == targetDate
+                predicate: a => (a.Date == targetDate || a.Date == previousDate)
                                 && (a.Status == ShiftAssignmentStatus.Scheduled || a.Status == ShiftAssignmentStatus.Active),
                 include: q => q
                     .Include(a => a.Shift)
@@ -277,20 +283,8 @@ namespace SnakeAid.Service.Implements
 
         private static bool IsOnDutyNow(ShiftAssignment assignment, DateTime nowUtc, DateOnly targetDate)
         {
-            if (assignment.Status == ShiftAssignmentStatus.Completed
-                || assignment.Status == ShiftAssignmentStatus.Cancelled
-                || assignment.Status == ShiftAssignmentStatus.NoShow)
-            {
-                return false;
-            }
-
-            if (assignment.Date != targetDate)
-            {
-                return false;
-            }
-
-            var nowTime = nowUtc.TimeOfDay;
-            return IsTimeWithinShiftWindow(nowTime, assignment.Shift.StartTime, assignment.Shift.EndTime);
+            // Use shared extension helper with overnight and cross-day guard logic.
+            return assignment.IsOnDutyNow(nowUtc, targetDate);
         }
 
         private static bool IsTimeWithinShiftWindow(TimeSpan current, TimeSpan start, TimeSpan end)
