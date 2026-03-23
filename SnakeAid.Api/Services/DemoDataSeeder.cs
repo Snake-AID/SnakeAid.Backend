@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using NetTopologySuite.Geometries;
 using SnakeAid.Core.Domains;
+using SnakeAid.Core.Utils;
 using SnakeAid.Repository.Data;
 
 namespace SnakeAid.Api.Services
@@ -492,7 +493,7 @@ namespace SnakeAid.Api.Services
         {
             // For demo purposes, assign each demo rescuer to a set of shifts for today.
             // We distribute them in an alternating pattern so not everyone is on the same shift.
-            var shiftDate = DateOnly.FromDateTime(DateTime.UtcNow);
+            var shiftDate = AppTime.TodayLocalDate;
 
             var shiftTemplates = new[]
             {
@@ -526,16 +527,25 @@ namespace SnakeAid.Api.Services
                         continue;
 
                     var shiftId = shiftTemplates[j];
+                    var shift = await _dbContext.WorkShifts.FirstOrDefaultAsync(s => s.Id == shiftId);
+                    if (shift == null)
+                    {
+                        continue;
+                    }
+
+                    var (shiftStartLocal, shiftEndLocal) = BuildShiftWindow(shiftDate, shift);
 
                     var existingAssignment = await _dbContext.ShiftAssignments.FirstOrDefaultAsync(a =>
                         a.RescuerId == rescuerId &&
                         a.ShiftId == shiftId &&
-                        a.Date == shiftDate);
+                        a.ShiftStartLocal == shiftStartLocal);
 
                     if (existingAssignment != null)
                     {
                         existingAssignment.Status = ShiftAssignmentStatus.Active;
-                        existingAssignment.CheckInAt ??= DateTime.UtcNow;
+                        existingAssignment.ShiftStartLocal = shiftStartLocal;
+                        existingAssignment.ShiftEndLocal = shiftEndLocal;
+                        existingAssignment.CheckInAtUtc ??= DateTime.UtcNow;
                         existingAssignment.UpdatedAt = DateTime.UtcNow;
                         _dbContext.ShiftAssignments.Update(existingAssignment);
                         continue;
@@ -546,9 +556,10 @@ namespace SnakeAid.Api.Services
                         Id = Guid.NewGuid(),
                         RescuerId = rescuerId,
                         ShiftId = shiftId,
-                        Date = shiftDate,
+                        ShiftStartLocal = shiftStartLocal,
+                        ShiftEndLocal = shiftEndLocal,
                         Status = ShiftAssignmentStatus.Active,
-                        CheckInAt = DateTime.UtcNow,
+                        CheckInAtUtc = DateTime.UtcNow,
                         CreatedAt = DateTime.UtcNow,
                         UpdatedAt = DateTime.UtcNow,
                         Notes = "Auto-generated for dispatch demo"
@@ -743,7 +754,9 @@ namespace SnakeAid.Api.Services
         public async Task<DemoDataStatus> GetStatusAsync()
         {
             var status = new DemoDataStatus();
-            var today = DateOnly.FromDateTime(DateTime.UtcNow);
+            var today = AppTime.TodayLocalDate;
+            var dayStart = today.ToDateTime(TimeOnly.MinValue);
+            var dayEnd = dayStart.AddDays(1);
 
             // Check users
             status.UserExists = await _userManager.FindByIdAsync(DEMO_USER_ID.ToString()) != null;
@@ -767,10 +780,23 @@ namespace SnakeAid.Api.Services
             status.DemoShiftExists = await _dbContext.WorkShifts.AnyAsync(s => s.Id == DEMO_SHIFT_ID);
             status.ActiveShiftAssignmentCount = await _dbContext.ShiftAssignments.CountAsync(a =>
                 a.ShiftId == DEMO_SHIFT_ID &&
-                a.Date == today &&
+                a.ShiftStartLocal >= dayStart && a.ShiftStartLocal < dayEnd &&
                 (a.Status == ShiftAssignmentStatus.Active || a.Status == ShiftAssignmentStatus.Scheduled));
 
             return status;
+        }
+
+        private static (DateTime ShiftStartLocal, DateTime ShiftEndLocal) BuildShiftWindow(DateOnly date, WorkShift shift)
+        {
+            var shiftStartLocal = date.ToDateTime(TimeOnly.MinValue).Add(shift.StartTime);
+            var shiftEndLocal = date.ToDateTime(TimeOnly.MinValue).Add(shift.EndTime);
+
+            if (shiftEndLocal <= shiftStartLocal)
+            {
+                shiftEndLocal = shiftEndLocal.AddDays(1);
+            }
+
+            return (shiftStartLocal, shiftEndLocal);
         }
     }
 

@@ -29,6 +29,7 @@ public class PayOsController : BaseController<PayOsController>
         _snakebiteIncidentPaymentService = snakebiteIncidentPaymentService;
     }
 
+
     [HttpPost("snakecatching/paylink/create")]
     [Authorize]
     [SwaggerOperation(
@@ -198,11 +199,11 @@ public class PayOsController : BaseController<PayOsController>
                 try
                 {
                     _logger.LogInformation("[PayOS Return] Payment successful, auto-confirming for orderCode={OrderCode}", orderCode);
-
+                    
                     // Call service to confirm payment by orderCode
                     var confirmResult = await _snakeCatchingPaymentService.ConfirmSnakeCatchingPaymentByOrderCodeAsync(orderCode, cancellationToken);
-
-                    _logger.LogInformation("[PayOS Return] Payment confirmed successfully. OrderCode={OrderCode}, Success={Success}",
+                    
+                    _logger.LogInformation("[PayOS Return] Payment confirmed successfully. OrderCode={OrderCode}, Success={Success}", 
                         orderCode, confirmResult.Success);
                 }
                 catch (Exception confirmEx)
@@ -468,7 +469,7 @@ public class PayOsController : BaseController<PayOsController>
         }
     }
 
-    [AllowAnonymous]
+     [AllowAnonymous]
     [HttpPost("webhook")]
     [SwaggerOperation(
         Summary = "PayOS webhook endpoint",

@@ -1,4 +1,5 @@
 using SnakeAid.Core.Requests.Consultation;
+using SnakeAid.Core.Responses.PayOs;
 using SnakeAid.Core.Responses.Consultation;
 
 namespace SnakeAid.Service.Interfaces;
@@ -15,6 +16,22 @@ public interface IConsultationPaymentService
         Guid userId,
         Guid requestId,
         ProcessConsultationPaymentRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<ConsultationPaymentResponse> ConfirmConsultationPaymentAsync(
+        Guid transactionId,
+        CancellationToken cancellationToken = default);
+
+    Task<PayOsWebhookResponse> ConfirmConsultationPaymentByOrderCodeAsync(
+        long orderCode,
+        CancellationToken cancellationToken = default);
+
+    Task<PayOsWebhookResponse> ProcessConsultationWebhookAsync(
+        string rawPayload,
+        CancellationToken cancellationToken = default);
+
+    Task<bool> IsConsultationPayOsOrderCodeAsync(
+        long orderCode,
         CancellationToken cancellationToken = default);
 
     Task<bool> RefundEmergencyEscrowAsync(

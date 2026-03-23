@@ -7,6 +7,7 @@ using SnakeAid.Core.Exceptions;
 using SnakeAid.Core.Requests;
 using SnakeAid.Core.Requests.SnakebiteIncident;
 using SnakeAid.Core.Responses.SnakebiteIncident;
+using SnakeAid.Core.Utils;
 using SnakeAid.Repository.Data;
 using SnakeAid.Repository.Interfaces;
 using SnakeAid.Service.Interfaces;
@@ -278,18 +279,13 @@ namespace SnakeAid.Service.Implements
                         throw new BadRequestException("Rescuer is currently unavailable.");
                     }
 
-                    // Ensure rescuer is on duty for current shift window, including overnight assignments.
-                    var nowUtc = DateTime.UtcNow;
-                    var nowLocal = nowUtc.ToLocalTime();
-                    var targetDate = DateOnly.FromDateTime(nowLocal);
-                    var previousDate = targetDate.AddDays(-1);
-                    var assignments = await _unitOfWork.GetRepository<ShiftAssignment>().GetListAsync(
-                        predicate: a => a.RescuerId == rescuer.AccountId
-                                        && (a.Date == targetDate || a.Date == previousDate)
-                                        && (a.Status == ShiftAssignmentStatus.Scheduled || a.Status == ShiftAssignmentStatus.Active),
-                        include: q => q.Include(a => a.Shift));
+                    var nowLocal = AppTime.NowLocal;
+                    var isOnDutyNow = await _unitOfWork.GetRepository<ShiftAssignment>().CreateBaseQuery(asNoTracking: true)
+                        .AnyAsync(a => a.RescuerId == rescuer.AccountId
+                                       && (a.Status == ShiftAssignmentStatus.Scheduled || a.Status == ShiftAssignmentStatus.Active)
+                                       && a.ShiftStartLocal <= nowLocal
+                                       && a.ShiftEndLocal >= nowLocal);
 
-                    var isOnDutyNow = assignments.Any(a => a.IsOnDutyNow(nowLocal, targetDate));
                     if (!isOnDutyNow)
                     {
                         throw new BadRequestException("Rescuer is not currently on shift.");

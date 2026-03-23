@@ -13,20 +13,15 @@ namespace SnakeAid.Tests.Unit
             // Arrange
             var assignment = new ShiftAssignment
             {
-                Date = new DateOnly(2026, 3, 22),
+                ShiftStartLocal = new DateTime(2026, 3, 22, 22, 0, 0, DateTimeKind.Unspecified),
+                ShiftEndLocal = new DateTime(2026, 3, 23, 6, 0, 0, DateTimeKind.Unspecified),
                 Status = ShiftAssignmentStatus.Active,
-                Shift = new WorkShift
-                {
-                    StartTime = TimeSpan.FromHours(22),
-                    EndTime = TimeSpan.FromHours(6)
-                }
             };
 
             var nowLocal = new DateTime(2026, 3, 23, 1, 0, 0, DateTimeKind.Local);
-            var targetDate = DateOnly.FromDateTime(nowLocal);
 
             // Act
-            var result = assignment.IsOnDutyNow(nowLocal, targetDate);
+            var result = assignment.IsOnDutyNow(nowLocal);
 
             // Assert
             Assert.True(result);
@@ -38,20 +33,15 @@ namespace SnakeAid.Tests.Unit
             // Arrange
             var assignment = new ShiftAssignment
             {
-                Date = new DateOnly(2026, 3, 22),
+                ShiftStartLocal = new DateTime(2026, 3, 22, 22, 0, 0, DateTimeKind.Unspecified),
+                ShiftEndLocal = new DateTime(2026, 3, 23, 6, 0, 0, DateTimeKind.Unspecified),
                 Status = ShiftAssignmentStatus.Active,
-                Shift = new WorkShift
-                {
-                    StartTime = TimeSpan.FromHours(22),
-                    EndTime = TimeSpan.FromHours(6)
-                }
             };
 
             var nowLocal = new DateTime(2026, 3, 22, 20, 0, 0, DateTimeKind.Local);
-            var targetDate = DateOnly.FromDateTime(nowLocal);
 
             // Act
-            var result = assignment.IsOnDutyNow(nowLocal, targetDate);
+            var result = assignment.IsOnDutyNow(nowLocal);
 
             // Assert
             Assert.False(result);
