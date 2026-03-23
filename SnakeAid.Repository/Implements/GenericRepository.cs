@@ -1,6 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.Extensions.Logging;
+using SnakeAid.Core.Exceptions;
 using SnakeAid.Core.Meta;
 using SnakeAid.Repository.Interfaces;
 using System.Linq.Expressions;
@@ -263,7 +264,7 @@ namespace SnakeAid.Repository.Implements
             catch (Exception ex)
             {
                 _logger?.LogError(ex, "Error updating entity of type {EntityType}", typeof(T).Name);
-                return false;
+                throw;
             }
         }
 
@@ -305,7 +306,7 @@ namespace SnakeAid.Repository.Implements
             catch (Exception ex)
             {
                 _logger?.LogError(ex, "Error updating entity of type {EntityType}", typeof(T).Name);
-                return false;
+                throw;
             }
         }
 
@@ -364,7 +365,7 @@ namespace SnakeAid.Repository.Implements
             catch (Exception ex)
             {
                 _logger?.LogError(ex, "Error updating entities of type {EntityType}", typeof(T).Name);
-                return false;
+                throw;
             }
         }
 
@@ -385,7 +386,7 @@ namespace SnakeAid.Repository.Implements
             catch (Exception ex)
             {
                 _logger?.LogError(ex, "Error deleting entity of type {EntityType}", typeof(T).Name);
-                return false;
+                throw;
             }
         }
 
@@ -402,7 +403,7 @@ namespace SnakeAid.Repository.Implements
             catch (Exception ex)
             {
                 _logger?.LogError(ex, "Error deleting entities of type {EntityType}", typeof(T).Name);
-                return false;
+                throw;
             }
         }
 

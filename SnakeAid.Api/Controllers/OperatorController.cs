@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 using SnakeAid.Core.Meta;
 using SnakeAid.Core.Responses.RescuerProfile;
 using SnakeAid.Core.Responses.Shift;
+using SnakeAid.Core.Utils;
 using SnakeAid.Service.Interfaces;
 using Swashbuckle.AspNetCore.Annotations;
 
@@ -99,7 +100,7 @@ namespace SnakeAid.Api.Controllers
         [SwaggerResponse(200, "Success", typeof(ApiResponse<List<ShiftAssignmentResponse>>))]
         public async Task<IActionResult> GetTodayShiftAssignments()
         {
-            var today = DateOnly.FromDateTime(DateTime.UtcNow);
+            var today = AppTime.TodayLocalDate;
             var result = await _shiftService.GetAssignmentsByDateAsync(today);
             return Ok(ApiResponseBuilder.BuildSuccessResponse(result));
         }

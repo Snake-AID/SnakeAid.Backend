@@ -33,12 +33,15 @@ namespace SnakeAid.Repository.Data.Configurations
             builder.HasIndex(a => a.ShiftId)
                 .HasDatabaseName("IX_ShiftAssignments_ShiftId");
 
-            builder.HasIndex(a => a.Date)
-                .HasDatabaseName("IX_ShiftAssignments_Date");
+            builder.HasIndex(a => a.ShiftStartLocal)
+                .HasDatabaseName("IX_ShiftAssignments_ShiftStartLocal");
 
-            builder.HasIndex(a => new { a.RescuerId, a.ShiftId, a.Date })
+            builder.HasIndex(a => a.ShiftEndLocal)
+                .HasDatabaseName("IX_ShiftAssignments_ShiftEndLocal");
+
+            builder.HasIndex(a => new { a.RescuerId, a.ShiftId, a.ShiftStartLocal })
                 .IsUnique()
-                .HasDatabaseName("UX_ShiftAssignments_Rescuer_Shift_Date");
+                .HasDatabaseName("UX_ShiftAssignments_Rescuer_Shift_ShiftStartLocal");
         }
     }
 }

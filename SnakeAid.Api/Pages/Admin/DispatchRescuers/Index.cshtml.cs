@@ -9,6 +9,7 @@ using Microsoft.IdentityModel.Tokens;
 using SnakeAid.Api.Services;
 using SnakeAid.Core.Domains;
 using SnakeAid.Core.Settings;
+using SnakeAid.Core.Utils;
 using SnakeAid.Repository.Data;
 using SnakeAid.Repository.Interfaces;
 
@@ -65,7 +66,9 @@ namespace SnakeAid.Api.Pages.Admin.DispatchRescuers
 
         public async Task<IActionResult> OnGetRosterAsync()
         {
-            var today = DateOnly.FromDateTime(DateTime.UtcNow);
+            var today = AppTime.TodayLocalDate;
+            var dayStart = today.ToDateTime(TimeOnly.MinValue);
+            var dayEnd = dayStart.AddDays(1);
 
             var rescuers = await _unitOfWork.GetRepository<RescuerProfile>()
                 .CreateBaseQuery(asNoTracking: true)
@@ -76,7 +79,9 @@ namespace SnakeAid.Api.Pages.Admin.DispatchRescuers
 
             var assignments = await _unitOfWork.GetRepository<ShiftAssignment>()
                 .CreateBaseQuery(asNoTracking: true)
-                .Where(a => DemoRescuerIds.Contains(a.RescuerId) && a.Date == today)
+                .Where(a => DemoRescuerIds.Contains(a.RescuerId)
+                            && a.ShiftStartLocal >= dayStart
+                            && a.ShiftStartLocal < dayEnd)
                 .Include(a => a.Shift)
                 .ToListAsync();
 
@@ -99,7 +104,7 @@ namespace SnakeAid.Api.Pages.Admin.DispatchRescuers
             {
                 var assignment = assignments
                     .Where(a => a.RescuerId == rescuer.AccountId)
-                    .OrderByDescending(a => a.CheckInAt ?? a.CreatedAt)
+                    .OrderByDescending(a => a.CheckInAtUtc ?? a.CreatedAt)
                     .FirstOrDefault();
 
                 var request = requests

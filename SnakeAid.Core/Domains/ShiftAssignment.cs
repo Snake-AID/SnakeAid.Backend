@@ -17,14 +17,17 @@ namespace SnakeAid.Core.Domains
         public Guid ShiftId { get; set; }
 
         [Required]
-        public DateOnly Date { get; set; }
+        public DateTime ShiftStartLocal { get; set; }
+
+        [Required]
+        public DateTime ShiftEndLocal { get; set; }
 
         [Required]
         public ShiftAssignmentStatus Status { get; set; } = ShiftAssignmentStatus.Scheduled;
 
-        public DateTime? CheckInAt { get; set; }
+        public DateTime? CheckInAtUtc { get; set; }
 
-        public DateTime? CheckOutAt { get; set; }
+        public DateTime? CheckOutAtUtc { get; set; }
 
         [MaxLength(1000)]
         public string? Notes { get; set; }

@@ -9,6 +9,7 @@ using SnakeAid.Core.Domains;
 using SnakeAid.Core.Exceptions;
 using SnakeAid.Core.Responses.Auth;
 using SnakeAid.Core.Responses.RescuerProfile;
+using SnakeAid.Core.Utils;
 using SnakeAid.Repository.Data;
 using SnakeAid.Repository.Interfaces;
 using SnakeAid.Service.Extensions;
@@ -65,9 +66,7 @@ namespace SnakeAid.Service.Implements
                 return await GetOnDutyRescuersForCatchingRequestAsync(date, catchingRequestId.Value, onlyAvailable, maxDistanceKm);
             }
 
-            // Default: no specific context (neither incident nor catching request) -> return baseline snapshot.
-            var nowUtc = DateTime.UtcNow;
-            var nowLocal = nowUtc.ToLocalTime();
+            var nowLocal = AppTime.NowLocal;
             return await BuildSnapshotAsync(
                 date ?? DateOnly.FromDateTime(nowLocal),
                 nowLocal,
@@ -83,8 +82,7 @@ namespace SnakeAid.Service.Implements
             bool onlyAvailable,
             double? maxDistanceKm)
         {
-            var nowUtc = DateTime.UtcNow;
-            var nowLocal = nowUtc.ToLocalTime();
+            var nowLocal = AppTime.NowLocal;
             var targetDate = date ?? DateOnly.FromDateTime(nowLocal);
 
             var incident = await _unitOfWork.GetRepository<SnakebiteIncident>().FirstOrDefaultAsync(
@@ -115,7 +113,7 @@ namespace SnakeAid.Service.Implements
 
             return await BuildSnapshotAsync(
                 targetDate,
-                nowUtc,
+                nowLocal,
                 incident.LocationCoordinates,
                 excludedRescuerIds,
                 onlyAvailable,
@@ -128,8 +126,7 @@ namespace SnakeAid.Service.Implements
             bool onlyAvailable,
             double? maxDistanceKm)
         {
-            var nowUtc = DateTime.UtcNow;
-            var nowLocal = nowUtc.ToLocalTime();
+            var nowLocal = AppTime.NowLocal;
             var targetDate = date ?? DateOnly.FromDateTime(nowLocal);
 
             var catchingRequest = await _unitOfWork.GetRepository<SnakeCatchingRequest>().FirstOrDefaultAsync(
@@ -159,7 +156,7 @@ namespace SnakeAid.Service.Implements
 
             return await BuildSnapshotAsync(
                 targetDate,
-                nowUtc,
+                nowLocal,
                 catchingRequest.LocationCoordinates,
                 excludedRescuerIds,
                 onlyAvailable,
@@ -168,16 +165,16 @@ namespace SnakeAid.Service.Implements
 
         private async Task<OnDutyRescuerSnapshotResponse> BuildSnapshotAsync(
             DateOnly targetDate,
-            DateTime nowUtc,
+            DateTime nowLocal,
             NetTopologySuite.Geometries.Point? locationPoint,
             HashSet<Guid> excludedRescuerIds,
             bool onlyAvailable,
             double? maxDistanceKm)
         {
-            var previousDate = targetDate.AddDays(-1);
             var assignments = await _unitOfWork.GetRepository<ShiftAssignment>().GetListAsync(
-                predicate: a => (a.Date == targetDate || a.Date == previousDate)
-                                && (a.Status == ShiftAssignmentStatus.Scheduled || a.Status == ShiftAssignmentStatus.Active),
+                predicate: a => (a.Status == ShiftAssignmentStatus.Scheduled || a.Status == ShiftAssignmentStatus.Active)
+                                && a.ShiftStartLocal <= nowLocal
+                                && a.ShiftEndLocal >= nowLocal,
                 include: q => q
                     .Include(a => a.Shift)
                     .Include(a => a.Rescuer)
@@ -186,10 +183,10 @@ namespace SnakeAid.Service.Implements
             var rescuerItems = assignments
                 .Where(a => a.Rescuer != null && a.Shift != null)
                 .GroupBy(a => a.RescuerId)
-                .Select(g => SelectBestAssignment(g.ToList(), nowUtc, targetDate))
+                .Select(g => SelectBestAssignment(g.ToList(), nowLocal))
                 .Where(a => a != null)
                 .Where(a => !excludedRescuerIds.Contains(a!.RescuerId))
-                .Select(a => BuildRescuerItem(a!, locationPoint, nowUtc, distanceKm: null))
+                .Select(a => BuildRescuerItem(a!, nowLocal, distanceKm: null))
                 .Where(item => !onlyAvailable || (item.IsOnline && item.IsAvailable))
                 .ToList();
 
@@ -236,25 +233,25 @@ namespace SnakeAid.Service.Implements
             {
                 ContextId = null,
                 Date = targetDate,
-                SnapshotAt = nowUtc,
+                SnapshotAt = AppTime.UtcNow,
                 Rescuers = rescuerItems
             };
         }
 
 
-        private static ShiftAssignment? SelectBestAssignment(List<ShiftAssignment> assignments, DateTime nowUtc, DateOnly targetDate)
+        private static ShiftAssignment? SelectBestAssignment(List<ShiftAssignment> assignments, DateTime nowLocal)
         {
             return assignments
                 .OrderByDescending(a => a.Status == ShiftAssignmentStatus.Active)
-                .ThenByDescending(a => IsOnDutyNow(a, nowUtc, targetDate))
-                .ThenBy(a => a.Shift.StartTime)
+                .ThenByDescending(a => a.IsOnDutyNow(nowLocal))
+                .ThenBy(a => a.ShiftStartLocal)
                 .FirstOrDefault();
         }
 
-        private static OnDutyRescuerItemResponse BuildRescuerItem(ShiftAssignment assignment, NetTopologySuite.Geometries.Point? locationPoint, DateTime nowUtc, double? distanceKm)
+        private static OnDutyRescuerItemResponse BuildRescuerItem(ShiftAssignment assignment, DateTime nowLocal, double? distanceKm)
         {
             var rescuer = assignment.Rescuer;
-            var isOnDutyNow = IsOnDutyNow(assignment, nowUtc, assignment.Date);
+            var isOnDutyNow = assignment.IsOnDutyNow(nowLocal);
 
             var latitude = rescuer.LastLocation?.Y;
             var longitude = rescuer.LastLocation?.X;
@@ -271,36 +268,14 @@ namespace SnakeAid.Service.Implements
                 ShiftAssignmentId = assignment.Id,
                 ShiftId = assignment.ShiftId,
                 ShiftName = assignment.Shift.Name,
-                ShiftStartTime = assignment.Shift.StartTime,
-                ShiftEndTime = assignment.Shift.EndTime,
-                ShiftDate = assignment.Date,
+                ShiftStartTime = assignment.ShiftStartLocal.TimeOfDay,
+                ShiftEndTime = assignment.ShiftEndLocal.TimeOfDay,
+                ShiftDate = DateOnly.FromDateTime(assignment.ShiftStartLocal),
                 Latitude = latitude,
                 Longitude = longitude,
                 LastLocationUpdate = rescuer.LastLocationUpdate,
                 DistanceKm = distanceKm
             };
-        }
-
-        private static bool IsOnDutyNow(ShiftAssignment assignment, DateTime nowUtc, DateOnly targetDate)
-        {
-            // Use shared extension helper with overnight and cross-day guard logic.
-            return assignment.IsOnDutyNow(nowUtc, targetDate);
-        }
-
-        private static bool IsTimeWithinShiftWindow(TimeSpan current, TimeSpan start, TimeSpan end)
-        {
-            if (start == end)
-            {
-                return true;
-            }
-
-            // Overnight shift support (e.g., 22:00 -> 06:00)
-            if (end < start)
-            {
-                return current >= start || current <= end;
-            }
-
-            return current >= start && current <= end;
         }
 
         public async Task<List<BriefRescuerProfileResponse>> GetRescuerRegistryAsync()

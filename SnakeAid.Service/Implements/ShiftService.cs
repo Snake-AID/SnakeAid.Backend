@@ -161,23 +161,28 @@ namespace SnakeAid.Service.Implements
                 }
 
                 var existed = await _unitOfWork.GetRepository<ShiftAssignment>().ExistsAsync(
-                    a => a.RescuerId == request.RescuerId && a.ShiftId == shiftId && a.Date == request.Date);
+                    a => a.RescuerId == request.RescuerId
+                         && a.ShiftId == shiftId
+                         && a.ShiftStartLocal == BuildShiftStartLocal(request.Date, shift));
 
                 if (existed)
                 {
                     throw new ConflictException("Rescuer already assigned to this shift on selected date.");
                 }
 
+                var (shiftStartLocal, shiftEndLocal) = BuildShiftWindow(request.Date, shift);
+
                 var assignment = new ShiftAssignment
                 {
                     Id = Guid.NewGuid(),
                     RescuerId = request.RescuerId,
                     ShiftId = shiftId,
-                    Date = request.Date,
+                    ShiftStartLocal = shiftStartLocal,
+                    ShiftEndLocal = shiftEndLocal,
                     Status = ShiftAssignmentStatus.Scheduled,
                     Notes = request.Notes,
-                    CheckInAt = null,
-                    CheckOutAt = null
+                    CheckInAtUtc = null,
+                    CheckOutAtUtc = null
                 };
 
                 await _unitOfWork.GetRepository<ShiftAssignment>().InsertAsync(assignment);
@@ -222,7 +227,9 @@ namespace SnakeAid.Service.Implements
                 }
 
                 var existingAssignments = await _unitOfWork.GetRepository<ShiftAssignment>().GetListAsync(
-                    predicate: a => a.ShiftId == shiftId && a.Date == request.Date && rescuerIds.Contains(a.RescuerId));
+                    predicate: a => a.ShiftId == shiftId
+                                    && a.ShiftStartLocal == BuildShiftStartLocal(request.Date, shift)
+                                    && rescuerIds.Contains(a.RescuerId));
 
                 var alreadyAssignedIds = existingAssignments.Select(a => a.RescuerId).ToHashSet();
 
@@ -235,16 +242,19 @@ namespace SnakeAid.Service.Implements
                         continue;
                     }
 
+                    var (shiftStartLocal, shiftEndLocal) = BuildShiftWindow(request.Date, shift);
+
                     var assignment = new ShiftAssignment
                     {
                         Id = Guid.NewGuid(),
                         RescuerId = rescuerId,
                         ShiftId = shiftId,
-                        Date = request.Date,
+                        ShiftStartLocal = shiftStartLocal,
+                        ShiftEndLocal = shiftEndLocal,
                         Status = ShiftAssignmentStatus.Scheduled,
                         Notes = request.Notes,
-                        CheckInAt = null,
-                        CheckOutAt = null
+                        CheckInAtUtc = null,
+                        CheckOutAtUtc = null
                     };
 
                     createdAssignments.Add(assignment);
@@ -289,16 +299,30 @@ namespace SnakeAid.Service.Implements
                     throw new NotFoundException("Rescuer not found.");
                 }
 
+                var shift = await _unitOfWork.GetRepository<WorkShift>().FirstOrDefaultAsync(
+                    predicate: s => s.Id == assignment.ShiftId);
+
+                if (shift == null)
+                {
+                    throw new NotFoundException("Work shift not found.");
+                }
+
                 var duplicate = await _unitOfWork.GetRepository<ShiftAssignment>().ExistsAsync(
-                    a => a.Id != assignmentId && a.RescuerId == request.RescuerId && a.ShiftId == assignment.ShiftId && a.Date == request.Date);
+                    a => a.Id != assignmentId
+                         && a.RescuerId == request.RescuerId
+                         && a.ShiftId == assignment.ShiftId
+                         && a.ShiftStartLocal == BuildShiftStartLocal(request.Date, shift));
 
                 if (duplicate)
                 {
                     throw new ConflictException("Rescuer already assigned to this shift on selected date.");
                 }
 
+                var (shiftStartLocal, shiftEndLocal) = BuildShiftWindow(request.Date, shift);
+
                 assignment.RescuerId = request.RescuerId;
-                assignment.Date = request.Date;
+                assignment.ShiftStartLocal = shiftStartLocal;
+                assignment.ShiftEndLocal = shiftEndLocal;
                 assignment.Notes = request.Notes;
 
                 if (request.Status.HasValue)
@@ -354,8 +378,8 @@ namespace SnakeAid.Service.Implements
                 }
 
                 assignment.Status = ShiftAssignmentStatus.Active;
-                assignment.CheckInAt = DateTime.UtcNow;
-                assignment.CheckOutAt = null;
+                assignment.CheckInAtUtc = DateTime.UtcNow;
+                assignment.CheckOutAtUtc = null;
 
                 _unitOfWork.GetRepository<ShiftAssignment>().Update(assignment);
                 await _unitOfWork.CommitAsync();
@@ -384,7 +408,7 @@ namespace SnakeAid.Service.Implements
                 }
 
                 assignment.Status = ShiftAssignmentStatus.Completed;
-                assignment.CheckOutAt = DateTime.UtcNow;
+                assignment.CheckOutAtUtc = DateTime.UtcNow;
 
                 _unitOfWork.GetRepository<ShiftAssignment>().Update(assignment);
                 await _unitOfWork.CommitAsync();
@@ -396,12 +420,15 @@ namespace SnakeAid.Service.Implements
 
         public async Task<List<ShiftAssignmentResponse>> GetAssignmentsByDateAsync(DateOnly date)
         {
+            var dayStart = date.ToDateTime(TimeOnly.MinValue);
+            var dayEnd = dayStart.AddDays(1);
+
             var assignments = await _unitOfWork.GetRepository<ShiftAssignment>().GetListAsync(
-                predicate: a => a.Date == date,
+                predicate: a => a.ShiftStartLocal >= dayStart && a.ShiftStartLocal < dayEnd,
                 include: q => q
                     .Include(a => a.Shift)
                     .Include(a => a.Rescuer),
-                orderBy: q => q.OrderBy(a => a.Shift.StartTime));
+                orderBy: q => q.OrderBy(a => a.ShiftStartLocal));
 
             return assignments.Adapt<List<ShiftAssignmentResponse>>();
         }
@@ -413,12 +440,15 @@ namespace SnakeAid.Service.Implements
                 throw new BadRequestException("endDate must be greater than or equal to startDate.");
             }
 
+            var rangeStart = startDate.ToDateTime(TimeOnly.MinValue);
+            var rangeEndExclusive = endDate.ToDateTime(TimeOnly.MinValue).AddDays(1);
+
             var assignments = await _unitOfWork.GetRepository<ShiftAssignment>().GetListAsync(
-                predicate: a => a.Date >= startDate && a.Date <= endDate,
+                predicate: a => a.ShiftStartLocal >= rangeStart && a.ShiftStartLocal < rangeEndExclusive,
                 include: q => q
                     .Include(a => a.Shift)
                     .Include(a => a.Rescuer),
-                orderBy: q => q.OrderBy(a => a.Date).ThenBy(a => a.Shift.StartTime));
+                orderBy: q => q.OrderBy(a => a.ShiftStartLocal));
 
             return assignments.Adapt<List<ShiftAssignmentResponse>>();
         }
@@ -429,6 +459,24 @@ namespace SnakeAid.Service.Implements
             {
                 throw new BadRequestException("Shift start time and end time cannot be the same.");
             }
+        }
+
+        private static DateTime BuildShiftStartLocal(DateOnly date, WorkShift shift)
+        {
+            return date.ToDateTime(TimeOnly.MinValue).Add(shift.StartTime);
+        }
+
+        private static (DateTime ShiftStartLocal, DateTime ShiftEndLocal) BuildShiftWindow(DateOnly date, WorkShift shift)
+        {
+            var shiftStartLocal = BuildShiftStartLocal(date, shift);
+            var shiftEndLocal = date.ToDateTime(TimeOnly.MinValue).Add(shift.EndTime);
+
+            if (shiftEndLocal <= shiftStartLocal)
+            {
+                shiftEndLocal = shiftEndLocal.AddDays(1);
+            }
+
+            return (shiftStartLocal, shiftEndLocal);
         }
     }
 }
