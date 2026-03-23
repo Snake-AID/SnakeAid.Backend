@@ -53,6 +53,13 @@ namespace SnakeAid.Core.Mappings
                         .FirstOrDefault())
                 .Map(dest => dest.NeedsRedispatch, src =>
                     src.Missions.Any(m => m.Status == RescueMissionStatus.MissionAborted || m.Status == RescueMissionStatus.MissionUncompleted));
+
+            config.NewConfig<SnakebiteIncident, ListSnakebiteIncidentResponse>()
+                .Map(dest => dest.ActiveMission, src =>
+                    src.Missions
+                        .Where(m => m.Status != RescueMissionStatus.MissionAborted && m.Status != RescueMissionStatus.Cancelled)
+                        .OrderByDescending(m => m.CreatedAt)
+                        .FirstOrDefault());
         }
     }
 }

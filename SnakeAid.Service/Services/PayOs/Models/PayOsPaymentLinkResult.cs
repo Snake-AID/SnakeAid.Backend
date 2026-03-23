@@ -6,8 +6,8 @@ public class PayOsPaymentLinkResult
     public string PaymentLinkId { get; set; } = string.Empty;
     public string CheckoutUrl { get; set; } = string.Empty;
     public decimal Amount { get; set; }
-    public int AmountPaid { get; set; }
-    public int AmountRemaining { get; set; }
+    public decimal AmountPaid { get; set; }
+    public decimal AmountRemaining { get; set; }
     public string Status { get; set; } = string.Empty;
     public string Currency { get; set; } = "VND";
     public bool Success { get; set; }

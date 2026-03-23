@@ -25,8 +25,8 @@ namespace SnakeAid.Service.Implements
         private readonly IConfiguration _configuration;
 
         // Default price for rescue mission (có thể lấy từ SystemSetting sau)
-        private const decimal DEFAULT_RESCUE_PRICE = 500000m;
-        private const decimal PRICE_PER_KM_DEFAULT = 5000m; // VND per km (fallback if config missing)
+        private const decimal DEFAULT_RESCUE_PRICE = 5000m;
+        private const decimal PRICE_PER_KM_DEFAULT = 1000m; // VND per km (fallback if config missing)
 
         private const string RESCUE_CENTER_LAT_KEY = "Pricing:RescueCenterLatitude";
         private const string RESCUE_CENTER_LNG_KEY = "Pricing:RescueCenterLongitude";
@@ -54,7 +54,7 @@ namespace SnakeAid.Service.Implements
         /// <summary>
         /// Tạo mission khi rescuer accept request
         /// </summary>
-        public async Task<RescueMission> CreateMissionAsync(Guid incidentId, Guid rescuerId, decimal price)
+        public async Task<RescueMission> CreateMissionAsync(Guid incidentId, Guid rescuerId)
         {
             try
             {
@@ -62,7 +62,8 @@ namespace SnakeAid.Service.Implements
                 {
                     // Verify incident exists and is in correct state
                     var incident = await _unitOfWork.GetRepository<SnakebiteIncident>().FirstOrDefaultAsync(
-                        predicate: i => i.Id == incidentId
+                        predicate: i => i.Id == incidentId,
+                        asNoTracking: false
                     );
 
                     if (incident == null)
@@ -100,32 +101,30 @@ namespace SnakeAid.Service.Implements
                     }
 
                     // Pricing from rescue center to incident by default when price isn't explicitly provided
-                    decimal missionPrice = price > 0 ? price : DEFAULT_RESCUE_PRICE;
+                    decimal missionPrice = DEFAULT_RESCUE_PRICE;
                     decimal? distanceFromCenterKm = null;
                     decimal? costFromCenter = null;
 
-                    if (price <= 0)
+                    if (incident.LocationCoordinates == null)
                     {
-                        if (incident.LocationCoordinates == null)
-                        {
-                            throw new BadRequestException("Incident location coordinates are not available for pricing.");
-                        }
+                        throw new BadRequestException("Incident location coordinates are not available for pricing.");
+                    }
 
-                        try
-                        {
-                            var (distanceKm, priceVnd) = await CalculatePriceFromCenterAsync(
-                                incident.LocationCoordinates.Y,
-                                incident.LocationCoordinates.X);
+                    try
+                    {
+                        var (distanceKm, priceVnd) = await CalculatePriceFromCenterAsync(
+                            incident.LocationCoordinates.Y,
+                            incident.LocationCoordinates.X,
+                            PRICE_PER_KM_DEFAULT);
 
-                            distanceFromCenterKm = Math.Round((decimal)distanceKm, 2);
-                            costFromCenter = priceVnd;
-                            missionPrice = priceVnd;
-                        }
-                        catch (Exception ex)
-                        {
-                            _logger.LogWarning(ex, "Could not calculate mission price from center location, fallback to default price: {DefaultPrice}", DEFAULT_RESCUE_PRICE);
-                            missionPrice = DEFAULT_RESCUE_PRICE;
-                        }
+                        distanceFromCenterKm = Math.Round((decimal)distanceKm, 2);
+                        costFromCenter = priceVnd;
+                        missionPrice += priceVnd;
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Could not calculate mission price from center location, fallback to default price: {DefaultPrice}", DEFAULT_RESCUE_PRICE);
+                        missionPrice = DEFAULT_RESCUE_PRICE;
                     }
 
                     // Create new mission
@@ -135,10 +134,11 @@ namespace SnakeAid.Service.Implements
                         IncidentId = incidentId,
                         RescuerId = rescuerId,
                         Status = RescueMissionStatus.Preparing,
-                        Price = missionPrice,
+                        Price = DEFAULT_RESCUE_PRICE, // the price that the service cost (not including cost fee from center)
                         DistanceFromCenterKm = distanceFromCenterKm,
                         CostFromCenter = costFromCenter,
-                        CreatedAt = DateTime.UtcNow
+                        CreatedAt = DateTime.UtcNow,
+                        ActualCost = missionPrice
                     };
 
                     // Update incident status
@@ -689,7 +689,7 @@ namespace SnakeAid.Service.Implements
             return (lat.Value, lng.Value);
         }
 
-        private async Task<(double distanceKm, decimal priceVnd)> CalculatePriceFromCenterAsync(double incidentLat, double incidentLng)
+        private async Task<(double distanceKm, decimal priceVnd)> CalculatePriceFromCenterAsync(double incidentLat, double incidentLng, decimal pricePerKm = PRICE_PER_KM_DEFAULT)
         {
             var centerCoordinates = GetRescueCenterCoordinates();
             if (!centerCoordinates.HasValue)
@@ -698,7 +698,7 @@ namespace SnakeAid.Service.Implements
             }
 
             var center = centerCoordinates.Value;
-            return await _locationIqService.CalculateDistanceAndPriceAsync(center.lng, center.lat, incidentLng, incidentLat);
+            return await _locationIqService.CalculateDistanceAndPriceAsync(center.lng, center.lat, incidentLng, incidentLat, pricePerKm);
         }
 
         public async Task<HospitalTransferPricingResponse> ReportHospitalTransferAsync(

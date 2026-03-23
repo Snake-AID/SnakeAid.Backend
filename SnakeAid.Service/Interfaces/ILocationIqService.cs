@@ -25,8 +25,9 @@ public interface ILocationIqService
     /// Calculate price based on distance
     /// </summary>
     /// <param name="distanceInKm">Distance in kilometers</param>
+    /// <param name="pricePerKilometer">Price per kilometer in VND</param>
     /// <returns>Price in VND</returns>
-    decimal CalculatePrice(double distanceInKm);
+    decimal CalculatePrice(double distanceInKm, decimal pricePerKilometer);
 
     /// <summary>
     /// Calculate both distance and price
@@ -35,10 +36,13 @@ public interface ILocationIqService
     /// <param name="sourceLat">Source latitude (rescuer)</param>
     /// <param name="destLng">Destination longitude (request)</param>
     /// <param name="destLat">Destination latitude (request)</param>
+    /// <param name="pricePerKm">Price per kilometer in VND</param>
     /// <returns>Tuple of (distanceInKm, priceInVnd)</returns>
     Task<(double distanceInKm, decimal priceInVnd)> CalculateDistanceAndPriceAsync(
         double sourceLng,
         double sourceLat,
         double destLng,
-        double destLat);
+        double destLat,
+        decimal pricePerKm
+        );
 }

@@ -6,6 +6,7 @@ using Swashbuckle.AspNetCore.Annotations;
 using SnakeAid.Core.Requests.PayOs;
 using SnakeAid.Core.Responses.PayOs;
 using SnakeAid.Service.Interfaces;
+using SnakeAid.Core.Exceptions;
 
 namespace SnakeAid.Api.Controllers;
 
@@ -14,22 +15,20 @@ namespace SnakeAid.Api.Controllers;
 public class PayOsController : BaseController<PayOsController>
 {
     private readonly ISnakeCatchingPaymentService _snakeCatchingPaymentService;
-    private readonly IConsultationPaymentService _consultationPaymentService;
-    private readonly IPaymentGateway _paymentGateway;
+    private readonly ISnakebiteIncidentPaymentService _snakebiteIncidentPaymentService;
 
     public PayOsController(
         ILogger<PayOsController> logger,
         IHttpContextAccessor httpContextAccessor,
         IMapper mapper,
         ISnakeCatchingPaymentService snakeCatchingPaymentService,
-        IConsultationPaymentService consultationPaymentService,
-        IPaymentGateway paymentGateway)
+        ISnakebiteIncidentPaymentService snakebiteIncidentPaymentService)
         : base(logger, httpContextAccessor, mapper)
     {
         _snakeCatchingPaymentService = snakeCatchingPaymentService;
-        _consultationPaymentService = consultationPaymentService;
-        _paymentGateway = paymentGateway;
+        _snakebiteIncidentPaymentService = snakebiteIncidentPaymentService;
     }
+
 
     [HttpPost("snakecatching/paylink/create")]
     [Authorize]
@@ -189,7 +188,7 @@ public class PayOsController : BaseController<PayOsController>
     {
         try
         {
-            _logger.LogInformation("[PayOS Return] code={Code}, id={Id}, cancel={Cancel}, status={Status}, orderCode={OrderCode}", 
+            _logger.LogInformation("[PayOS Return] code={Code}, id={Id}, cancel={Cancel}, status={Status}, orderCode={OrderCode}",
                 code, id, cancel, status, orderCode);
 
             var isSuccess = code == "00" && status == "PAID" && !cancel;
@@ -200,11 +199,9 @@ public class PayOsController : BaseController<PayOsController>
                 try
                 {
                     _logger.LogInformation("[PayOS Return] Payment successful, auto-confirming for orderCode={OrderCode}", orderCode);
-
-                    var isConsultationOrder = await _consultationPaymentService.IsConsultationPayOsOrderCodeAsync(orderCode, cancellationToken);
-                    var confirmResult = isConsultationOrder
-                        ? await _consultationPaymentService.ConfirmConsultationPaymentByOrderCodeAsync(orderCode, cancellationToken)
-                        : await _snakeCatchingPaymentService.ConfirmSnakeCatchingPaymentByOrderCodeAsync(orderCode, cancellationToken);
+                    
+                    // Call service to confirm payment by orderCode
+                    var confirmResult = await _snakeCatchingPaymentService.ConfirmSnakeCatchingPaymentByOrderCodeAsync(orderCode, cancellationToken);
                     
                     _logger.LogInformation("[PayOS Return] Payment confirmed successfully. OrderCode={OrderCode}, Success={Success}", 
                         orderCode, confirmResult.Success);
@@ -215,7 +212,7 @@ public class PayOsController : BaseController<PayOsController>
                     // Don't throw - still show success page to user
                 }
             }
-            
+
             // Return a simple HTML page with payment result
             var resultHtml = $@"
 <!DOCTYPE html>
@@ -340,7 +337,7 @@ public class PayOsController : BaseController<PayOsController>
     {
         try
         {
-            _logger.LogInformation("[PayOS Cancel] code={Code}, id={Id}, cancel={Cancel}, status={Status}, orderCode={OrderCode}", 
+            _logger.LogInformation("[PayOS Cancel] code={Code}, id={Id}, cancel={Cancel}, status={Status}, orderCode={OrderCode}",
                 code, id, cancel, status, orderCode);
 
             // Return a simple HTML page showing cancellation
@@ -472,7 +469,7 @@ public class PayOsController : BaseController<PayOsController>
         }
     }
 
-    [AllowAnonymous]
+     [AllowAnonymous]
     [HttpPost("webhook")]
     [SwaggerOperation(
         Summary = "PayOS webhook endpoint",
@@ -489,17 +486,34 @@ public class PayOsController : BaseController<PayOsController>
 
             _logger.LogInformation("PayOS webhook received. Payload length: {Length}", rawPayload.Length);
 
-            var webhook = _paymentGateway.VerifyWebhook(rawPayload);
-            var isConsultationOrder = await _consultationPaymentService.IsConsultationPayOsOrderCodeAsync(webhook.OrderCode, cancellationToken);
-            var result = isConsultationOrder
-                ? await _consultationPaymentService.ProcessConsultationWebhookAsync(rawPayload, cancellationToken)
-                : await _snakeCatchingPaymentService.ProcessSnakeCatchingWebhookAsync(rawPayload, cancellationToken);
+            // Prefer Snakebite incident first (if webhook belongs to incident)
+            try
+            {
+                var incidentResult = await _snakebiteIncidentPaymentService.ProcessSnakebiteIncidentWebhookAsync(rawPayload, cancellationToken);
+                _logger.LogInformation("Snakebite incident webhook processed. Success={Success} OrderCode={OrderCode}", incidentResult.Success, incidentResult.OrderCode);
+                return Ok(new
+                {
+                    success = incidentResult.Success,
+                    message = incidentResult.Message,
+                    data = incidentResult
+                });
+            }
+            catch (NotFoundException nfEx)
+            {
+                _logger.LogInformation(nfEx, "Snakebite incident not found for webhook, falling back to catching webhook.");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Snakebite incident webhook processing failed; trying snake catching fallback.");
+            }
+
+            var catchingResult = await _snakeCatchingPaymentService.ProcessSnakeCatchingWebhookAsync(rawPayload, cancellationToken);
 
             return Ok(new
             {
-                success = result.Success,
-                message = result.Message,
-                data = result
+                success = catchingResult.Success,
+                message = catchingResult.Message,
+                data = catchingResult
             });
         }
         catch (ArgumentException ex)

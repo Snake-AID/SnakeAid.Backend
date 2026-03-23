@@ -100,6 +100,7 @@ namespace SnakeAid.Service.Implements
                         Latitude = h.Location.Y,
                         Longitude = h.Location.X,
                         DistanceKm = 0,
+                        IsActive = h.IsActive,
                         AntivenomIds = h.AntivenomStocks.Select(x => x.Id).ToList()
                     }
                 );
@@ -123,6 +124,7 @@ namespace SnakeAid.Service.Implements
                         Latitude = h.Location.Y,
                         Longitude = h.Location.X,
                         DistanceKm = 0,
+                        IsActive = h.IsActive,
                         AntivenomIds = h.AntivenomStocks.Select(x => x.Id).ToList()
                     },
                     predicate: h =>
@@ -169,6 +171,8 @@ namespace SnakeAid.Service.Implements
                 {
                     newFacility.AntivenomStocks.Add(antivenom);
                 }
+
+                await EnsureTreatmentFacilityIdSequenceAsync();
 
                 var createdFacility = await _unitOfWork.GetRepository<TreatmentFacility>().InsertAsync(newFacility);
                 var result = await _unitOfWork.CommitAsync();
@@ -310,8 +314,21 @@ namespace SnakeAid.Service.Implements
                 Latitude = facility.Location.Y,
                 Longitude = facility.Location.X,
                 DistanceKm = 0,
+                IsActive = facility.IsActive,
                 AntivenomIds = facility.AntivenomStocks.Select(x => x.Id).ToList()
             };
+        }
+
+        private async Task EnsureTreatmentFacilityIdSequenceAsync()
+        {
+            const string sql = @"
+SELECT setval(
+    pg_get_serial_sequence('""SnakeAid"".""TreatmentFacilities""', 'Id'),
+    GREATEST((SELECT COALESCE(MAX(""Id""), 1) FROM ""SnakeAid"".""TreatmentFacilities""), 1),
+    true
+);";
+
+            await _unitOfWork.Context.Database.ExecuteSqlRawAsync(sql);
         }
     }
 }

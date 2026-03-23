@@ -40,7 +40,7 @@ namespace SnakeAid.Service.Interfaces
 
         Task<IdentifySnakeResponse> IdentifySnakeByFilterAsync(Guid incidentId, IdentifyByFilterRequest request);
 
-        Task<PagedData<DetailSnakebiteIncidentResponse>> GetUserIncidentsAsync(Guid userId, SnakebiteIncidentStatus? status, int page, int pageSize);
+        Task<PagedData<ListSnakebiteIncidentResponse>> GetUserIncidentsAsync(Guid userId, SnakebiteIncidentStatus? status, int page, int pageSize);
 
         Task<PagedData<OperatorIncidentSummaryResponse>> GetActiveIncidentsAsync(
             IEnumerable<SnakebiteIncidentStatus>? statuses,

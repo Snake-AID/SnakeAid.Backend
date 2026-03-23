@@ -62,8 +62,11 @@ namespace SnakeAid.Core.Domains
         CatchingPayment = 20,        // ReferenceId = CatchingRequestId
         CatcherPayout = 21,          // ReferenceId = CatchingId
         CatchingRefund = 22,         // ReferenceId = CatchingRequestId
-        CatchingDeposit = 23,         
+        CatchingDeposit = 23,
 
+        // Snakebite incident related
+        SnakebiteIncidentPayment = 40, // ReferenceId = SnakebiteIncidentId
+        SnakebiteIncidentRefund = 41,  // ReferenceId = SnakebiteIncidentId
 
         // System transactions
         PlatformFee = 30,            // Platform commission

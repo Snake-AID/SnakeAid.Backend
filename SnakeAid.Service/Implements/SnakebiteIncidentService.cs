@@ -278,16 +278,18 @@ namespace SnakeAid.Service.Implements
                         throw new BadRequestException("Rescuer is currently unavailable.");
                     }
 
-                    // Ensure rescuer is on duty for today's shift
+                    // Ensure rescuer is on duty for current shift window, including overnight assignments.
                     var nowUtc = DateTime.UtcNow;
-                    var targetDate = DateOnly.FromDateTime(nowUtc);
+                    var nowLocal = nowUtc.ToLocalTime();
+                    var targetDate = DateOnly.FromDateTime(nowLocal);
+                    var previousDate = targetDate.AddDays(-1);
                     var assignments = await _unitOfWork.GetRepository<ShiftAssignment>().GetListAsync(
                         predicate: a => a.RescuerId == rescuer.AccountId
-                                        && a.Date == targetDate
+                                        && (a.Date == targetDate || a.Date == previousDate)
                                         && (a.Status == ShiftAssignmentStatus.Scheduled || a.Status == ShiftAssignmentStatus.Active),
                         include: q => q.Include(a => a.Shift));
 
-                    var isOnDutyNow = assignments.Any(a => IsOnDutyNow(a, nowUtc, targetDate));
+                    var isOnDutyNow = assignments.Any(a => a.IsOnDutyNow(nowLocal, targetDate));
                     if (!isOnDutyNow)
                     {
                         throw new BadRequestException("Rescuer is not currently on shift.");
@@ -391,12 +393,15 @@ namespace SnakeAid.Service.Implements
                     if (incident.Status != SnakebiteIncidentStatus.Verified)
                         throw new BadRequestException($"Cannot accept dispatch when incident is in status: {incident.Status}");
 
-                    var mission = await _snakeRescueMissionService.CreateMissionAsync(incident.Id, rescuerId, price: 0);
+                    var mission = await _snakeRescueMissionService.CreateMissionAsync(incident.Id, rescuerId);
 
-                    // Update request
+                    // Detach loaded navigation object to avoid EF track conflict (same Incident loaded in CreateMissionAsync)
+                    request.Incident = null;
+
+                    // Update request status only
                     request.Status = RescueRequestStatus.Accepted;
                     request.ResponseAt = DateTime.UtcNow;
-                    _unitOfWork.GetRepository<RescuerRequest>().Update(request);
+                    _unitOfWork.GetRepository<RescuerRequest>().UpdateProperties(request, r => r.Status, r => r.ResponseAt);
 
                     var response = new AcceptRescueResponse
                     {
@@ -705,39 +710,6 @@ namespace SnakeAid.Service.Implements
             }
         }
 
-        private static bool IsOnDutyNow(ShiftAssignment assignment, DateTime nowUtc, DateOnly targetDate)
-        {
-            if (assignment.Status == ShiftAssignmentStatus.Completed
-                || assignment.Status == ShiftAssignmentStatus.Cancelled
-                || assignment.Status == ShiftAssignmentStatus.NoShow)
-            {
-                return false;
-            }
-
-            if (assignment.Date != targetDate)
-            {
-                return false;
-            }
-
-            var nowTime = nowUtc.TimeOfDay;
-            return IsTimeWithinShiftWindow(nowTime, assignment.Shift.StartTime, assignment.Shift.EndTime);
-        }
-
-        private static bool IsTimeWithinShiftWindow(TimeSpan current, TimeSpan start, TimeSpan end)
-        {
-            if (start == end)
-            {
-                return true;
-            }
-
-            if (end < start)
-            {
-                return current >= start || current <= end;
-            }
-
-            return current >= start && current <= end;
-        }
-
         public async Task<CreateIncidentResponse> CreateIncidentAsync(CreateIncidentRequest request, Guid userId)
         {
             try
@@ -774,7 +746,6 @@ namespace SnakeAid.Service.Implements
                 };
 
                 await _unitOfWork.GetRepository<SnakebiteIncident>().InsertAsync(newIncident);
-                await _unitOfWork.CommitAsync();
 
                 return newIncident.Adapt<CreateIncidentResponse>();
             });
@@ -1286,18 +1257,19 @@ namespace SnakeAid.Service.Implements
             }
         }
 
-        public Task<PagedData<DetailSnakebiteIncidentResponse>> GetUserIncidentsAsync(Guid userId, SnakebiteIncidentStatus? status, int page, int pageSize)
+        public Task<PagedData<ListSnakebiteIncidentResponse>> GetUserIncidentsAsync(Guid userId, SnakebiteIncidentStatus? status, int page, int pageSize)
         {
             try
             {
                 var repo = _unitOfWork.GetRepository<SnakebiteIncident>();
-                var userIncidents = repo.GetPagingListAsync<DetailSnakebiteIncidentResponse>(
+                var userIncidents = repo.GetPagingListAsync<ListSnakebiteIncidentResponse>(
                     predicate: i => i.UserId == userId &&
                                     (!status.HasValue || i.Status == status.Value),
+                    include: q => q.Include(i => i.Missions),
                     page: page,
                     size: pageSize,
                     orderBy: q => q.OrderByDescending(i => i.CreatedAt),
-                    selector: i => i.Adapt<DetailSnakebiteIncidentResponse>()
+                    selector: i => i.Adapt<ListSnakebiteIncidentResponse>()
                 );
                 return userIncidents;
             }
@@ -1322,7 +1294,6 @@ namespace SnakeAid.Service.Implements
                     SnakebiteIncidentStatus.Pending,
                     SnakebiteIncidentStatus.Verified,
                     SnakebiteIncidentStatus.Assigned,
-                    SnakebiteIncidentStatus.Disputed,
                 };
 
                 var effectiveStatuses = (statuses != null && statuses.Any())
@@ -1363,7 +1334,9 @@ namespace SnakeAid.Service.Implements
                 var repo = _unitOfWork.GetRepository<RescuerRequest>();
                 var incidentRequests = await repo.GetListAsync(
                     predicate: r => r.IncidentId == incidentId,
-                    include: q => q.Include(r => r.Rescuer).ThenInclude(rescuer => rescuer.Account)
+                    include: q => q.Include(r => r.Rescuer)
+                                    .ThenInclude(rescuer => rescuer.Account),
+                    orderBy: q => q.OrderByDescending(r => r.CreatedAt)
                 );
 
                 return incidentRequests.Select(r => new DispatchRequestResponse

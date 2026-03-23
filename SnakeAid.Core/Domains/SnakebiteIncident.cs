@@ -70,6 +70,11 @@ namespace SnakeAid.Core.Domains
 
         public DateTime? IdentifiedAt { get; set; }  // Thời điểm xác định được loài rắn
 
+        // Payment tracking (for correlating PayOS webhooks)
+        // Note: Transaction records are the source of truth for successful payments
+        // These fields are used temporarily to map webhook orderCode to incident
+        public long? PayOsOrderCode { get; set; }
+
         // Navigation properties
         public MemberProfile User { get; set; }
         public SnakeSpecies? IdentifiedSnakeSpecies { get; set; }

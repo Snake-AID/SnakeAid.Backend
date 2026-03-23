@@ -5,7 +5,9 @@ using Microsoft.AspNetCore.Mvc;
 using SnakeAid.Core.Domains;
 using SnakeAid.Core.Meta;
 using SnakeAid.Core.Requests;
+using SnakeAid.Core.Requests.PayOS;
 using SnakeAid.Core.Requests.SnakebiteIncident;
+using SnakeAid.Core.Responses.PayOS;
 using SnakeAid.Core.Responses.SnakebiteIncident;
 using SnakeAid.Core.Validators;
 using SnakeAid.Service.Interfaces;
@@ -19,15 +21,18 @@ namespace SnakeAid.Api.Controllers
     public class SnakebiteIncidentController : BaseController<SnakebiteIncidentController>
     {
         private readonly ISnakebiteIncidentService _incidentService;
+        private readonly ISnakebiteIncidentPaymentService _incidentPaymentService;
 
         public SnakebiteIncidentController(
             ILogger<SnakebiteIncidentController> logger,
             IHttpContextAccessor httpContextAccessor,
             IMapper mapper,
-            ISnakebiteIncidentService incidentService)
+            ISnakebiteIncidentService incidentService,
+            ISnakebiteIncidentPaymentService incidentPaymentService)
             : base(logger, httpContextAccessor, mapper)
         {
             _incidentService = incidentService;
+            _incidentPaymentService = incidentPaymentService;
         }
 
         /// <summary>
@@ -45,6 +50,42 @@ namespace SnakeAid.Api.Controllers
             var response = ApiResponseBuilder.BuildSuccessResponse(result,
                 "Snakebite incident created. An operator will contact you shortly.");
             return StatusCode(response.StatusCode, response);
+        }
+
+        /// <summary>
+        /// Create a PayOS payment link for a snakebite incident
+        /// </summary>
+        [HttpPost("{incidentId}/payment/payos")]
+        [Authorize]
+        [SwaggerOperation(Summary = "Create Snakebite Incident PayOS Payment", Description = "Create a PayOS payment link for snakebite incident processing.")]
+        [SwaggerResponse(200, "Payment link created successfully", typeof(ApiResponse<SnakebiteIncidentPaymentResponse>))]
+        [SwaggerResponse(400, "Validation error")]
+        [SwaggerResponse(404, "Incident not found")]
+        public async Task<IActionResult> CreateSnakebiteIncidentPaymentLink(Guid incidentId, [FromBody] CreateSnakebiteIncidentPaymentRequest request)
+        {
+            request.SnakebiteIncidentId = incidentId;
+            var currentUserId = GetCurrentUserId();
+
+            var result = await _incidentPaymentService.CreateSnakebiteIncidentPaymentLinkAsync(request, currentUserId, HttpContext.RequestAborted);
+            return Ok(ApiResponseBuilder.BuildSuccessResponse(result, "Payment link created successfully."));
+        }
+
+        /// <summary>
+        /// Pay for snakebite incident using in-app wallet
+        /// </summary>
+        [HttpPost("{incidentId}/payment/wallet")]
+        [Authorize]
+        [SwaggerOperation(Summary = "Pay Snakebite Incident via Wallet", Description = "Pay snakebite incident fee using the user's wallet balance.")]
+        [SwaggerResponse(200, "Payment completed successfully", typeof(ApiResponse<SnakebiteIncidentPaymentResponse>))]
+        [SwaggerResponse(400, "Validation error")]
+        [SwaggerResponse(404, "Incident not found")]
+        public async Task<IActionResult> PaySnakebiteIncidentWithWallet(Guid incidentId, [FromBody] CreateSnakebiteIncidentPaymentRequest request)
+        {
+            request.SnakebiteIncidentId = incidentId;
+            var currentUserId = GetCurrentUserId();
+
+            var result = await _incidentPaymentService.CreateSnakebiteIncidentWalletPaymentAsync(request, currentUserId, HttpContext.RequestAborted);
+            return Ok(ApiResponseBuilder.BuildSuccessResponse(result, "Wallet payment completed successfully."));
         }
 
         /// <summary>

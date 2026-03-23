@@ -8,7 +8,7 @@ namespace SnakeAid.Service.Interfaces
     public interface ISnakeRescueMissionService
     {
         // Tạo mission khi rescuer accept request
-        Task<RescueMission> CreateMissionAsync(Guid incidentId, Guid rescuerId, decimal price);
+        Task<RescueMission> CreateMissionAsync(Guid incidentId, Guid rescuerId);
 
         // Update mission status (e.g., EnRoute, Arrived)
         Task UpdateMissionStatusAsync(Guid missionId, RescueMissionStatus status);

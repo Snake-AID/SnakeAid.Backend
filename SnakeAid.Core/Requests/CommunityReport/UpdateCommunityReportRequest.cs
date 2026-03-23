@@ -11,6 +11,9 @@ namespace SnakeAid.Core.Requests.CommunityReport
         public double? Latitude { get; set; }
 
         [MaxLength(2000)]
-        public string? AdditionalDetails { get; set; }
+        public string? Notes { get; set; }
+
+        public int? SnakeSpeciesId { get; set; }
+
     }
 }
