@@ -64,13 +64,32 @@ Tuyệt vời: toàn bộ yêu cầu bạn đang nói (thời khóa biểu = dai
 - `ShiftAssignmentResponse`
   - `Id`, `RescuerId`, `ShiftId`, `ShiftStartLocal`, `ShiftEndLocal`,
   - `CheckInAtUtc`, `CheckOutAtUtc`,
-  - `Date` (compat), `Status`, `CheckInAt`, `CheckOutAt`, `Notes`,
+  - `Status`, `CheckInAt`, `CheckOutAt`, `Notes`,
   - `WorkShiftResponse Shift`
 
 Lưu ý quan trọng:
+
 - FE vẫn gửi `Date` khi tạo/cập nhật assignment.
 - Backend sẽ tự build cửa sổ ca thực tế bằng `ShiftStartLocal` và `ShiftEndLocal`.
 - FE nên xem `ShiftStartLocal/ShiftEndLocal` là nguồn dữ liệu chính để render lịch.
+- **Response không còn `Date` field** - FE dùng `DateOnly.Parse(ShiftStartLocal)` để xác định ngày.
+
+### DateTime Handling (Backend Technical Details)
+
+| Field | Type | DateTimeKind | Usage |
+|-------|------|--------------|-------|
+| `ShiftStartLocal` | `datetime` (PostgreSQL: `timestamp without time zone`) | `Unspecified` | **Primary for rendering** - local time without timezone conversion |
+| `ShiftEndLocal` | `datetime` (PostgreSQL: `timestamp without time zone`) | `Unspecified` | **Primary for rendering** - local time without timezone conversion |
+| `CheckInAtUtc` | `timestamptz` (PostgreSQL: `timestamp with time zone`) | `Utc` | Convert from UTC to local for display |
+| `CheckOutAtUtc` | `timestamptz` (PostgreSQL: `timestamp with time zone`) | `Utc` | Convert from UTC to local for display |
+
+**FE Implementation Notes:**
+
+- When receiving `ShiftStartLocal` / `ShiftEndLocal`: parse as ISO 8601 string without timezone (e.g., `"2026-03-25T22:00:00"`)
+- Treat these values as **already in local time** (Asia/Ho_Chi_Minh / UTC+7)
+- Do NOT apply timezone conversion to `ShiftStartLocal` / `ShiftEndLocal`
+- For `CheckInAtUtc` / `CheckOutAtUtc`: convert from UTC to local time for display (e.g., `"2026-03-25T15:05:00Z"` → `22:05 UTC+7`)
+- Overnight shifts: `ShiftStartLocal` = `2026-03-25T22:00:00`, `ShiftEndLocal` = `2026-03-26T06:00:00` → display as `22:00 - 06:00 (+1)`
 
 ### Rescuer info (đã có)
 
@@ -191,6 +210,7 @@ Với mỗi assignment response:
 4. Push assignment vào danh sách của cellKey.
 
 Khuyến nghị render:
+
 - title/time trong item lấy từ `ShiftStartLocal` và `ShiftEndLocal`.
 - trạng thái checkin/checkout ưu tiên `CheckInAtUtc`/`CheckOutAtUtc` (convert local để hiển thị).
 
@@ -238,6 +258,7 @@ Request:
 ```
 
 Behavior backend:
+
 - tự skip rescuer đã được assign trùng ca/ngày.
 - trả list assignment mới tạo.
 
@@ -264,11 +285,13 @@ Backend sẽ recalculate lại `ShiftStartLocal/ShiftEndLocal`.
 
 ### 7.1 ShiftAssignmentResponse mẫu (backend mới)
 
+#### Example 1: Overnight Shift (Active, Checked-In)
+
 ```json
 {
-  "id": "guid-assignment",
-  "rescuerId": "guid-rescuer",
-  "shiftId": "guid-shift",
+  "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "rescuerId": "r1e2s3c4-u5e6-r7i8-d9a0-bc1234567890",
+  "shiftId": "s1h2i3f4-t5i6-d7g8-u9i0-d1234567890",
   "shiftStartLocal": "2026-03-25T22:00:00",
   "shiftEndLocal": "2026-03-26T06:00:00",
   "checkInAtUtc": "2026-03-25T15:05:00Z",
@@ -279,14 +302,94 @@ Backend sẽ recalculate lại `ShiftStartLocal/ShiftEndLocal`.
   "checkOutAt": null,
   "notes": "Ca qua dem",
   "shift": {
-    "id": "guid-shift",
+    "id": "s1h2i3f4-t5i6-d7g8-u9i0-d1234567890",
     "name": "Shift Night",
     "startTime": "22:00:00",
     "endTime": "06:00:00",
-    "requiredRescuers": 3
+    "requiredRescuers": 3,
+    "isActive": true
+  },
+  "rescuer": {
+    "accountId": "r1e2s3c4-u5e6-r7i8-d9a0-bc1234567890",
+    "userInfo": {
+      "fullName": "Nguyen Van A",
+      "avatarUrl": "https://cdn.example.com/avatars/rescuer-a.jpg",
+      "email": "rescuer.a@example.com",
+      "role": "Rescuer",
+      "isActive": true
+    },
+    "isOnline": true,
+    "phoneNumber": "0901234567",
+    "rating": 4.7,
+    "type": "Volunteer",
+    "lastLocationUpdate": "2026-03-25T14:30:00Z"
   }
 }
 ```
+
+**FE Display Logic:**
+
+- **Time display**: `22:00 - 06:00 (+1)` (extract hours from `shiftStartLocal`/`shiftEndLocal`)
+- **Status badge**: `Active` → green badge with checkmark (checked-in at `22:05 UTC+7` from `checkInAtUtc`)
+- **Date column**: Use `DateOnly.Parse(shiftStartLocal)` = `2026-03-25` for grid cell placement
+
+#### Example 2: Regular Shift (Scheduled, Not Checked-In)
+
+```json
+{
+  "id": "b2c3d4e5-f6a7-8901-bcde-f12345678901",
+  "rescuerId": "r2e3s4c5-u6e7-r8i9-d0a1-bc2345678901",
+  "shiftId": "s2h3i4f5-t6i7-d8g9-u0i1-d2345678901",
+  "shiftStartLocal": "2026-03-26T06:00:00",
+  "shiftEndLocal": "2026-03-26T14:00:00",
+  "checkInAtUtc": null,
+  "checkOutAtUtc": null,
+  "date": "2026-03-26",
+  "status": "Scheduled",
+  "checkInAt": null,
+  "checkOutAt": null,
+  "notes": "",
+  "shift": {
+    "id": "s2h3i4f5-t6i7-d8g9-u0i1-d2345678901",
+    "name": "Shift Morning",
+    "startTime": "06:00:00",
+    "endTime": "14:00:00",
+    "requiredRescuers": 2,
+    "isActive": true
+  },
+  "rescuer": {
+    "accountId": "r2e3s4c5-u6e7-r8i9-d0a1-bc2345678901",
+    "userInfo": {
+      "fullName": "Tran Thi B",
+      "avatarUrl": "https://cdn.example.com/avatars/rescuer-b.jpg",
+      "email": "rescuer.b@example.com",
+      "role": "Rescuer",
+      "isActive": true
+    },
+    "isOnline": false,
+    "phoneNumber": "0907654321",
+    "rating": 4.9,
+    "type": "Professional",
+    "lastLocationUpdate": "2026-03-25T10:00:00Z"
+  }
+}
+```
+
+**FE Display Logic:**
+
+- **Time display**: `06:00 - 14:00` (same day)
+- **Status badge**: `Scheduled` → blue/gray badge (not yet checked-in)
+- **Date column**: `2026-03-26`
+
+#### Example 3: Status Badge Mapping
+
+| Status | Badge Color | Icon | Description |
+|--------|-------------|------|-------------|
+| `Scheduled` | Blue/Gray | 📅 | Assigned but not yet started |
+| `Active` | Green | ✅ | Checked-in and on duty |
+| `Completed` | Gray | ✔️ | Shift finished normally |
+| `Cancelled` | Red | ❌ | Assignment cancelled |
+| `NoShow` | Orange/Red | ⚠️ | Rescuer didn't show up |
 
 ### 7.2 Table cell object de xay grid
 
@@ -320,7 +423,103 @@ Backend sẽ recalculate lại `ShiftStartLocal/ShiftEndLocal`.
 
 ---
 
-## 8. Checklist FE rollout
+## 8. Visual Layout Guide for Timetable Grid
+
+### 8.1 Grid Structure
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  Filter: [Date Range Picker ▼]  [Shift Filter ▼]  [Status ▼]  [Search...]  │
+├─────────────┬──────────┬──────────┬──────────┬──────────┬──────────┬────────┤
+│   Shift     │   Mon    │   Tue    │   Wed    │   Thu    │   Fri    │  ...   │
+│   (Row)     │  25/03   │  26/03   │  27/03   │  28/03   │  29/03   │        │
+├─────────────┼──────────┼──────────┼──────────┼──────────┼──────────┼────────┤
+│ Shift       │  [Cell]  │  [Cell]  │  [Cell]  │  [Cell]  │  [Cell]  │        │
+│ Morning     │  2/3 ✓   │  3/2 ⚠️  │  1/3     │  3/3 ✓   │  2/3     │        │
+│ 06:00-14:00 │          │          │          │          │          │        │
+├─────────────┼──────────┼──────────┼──────────┼──────────┼──────────┼────────┤
+│ Shift       │  [Cell]  │  [Cell]  │  [Cell]  │  [Cell]  │  [Cell]  │        │
+│ Afternoon   │  1/2     │  2/2 ✓   │  2/2 ✓   │  1/2     │  0/2 ❌  │        │
+│ 14:00-22:00 │          │          │          │          │          │        │
+├─────────────┼──────────┼──────────┼──────────┼──────────┼──────────┼────────┤
+│ Shift       │  [Cell]  │  [Cell]  │  [Cell]  │  [Cell]  │  [Cell]  │        │
+│ Night       │  3/3 ✓   │  2/3     │  3/3 ✓   │  2/3     │  3/3 ✓   │        │
+│ 22:00-06:00 │          │          │          │          │          │        │
+└─────────────┴──────────┴──────────┴──────────┴──────────┴──────────┴────────┘
+```
+
+### 8.2 Cell Content Hierarchy
+
+Each cell `(shiftId, date)` should contain:
+
+```
+┌─────────────────────────────────────┐
+│  Shift Morning          [ + Add ]   │  ← Header: shift name + quick action
+│  06:00 - 14:00                      │
+│  ─────────────────────────────────  │
+│  2 / 3 Required           ✓ Full   │  ← Count indicator + status badge
+│  ─────────────────────────────────  │
+│  [Avatar] Nguyen Van A    [●] Active│  ← Rescuer item 1 (with status dot)
+│  [Avatar] Tran Thi B      [○] Sched │  ← Rescuer item 2
+│  ─────────────────────────────────  │
+│  ⚠️ Overbooked (+1)                 │  ← Warning if assignedCount > required
+└─────────────────────────────────────┘
+```
+
+### 8.3 Rescuer Item Layout (in cell or modal)
+
+```
+┌─────────────────────────────────────────────────────────┐
+│  [Avatar]  Nguyen Van A                    [●] Active   │
+│            📞 0901234567  |  ⭐ 4.7  |  🟢 Online       │
+│            Checked-in: 22:05 (from checkInAtUtc)        │
+│            Notes: "Ca qua dem"                          │
+│                                         [Edit] [Remove] │
+└─────────────────────────────────────────────────────────┘
+```
+
+### 8.4 Modal/Panel Layout (on cell click)
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  Shift Night - 25/03/2026                              [✕ Close]│
+│  22:00 - 06:00 (+1)                                             │
+│  ─────────────────────────────────────────────────────────────  │
+│  Required: 3  |  Assigned: 2  |  Status: 🟡 Under-staffed       │
+│  ─────────────────────────────────────────────────────────────  │
+│                                                                 │
+│  Assigned Rescuers:                                             │
+│  ┌─────────────────────────────────────────────────────────┐   │
+│  │ [Avatar] Nguyen Van A        [●] Active    [Edit][Remove]│   │
+│  │ [Avatar] Tran Thi B          [○] Scheduled [Edit][Remove]│   │
+│  └─────────────────────────────────────────────────────────┘   │
+│                                                                 │
+│  Quick Actions:                                                 │
+│  [+ Assign One]  [+ Bulk Assign]  [Check-In]  [Check-Out]      │
+│                                                                 │
+│  ─────────────────────────────────────────────────────────────  │
+│  Filter Rescuers: [Search...]  [Status ▼]  [Specialization ▼]  │
+│  Available Rescuers (not assigned this shift):                  │
+│  ┌─────────────────────────────────────────────────────────┐   │
+│  │ [Avatar] Le Van C   📞 090...  ⭐ 4.5  [+ Add]          │   │
+│  │ [Avatar] Pham Thi D 📞 091...  ⭐ 4.8  [+ Add]          │   │
+│  └─────────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### 8.5 Status Badge Mapping
+
+| Status | Badge Color | Icon | Description |
+|--------|-------------|------|-------------|
+| `Scheduled` | Blue/Gray | 📅 | Assigned but not yet started |
+| `Active` | Green | ✅ | Checked-in and on duty |
+| `Completed` | Gray | ✔️ | Shift finished normally |
+| `Cancelled` | Red | ❌ | Assignment cancelled |
+| `NoShow` | Orange/Red | ⚠️ | Rescuer didn't show up |
+
+---
+
+## 9. Checklist FE rollout
 
 1. Giữ nguyên layout UI/UX hiện tại (grid, modal, actions).
 2. Đổi model consume assignment sang `ShiftStartLocal/ShiftEndLocal`.
@@ -330,5 +529,16 @@ Backend sẽ recalculate lại `ShiftStartLocal/ShiftEndLocal`.
 6. Test 3 case bắt buộc: ca thường, ca qua đêm, update đổi ngày.
 
 ---
+
+## 10. Summary
+
+| Topic | Key Point |
+|-------|-----------|
+| **DateTime Handling** | `ShiftStartLocal/ShiftEndLocal` = Kind=Unspecified, no timezone conversion needed |
+| **UTC Fields** | `CheckInAtUtc/CheckOutAtUtc` = convert from UTC to local for display |
+| **Grid Placement** | Use `DateOnly(ShiftStartLocal)` for cell key, not the legacy `Date` field |
+| **Overnight Shifts** | Display as `22:00 - 06:00 (+1)` when `ShiftEndLocal.Date > ShiftStartLocal.Date` |
+| **Status Badges** | Scheduled=Blue, Active=Green, Completed=Gray, Cancelled=Red, NoShow=Orange |
+| **Request Flow** | FE sends `Date` → Backend builds `ShiftStartLocal/ShiftEndLocal` from template |
 
 > Kết luận: principle và thiết kế UI/UX giữ nguyên. Chỉ cần cập nhật mapping model assignment và flow fill/create như trên để frontend match đúng backend mới.

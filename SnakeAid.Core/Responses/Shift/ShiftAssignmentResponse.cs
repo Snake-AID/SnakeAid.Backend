@@ -11,7 +11,6 @@ namespace SnakeAid.Core.Responses.Shift
         public DateTime ShiftEndLocal { get; set; }
         public DateTime? CheckInAtUtc { get; set; }
         public DateTime? CheckOutAtUtc { get; set; }
-        public DateOnly Date { get; set; }
         public ShiftAssignmentStatus Status { get; set; }
         public DateTime? CheckInAt { get; set; }
         public DateTime? CheckOutAt { get; set; }

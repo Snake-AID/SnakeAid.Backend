@@ -14,6 +14,25 @@ namespace SnakeAid.Repository.Data.Configurations
                 .HasConversion<int>()
                 .IsRequired();
 
+            // Configure DateTime column types for PostgreSQL
+            // ShiftStartLocal/ShiftEndLocal are local times without timezone info
+            builder.Property(a => a.ShiftStartLocal)
+                .HasColumnType("timestamp without time zone")
+                .IsRequired();
+
+            builder.Property(a => a.ShiftEndLocal)
+                .HasColumnType("timestamp without time zone")
+                .IsRequired();
+
+            // CheckInAtUtc/CheckOutAtUtc are UTC timestamps
+            builder.Property(a => a.CheckInAtUtc)
+                .HasColumnType("timestamp with time zone")
+                .IsRequired(false);
+
+            builder.Property(a => a.CheckOutAtUtc)
+                .HasColumnType("timestamp with time zone")
+                .IsRequired(false);
+
             builder.HasOne(a => a.Shift)
                 .WithMany(s => s.Assignments)
                 .HasForeignKey(a => a.ShiftId)

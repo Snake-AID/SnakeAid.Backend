@@ -788,6 +788,7 @@ namespace SnakeAid.Api.Services
 
         private static (DateTime ShiftStartLocal, DateTime ShiftEndLocal) BuildShiftWindow(DateOnly date, WorkShift shift)
         {
+            // Create local datetime values with Kind=Unspecified for timestamp without time zone
             var shiftStartLocal = date.ToDateTime(TimeOnly.MinValue).Add(shift.StartTime);
             var shiftEndLocal = date.ToDateTime(TimeOnly.MinValue).Add(shift.EndTime);
 
@@ -795,6 +796,10 @@ namespace SnakeAid.Api.Services
             {
                 shiftEndLocal = shiftEndLocal.AddDays(1);
             }
+
+            // Ensure Kind is Unspecified for local time columns (timestamp without time zone)
+            shiftStartLocal = DateTime.SpecifyKind(shiftStartLocal, DateTimeKind.Unspecified);
+            shiftEndLocal = DateTime.SpecifyKind(shiftEndLocal, DateTimeKind.Unspecified);
 
             return (shiftStartLocal, shiftEndLocal);
         }

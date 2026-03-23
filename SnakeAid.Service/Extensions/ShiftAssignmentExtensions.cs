@@ -19,7 +19,14 @@ namespace SnakeAid.Service.Extensions
                 return false;
             }
 
-            return assignment.ShiftStartLocal <= nowLocal && nowLocal <= assignment.ShiftEndLocal;
+            // Ensure consistent DateTime.Kind for comparison
+            // ShiftStartLocal/ShiftEndLocal are stored with Kind=Unspecified (local time without timezone)
+            // nowLocal should also be treated as local time for comparison
+            var shiftStart = DateTime.SpecifyKind(assignment.ShiftStartLocal, DateTimeKind.Unspecified);
+            var shiftEnd = DateTime.SpecifyKind(assignment.ShiftEndLocal, DateTimeKind.Unspecified);
+            var now = DateTime.SpecifyKind(nowLocal, DateTimeKind.Unspecified);
+
+            return shiftStart <= now && now <= shiftEnd;
         }
     }
 }
