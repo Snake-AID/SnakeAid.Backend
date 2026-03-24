@@ -1042,6 +1042,7 @@ namespace SnakeAid.Service.Implements
                             Latitude = r.LocationCoordinates.Y,
                             Longitude = r.LocationCoordinates.X
                         },
+                        Address = r.Address,
                         RequestDate = r.RequestDate,
                         AssignedRescuerId = r.AssignedRescuerId,
                         HandlingOperatorId = r.HandlingOperatorId,

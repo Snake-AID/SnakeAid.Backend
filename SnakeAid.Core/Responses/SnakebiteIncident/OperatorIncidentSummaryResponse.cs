@@ -11,6 +11,7 @@ namespace SnakeAid.Core.Responses.SnakebiteIncident
         public GeoPointResponse LocationCoordinates { get; set; } = default!;
 
         public DateTime CreatedAt { get; set; }
+        public string Address { get; set; }
 
         public Guid? AssignedRescuerId { get; set; }
 

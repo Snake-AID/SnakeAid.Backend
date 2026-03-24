@@ -7,5 +7,6 @@ namespace SnakeAid.Core.Responses.Shift
         public TimeSpan StartTime { get; set; }
         public TimeSpan EndTime { get; set; }
         public int RequiredRescuers { get; set; }
+        public bool IsActive { get; set; }
     }
 }
