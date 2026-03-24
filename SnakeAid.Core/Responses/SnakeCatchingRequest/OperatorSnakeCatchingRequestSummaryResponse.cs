@@ -12,6 +12,7 @@ namespace SnakeAid.Core.Responses.SnakeCatchingRequest
         public GeoPointResponse LocationCoordinates { get; set; } = default!;
 
         public DateTime RequestDate { get; set; }
+        public string Address { get; set; }
 
         public Guid? AssignedRescuerId { get; set; }
 
