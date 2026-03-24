@@ -11,7 +11,7 @@ using Microsoft.AspNetCore.Authorization;
 
 namespace SnakeAid.Api.Controllers
 {
-    [Authorize(Roles = "Admin")]
+    // [Authorize(Roles = "Admin")]
     [Route("api/shifts")]
     [ApiController]
     public class ShiftController : BaseController<ShiftController>

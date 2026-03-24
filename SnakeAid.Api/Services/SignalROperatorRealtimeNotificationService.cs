@@ -23,7 +23,7 @@ namespace SnakeAid.Api.Services
             _logger = logger;
         }
 
-        public async Task NotifyNewIncidentCreatedAsync(Guid incidentId, Guid memberId, double latitude, double longitude)
+        public async Task NotifyNewIncidentCreatedAsync(Guid incidentId, Guid memberId, double latitude, double longitude, string? address)
         {
             try
             {
@@ -35,7 +35,8 @@ namespace SnakeAid.Api.Services
                     Latitude = latitude,
                     Longitude = longitude,
                     IsNewIncident = true,
-                    UpdatedAt = DateTime.UtcNow
+                    UpdatedAt = DateTime.UtcNow,
+                    Address = address
                 });
 
 

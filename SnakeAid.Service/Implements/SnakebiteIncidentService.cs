@@ -751,7 +751,8 @@ namespace SnakeAid.Service.Implements
                     responseData.Id,
                     userId,
                     request.Lat,
-                    request.Lng);
+                    request.Lng,
+                    request.Address ?? string.Empty);
 
                 return responseData;
 

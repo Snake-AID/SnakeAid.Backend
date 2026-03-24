@@ -423,8 +423,9 @@ namespace SnakeAid.Service.Implements
             var dayStart = date.ToDateTime(TimeOnly.MinValue);
             var dayEnd = dayStart.AddDays(1);
 
+            // Overlap query: include shifts that either start on the day or span across the day boundary (overnight)
             var assignments = await _unitOfWork.GetRepository<ShiftAssignment>().GetListAsync(
-                predicate: a => a.ShiftStartLocal >= dayStart && a.ShiftStartLocal < dayEnd,
+                predicate: a => a.ShiftStartLocal < dayEnd && a.ShiftEndLocal > dayStart,
                 include: q => q
                     .Include(a => a.Shift)
                     .Include(a => a.Rescuer),
@@ -444,7 +445,7 @@ namespace SnakeAid.Service.Implements
             var rangeEndExclusive = endDate.ToDateTime(TimeOnly.MinValue).AddDays(1);
 
             var assignments = await _unitOfWork.GetRepository<ShiftAssignment>().GetListAsync(
-                predicate: a => a.ShiftStartLocal >= rangeStart && a.ShiftStartLocal < rangeEndExclusive,
+                predicate: a => a.ShiftStartLocal < rangeEndExclusive && a.ShiftEndLocal > rangeStart,
                 include: q => q
                     .Include(a => a.Shift)
                     .Include(a => a.Rescuer),

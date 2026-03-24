@@ -25,6 +25,7 @@ namespace SnakeAid.Core.Responses.SnakebiteIncident
         // Dispatch metadata (optional)
         public Guid? DispatchRequestId { get; set; }
         public Guid? DispatchedRescuerId { get; set; }
+        public string? Address { get; set; }
     }
 
     public class GeoPointResponse
