@@ -208,10 +208,14 @@ namespace SnakeAid.Api.Services
         {
             try
             {
+                _logger.LogInformation("NotifyRescuerAbortedAsync called: IncidentId={IncidentId}, RescuerId={RescuerId}, OperatorId={OperatorId}, Reason={Reason}",
+                    incidentId, rescuerId, operatorId, reason);
+
                 // Prefer notifying the operator currently handling the incident.
                 // If that operator is not connected, fall back to broadcasting to all operators.
                 if (operatorId.HasValue && ConnectedOperators.ContainsKey(operatorId.Value.ToString()))
                 {
+                    _logger.LogInformation("Sending RescuerAborted to specific operator {OperatorId}", operatorId.Value);
                     await _hubContext.Clients.User(operatorId.Value.ToString()).SendAsync("RescuerAborted", new
                     {
                         IncidentId = incidentId,
@@ -225,6 +229,7 @@ namespace SnakeAid.Api.Services
                 }
                 else
                 {
+                    _logger.LogInformation("Broadcasting RescuerAborted to all operators in group '{OperatorGroup}'", OperatorGroup);
                     await _hubContext.Clients.Group(OperatorGroup).SendAsync("RescuerAborted", new
                     {
                         IncidentId = incidentId,

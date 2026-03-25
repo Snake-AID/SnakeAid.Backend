@@ -17,17 +17,20 @@ namespace SnakeAid.Api.Hubs
         private readonly ILogger<MissionHub> _logger;
         private readonly IRescuerLocationService _rescuerLocationService;
         private readonly IHubContext<RescuerHub> _rescuerHubContext;
+        private readonly IRescuerOnlineStatusService _rescuerOnlineStatusService;
 
         public MissionHub(
             IUnitOfWork<SnakeAidDbContext> unitOfWork,
             ILogger<MissionHub> logger,
             IRescuerLocationService rescuerLocationService,
-            IHubContext<RescuerHub> rescuerHubContext)
+            IHubContext<RescuerHub> rescuerHubContext,
+            IRescuerOnlineStatusService rescuerOnlineStatusService)
         {
             _unitOfWork = unitOfWork;
             _logger = logger;
             _rescuerLocationService = rescuerLocationService;
             _rescuerHubContext = rescuerHubContext;
+            _rescuerOnlineStatusService = rescuerOnlineStatusService;
         }
 
         public override async Task OnConnectedAsync()
@@ -71,6 +74,21 @@ namespace SnakeAid.Api.Hubs
                 _logger.LogWarning("Connection rejected: User {UserId} not authorized for incident {IncidentId}.", userId, incidentId);
                 Context.Abort();
                 return;
+            }
+
+            // If rescuer is joining mission hub, mark as in mission (online + busy) during active mission.
+            if (isAssignedRescuer)
+            {
+                await _rescuerOnlineStatusService.SetInMissionAsync(userId.ToString());
+
+                await _rescuerHubContext.Clients.Group(OperatorGroup).SendAsync("RescuerOnlineStatus", new
+                {
+                    RescuerId = userId.ToString(),
+                    IsOnline = true,
+                    IsAvailable = false,
+                    InMission = true,
+                    UpdatedAt = DateTime.UtcNow
+                });
             }
 
             Context.Items["IncidentId"] = incidentId;
@@ -186,8 +204,69 @@ namespace SnakeAid.Api.Hubs
                 });
             }
 
+            // Broadcast rescuer mission location to operator dashboard map (mission-mode tracking)
+            if (isAssignedRescuer)
+            {
+                await _rescuerHubContext.Clients.Group(OperatorGroup).SendAsync("RescuerMissionLocationUpdated", new
+                {
+                    IncidentId = incidentId,
+                    RescuerId = userId,
+                    Latitude = latitude,
+                    Longitude = longitude,
+                    UpdatedAt = DateTime.UtcNow
+                });
+            }
+
             _logger.LogInformation("{Role} {UserId} location updated in Incident {IncidentId}: ({Lat}, {Lng})",
                 senderRole, userId, incidentId, latitude, longitude);
+        }
+
+        public override async Task OnDisconnectedAsync(Exception? exception)
+        {
+            var httpContext = Context.GetHttpContext();
+            var incidentIdString = httpContext?.Request.Query["incidentId"];
+
+            if (!string.IsNullOrEmpty(incidentIdString) && Guid.TryParse(incidentIdString, out var incidentId))
+            {
+                if (TryResolveUserId(out var userId))
+                {
+                    var incident = await _unitOfWork.GetRepository<SnakebiteIncident>().FirstOrDefaultAsync(
+                        predicate: i => i.Id == incidentId
+                    );
+
+                    if (incident != null)
+                    {
+                        var isAssignedRescuer = incident.AssignedRescuerId != null && incident.AssignedRescuerId == userId;
+
+                        // If rescuer is disconnecting from mission hub, restore their online + available status
+                        if (isAssignedRescuer)
+                        {
+                            await _rescuerOnlineStatusService.SetOnlineAsync(userId.ToString());
+
+                            await _rescuerHubContext.Clients.Group(OperatorGroup).SendAsync("RescuerOnlineStatus", new
+                            {
+                                RescuerId = userId.ToString(),
+                                IsOnline = true,
+                                IsAvailable = true,
+                                InMission = false,
+                                UpdatedAt = DateTime.UtcNow
+                            });
+
+                            // Notify that mission is completed
+                            await _rescuerHubContext.Clients.Group(OperatorGroup).SendAsync("MissionCompleted", new
+                            {
+                                IncidentId = incidentId,
+                                RescuerId = userId.ToString(),
+                                CompletedAt = DateTime.UtcNow
+                            });
+
+                            _logger.LogInformation("Rescuer {UserId} disconnected from MissionHub for incident {IncidentId}, restored to available status", userId, incidentId);
+                        }
+                    }
+                }
+            }
+
+            await base.OnDisconnectedAsync(exception);
         }
 
         private bool TryResolveUserId(out Guid userId)
