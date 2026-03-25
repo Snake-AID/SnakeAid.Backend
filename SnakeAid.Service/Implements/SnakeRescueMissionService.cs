@@ -471,7 +471,7 @@ namespace SnakeAid.Service.Implements
                     incidentId, _unitOfWork.Context.ChangeTracker.Entries().Count());
 
                 // PUSH NOTIFICATION: Notify Member about rescuer abort AFTER transaction committed
-                await _notificationService.NotifyMissionCancelledAsync(incidentId, reason);
+                await _notificationService.NotifyMissionAbortedAsync(incidentId, reason);
 
                 // Notify the operator who is handling this incident that the rescuer aborted and the incident is ready for re-dispatch
                 // (If no operator is currently handling it, fallback to broadcasting to all operators)
@@ -483,6 +483,14 @@ namespace SnakeAid.Service.Implements
                         asNoTracking: true);
 
                     var handlingOperatorId = incident?.HandlingOperatorId;
+                    if (handlingOperatorId != null)
+                    {
+                        _logger.LogInformation("Notifying operator {OperatorId} about mission abort for incident {IncidentId}", handlingOperatorId, incidentId);
+                    }
+                    else
+                    {
+                        _logger.LogInformation("No specific operator handling incident {IncidentId}. Notification will be broadcast to all operators.", incidentId);
+                    }
 
                     await _operatorRealtimeNotificationService.NotifyRescuerAbortedAsync(incidentId, rescuerId.Value, handlingOperatorId, reason);
                 }

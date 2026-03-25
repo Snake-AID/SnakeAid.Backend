@@ -6,5 +6,6 @@ namespace SnakeAid.Service.Interfaces
     {
         Task SetOnlineAsync(string userId);
         Task SetOfflineAsync(string userId);
+        Task SetInMissionAsync(string userId);
     }
 }

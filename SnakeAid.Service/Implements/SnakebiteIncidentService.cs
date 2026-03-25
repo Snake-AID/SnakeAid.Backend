@@ -579,9 +579,9 @@ namespace SnakeAid.Service.Implements
             }
         }
 
-        public async Task<CreateIncidentResponse> CancelIncidentAsync(Guid incidentId)
+        public async Task<CreateIncidentResponse> CancelIncidentAsync(Guid incidentId, CancelIncidentRequest request)
         {
-            const string cancelReason = "Member cancelled the SOS";
+            var cancelReason = request.Reason ?? "No reason provided";
             List<(string RescuerId, Guid RequestId)> pendingNotifies = new();
             Guid? affectedMissionId = null;
 

@@ -14,7 +14,7 @@ namespace SnakeAid.Service.Interfaces
 
         Task<UpdateSymptomReportResponse> UpdateSymptomReportAsync(Guid incidentId, UpdateSymptomReportRequest request);
 
-        Task<CreateIncidentResponse> CancelIncidentAsync(Guid incidentId);
+        Task<CreateIncidentResponse> CancelIncidentAsync(Guid incidentId, CancelIncidentRequest request);
 
         Task<CreateIncidentResponse> ConfirmIncidentAsync(Guid incidentId, Guid operatorId);
 

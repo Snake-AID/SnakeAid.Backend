@@ -24,6 +24,7 @@ namespace SnakeAid.Service.Implements
         private readonly IUnitOfWork<SnakeAidDbContext> _unitOfWork;
         private readonly ILogger<SnakeCatchingMissionService> _logger;
         private readonly ISnakeCatchingPaymentService _snakeCatchingPaymentService;
+        private readonly IRescuerOnlineStatusService _rescuerOnlineStatusService;
 
         private const decimal BasePrice = 500000;
         private const decimal AdditionalSnakePrice = 100000;
@@ -31,11 +32,13 @@ namespace SnakeAid.Service.Implements
         public SnakeCatchingMissionService(
             IUnitOfWork<SnakeAidDbContext> unitOfWork,
             ILogger<SnakeCatchingMissionService> logger,
-            ISnakeCatchingPaymentService snakeCatchingPaymentService)
+            ISnakeCatchingPaymentService snakeCatchingPaymentService,
+            IRescuerOnlineStatusService rescuerOnlineStatusService)
         {
             _unitOfWork = unitOfWork;
             _logger = logger;
             _snakeCatchingPaymentService = snakeCatchingPaymentService;
+            _rescuerOnlineStatusService = rescuerOnlineStatusService;
         }
 
         public async Task<SnakeCatchingMissionDetailResponse> StartMissionAsync(
@@ -71,6 +74,10 @@ namespace SnakeAid.Service.Implements
                     }
 
                     _unitOfWork.GetRepository<SnakeCatchingMission>().Update(mission);
+
+                    // Mark rescuer as in mission in status table (for operator map and dispatch filters)
+                    await _rescuerOnlineStatusService.SetInMissionAsync(rescuerId.ToString());
+
                     await _unitOfWork.CommitAsync();
 
                     _logger.LogInformation(
