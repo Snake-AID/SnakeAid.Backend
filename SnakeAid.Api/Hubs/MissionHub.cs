@@ -77,10 +77,12 @@ namespace SnakeAid.Api.Hubs
             }
 
             // If rescuer is joining mission hub, mark as in mission (online + busy) during active mission.
+            // This ensures rescuer status is updated on operator dashboard even after reconnection.
             if (isAssignedRescuer)
             {
                 await _rescuerOnlineStatusService.SetInMissionAsync(userId.ToString());
 
+                // Broadcast to operator dashboard that rescuer is back online in mission
                 await _rescuerHubContext.Clients.Group(OperatorGroup).SendAsync("RescuerOnlineStatus", new
                 {
                     RescuerId = userId.ToString(),
@@ -89,6 +91,8 @@ namespace SnakeAid.Api.Hubs
                     InMission = true,
                     UpdatedAt = DateTime.UtcNow
                 });
+
+                _logger.LogInformation("Rescuer {UserId} reconnected to MissionHub, status broadcasted to operators", userId);
             }
 
             Context.Items["IncidentId"] = incidentId;
@@ -238,32 +242,16 @@ namespace SnakeAid.Api.Hubs
                     {
                         var isAssignedRescuer = incident.AssignedRescuerId != null && incident.AssignedRescuerId == userId;
 
-                        // If rescuer is disconnecting from mission hub, set them offline.
-                        // The Flutter client will decide whether to reconnect to RescuerHub:
-                        // - Normal completion: client reconnects → rescuer becomes available
-                        // - Abort mission: client does NOT reconnect → rescuer stays offline
+                        // If rescuer is disconnecting from mission hub during active mission:
+                        // - DO NOT set offline immediately (may be temporary network issue)
+                        // - DO NOT send "MissionCompleted" (mission may not be completed yet)
+                        // - Only clear mission location tracking on operator map
+                        // 
+                        // Actual mission completion is handled by CompleteMissionAsync in SnakeRescueMissionService
+                        // Rescuer online status is managed by RescuerHub connection lifecycle
                         if (isAssignedRescuer)
                         {
-                            await _rescuerOnlineStatusService.SetOfflineAsync(userId.ToString());
-
-                            await _rescuerHubContext.Clients.Group(OperatorGroup).SendAsync("RescuerOnlineStatus", new
-                            {
-                                RescuerId = userId.ToString(),
-                                IsOnline = false,
-                                IsAvailable = false,
-                                InMission = false,
-                                UpdatedAt = DateTime.UtcNow
-                            });
-
-                            // Notify that mission is completed
-                            await _rescuerHubContext.Clients.Group(OperatorGroup).SendAsync("MissionCompleted", new
-                            {
-                                IncidentId = incidentId,
-                                RescuerId = userId.ToString(),
-                                CompletedAt = DateTime.UtcNow
-                            });
-
-                            _logger.LogInformation("Rescuer {UserId} disconnected from MissionHub for incident {IncidentId}, set to offline (client will reconnect if needed)", userId, incidentId);
+                            _logger.LogInformation("Rescuer {UserId} disconnected from MissionHub for incident {IncidentId}", userId, incidentId);
                         }
                     }
                 }

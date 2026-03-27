@@ -324,6 +324,9 @@ namespace SnakeAid.Service.Implements
 
                 // Step 2: Send notification AFTER transaction committed
                 await _notificationService.NotifyMissionCompletedAsync(mission.IncidentId, new { missionId = missionId });
+
+                // Notify operator that incident is completed (update map and incident list)
+                await _operatorRealtimeNotificationService.NotifyIncidentCompletedAsync(mission.IncidentId, mission.RescuerId);
             }
             catch (Exception ex)
             {

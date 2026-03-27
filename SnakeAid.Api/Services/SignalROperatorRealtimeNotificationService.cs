@@ -249,5 +249,25 @@ namespace SnakeAid.Api.Services
             }
         }
 
+        public async Task NotifyIncidentCompletedAsync(Guid incidentId, Guid rescuerId)
+        {
+            try
+            {
+                await _hubContext.Clients.Group(OperatorGroup).SendAsync("IncidentCompleted", new
+                {
+                    IncidentId = incidentId,
+                    RescuerId = rescuerId,
+                    CompletedAt = DateTime.UtcNow
+                });
+
+                _logger.LogInformation("Broadcasted IncidentCompleted for {IncidentId} to operator group", incidentId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(new SignalRNotificationException($"Error notifying incident completed {incidentId} to operators", ex),
+                    "SignalR_Operator_Notification_Error");
+            }
+        }
+
     }
 }
