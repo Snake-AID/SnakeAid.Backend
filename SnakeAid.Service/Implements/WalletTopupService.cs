@@ -158,19 +158,23 @@ public class WalletTopupService : IWalletTopupService
 
     private static long GenerateOrderCode()
     {
-        var timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-        // Use Guid for better uniqueness guarantee
-        var guid = Guid.NewGuid();
-        var hash = guid.GetHashCode() & 0x7FFFFFFF; // Ensure positive
-        var randomPart = hash % 9000 + 1000; // 4-digit number: 1000-9999
-        return long.Parse($"{timestamp:D13}{randomPart:D4}");
+        var timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        var randomPart = Random.Shared.Next(100, 999);
+        return long.Parse($"{timestamp}{randomPart}");
     }
 
     private string BuildDescription(long orderCode, string? customDescription)
     {
+        const int maxLength = 25;
         var baseDescription = $"SNAKEAID-{orderCode}";
-        return string.IsNullOrEmpty(customDescription)
-            ? baseDescription
-            : $"{baseDescription} - {customDescription}";
+        if (baseDescription.Length >= maxLength || string.IsNullOrWhiteSpace(customDescription))
+            return baseDescription.Length > maxLength ? baseDescription[..maxLength] : baseDescription;
+
+        var remaining = maxLength - baseDescription.Length - 1;
+        if (remaining <= 0)
+            return baseDescription[..maxLength];
+
+        var suffix = customDescription.Length > remaining ? customDescription[..remaining] : customDescription;
+        return $"{baseDescription}-{suffix}";
     }
 }
