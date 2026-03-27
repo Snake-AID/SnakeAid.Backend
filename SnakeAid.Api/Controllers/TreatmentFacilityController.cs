@@ -14,11 +14,11 @@ using Swashbuckle.AspNetCore.Annotations;
 namespace SnakeAid.Api.Controllers
 {
     [Route("api/treatment-facilities")]
-    public class TreamentFacilityController : BaseController<TreamentFacilityController>
+    public class TreatmentFacilityController : BaseController<TreatmentFacilityController>
     {
         private readonly ITreatmentFacilityService _treatmentFacilityService;
-        public TreamentFacilityController(
-            ILogger<TreamentFacilityController> logger,
+        public TreatmentFacilityController(
+            ILogger<TreatmentFacilityController> logger,
             IHttpContextAccessor httpContextAccessor,
             IMapper mapper,
             ITreatmentFacilityService treatmentFacilityService) :
