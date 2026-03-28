@@ -158,8 +158,9 @@ public class WalletTopupService : IWalletTopupService
 
     private static long GenerateOrderCode()
     {
+        // SNAKEAID- = 9 chars, max description = 25 chars → orderCode max 14 digits safe
         var timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-        var randomPart = System.Security.Cryptography.RandomNumberGenerator.GetInt32(100000, 999999);
+        var randomPart = System.Security.Cryptography.RandomNumberGenerator.GetInt32(1000, 9999);
         return long.Parse($"{timestamp}{randomPart}");
     }
 
