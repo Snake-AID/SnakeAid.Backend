@@ -246,12 +246,23 @@ public class ConsultationService : IConsultationService
                              && p.Status == ConsultationPingStatus.AcceptedByExpert,
                 include: q => q.Include(p => p.Expert));
 
+            var consultationIds = emergencyRequests
+                .Where(p => p.ConsultationId.HasValue)
+                .Select(p => p.ConsultationId!.Value)
+                .Distinct()
+                .ToList();
+
+            var consultations = consultationIds.Count > 0
+                ? await _unitOfWork.GetRepository<Consultation>().GetListAsync(
+                    predicate: c => consultationIds.Contains(c.Id))
+                : new List<Consultation>();
+
+            var consultationLookup = consultations.ToDictionary(c => c.Id);
+
             foreach (var p in emergencyRequests)
             {
-                var consultation = await _unitOfWork.GetRepository<Consultation>().FirstOrDefaultAsync(
-                    predicate: c => c.Id == p.ConsultationId);
-
-                if (consultation == null) continue;
+                if (!p.ConsultationId.HasValue || !consultationLookup.TryGetValue(p.ConsultationId.Value, out var consultation))
+                    continue;
 
                 results.Add(new MyConsultationResponse
                 {
