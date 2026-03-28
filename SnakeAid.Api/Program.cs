@@ -130,6 +130,9 @@ namespace SnakeAid.Api
                 // Register Snake Catching Payment Service
                 builder.Services.AddScoped<SnakeAid.Service.Interfaces.ISnakeCatchingPaymentService, SnakeAid.Service.Implements.SnakeCatchingPaymentService>();
 
+                // Register PayOS description lookup for webhook/callback routing
+                builder.Services.AddScoped<SnakeAid.Service.Services.PayOs.PayOsDescriptionLookup>();
+
                 // Register Wallet Topup Service
                 builder.Services.AddScoped<SnakeAid.Service.Interfaces.IWalletTopupService, SnakeAid.Service.Implements.WalletTopupService>();
 
