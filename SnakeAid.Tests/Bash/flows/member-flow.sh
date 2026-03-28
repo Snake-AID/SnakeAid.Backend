@@ -17,7 +17,7 @@ POST "/api/wallet/topup" '{"amount": 50000}'
 
 echo ""
 echo "--- Consultation review ---"
-CONSUL_ID=$(GET_RAW "/api/users/me/consultations?pageNumber=1&pageSize=1" | python -c "import sys,json; items=json.load(sys.stdin)['data']['items']; print(items[0]['consultationId'] if items else 'NONE')" 2>/dev/null)
+CONSUL_ID=$(GET_RAW "/api/users/me/consultations?pageNumber=1&pageSize=1" | jq -r '.data.items[0].consultationId // "NONE"')
 if [ "$CONSUL_ID" != "NONE" ]; then
   GET "/api/consultations/$CONSUL_ID/reviews"
 else
@@ -26,4 +26,4 @@ fi
 
 echo ""
 echo "--- Snake search ---"
-GET_PUBLIC_RAW "/api/snake-species/search?q=ophiophagus" | python -c "import sys,json; d=json.load(sys.stdin); print(f'  status={d[\"status_code\"]}, results={len(d[\"data\"])}')" 2>/dev/null
+GET_PUBLIC_RAW "/api/snake-species/search?q=ophiophagus" | jq '{status: .status_code, results: (.data | length)}'

@@ -35,7 +35,7 @@ _login() {
     -H "Content-Type: application/json" \
     -d "{\"email\":\"$email\",\"password\":\"$password\"}")
   local token
-  token=$(echo "$resp" | python -c "import sys,json; print(json.load(sys.stdin)['data']['accessToken'])" 2>/dev/null)
+  token=$(echo "$resp" | jq -r '.data.accessToken // empty')
   if [ -z "$token" ] || [ "$token" = "None" ]; then
     echo "[auth] FAILED to login $label ($email)" >&2
     return 1
