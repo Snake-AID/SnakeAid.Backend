@@ -416,16 +416,37 @@ public class PayOsPreservationTests
     /// **Validates: Requirements 3.1, 3.5**
     /// </summary>
     [Theory]
-    [InlineData("CreateSnakeCatchingPaymentLink", "POST", "snakecatching/paylink/create")]
-    [InlineData("CancelPaymentLink", "POST", "snakecatching/paylink/cancel/{orderCode}")]
     [InlineData("ConfirmPayment", "POST", "confirm-payment")]
     [InlineData("Return", "GET", "return")]
     [InlineData("Cancel", "GET", "cancel")]
     [InlineData("Webhook", "POST", "webhook")]
-    [InlineData("TransferToRescuer", "POST", "transfer-to-rescuer")]
     public void PayOsController_PreservesEndpointRoutes(string methodName, string expectedHttpMethod, string expectedTemplate)
     {
         var controllerType = typeof(PayOsController);
+        var method = controllerType.GetMethod(methodName, BindingFlags.Instance | BindingFlags.Public);
+
+        Assert.NotNull(method);
+
+        var httpMethodAttr = method!.GetCustomAttributes()
+            .OfType<HttpMethodAttribute>()
+            .FirstOrDefault();
+
+        Assert.NotNull(httpMethodAttr);
+        Assert.Equal(expectedTemplate, httpMethodAttr!.Template);
+        Assert.Contains(expectedHttpMethod, httpMethodAttr.HttpMethods);
+    }
+
+    /// <summary>
+    /// Property: SnakeCatching payment endpoints moved to SnakeCatchingPaymentsController
+    /// with new route convention matching other flow-specific payment controllers.
+    /// </summary>
+    [Theory]
+    [InlineData("CreatePaymentLink", "POST", "create-link")]
+    [InlineData("CancelPaymentLink", "POST", "cancel-link/{orderCode}")]
+    [InlineData("TransferToRescuer", "POST", "transfer-to-rescuer")]
+    public void SnakeCatchingPaymentsController_HasEndpointRoutes(string methodName, string expectedHttpMethod, string expectedTemplate)
+    {
+        var controllerType = typeof(SnakeCatchingPaymentsController);
         var method = controllerType.GetMethod(methodName, BindingFlags.Instance | BindingFlags.Public);
 
         Assert.NotNull(method);
