@@ -35,3 +35,7 @@ if [ "$CONSUL_ID" != "NONE" ]; then
 else
   echo "No consultations found to test review endpoint"
 fi
+
+echo ""
+echo "=== TEST 6: GET /api/snake-species/search (ILIKE) ==="
+curl --globoff -s "http://[::1]:8080/api/snake-species/search?q=ophiophagus" | python -c "import sys,json; d=json.load(sys.stdin); print(f\"  status={d['status_code']}, results={len(d['data'])}\")" 2>/dev/null

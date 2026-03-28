@@ -37,7 +37,8 @@ Token caching:
 | `test-login.sh` | Login all 3 roles, print tokens | all |
 | `test-topup.sh` | Wallet top-up via PayOS | member |
 | `test-endpoints.sh` | Consultation endpoints + topup | member |
-| `test-all.sh` | Full suite: consultations + topup + reviews | member |
+| `test-snake-search.sh` | Snake species search (ILIKE) | none (public) |
+| `test-all.sh` | Full suite: consultations + topup + reviews + snake search | member |
 
 ## Adding New Test Scripts
 
