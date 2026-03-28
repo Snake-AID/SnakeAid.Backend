@@ -60,20 +60,29 @@ public class PayOsController : BaseController<PayOsController>
             if (description is null)
                 return BadRequest(new { success = false, message = "Transaction not found" });
 
-            PayOsWebhookResponse result;
+            PayOsWebhookResponse? webhookResult = null;
+            object? data = null;
             if (description.StartsWith("CONSULTPAY-", StringComparison.Ordinal))
             {
                 var consultResult = await _consultationPaymentService.ConfirmConsultationPaymentAsync(request.TransactionId, cancellationToken);
-                result = new PayOsWebhookResponse { Success = true, Message = "Payment confirmed" };
+                data = consultResult;
             }
             else if (description.StartsWith("INCIDENT-", StringComparison.Ordinal))
-                result = await _snakebiteIncidentPaymentService.ConfirmSnakebiteIncidentPaymentAsync(request.TransactionId, cancellationToken);
+            {
+                webhookResult = await _snakebiteIncidentPaymentService.ConfirmSnakebiteIncidentPaymentAsync(request.TransactionId, cancellationToken);
+                data = webhookResult;
+            }
             else if (description.StartsWith("SNAKEAID-", StringComparison.Ordinal))
-                result = await _snakeCatchingPaymentService.ConfirmSnakeCatchingPaymentAsync(request.TransactionId, cancellationToken);
+            {
+                webhookResult = await _snakeCatchingPaymentService.ConfirmSnakeCatchingPaymentAsync(request.TransactionId, cancellationToken);
+                data = webhookResult;
+            }
             else
                 return BadRequest(new { success = false, message = "Unknown payment flow for the given transaction" });
 
-            return Ok(new { success = true, message = "PayOS payment confirmed successfully", data = result });
+            var success = webhookResult?.Success ?? true;
+            var message = webhookResult?.Message ?? "Payment confirmed successfully";
+            return Ok(new { success, message, data });
         }
         catch (InvalidOperationException ex)
         {
