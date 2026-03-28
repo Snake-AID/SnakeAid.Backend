@@ -159,7 +159,7 @@ public class WalletTopupService : IWalletTopupService
     private static long GenerateOrderCode()
     {
         var timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-        var randomPart = Random.Shared.Next(100, 999);
+        var randomPart = System.Security.Cryptography.RandomNumberGenerator.GetInt32(100000, 999999);
         return long.Parse($"{timestamp}{randomPart}");
     }
 

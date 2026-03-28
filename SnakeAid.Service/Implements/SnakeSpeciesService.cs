@@ -104,13 +104,18 @@ namespace SnakeAid.Service.Implements
                     return new List<SearchSnakeSpeciesResponse>();
                 }
 
-                var pattern = $"%{query}%";
+                var escaped = query
+                    .Replace(@"\", @"\\")
+                    .Replace("%", @"\%")
+                    .Replace("_", @"\_");
+                var pattern = $"%{escaped}%";
+                const string escapeChar = @"\";
                 var snakeSpecies = await _unitOfWork.GetRepository<SnakeSpecies>()
                     .GetListAsync(
                         predicate: s => s.IsActive &&
-                            (EF.Functions.ILike(s.ScientificName, pattern) ||
-                             EF.Functions.ILike(s.CommonName, pattern) ||
-                             s.AlternativeNames.Any(sn => EF.Functions.ILike(sn.Name, pattern))),
+                            (EF.Functions.ILike(s.ScientificName, pattern, escapeChar) ||
+                             EF.Functions.ILike(s.CommonName, pattern, escapeChar) ||
+                             s.AlternativeNames.Any(sn => EF.Functions.ILike(sn.Name, pattern, escapeChar))),
                         include: q => q
                             .Include(s => s.SpeciesVenoms)
                                 .ThenInclude(sv => sv.VenomType)
