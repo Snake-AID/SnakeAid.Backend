@@ -65,7 +65,7 @@ public class ConsultationsController : BaseController<ConsultationsController>
         return Ok(ApiResponseBuilder.BuildSuccessResponse(result));
     }
 
-    [HttpPost("emergency-requests")]
+    [HttpPost("instant")]
     [Authorize(Roles = "User")]
     public async Task<ActionResult<ApiResponse<EmergencyConsultationRequestResponse>>> CreateEmergencyConsultationRequest([FromBody] CreateEmergencyConsultationRequest request)
     {
@@ -74,7 +74,7 @@ public class ConsultationsController : BaseController<ConsultationsController>
         return Ok(ApiResponseBuilder.BuildSuccessResponse(result));
     }
 
-    [HttpPost("emergency-requests/{requestId:guid}/accept")]
+    [HttpPost("instant/{requestId:guid}/accept")]
     [Authorize(Roles = "Expert")]
     public async Task<ActionResult<ApiResponse<EmergencyConsultationRequestResponse>>> AcceptEmergencyConsultationRequest(Guid requestId)
     {
@@ -83,7 +83,7 @@ public class ConsultationsController : BaseController<ConsultationsController>
         return Ok(ApiResponseBuilder.BuildSuccessResponse(result));
     }
 
-    [HttpPost("emergency-requests/{requestId:guid}/reject")]
+    [HttpPost("instant/{requestId:guid}/reject")]
     [Authorize(Roles = "Expert")]
     public async Task<ActionResult<ApiResponse<EmergencyConsultationRequestResponse>>> RejectEmergencyConsultationRequest(Guid requestId)
     {

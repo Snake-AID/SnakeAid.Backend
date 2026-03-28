@@ -349,9 +349,9 @@ public class PayOsPreservationTests
     [Theory]
     [InlineData(typeof(SnakebiteIncidentController), "CreateSnakebiteIncidentPaymentLink", "POST", "{incidentId}/payment/payos")]
     [InlineData(typeof(SnakebiteIncidentController), "PaySnakebiteIncidentWithWallet", "POST", "{incidentId}/payment/wallet")]
-    [InlineData(typeof(ConsultationPaymentsController), "PayScheduledBooking", "POST", "/api/consultation-bookings/{bookingId:guid}/payments")]
-    [InlineData(typeof(ConsultationPaymentsController), "PayEmergencyRequest", "POST", "/api/consultations/emergency-requests/{requestId:guid}/payments")]
-    [InlineData(typeof(ConsultationPaymentsController), "ConfirmConsultationPayment", "POST", "/api/consultation-payments/confirm-payment")]
+    [InlineData(typeof(ConsultationPaymentsController), "PayScheduledBooking", "POST", "/api/consultations/scheduled/{bookingId:guid}/payments")]
+    [InlineData(typeof(ConsultationPaymentsController), "PayEmergencyRequest", "POST", "/api/consultations/instant/{requestId:guid}/payments")]
+    [InlineData(typeof(ConsultationPaymentsController), "ConfirmConsultationPayment", "POST", "/api/consultations/payments/confirm")]
     public void FlowSpecificControllers_PreserveEndpointRoutes(
         Type controllerType, string methodName, string expectedHttpMethod, string expectedTemplate)
     {

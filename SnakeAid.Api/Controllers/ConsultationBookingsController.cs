@@ -9,7 +9,7 @@ using SnakeAid.Service.Interfaces;
 namespace SnakeAid.Api.Controllers;
 
 [ApiController]
-[Route("api/consultation-bookings")]
+[Route("api/consultations/scheduled")]
 [Authorize]
 public class ConsultationBookingsController : BaseController<ConsultationBookingsController>
 {
@@ -34,7 +34,7 @@ public class ConsultationBookingsController : BaseController<ConsultationBooking
         return Ok(ApiResponseBuilder.BuildSuccessResponse(result));
     }
 
-    [HttpGet("/api/users/me/consultation-bookings")]
+    [HttpGet("/api/users/me/consultations/scheduled")]
     [Authorize(Roles = "User")]
     public async Task<ActionResult<ApiResponse<IEnumerable<ConsultationBookingResponse>>>> GetMyBookings()
     {
@@ -43,7 +43,7 @@ public class ConsultationBookingsController : BaseController<ConsultationBooking
         return Ok(ApiResponseBuilder.BuildSuccessResponse(result));
     }
 
-    [HttpGet("/api/experts/me/consultation-bookings")]
+    [HttpGet("/api/experts/me/consultations/scheduled")]
     [Authorize(Roles = "Expert")]
     public async Task<ActionResult<ApiResponse<IEnumerable<ConsultationBookingResponse>>>> GetExpertBookings()
     {
