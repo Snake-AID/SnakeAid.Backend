@@ -9,12 +9,12 @@ namespace SnakeAid.Tests.Unit;
 public class ConsultationRouteConventionTests
 {
     [Theory]
-    [InlineData(typeof(ConsultationBookingsController), "GetMyBookings", "/api/users/me/consultation-bookings")]
-    [InlineData(typeof(ConsultationBookingsController), "GetExpertBookings", "/api/experts/me/consultation-bookings")]
-    [InlineData(typeof(ConsultationPaymentsController), "PayScheduledBooking", "/api/consultation-bookings/{bookingId:guid}/payments")]
-    [InlineData(typeof(ConsultationPaymentsController), "PayEmergencyRequest", "/api/consultations/emergency-requests/{requestId:guid}/payments")]
-    [InlineData(typeof(ConsultationsController), "CreateEmergencyConsultationRequest", "emergency-requests")]
-    public void ConsultationRoutes_ShouldMatchApprovedConvention(Type controllerType, string methodName, string expectedTemplate)
+    [InlineData(typeof(ConsultationScheduledController), "GetMyBookings", "/api/users/me/consultations/scheduled")]
+    [InlineData(typeof(ConsultationScheduledController), "GetExpertBookings", "/api/experts/me/consultations/scheduled")]
+    [InlineData(typeof(ConsultationPaymentsController), "PayScheduledBooking", "/api/consultations/scheduled/{bookingId:guid}/payments")]
+    [InlineData(typeof(ConsultationPaymentsController), "PayEmergencyRequest", "/api/consultations/instant/{requestId:guid}/payments")]
+    [InlineData(typeof(ConsultationInstantController), "CreateEmergencyConsultationRequest", null)]
+    public void ConsultationRoutes_ShouldMatchApprovedConvention(Type controllerType, string methodName, string? expectedTemplate)
     {
         var method = controllerType.GetMethod(methodName, BindingFlags.Instance | BindingFlags.Public);
         Assert.NotNull(method);

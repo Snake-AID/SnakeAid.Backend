@@ -154,7 +154,7 @@ public class ConsultationBookingsControllerIntegrationTests
         Assert.All(items, item => Assert.False(string.IsNullOrWhiteSpace(item.RoomId)));
     }
 
-    private static ConsultationBookingsController BuildController(IBookingService bookingService, Guid userId, string role)
+    private static ConsultationScheduledController BuildController(IBookingService bookingService, Guid userId, string role)
     {
         var httpContext = new DefaultHttpContext
         {
@@ -170,8 +170,8 @@ public class ConsultationBookingsControllerIntegrationTests
         var httpContextAccessor = new HttpContextAccessor { HttpContext = httpContext };
         var mapper = new Mapper(TypeAdapterConfig.GlobalSettings);
 
-        var controller = new ConsultationBookingsController(
-            NullLogger<ConsultationBookingsController>.Instance,
+        var controller = new ConsultationScheduledController(
+            NullLogger<ConsultationScheduledController>.Instance,
             httpContextAccessor,
             mapper,
             bookingService);

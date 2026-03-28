@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using SnakeAid.Core.Domains;
+using SnakeAid.Core.Enums;
 using SnakeAid.Core.Exceptions;
 using SnakeAid.Core.Requests.PayOs;
 using SnakeAid.Core.Responses.PayOs;
@@ -246,7 +247,7 @@ public class SnakebiteIncidentPaymentService : ISnakebiteIncidentPaymentService
         }
 
         var paymentTransaction = await _unitOfWork.GetRepository<Transaction>().FirstOrDefaultAsync(
-            predicate: t => !string.IsNullOrWhiteSpace(t.Description) && t.Description.StartsWith($"SNAKEAID-{orderCode}"),
+            predicate: t => !string.IsNullOrWhiteSpace(t.Description) && t.Description.StartsWith($"INCIDENT-{orderCode}"),
             asNoTracking: false,
             cancellationToken: cancellationToken);
 
@@ -314,7 +315,7 @@ public class SnakebiteIncidentPaymentService : ISnakebiteIncidentPaymentService
                     Amount = webhook.Amount,
                     Currency = "VND",
                     TransactionType = TransactionType.SnakebiteIncidentPayment,
-                    Description = $"SNAKEAID-{webhook.OrderCode}",
+                    Description = $"INCIDENT-{webhook.OrderCode}",
                     PaymentMethod = "PayOS",
                     ExternalTransactionId = webhook.TransactionReference,
                     CreatedAt = webhook.TransactionDateTime ?? DateTime.UtcNow
@@ -540,7 +541,7 @@ public class SnakebiteIncidentPaymentService : ISnakebiteIncidentPaymentService
     private string BuildDescription(long orderCode, string additionalInfo)
     {
         const int maxLength = 25;
-        var baseDescription = $"SNAKEAID-{orderCode}".Trim();
+        var baseDescription = $"INCIDENT-{orderCode}".Trim();
         return baseDescription.Length <= maxLength ? baseDescription : baseDescription.Substring(0, maxLength);
     }
 
@@ -552,12 +553,12 @@ public class SnakebiteIncidentPaymentService : ISnakebiteIncidentPaymentService
         }
 
         var parts = description.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-        if (parts.Length == 0 || !parts[0].StartsWith("SNAKEAID-"))
+        if (parts.Length == 0 || !parts[0].StartsWith("INCIDENT-"))
         {
             return 0;
         }
 
-        if (long.TryParse(parts[0].Replace("SNAKEAID-", ""), out var orderCode))
+        if (long.TryParse(parts[0].Replace("INCIDENT-", ""), out var orderCode))
         {
             return orderCode;
         }
