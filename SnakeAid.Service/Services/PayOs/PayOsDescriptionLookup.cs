@@ -18,7 +18,11 @@ public class PayOsDescriptionLookup
 
     public async Task<string?> GetByTransactionIdAsync(Guid transactionId, CancellationToken ct = default)
     {
-        var transaction = await _unitOfWork.GetRepository<Transaction>().GetByIdAsync(transactionId);
+        var transaction = await _unitOfWork.GetRepository<Transaction>()
+            .FirstOrDefaultAsync(
+                predicate: t => t.Id == transactionId,
+                asNoTracking: true,
+                cancellationToken: ct);
         return transaction?.Description;
     }
 
