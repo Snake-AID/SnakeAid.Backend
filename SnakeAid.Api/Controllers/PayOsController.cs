@@ -1,3 +1,4 @@
+using System.Net;
 using System.Text;
 using MapsterMapper;
 using Microsoft.AspNetCore.Authorization;
@@ -241,7 +242,11 @@ public class PayOsController : BaseController<PayOsController>
 
     // ── HTML templates ──────────────────────────────────────────────────
 
-    private static string BuildReturnHtml(bool isSuccess, long orderCode, string id, string status) => $@"
+    private static string BuildReturnHtml(bool isSuccess, long orderCode, string id, string status)
+    {
+        var safeId = WebUtility.HtmlEncode(id);
+        var safeStatus = WebUtility.HtmlEncode(status);
+        return $@"
 <!DOCTYPE html>
 <html>
 <head>
@@ -269,15 +274,20 @@ public class PayOsController : BaseController<PayOsController>
         <p>{(isSuccess ? "Your payment has been processed successfully." : "Payment was not completed.")}</p>
         <div class='details'>
             <div class='detail-row'><span class='label'>Order Code:</span><span class='value'>{orderCode}</span></div>
-            <div class='detail-row'><span class='label'>Transaction ID:</span><span class='value'>{id}</span></div>
-            <div class='detail-row'><span class='label'>Status:</span><span class='value'>{status}</span></div>
+            <div class='detail-row'><span class='label'>Transaction ID:</span><span class='value'>{safeId}</span></div>
+            <div class='detail-row'><span class='label'>Status:</span><span class='value'>{safeStatus}</span></div>
         </div>
         <button onclick='window.close()'>Close Window</button>
     </div>
 </body>
 </html>";
+    }
 
-    private static string BuildCancelHtml(long orderCode, string id, string status) => $@"
+    private static string BuildCancelHtml(long orderCode, string id, string status)
+    {
+        var safeId = WebUtility.HtmlEncode(id);
+        var safeStatus = WebUtility.HtmlEncode(status);
+        return $@"
 <!DOCTYPE html>
 <html>
 <head>
@@ -306,11 +316,12 @@ public class PayOsController : BaseController<PayOsController>
         <p>Your payment has been cancelled. The transaction was not completed.</p>
         <div class='details'>
             <div class='detail-row'><span class='label'>Order Code:</span><span class='value'>{orderCode}</span></div>
-            <div class='detail-row'><span class='label'>Transaction ID:</span><span class='value'>{id}</span></div>
-            <div class='detail-row'><span class='label'>Status:</span><span class='value'>{status}</span></div>
+            <div class='detail-row'><span class='label'>Transaction ID:</span><span class='value'>{safeId}</span></div>
+            <div class='detail-row'><span class='label'>Status:</span><span class='value'>{safeStatus}</span></div>
         </div>
         <button onclick='window.close()'>Close Window</button>
     </div>
 </body>
 </html>";
+    }
 }
