@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using SnakeAid.Core.Meta;
 using SnakeAid.Core.Requests.PayOs;
+using SnakeAid.Core.Requests.Wallet;
 using SnakeAid.Core.Responses.PayOs;
 using SnakeAid.Core.Responses.Wallet;
 using SnakeAid.Service.Interfaces;
@@ -18,17 +19,20 @@ namespace SnakeAid.Api.Controllers
     {
         private readonly IWalletService _walletService;
         private readonly IWalletPaymentService _walletPaymentService;
+        private readonly IWalletTopupService _walletTopupService;
 
         public WalletController(
             ILogger<WalletController> logger,
             IHttpContextAccessor httpContextAccessor,
             IMapper mapper,
             IWalletService walletService,
-            IWalletPaymentService walletPaymentService)
+            IWalletPaymentService walletPaymentService,
+            IWalletTopupService walletTopupService)
             : base(logger, httpContextAccessor, mapper)
         {
             _walletService = walletService;
             _walletPaymentService = walletPaymentService;
+            _walletTopupService = walletTopupService;
         }
 
         /// <summary>
@@ -99,6 +103,26 @@ namespace SnakeAid.Api.Controllers
                     message = "An error occurred while processing wallet payment"
                 });
             }
+        }
+
+        /// <summary>
+        /// Create wallet top-up via PayOS
+        /// </summary>
+        [HttpPost("topup")]
+        [Authorize]
+        [SwaggerOperation(
+            Summary = "Create Wallet Top-up",
+            Description = "Create a PayOS payment link to top up the user's wallet balance")]
+        [ProducesResponseType(typeof(ApiResponse<Core.Responses.Wallet.CreateWalletTopupResponse>), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        public async Task<IActionResult> CreateWalletTopup(
+            [FromBody] CreateWalletTopupRequest request,
+            CancellationToken cancellationToken)
+        {
+            var userId = GetCurrentUserId();
+            var result = await _walletTopupService.CreateWalletTopupAsync(request, userId, cancellationToken);
+            return Ok(ApiResponseBuilder.BuildSuccessResponse(result, "Wallet top-up payment link created successfully"));
         }
     }
 }

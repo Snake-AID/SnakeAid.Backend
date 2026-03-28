@@ -971,15 +971,29 @@ public class ConsultationPaymentService : IConsultationPaymentService
 
     private static long GenerateOrderCode()
     {
-        var timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-        var hash = Guid.NewGuid().GetHashCode() & 0x7FFFFFFF;
-        var randomPart = hash % 9000 + 1000;
-        return long.Parse($"{timestamp:D13}{randomPart:D4}");
+        // CONSULTPAY- = 11 chars, max description = 25 chars → orderCode max 14 digits
+        // timestamp (10 digits) + random (4 digits) = 14 digits
+        var timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        var randomPart = System.Security.Cryptography.RandomNumberGenerator.GetInt32(1000, 9999);
+        return long.Parse($"{timestamp}{randomPart}");
     }
 
     private static string BuildDescription(long orderCode, string description)
     {
-        return $"{PayOsDescriptionPrefix}-{orderCode} - {description}";
+        const int maxLength = 25;
+        var baseDescription = $"{PayOsDescriptionPrefix}-{orderCode}";
+
+        if (baseDescription.Length >= maxLength || string.IsNullOrWhiteSpace(description))
+        {
+            return baseDescription.Length <= maxLength
+                ? baseDescription
+                : baseDescription[..maxLength];
+        }
+
+        var combined = $"{baseDescription} {description}";
+        return combined.Length <= maxLength
+            ? combined
+            : baseDescription;
     }
 
     private static long ExtractOrderCodeFromDescription(string? description)

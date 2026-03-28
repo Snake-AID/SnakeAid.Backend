@@ -37,12 +37,31 @@ public class ConsultationsController : BaseController<ConsultationsController>
         return Ok(ApiResponseBuilder.BuildSuccessResponse("Consultation ended successfully."));
     }
 
+    [HttpGet("/api/users/me/consultations")]
+    [Authorize(Roles = "User")]
+    public async Task<ActionResult<ApiResponse<PagingResponse<MyConsultationResponse>>>> GetMyConsultations([FromQuery] MyConsultationsQueryRequest query)
+    {
+        var userId = GetCurrentUserId();
+        var result = await _consultationService.GetMyConsultationsAsync(userId, query);
+        return Ok(ApiResponseBuilder.BuildSuccessResponse(result));
+    }
+
     [HttpPost("{consultationId:guid}/reviews")]
     [Authorize(Roles = "User")]
     public async Task<ActionResult<ApiResponse<UserFeedbackResponse>>> CreateReview(Guid consultationId, [FromBody] CreateConsultationReviewRequest request)
     {
         var raterId = GetCurrentUserId();
         var result = await _consultationService.CreateConsultationReviewAsync(consultationId, raterId, request);
+        return Ok(ApiResponseBuilder.BuildSuccessResponse(result));
+    }
+
+    [HttpGet("{consultationId:guid}/reviews")]
+    public async Task<IActionResult> GetReview(Guid consultationId)
+    {
+        var actorId = GetCurrentUserId();
+        var result = await _consultationService.GetConsultationReviewAsync(consultationId, actorId);
+        if (result == null)
+            return Ok(ApiResponseBuilder.BuildSuccessResponse<UserFeedbackResponse?>(null, "No review found for this consultation."));
         return Ok(ApiResponseBuilder.BuildSuccessResponse(result));
     }
 

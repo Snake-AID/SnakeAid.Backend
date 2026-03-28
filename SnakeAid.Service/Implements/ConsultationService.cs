@@ -1,7 +1,10 @@
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using SnakeAid.Core.Domains;
 using SnakeAid.Core.Exceptions;
+using SnakeAid.Core.Meta;
 using SnakeAid.Core.Requests.Consultation;
+using SnakeAid.Core.Responses.Consultation;
 using SnakeAid.Core.Responses.UserFeedback;
 using SnakeAid.Repository.Data;
 using SnakeAid.Repository.Interfaces;
@@ -156,6 +159,147 @@ public class ConsultationService : IConsultationService
             TargetUserName = expert?.FullName,
             UpdatedAverageRating = newRating,
             UpdatedRatingCount = newCount
+        };
+    }
+
+    public async Task<UserFeedbackResponse?> GetConsultationReviewAsync(Guid consultationId, Guid actorId)
+    {
+        var consultation = await _unitOfWork.GetRepository<Consultation>().FirstOrDefaultAsync(
+            predicate: c => c.Id == consultationId);
+
+        if (consultation == null)
+            throw new NotFoundException("Consultation not found.");
+
+        if (consultation.CallerId != actorId && consultation.CalleeId != actorId)
+            throw new ForbiddenException("You are not a participant of this consultation.");
+
+        var feedback = await _unitOfWork.GetRepository<UserFeedback>().FirstOrDefaultAsync(
+            predicate: f => f.ReferenceId == consultationId && f.Type == FeedbackType.Consultation);
+
+        if (feedback == null)
+            return null;
+
+        var rater = await _unitOfWork.GetRepository<Account>().FirstOrDefaultAsync(predicate: a => a.Id == feedback.RaterId);
+        var target = await _unitOfWork.GetRepository<Account>().FirstOrDefaultAsync(predicate: a => a.Id == feedback.TargetUserId);
+
+        return new UserFeedbackResponse
+        {
+            Id = feedback.Id,
+            RaterId = feedback.RaterId,
+            TargetUserId = feedback.TargetUserId,
+            ReferenceId = feedback.ReferenceId,
+            Type = feedback.Type,
+            Rating = feedback.Rating,
+            Comments = feedback.Comments,
+            CreatedAt = feedback.CreatedAt,
+            UpdatedAt = feedback.UpdatedAt,
+            RaterName = rater?.FullName,
+            TargetUserName = target?.FullName,
+            UpdatedAverageRating = 0,
+            UpdatedRatingCount = 0
+        };
+    }
+
+    public async Task<PagingResponse<MyConsultationResponse>> GetMyConsultationsAsync(Guid userId, MyConsultationsQueryRequest query)
+    {
+        var results = new List<MyConsultationResponse>();
+
+        var includeScheduled = string.IsNullOrEmpty(query.Type)
+            || query.Type.Equals("Scheduled", StringComparison.OrdinalIgnoreCase);
+        var includeEmergency = string.IsNullOrEmpty(query.Type)
+            || query.Type.Equals("Emergency", StringComparison.OrdinalIgnoreCase);
+
+        // Scheduled consultations
+        if (includeScheduled)
+        {
+            var bookings = await _unitOfWork.GetRepository<ConsultationBooking>().GetListAsync(
+                predicate: b => b.UserId == userId && b.ConsultationId.HasValue,
+                include: q => q.Include(b => b.Expert).Include(b => b.TimeSlot).Include(b => b.Consultation));
+
+            foreach (var b in bookings)
+            {
+                results.Add(new MyConsultationResponse
+                {
+                    ConsultationId = b.ConsultationId!.Value,
+                    Type = "Scheduled",
+                    Status = b.Consultation!.Status.ToString(),
+                    ExpertId = b.ExpertId,
+                    ExpertName = b.Expert?.FullName,
+                    RoomId = b.Consultation.RoomId,
+                    StartTime = b.Consultation.StartTime,
+                    EndTime = b.Consultation.EndTime,
+                    Price = b.Price,
+                    ProblemDescription = b.ProblemDescription,
+                    BookingId = b.Id,
+                    SlotStartTime = b.TimeSlot?.StartTime,
+                    SlotEndTime = b.TimeSlot?.EndTime
+                });
+            }
+        }
+
+        // Emergency consultations
+        if (includeEmergency)
+        {
+            var emergencyRequests = await _unitOfWork.GetRepository<ConsultationPingRequest>().GetListAsync(
+                predicate: p => p.RescuerId == userId
+                             && p.ConsultationId.HasValue
+                             && p.Status == ConsultationPingStatus.AcceptedByExpert,
+                include: q => q.Include(p => p.Expert));
+
+            var consultationIds = emergencyRequests
+                .Where(p => p.ConsultationId.HasValue)
+                .Select(p => p.ConsultationId!.Value)
+                .Distinct()
+                .ToList();
+
+            var consultations = consultationIds.Count > 0
+                ? await _unitOfWork.GetRepository<Consultation>().GetListAsync(
+                    predicate: c => consultationIds.Contains(c.Id))
+                : new List<Consultation>();
+
+            var consultationLookup = consultations.ToDictionary(c => c.Id);
+
+            foreach (var p in emergencyRequests)
+            {
+                if (!p.ConsultationId.HasValue || !consultationLookup.TryGetValue(p.ConsultationId.Value, out var consultation))
+                    continue;
+
+                results.Add(new MyConsultationResponse
+                {
+                    ConsultationId = consultation.Id,
+                    Type = "Emergency",
+                    Status = consultation.Status.ToString(),
+                    ExpertId = p.ExpertId,
+                    ExpertName = p.Expert?.FullName,
+                    RoomId = consultation.RoomId,
+                    StartTime = consultation.StartTime,
+                    EndTime = consultation.EndTime,
+                    EmergencyRequestId = p.Id
+                });
+            }
+        }
+
+        // Filter by status
+        if (!string.IsNullOrEmpty(query.Status))
+        {
+            results = results.Where(r => r.Status.Equals(query.Status, StringComparison.OrdinalIgnoreCase)).ToList();
+        }
+
+        // Sort + paginate
+        var sorted = results.OrderByDescending(c => c.StartTime ?? DateTime.MinValue).ToList();
+        var totalItems = sorted.Count;
+        var paged = sorted.Skip((query.PageNumber - 1) * query.PageSize).Take(query.PageSize);
+
+        return new PagingResponse<MyConsultationResponse>
+        {
+            Items = paged,
+            Meta = new PaginationMeta
+            {
+                CurrentPage = query.PageNumber,
+                PageSize = query.PageSize,
+                TotalItems = totalItems,
+                TotalPages = (int)Math.Ceiling(totalItems / (double)query.PageSize)
+            }
         };
     }
 }

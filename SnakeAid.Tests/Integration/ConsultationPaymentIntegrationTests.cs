@@ -198,6 +198,10 @@ public class ConsultationPaymentIntegrationTests
         Assert.Equal(ConsultationPaymentMethod.PayOs, response.PaymentMethod);
         Assert.NotNull(response.CheckoutUrl);
         Assert.NotNull(response.OrderCode);
+        Assert.InRange(response.OrderCode!.Value, 1_000_000_000_100L, 99_999_999_999_999L);
+
+        var paymentTx = await db.Set<Transaction>().FirstAsync(t => t.Id == response.TransactionId);
+        Assert.True(paymentTx.Description.Length <= 25);
 
         var booking = await db.ConsultationBookings.FirstAsync(x => x.Id == bookingId);
         Assert.Equal(BookingStatus.PendingPayment, booking.Status);
