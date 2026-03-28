@@ -108,3 +108,23 @@ Sau khi thêm, cập nhật `run-all.sh` để include script mới.
 3. Chạy script, verify response trực tiếp trên terminal
 4. Check: `is_success`, `status_code`, response shape, error messages
 5. Regression: `run-all.sh` sau mỗi thay đổi
+
+## Dependencies
+
+| Tool | Mục đích | Cài đặt |
+|------|---------|---------|
+| `curl` | HTTP calls | Có sẵn trong Git Bash |
+| `jq` | JSON pretty-print + parse | `winget install jqlang.jq` |
+| Git Bash | Shell runtime | Có sẵn khi cài Git for Windows |
+
+Trước khi chạy test, verify dependencies:
+```bash
+jq --version    # cần jq-1.6+
+curl --version  # có sẵn
+```
+
+Nếu `jq` chưa có:
+```powershell
+winget install jqlang.jq --accept-package-agreements
+# Restart terminal sau khi cài để PATH cập nhật
+```
