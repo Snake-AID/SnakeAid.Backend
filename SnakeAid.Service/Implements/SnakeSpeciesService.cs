@@ -104,17 +104,21 @@ namespace SnakeAid.Service.Implements
                     return new List<SearchSnakeSpeciesResponse>();
                 }
 
+                var pattern = $"%{query}%";
                 var snakeSpecies = await _unitOfWork.GetRepository<SnakeSpecies>()
                     .GetListAsync(
                         predicate: s => s.IsActive &&
-                            (s.ScientificName.Contains(query, StringComparison.OrdinalIgnoreCase) ||
-                             s.CommonName.Contains(query, StringComparison.OrdinalIgnoreCase) ||
-                             s.AlternativeNames.Any(sn => sn.Name.Contains(query, StringComparison.OrdinalIgnoreCase))),
-                        include: query => query
+                            (EF.Functions.ILike(s.ScientificName, pattern) ||
+                             EF.Functions.ILike(s.CommonName, pattern) ||
+                             s.AlternativeNames.Any(sn => EF.Functions.ILike(sn.Name, pattern))),
+                        include: q => q
                             .Include(s => s.SpeciesVenoms)
                                 .ThenInclude(sv => sv.VenomType)
                             .Include(s => s.SpeciesAntivenoms)
                                 .ThenInclude(sa => sa.Antivenom)
+                            .Include(s => s.LibraryMedias)
+                            .Include(s => s.FilterSnakeMappings)
+                                .ThenInclude(fm => fm.FilterOption)
                     );
 
                 var result = snakeSpecies.Select(s => new SearchSnakeSpeciesResponse
@@ -123,8 +127,18 @@ namespace SnakeAid.Service.Implements
                     ScientificName = s.ScientificName,
                     CommonName = s.CommonName,
                     ImageUrl = s.ImageUrl,
+                    GalleryUrls = s.LibraryMedias
+                        .Where(m => m.IsActive && m.MediaType == MediaType.Image)
+                        .Select(m => m.MediaUrl).ToList(),
                     IsVenomous = s.IsVenomous,
                     PrimaryVenomType = s.PrimaryVenomType,
+                    RiskLevel = s.RiskLevel,
+                    Identification = s.Identification != null ? new Core.Responses.SnakeSpecies.IdentificationInfo
+                    {
+                        PhysicalTraits = s.Identification.PhysicalTraits ?? new(),
+                        Behaviors = s.Identification.Behaviors ?? new(),
+                        Habitat = s.Identification.Habitat
+                    } : null,
                     Venoms = s.SpeciesVenoms.Select(sv => new Core.Responses.SnakeSpecies.VenomInfo
                     {
                         VenomType = sv.VenomType?.Name ?? "Unknown",
@@ -135,7 +149,16 @@ namespace SnakeAid.Service.Implements
                         AntivenomName = sa.Antivenom?.Name ?? "Unknown",
                         Manufacturer = sa.Antivenom?.Manufacturer ?? "",
                         Effectiveness = sa.Antivenom?.Description ?? ""
-                    }).ToList()
+                    }).ToList(),
+                    FirstAid = s.FirstAidGuidelineOverride?.Content != null ? new Core.Responses.SnakeSpecies.FirstAidInfo
+                    {
+                        Mode = s.FirstAidGuidelineOverride.Mode.ToString(),
+                        DoItems = s.FirstAidGuidelineOverride.Content.Dos?.Select(d => d.Text).ToList() ?? new(),
+                        DontItems = s.FirstAidGuidelineOverride.Content.Donts?.Select(d => d.Text).ToList() ?? new()
+                    } : null,
+                    Tags = s.FilterSnakeMappings
+                        .Where(fm => fm.IsActive && fm.FilterOption != null)
+                        .Select(fm => fm.FilterOption.OptionText).ToList()
                 }).ToList();
 
                 _logger.LogInformation("Found {Count} snake species matching query: {Query}", result.Count, query);
