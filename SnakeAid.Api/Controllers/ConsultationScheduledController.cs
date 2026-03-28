@@ -11,12 +11,12 @@ namespace SnakeAid.Api.Controllers;
 [ApiController]
 [Route("api/consultations/scheduled")]
 [Authorize]
-public class ConsultationBookingsController : BaseController<ConsultationBookingsController>
+public class ConsultationScheduledController : BaseController<ConsultationScheduledController>
 {
     private readonly IBookingService _bookingService;
 
-    public ConsultationBookingsController(
-        ILogger<ConsultationBookingsController> logger,
+    public ConsultationScheduledController(
+        ILogger<ConsultationScheduledController> logger,
         IHttpContextAccessor httpContextAccessor,
         IMapper mapper,
         IBookingService bookingService)

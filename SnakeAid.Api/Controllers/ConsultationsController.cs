@@ -15,18 +15,15 @@ namespace SnakeAid.Api.Controllers;
 public class ConsultationsController : BaseController<ConsultationsController>
 {
     private readonly IConsultationService _consultationService;
-    private readonly IEmergencyConsultationService _emergencyConsultationService;
 
     public ConsultationsController(
         ILogger<ConsultationsController> logger,
         IHttpContextAccessor httpContextAccessor,
         IMapper mapper,
-        IConsultationService consultationService,
-        IEmergencyConsultationService emergencyConsultationService)
+        IConsultationService consultationService)
         : base(logger, httpContextAccessor, mapper)
     {
         _consultationService = consultationService;
-        _emergencyConsultationService = emergencyConsultationService;
     }
 
     [HttpPost("{consultationId:guid}/end")]
@@ -62,33 +59,6 @@ public class ConsultationsController : BaseController<ConsultationsController>
         var result = await _consultationService.GetConsultationReviewAsync(consultationId, actorId);
         if (result == null)
             return Ok(ApiResponseBuilder.BuildSuccessResponse<UserFeedbackResponse?>(null, "No review found for this consultation."));
-        return Ok(ApiResponseBuilder.BuildSuccessResponse(result));
-    }
-
-    [HttpPost("instant")]
-    [Authorize(Roles = "User")]
-    public async Task<ActionResult<ApiResponse<EmergencyConsultationRequestResponse>>> CreateEmergencyConsultationRequest([FromBody] CreateEmergencyConsultationRequest request)
-    {
-        var requesterId = GetCurrentUserId();
-        var result = await _emergencyConsultationService.CreateEmergencyRequestAsync(requesterId, request);
-        return Ok(ApiResponseBuilder.BuildSuccessResponse(result));
-    }
-
-    [HttpPost("instant/{requestId:guid}/accept")]
-    [Authorize(Roles = "Expert")]
-    public async Task<ActionResult<ApiResponse<EmergencyConsultationRequestResponse>>> AcceptEmergencyConsultationRequest(Guid requestId)
-    {
-        var expertId = GetCurrentUserId();
-        var result = await _emergencyConsultationService.AcceptEmergencyRequestAsync(requestId, expertId);
-        return Ok(ApiResponseBuilder.BuildSuccessResponse(result));
-    }
-
-    [HttpPost("instant/{requestId:guid}/reject")]
-    [Authorize(Roles = "Expert")]
-    public async Task<ActionResult<ApiResponse<EmergencyConsultationRequestResponse>>> RejectEmergencyConsultationRequest(Guid requestId)
-    {
-        var expertId = GetCurrentUserId();
-        var result = await _emergencyConsultationService.RejectEmergencyRequestAsync(requestId, expertId);
         return Ok(ApiResponseBuilder.BuildSuccessResponse(result));
     }
 }
