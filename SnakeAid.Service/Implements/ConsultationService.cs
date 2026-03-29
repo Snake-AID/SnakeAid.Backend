@@ -200,6 +200,145 @@ public class ConsultationService : IConsultationService
         };
     }
 
+    public async Task<PagingResponse<ExpertConsultationResponse>> GetExpertConsultationsAsync(Guid expertId, MyConsultationsQueryRequest query)
+    {
+        var results = new List<ExpertConsultationResponse>();
+
+        var includeScheduled = string.IsNullOrEmpty(query.Type)
+            || query.Type.Equals("Scheduled", StringComparison.OrdinalIgnoreCase);
+        var includeEmergency = string.IsNullOrEmpty(query.Type)
+            || query.Type.Equals("Emergency", StringComparison.OrdinalIgnoreCase);
+
+        ConsultationStatus? statusFilter = null;
+        if (!string.IsNullOrEmpty(query.Status)
+            && Enum.TryParse<ConsultationStatus>(query.Status, ignoreCase: true, out var parsed))
+        {
+            statusFilter = parsed;
+        }
+
+        // Scheduled consultations — query by ExpertId
+        if (includeScheduled)
+        {
+            var bookings = await _unitOfWork.GetRepository<ConsultationBooking>().GetListAsync(
+                predicate: b => b.ExpertId == expertId
+                    && b.ConsultationId.HasValue
+                    && (!statusFilter.HasValue || b.Consultation!.Status == statusFilter.Value),
+                include: q => q.Include(b => b.User).Include(b => b.TimeSlot).Include(b => b.Consultation));
+
+            foreach (var b in bookings)
+            {
+                results.Add(new ExpertConsultationResponse
+                {
+                    ConsultationId = b.ConsultationId!.Value,
+                    Type = "Scheduled",
+                    Status = b.Consultation!.Status.ToString(),
+                    UserId = b.UserId,
+                    UserName = b.User?.FullName,
+                    RoomId = b.Consultation.RoomId,
+                    StartTime = b.Consultation.StartTime,
+                    EndTime = b.Consultation.EndTime,
+                    Price = b.Price,
+                    BookingId = b.Id,
+                    SlotStartTime = b.TimeSlot?.StartTime,
+                    SlotEndTime = b.TimeSlot?.EndTime
+                });
+            }
+        }
+
+        // Emergency consultations — query by ExpertId
+        if (includeEmergency)
+        {
+            var emergencyRequests = await _unitOfWork.GetRepository<ConsultationPingRequest>().GetListAsync(
+                predicate: p => p.ExpertId == expertId
+                             && p.ConsultationId.HasValue
+                             && p.Status == ConsultationPingStatus.AcceptedByExpert
+                             && (!statusFilter.HasValue || p.Consultation!.Status == statusFilter.Value),
+                include: q => q.Include(p => p.Rescuer).Include(p => p.Consultation));
+
+            foreach (var p in emergencyRequests)
+            {
+                if (p.Consultation is null)
+                    continue;
+
+                var consultation = p.Consultation;
+                results.Add(new ExpertConsultationResponse
+                {
+                    ConsultationId = consultation.Id,
+                    Type = "Emergency",
+                    Status = consultation.Status.ToString(),
+                    UserId = p.RescuerId,
+                    UserName = p.Rescuer?.FullName,
+                    RoomId = consultation.RoomId,
+                    StartTime = consultation.StartTime,
+                    EndTime = consultation.EndTime,
+                    Price = null,
+                    EmergencyRequestId = p.Id
+                });
+            }
+        }
+
+        // Handle edge case: Scheduled consultations that exist in Consultation table
+        // but have no matching ConsultationBooking (Task 2.3)
+        if (includeScheduled)
+        {
+            var scheduledConsultationIds = results
+                .Where(r => r.Type == "Scheduled")
+                .Select(r => r.ConsultationId)
+                .ToHashSet();
+
+            var orphanedScheduled = await _unitOfWork.GetRepository<Consultation>().GetListAsync(
+                predicate: c => c.CalleeId == expertId
+                    && c.Type == ConsultationType.Scheduled
+                    && (!statusFilter.HasValue || c.Status == statusFilter.Value)
+                    && !scheduledConsultationIds.Contains(c.Id),
+                include: q => q.Include(c => c.Caller));
+
+            // Check for consultations that have no booking at all
+            foreach (var c in orphanedScheduled)
+            {
+                var hasBooking = await _unitOfWork.GetRepository<ConsultationBooking>().FirstOrDefaultAsync(
+                    predicate: b => b.ConsultationId == c.Id);
+
+                if (hasBooking == null)
+                {
+                    _logger.LogWarning(
+                        "Scheduled consultation {ConsultationId} has no associated ConsultationBooking. Price will be null.",
+                        c.Id);
+
+                    results.Add(new ExpertConsultationResponse
+                    {
+                        ConsultationId = c.Id,
+                        Type = "Scheduled",
+                        Status = c.Status.ToString(),
+                        UserId = c.CallerId,
+                        UserName = c.Caller?.FullName,
+                        RoomId = c.RoomId,
+                        StartTime = c.StartTime,
+                        EndTime = c.EndTime,
+                        Price = null
+                    });
+                }
+            }
+        }
+
+        // Sort + paginate
+        var sorted = results.OrderByDescending(c => c.StartTime ?? DateTime.MinValue).ToList();
+        var totalItems = sorted.Count;
+        var paged = sorted.Skip((query.PageNumber - 1) * query.PageSize).Take(query.PageSize);
+
+        return new PagingResponse<ExpertConsultationResponse>
+        {
+            Items = paged,
+            Meta = new PaginationMeta
+            {
+                CurrentPage = query.PageNumber,
+                PageSize = query.PageSize,
+                TotalItems = totalItems,
+                TotalPages = (int)Math.Ceiling(totalItems / (double)query.PageSize)
+            }
+        };
+    }
+
     public async Task<PagingResponse<MyConsultationResponse>> GetMyConsultationsAsync(Guid userId, MyConsultationsQueryRequest query)
     {
         var results = new List<MyConsultationResponse>();
