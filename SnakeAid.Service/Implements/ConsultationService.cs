@@ -259,6 +259,15 @@ public class ConsultationService : IConsultationService
 
             var consultationLookup = consultations.ToDictionary(c => c.Id);
 
+            // Batch-fetch transactions for emergency consultations (single query, no N+1)
+            var emergencyRequestIds = emergencyRequests.Select(p => p.Id).ToList();
+            var emergencyTransactions = emergencyRequestIds.Count > 0
+                ? await _unitOfWork.GetRepository<Transaction>().GetListAsync(
+                    predicate: t => t.TransactionType == TransactionType.ConsultationPayment
+                                 && emergencyRequestIds.Contains(t.ReferenceId))
+                : new List<Transaction>();
+            var transactionLookup = emergencyTransactions.ToDictionary(t => t.ReferenceId, t => t.Amount);
+
             foreach (var p in emergencyRequests)
             {
                 if (!p.ConsultationId.HasValue || !consultationLookup.TryGetValue(p.ConsultationId.Value, out var consultation))
@@ -274,7 +283,8 @@ public class ConsultationService : IConsultationService
                     RoomId = consultation.RoomId,
                     StartTime = consultation.StartTime,
                     EndTime = consultation.EndTime,
-                    EmergencyRequestId = p.Id
+                    EmergencyRequestId = p.Id,
+                    Price = transactionLookup.TryGetValue(p.Id, out var amount) ? amount : null
                 });
             }
         }
