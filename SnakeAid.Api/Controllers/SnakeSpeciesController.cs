@@ -112,6 +112,18 @@ namespace SnakeAid.Api.Controllers
         }
 
         /// <summary>
+        /// Search snake species with venom and antivenom data for expert consultation
+        /// </summary>
+        [HttpGet("search")]
+        [SwaggerOperation(Summary = "Search Snake Species", Description = "Search snake species by text query, including venom types and available antivenoms for expert reference during consultations")]
+        [SwaggerResponse(200, "Success", typeof(ApiResponse<List<SearchSnakeSpeciesResponse>>))]
+        public async Task<IActionResult> SearchSnakes([FromQuery] string q)
+        {
+            var result = await _snakeSpeciesService.SearchSnakeSpeciesAsync(q);
+            return Ok(ApiResponseBuilder.BuildSuccessResponse(result));
+        }
+
+        /// <summary>
         /// Filter snake species by questionnaire answers
         /// </summary>
         [HttpPost("filter-by-answers")]

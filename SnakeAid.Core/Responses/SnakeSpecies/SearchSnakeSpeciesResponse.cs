@@ -16,13 +16,37 @@ namespace SnakeAid.Core.Responses.SnakeSpecies
         [MaxLength(2000)]
         public string ImageUrl { get; set; }
 
+        public List<string> GalleryUrls { get; set; } = new();
+
         public bool IsVenomous { get; set; }
 
         public PrimaryVenomType? PrimaryVenomType { get; set; }
 
+        public float RiskLevel { get; set; }
+
+        public IdentificationInfo? Identification { get; set; }
+
         public List<VenomInfo> Venoms { get; set; } = new();
 
         public List<AntivenomInfo> Antivenoms { get; set; } = new();
+
+        public FirstAidInfo? FirstAid { get; set; }
+
+        public List<string> Tags { get; set; } = new();
+    }
+
+    public class IdentificationInfo
+    {
+        public List<string> PhysicalTraits { get; set; } = new();
+        public List<string> Behaviors { get; set; } = new();
+        public string? Habitat { get; set; }
+    }
+
+    public class FirstAidInfo
+    {
+        public string Mode { get; set; } = string.Empty;
+        public List<string> DoItems { get; set; } = new();
+        public List<string> DontItems { get; set; } = new();
     }
 
     public class VenomInfo

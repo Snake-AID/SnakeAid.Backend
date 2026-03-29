@@ -10,7 +10,7 @@ using SnakeAid.Service.Interfaces;
 namespace SnakeAid.Api.Controllers;
 
 [ApiController]
-[Route("api/consultation-payments")]
+[Route("api/consultations/payments")]
 [Authorize]
 public class ConsultationPaymentsController : BaseController<ConsultationPaymentsController>
 {
@@ -26,7 +26,7 @@ public class ConsultationPaymentsController : BaseController<ConsultationPayment
         _consultationPaymentService = consultationPaymentService;
     }
 
-    [HttpPost("/api/consultation-bookings/{bookingId:guid}/payments")]
+    [HttpPost("/api/consultations/scheduled/{bookingId:guid}/payments")]
     [Authorize(Roles = "User")]
     public async Task<ActionResult<ApiResponse<ConsultationPaymentResponse>>> PayScheduledBooking(
         Guid bookingId,
@@ -38,7 +38,7 @@ public class ConsultationPaymentsController : BaseController<ConsultationPayment
         return Ok(ApiResponseBuilder.BuildSuccessResponse(result));
     }
 
-    [HttpPost("/api/consultations/emergency-requests/{requestId:guid}/payments")]
+    [HttpPost("/api/consultations/instant/{requestId:guid}/payments")]
     [Authorize(Roles = "User")]
     public async Task<ActionResult<ApiResponse<ConsultationPaymentResponse>>> PayEmergencyRequest(
         Guid requestId,
@@ -50,7 +50,7 @@ public class ConsultationPaymentsController : BaseController<ConsultationPayment
         return Ok(ApiResponseBuilder.BuildSuccessResponse(result));
     }
 
-    [HttpPost("/api/consultation-payments/confirm-payment")]
+    [HttpPost("/api/consultations/payments/confirm")]
     [Authorize(Roles = "User")]
     public async Task<ActionResult<ApiResponse<ConsultationPaymentResponse>>> ConfirmConsultationPayment(
         [FromBody] ConfirmPaymentRequest request,

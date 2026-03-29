@@ -2,6 +2,7 @@ using System.Text.RegularExpressions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using SnakeAid.Core.Domains;
+using SnakeAid.Core.Enums;
 using SnakeAid.Core.Exceptions;
 using SnakeAid.Core.Requests.Consultation;
 using SnakeAid.Core.Responses.Consultation;
@@ -971,8 +972,10 @@ public class ConsultationPaymentService : IConsultationPaymentService
 
     private static long GenerateOrderCode()
     {
+        // CONSULTPAY- = 11 chars, max description = 25 chars → orderCode max 14 digits
+        // timestamp (10 digits) + random (4 digits) = 14 digits
         var timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-        var randomPart = Random.Shared.Next(100, 999);
+        var randomPart = System.Security.Cryptography.RandomNumberGenerator.GetInt32(1000, 9999);
         return long.Parse($"{timestamp}{randomPart}");
     }
 

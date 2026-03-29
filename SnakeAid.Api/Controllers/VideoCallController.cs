@@ -40,7 +40,7 @@ public class VideoCallController : BaseController<VideoCallController>
     /// <summary>
     /// Generate LiveKit video token for a consultation
     /// </summary>
-    [HttpPost("livekit-token/{consultationId}")]
+    [HttpPost("/api/consultations/{consultationId:guid}/video-token")]
     [Authorize]
     [SwaggerOperation(
         Summary = "Generate LiveKit video token for consultation",
