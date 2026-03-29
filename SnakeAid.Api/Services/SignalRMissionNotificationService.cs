@@ -55,6 +55,10 @@ namespace SnakeAid.Api.Services
             => await SafeExecuteAsync(() => _hubContext.Clients.Group(incidentId.ToString()).SendAsync("MissionCancelled", new { Reason = reason }),
                 "MissionCancelled", incidentId);
 
+        public async Task NotifyMissionAbortedAsync(Guid incidentId, string reason)
+            => await SafeExecuteAsync(() => _hubContext.Clients.Group(incidentId.ToString()).SendAsync("MissionAborted", new { Reason = reason }),
+                "MissionAborted", incidentId);
+
         public async Task NotifyRescuerLocationUpdateAsync(Guid incidentId, double latitude, double longitude)
             => await SafeExecuteAsync(() => _hubContext.Clients.Group(incidentId.ToString()).SendAsync("LocationUpdated", new
             {

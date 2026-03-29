@@ -288,12 +288,11 @@ namespace SnakeAid.Service.Implements
 
         public async Task<BriefRescuerProfileResponse?> GetRescuerByIdAsync(Guid rescuerId)
         {
-            var profile = await _unitOfWork.GetRepository<RescuerProfile>().FirstOrDefaultAsync<BriefRescuerProfileResponse>(
+            var profile = await _unitOfWork.GetRepository<RescuerProfile>().FirstOrDefaultAsync(
                 predicate: p => p.AccountId == rescuerId,
-                include: q => q.Include(p => p.Account),
-                selector: p => p.Adapt<BriefRescuerProfileResponse>());
+                include: q => q.Include(p => p.Account));
 
-            return profile == null ? null : profile;
+            return profile?.Adapt<BriefRescuerProfileResponse>();
         }
     }
 }

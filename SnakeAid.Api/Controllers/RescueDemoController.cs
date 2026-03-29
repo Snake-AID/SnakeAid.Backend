@@ -133,7 +133,8 @@ namespace SnakeAid.Api.Controllers
         {
             try
             {
-                var response = await _incidentService.CancelIncidentAsync(incidentId);
+                var request = new CancelIncidentRequest { Reason = "User cancelled" };
+                var response = await _incidentService.CancelIncidentAsync(incidentId, request);
                 if (incidentId == _currentDemoIncidentId) _currentDemoIncidentId = null;
                 return Ok(new { incidentId = response.Id, message = "Incident cancelled." });
             }

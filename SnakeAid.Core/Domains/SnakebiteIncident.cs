@@ -113,24 +113,25 @@ namespace SnakeAid.Core.Domains
     /// </summary>
     public class FilterAnswerData
     {
-        public List<FilterAnswer> Answers { get; set; } = new();
-        public List<int> MatchedSnakeSpeciesIds { get; set; } = new();  // Danh sách rắn khớp
-        public int? SelectedSnakeSpeciesId { get; set; }  // Rắn mà user chọn cuối cùng (nếu có nhiều kết quả)
-    }
-
-    public class FilterAnswer
-    {
+        /// Danh sách option IDs mà user đã chọn
+        /// VD: [1, 5, 9, 12] (4 đáp án từ 4 câu hỏi khác nhau)
         [Required]
-        public int QuestionId { get; set; }
+        public List<int> SelectedOptionIds { get; set; } = new();
 
+        /// Snake species ID mà user chọn cuối cùng từ danh sách filtered
         [Required]
-        public string QuestionText { get; set; } = string.Empty;
+        public int SelectedSnakeSpeciesId { get; set; }
 
-        [Required]
-        public int SelectedOptionId { get; set; }
+        /// Match score của snake được chọn (số đáp án khớp với snake này)
+        /// VD: 3 (có 3/4 đáp án khớp với con rắn này)
+        public int MatchScore { get; set; }
 
-        [Required]
-        public string SelectedOptionText { get; set; } = string.Empty;
+        /// Match percentage (MatchScore / TotalAnswered * 100)
+        /// VD: 75.0 (3/4 = 75%)
+        public double MatchPercentage { get; set; }
+
+        /// Timestamp khi user chọn snake species
+        public DateTime SelectedAt { get; set; } = DateTime.UtcNow;
     }
 
     public class ReportSymptom

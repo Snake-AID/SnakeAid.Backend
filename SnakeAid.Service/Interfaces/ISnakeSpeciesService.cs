@@ -41,6 +41,47 @@ namespace SnakeAid.Service.Interfaces
         /// </summary>
         Task<DetailSnakeSpeciesResponse> CreateSnakeSpeciesWithFileAsync(CreateSnakeSpeciesWithFileRequest request, ClaimsPrincipal user, CancellationToken ct = default);
 
+        /// <summary>
+        /// Filter snake species by questionnaire answers
+        /// </summary>
+        Task<List<FilteredSnakeResponse>> FilterSnakesByAnswersAsync(List<int> selectedOptionIds, CancellationToken ct = default);
 
+        /// <summary>
+        /// Get snakes by GPS location (location-based filtering)
+        /// </summary>
+        Task<SnakesByLocationResponse> GetSnakesByLocationAsync(double lat, double lng, CancellationToken ct = default);
+
+        // ── Geographic Region & Distribution ──────────────────────────────────
+
+        /// <summary>
+        /// Get all geographic regions with polygon boundaries for map rendering.
+        /// If snakeSpeciesId is provided, each region includes IsMapped + Mapping metadata.
+        /// </summary>
+        Task<List<GeographicRegionResponse>> GetAllRegionsAsync(int? snakeSpeciesId = null, CancellationToken ct = default);
+
+        /// <summary>
+        /// Get all region mappings for a specific snake species
+        /// </summary>
+        Task<List<RegionSnakeMappingResponse>> GetRegionMappingsBySnakeAsync(int snakeSpeciesId, CancellationToken ct = default);
+
+        /// <summary>
+        /// Sync (replace-all) region mappings for a snake species
+        /// </summary>
+        Task<List<RegionSnakeMappingResponse>> SyncRegionMappingsAsync(int snakeSpeciesId, SyncRegionMappingsRequest request, CancellationToken ct = default);
+
+        /// <summary>
+        /// Add a single region mapping to a snake species
+        /// </summary>
+        Task<RegionSnakeMappingResponse> AddRegionMappingAsync(int snakeSpeciesId, AddRegionMappingRequest request, CancellationToken ct = default);
+
+        /// <summary>
+        /// Update an existing region mapping
+        /// </summary>
+        Task<RegionSnakeMappingResponse> UpdateRegionMappingAsync(int snakeSpeciesId, int mappingId, UpdateRegionMappingRequest request, CancellationToken ct = default);
+
+        /// <summary>
+        /// Delete a region mapping
+        /// </summary>
+        Task DeleteRegionMappingAsync(int snakeSpeciesId, int mappingId, CancellationToken ct = default);
     }
 }

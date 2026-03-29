@@ -2,7 +2,7 @@ namespace SnakeAid.Service.Interfaces
 {
     public interface IOperatorRealtimeNotificationService
     {
-        Task NotifyNewIncidentCreatedAsync(Guid incidentId, Guid memberId, double latitude, double longitude);
+        Task NotifyNewIncidentCreatedAsync(Guid incidentId, Guid memberId, double latitude, double longitude, string? address);
 
         Task NotifyIncidentClaimedAsync(Guid incidentId, Guid operatorId);
 
@@ -19,5 +19,7 @@ namespace SnakeAid.Service.Interfaces
         Task NotifyRescuerDeclinedAsync(Guid incidentId, Guid rescuerId, string? reason);
 
         Task NotifyRescuerAbortedAsync(Guid incidentId, Guid rescuerId, Guid? operatorId, string? reason);
+
+        Task NotifyIncidentCompletedAsync(Guid incidentId, Guid rescuerId);
     }
 }

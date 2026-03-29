@@ -17,6 +17,7 @@ namespace SnakeAid.Core.Responses.RescuerProfile
         public Guid AccountId { get; set; }
 
         public bool IsOnline { get; set; } = false;
+        public bool IsAvailable { get; set; } = false;
         public string PhoneNumber { get; set; } = string.Empty;
 
         public decimal Rating { get; set; } = 0;
@@ -25,6 +26,8 @@ namespace SnakeAid.Core.Responses.RescuerProfile
         public RescuerType Type { get; set; } = RescuerType.Emergency;
 
         public DateTime? LastLocationUpdate { get; set; }
+        public double? Latitude { get; set; }
+        public double? Longitude { get; set; }
 
         // Statistics
         public int TotalMissions { get; set; } = 0;

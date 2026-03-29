@@ -11,6 +11,7 @@ using SnakeAid.Core.Exceptions;
 using SnakeAid.Core.Requests.LibraryMedia;
 using SnakeAid.Core.Requests.SnakeSpecies;
 using SnakeAid.Core.Responses.SnakeSpecies;
+using SnakeAid.Core.Utils;
 using SnakeAid.Repository.Data;
 using SnakeAid.Repository.Interfaces;
 using SnakeAid.Service.Interfaces;
@@ -185,7 +186,8 @@ namespace SnakeAid.Service.Implements
             }
 
             var scientificName = request.ScientificName.Trim();
-            var slug = request.Slug.Trim();
+            var commonName = request.CommonName?.Trim() ?? string.Empty;
+            var slug = await GenerateUniqueSnakeSlugAsync(commonName, null, ct);
 
             await ValidateSnakeSpeciesUniquenessAsync(scientificName, slug, null, ct);
 
@@ -201,7 +203,7 @@ namespace SnakeAid.Service.Implements
             {
                 ScientificName = scientificName,
                 Slug = slug,
-                CommonName = request.CommonName?.Trim() ?? string.Empty,
+                CommonName = commonName,
                 ImageUrl = libraryMedia.MediaUrl,
                 Description = request.Description?.Trim() ?? string.Empty,
                 IdentificationSummary = request.IdentificationSummary?.Trim() ?? string.Empty,
@@ -252,18 +254,16 @@ namespace SnakeAid.Service.Implements
                 entity.ScientificName = updatedScientificName;
             }
 
-            if (!string.IsNullOrWhiteSpace(request.Slug))
+            // Regenerate slug if CommonName is being updated
+            if (request.CommonName != null)
             {
-                updatedSlug = request.Slug.Trim();
+                var newCommonName = request.CommonName.Trim();
+                entity.CommonName = newCommonName;
+                updatedSlug = await GenerateUniqueSnakeSlugAsync(newCommonName, id, ct);
                 entity.Slug = updatedSlug;
             }
 
             await ValidateSnakeSpeciesUniquenessAsync(updatedScientificName, updatedSlug, id, ct);
-
-            if (request.CommonName != null)
-            {
-                entity.CommonName = request.CommonName.Trim();
-            }
 
             Guid? mediaIdToLink = null;
             if (request.MediaId.HasValue)
@@ -401,7 +401,10 @@ namespace SnakeAid.Service.Implements
                 throw new BadRequestException("Excel file format is invalid. Please verify all required sheets and columns.");
             }
 
-            await ValidateSnakeSpeciesUniquenessAsync(parsed.BasicInfo.ScientificName, parsed.BasicInfo.Slug, null, ct);
+            await ValidateSnakeSpeciesUniquenessAsync(parsed.BasicInfo.ScientificName, null, null, ct);
+
+            var snakeSlug = await GenerateUniqueSnakeSlugAsync(
+                parsed.BasicInfo.CommonName ?? parsed.BasicInfo.ScientificName, null, ct);
 
             var createdLibraryMedia = await _libraryMediaService.CreateAsync(new CreateLibraryMediaRequest
             {
@@ -413,7 +416,7 @@ namespace SnakeAid.Service.Implements
             var entity = new SnakeSpecies
             {
                 ScientificName = parsed.BasicInfo.ScientificName,
-                Slug = parsed.BasicInfo.Slug,
+                Slug = snakeSlug,
                 CommonName = parsed.BasicInfo.CommonName ?? string.Empty,
                 ImageUrl = createdLibraryMedia.MediaUrl,
                 Description = parsed.BasicInfo.Description ?? string.Empty,
@@ -485,7 +488,7 @@ namespace SnakeAid.Service.Implements
             return response;
         }
 
-        private async Task ValidateSnakeSpeciesUniquenessAsync(string scientificName, string slug, int? excludeId, CancellationToken ct)
+        private async Task ValidateSnakeSpeciesUniquenessAsync(string scientificName, string? slug, int? excludeId, CancellationToken ct)
         {
             var scientificNameExists = await _unitOfWork.GetRepository<SnakeSpecies>()
                 .ExistsAsync(
@@ -493,19 +496,7 @@ namespace SnakeAid.Service.Implements
                     ct);
 
             if (scientificNameExists)
-            {
                 throw new BadRequestException($"Snake species with scientific name '{scientificName}' already exists.");
-            }
-
-            var slugExists = await _unitOfWork.GetRepository<SnakeSpecies>()
-                .ExistsAsync(
-                    s => s.Slug == slug && (!excludeId.HasValue || s.Id != excludeId.Value),
-                    ct);
-
-            if (slugExists)
-            {
-                throw new BadRequestException($"Snake species with slug '{slug}' already exists.");
-            }
         }
 
         private async Task SyncRelationsAfterCreateOrUpdateAsync(
@@ -653,7 +644,7 @@ namespace SnakeAid.Service.Implements
 
             foreach (var name in normalizedNames.Where(name => !existingNameSet.Contains(name)))
             {
-                var slug = GenerateUniqueSlug(null, name, reservedSlugs);
+                var slug = GenerateUniqueAltNameSlug(name, reservedSlugs);
                 reservedSlugs.Add(slug);
 
                 await repository.InsertAsync(new SnakeSpeciesName
@@ -705,12 +696,10 @@ namespace SnakeAid.Service.Implements
             var dataRow = worksheet.Row(2);
 
             var scientificName = GetRequiredCell(dataRow, map, "ScientificName");
-            var slug = GetRequiredCell(dataRow, map, "Slug");
 
             var basicInfo = new BasicInfoRow
             {
                 ScientificName = scientificName,
-                Slug = slug,
                 CommonName = GetCell(dataRow, map, "CommonName"),
                 Description = GetCell(dataRow, map, "Description"),
                 IdentificationSummary = GetCell(dataRow, map, "IdentificationSummary"),
@@ -883,18 +872,11 @@ namespace SnakeAid.Service.Implements
             {
                 var row = worksheet.Row(rowNumber);
                 var name = GetCell(row, map, "Name") ?? GetCell(row, map, "AlternativeName");
-                var slug = GetCell(row, map, "Slug");
 
                 if (string.IsNullOrWhiteSpace(name))
-                {
                     continue;
-                }
 
-                result.Add(new AlternativeNameSheetRow
-                {
-                    Name = name,
-                    Slug = slug
-                });
+                result.Add(new AlternativeNameSheetRow { Name = name });
             }
 
             return result;
@@ -1284,7 +1266,7 @@ namespace SnakeAid.Service.Implements
                     continue;
                 }
 
-                var uniqueSlug = GenerateUniqueSlug(row.Slug, row.Name, reservedSlugs);
+                var uniqueSlug = GenerateUniqueAltNameSlug(row.Name, reservedSlugs);
                 reservedSlugs.Add(uniqueSlug);
                 existingNameSet.Add(row.Name);
 
@@ -1299,47 +1281,43 @@ namespace SnakeAid.Service.Implements
             }
         }
 
-        private static string GenerateUniqueSlug(string? slug, string name, HashSet<string> reservedSlugs)
+        private async Task<string> GenerateUniqueSnakeSlugAsync(string name, int? excludeId, CancellationToken ct)
         {
-            var baseSlug = NormalizeSlug(!string.IsNullOrWhiteSpace(slug) ? slug : name);
+            var baseSlug = SlugGenerator.DefaultSlug(name);
             if (string.IsNullOrWhiteSpace(baseSlug))
-            {
-                throw new BadRequestException($"Cannot generate slug for alternative name '{name}'.");
-            }
+                baseSlug = SlugGenerator.DefaultSlug("snake", Guid.NewGuid().ToString("N")[..6]);
 
-            if (!reservedSlugs.Contains(baseSlug))
-            {
+            var reservedSlugs = await _unitOfWork.GetRepository<SnakeSpecies>()
+                .GetListAsync(
+                    predicate: s => !excludeId.HasValue || s.Id != excludeId.Value,
+                    cancellationToken: ct);
+
+            var reserved = reservedSlugs.Select(s => s.Slug).ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+            if (!reserved.Contains(baseSlug))
                 return baseSlug;
-            }
 
             var counter = 2;
-            while (reservedSlugs.Contains($"{baseSlug}-{counter}"))
-            {
+            while (reserved.Contains($"{baseSlug}-{counter}"))
                 counter++;
-            }
 
             return $"{baseSlug}-{counter}";
         }
 
-        private static string NormalizeSlug(string input)
+        private static string GenerateUniqueAltNameSlug(string name, HashSet<string> reservedSlugs)
         {
-            var normalized = input.Trim().ToLowerInvariant().Normalize(NormalizationForm.FormD);
-            var sb = new StringBuilder();
+            var baseSlug = SlugGenerator.DefaultSlug(name);
+            if (string.IsNullOrWhiteSpace(baseSlug))
+                throw new BadRequestException($"Cannot generate slug for alternative name '{name}'.");
 
-            foreach (var character in normalized)
-            {
-                if (char.GetUnicodeCategory(character) == System.Globalization.UnicodeCategory.NonSpacingMark)
-                {
-                    continue;
-                }
+            if (!reservedSlugs.Contains(baseSlug))
+                return baseSlug;
 
-                sb.Append(character == 'đ' ? 'd' : character);
-            }
+            var counter = 2;
+            while (reservedSlugs.Contains($"{baseSlug}-{counter}"))
+                counter++;
 
-            var withoutDiacritics = sb.ToString().Normalize(NormalizationForm.FormC);
-            var slug = Regex.Replace(withoutDiacritics, "[^a-z0-9]+", "-");
-            slug = Regex.Replace(slug, "-+", "-").Trim('-');
-            return slug;
+            return $"{baseSlug}-{counter}";
         }
 
         private async Task EnsureSnakeSpeciesIdSequenceAsync(CancellationToken ct)
@@ -1352,6 +1330,168 @@ SELECT setval(
 );";
 
             await _unitOfWork.Context.Database.ExecuteSqlRawAsync(sql, ct);
+        }
+
+        public async Task<List<FilteredSnakeResponse>> FilterSnakesByAnswersAsync(
+            List<int> selectedOptionIds,
+            CancellationToken ct = default)
+        {
+            if (selectedOptionIds == null || !selectedOptionIds.Any())
+            {
+                throw new ArgumentException("Vui lòng chọn ít nhất 1 đáp án", nameof(selectedOptionIds));
+            }
+
+            try
+            {
+                _logger.LogInformation("Filtering snakes with {Count} selected options: {Options}",
+                    selectedOptionIds.Count, string.Join(", ", selectedOptionIds));
+
+                // Get all mappings that match selected options
+                var matchedMappings = await _unitOfWork.GetRepository<FilterSnakeMapping>()
+                    .GetListAsync(
+                        predicate: m => m.IsActive && selectedOptionIds.Contains(m.FilterOptionId),
+                        include: query => query
+                            .Include(m => m.SnakeSpecies)
+                            .Include(m => m.FilterOption)
+                                .ThenInclude(o => o.Question),
+                        asNoTracking: true,
+                        cancellationToken: ct
+                    );
+
+                // Filter out inactive snakes
+                matchedMappings = matchedMappings
+                    .Where(m => m.SnakeSpecies.IsActive)
+                    .ToList();
+
+                _logger.LogInformation("Found {Count} filter mappings", matchedMappings.Count);
+
+                // Group by snake species and calculate match scores
+                var snakeMatchScores = matchedMappings
+                    .GroupBy(m => m.SnakeSpeciesId)
+                    .Select(g => new
+                    {
+                        SnakeId = g.Key,
+                        MatchCount = g.Count(),
+                        MatchedOptions = g.Select(m => m.FilterOption.OptionText).Distinct().ToList(),
+                        Snake = g.First().SnakeSpecies
+                    })
+                    .OrderByDescending(x => x.MatchCount) // Sort by best match first
+                    .ThenByDescending(x => x.Snake.RiskLevel) // Then by risk level (venomous first)
+                    .ThenBy(x => x.Snake.CommonName)
+                    .ToList();
+
+                _logger.LogInformation("Matched {Count} snake species", snakeMatchScores.Count);
+
+                // Build response
+                var results = snakeMatchScores.Select(match => new FilteredSnakeResponse
+                {
+                    Id = match.Snake.Id,
+                    ScientificName = match.Snake.ScientificName,
+                    CommonName = match.Snake.CommonName,
+                    ImageUrl = match.Snake.ImageUrl,
+                    IsVenomous = match.Snake.IsVenomous,
+                    RiskLevel = match.Snake.RiskLevel,
+                    MatchScore = match.MatchCount,
+                    TotalAnswered = selectedOptionIds.Count,
+                    MatchPercentage = Math.Round((double)match.MatchCount / selectedOptionIds.Count * 100, 1),
+                    MatchedFeatures = match.MatchedOptions
+                }).ToList();
+
+                return results;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error filtering snakes by answers: {Message}", ex.Message);
+                throw;
+            }
+        }
+
+        public async Task<SnakesByLocationResponse> GetSnakesByLocationAsync(double lat, double lng, CancellationToken ct = default)
+        {
+            try
+            {
+                _logger.LogInformation("Getting snakes by location: lat={Lat}, lng={Lng}", lat, lng);
+
+                // Step 1: Find geographic region using PostGIS ST_Contains
+                // Note: Cast geography to geometry for spatial operations
+                var geometryFactory = NetTopologySuite.NtsGeometryServices.Instance.CreateGeometryFactory(srid: 4326);
+                var point = geometryFactory.CreatePoint(new NetTopologySuite.Geometries.Coordinate(lng, lat));
+
+                var region = await _unitOfWork.GetRepository<GeographicRegion>()
+                    .CreateBaseQuery(asNoTracking: true)
+                    .Where(r => r.IsActive && r.Boundary.Intersects(point))
+                    .FirstOrDefaultAsync(ct);
+
+                if (region == null)
+                {
+                    _logger.LogWarning("No geographic region found for location: lat={Lat}, lng={Lng}", lat, lng);
+                    throw new NotFoundException("Không xác định được khu vực. Vui lòng kiểm tra lại vị trí GPS.");
+                }
+
+                _logger.LogInformation("Found region: {RegionName} (ID: {RegionId})", region.Name, region.Id);
+
+                // Step 2: Get snakes in this region with metadata
+                var snakesInRegion = await _unitOfWork.GetRepository<SnakeSpecies>()
+                    .CreateBaseQuery(asNoTracking: true)
+                    .Where(s => s.IsActive && 
+                                s.RegionSnakeMappings.Any(m => 
+                                    m.GeographicRegionId == region.Id && 
+                                    m.IsActive))
+                    .Select(s => new
+                    {
+                        Snake = s,
+                        Mapping = s.RegionSnakeMappings.First(m => 
+                            m.GeographicRegionId == region.Id && 
+                            m.IsActive)
+                    })
+                    .OrderByDescending(x => x.Mapping.Priority)
+                    .ThenByDescending(x => x.Mapping.CommonLevel)
+                    .ToListAsync(ct);
+
+                _logger.LogInformation("Found {Count} snakes in region {RegionName}", snakesInRegion.Count, region.Name);
+
+                // Step 3: Map to response
+                var response = new SnakesByLocationResponse
+                {
+                    Region = new GeographicRegionDto
+                    {
+                        Id = region.Id,
+                        Name = region.Name,
+                        Code = region.Code,
+                        Description = region.Description
+                    },
+                    Snakes = snakesInRegion.Select(x => new SnakeInRegionDto
+                    {
+                        // Basic snake info
+                        Id = x.Snake.Id,
+                        ScientificName = x.Snake.ScientificName,
+                        CommonName = x.Snake.CommonName ?? string.Empty,
+                        Slug = x.Snake.Slug,
+                        ImageUrl = x.Snake.ImageUrl,
+                        Description = x.Snake.Description,
+                        IdentificationSummary = x.Snake.IdentificationSummary,
+                        PrimaryVenomType = x.Snake.PrimaryVenomType,
+                        RiskLevel = x.Snake.RiskLevel,
+                        IsVenomous = x.Snake.IsVenomous,
+                        
+                        // Region-specific metadata
+                        CommonLevel = x.Mapping.CommonLevel.ToString(),
+                        Priority = x.Mapping.Priority,
+                        DistributionNotes = x.Mapping.DistributionNotes
+                    }).ToList()
+                };
+
+                return response;
+            }
+            catch (NotFoundException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting snakes by location: lat={Lat}, lng={Lng}, Message={Message}", lat, lng, ex.Message);
+                throw;
+            }
         }
 
         private sealed class ParsedSnakeSpeciesExcel
@@ -1368,7 +1508,6 @@ SELECT setval(
         private sealed class BasicInfoRow
         {
             public string ScientificName { get; set; } = string.Empty;
-            public string Slug { get; set; } = string.Empty;
             public string? CommonName { get; set; }
             public string? Description { get; set; }
             public string? IdentificationSummary { get; set; }
@@ -1394,7 +1533,254 @@ SELECT setval(
         private sealed class AlternativeNameSheetRow
         {
             public string Name { get; set; } = string.Empty;
-            public string? Slug { get; set; }
         }
+
+        // ── Geographic Region & Distribution ─────────────────────────────────
+
+        public async Task<List<GeographicRegionResponse>> GetAllRegionsAsync(int? snakeSpeciesId = null, CancellationToken ct = default)
+        {
+            var regions = await _unitOfWork.GetRepository<GeographicRegion>()
+                .GetListAsync(
+                    predicate: r => r.IsActive,
+                    orderBy: q => q.OrderBy(r => r.DisplayOrder),
+                    cancellationToken: ct);
+
+            // If snakeSpeciesId provided, load all mappings for that snake in one query
+            Dictionary<int, RegionSnakeMapping> mappingsByRegion = new();
+            if (snakeSpeciesId.HasValue)
+            {
+                var mappings = await _unitOfWork.GetRepository<RegionSnakeMapping>()
+                    .GetListAsync(
+                        predicate: m => m.SnakeSpeciesId == snakeSpeciesId.Value && m.IsActive,
+                        cancellationToken: ct);
+
+                mappingsByRegion = mappings.ToDictionary(m => m.GeographicRegionId);
+            }
+
+            return regions.Select(r =>
+            {
+                var response = MapRegionToResponse(r);
+                if (snakeSpeciesId.HasValue && mappingsByRegion.TryGetValue(r.Id, out var mapping))
+                {
+                    response.IsMapped = true;
+                    response.Mapping = new RegionSnakeMappingResponse
+                    {
+                        Id = mapping.Id,
+                        GeographicRegionId = mapping.GeographicRegionId,
+                        RegionName = r.Name,
+                        RegionCode = r.Code,
+                        CommonLevel = mapping.CommonLevel.ToString(),
+                        CommonLevelValue = (int)mapping.CommonLevel,
+                        Priority = mapping.Priority,
+                        DistributionNotes = mapping.DistributionNotes,
+                        IsActive = mapping.IsActive
+                    };
+                }
+                return response;
+            }).ToList();
+        }
+
+        public async Task<List<RegionSnakeMappingResponse>> GetRegionMappingsBySnakeAsync(int snakeSpeciesId, CancellationToken ct = default)
+        {
+            var snakeExists = await _unitOfWork.GetRepository<SnakeSpecies>()
+                .ExistsAsync(s => s.Id == snakeSpeciesId, ct);
+            if (!snakeExists)
+                throw new NotFoundException($"Snake species with ID {snakeSpeciesId} not found.");
+
+            var mappings = await _unitOfWork.GetRepository<RegionSnakeMapping>()
+                .GetListAsync(
+                    predicate: m => m.SnakeSpeciesId == snakeSpeciesId,
+                    include: q => q.Include(m => m.GeographicRegion),
+                    cancellationToken: ct);
+
+            return mappings.Select(MapMappingToResponse).ToList();
+        }
+
+        public async Task<List<RegionSnakeMappingResponse>> SyncRegionMappingsAsync(
+            int snakeSpeciesId,
+            SyncRegionMappingsRequest request,
+            CancellationToken ct = default)
+        {
+            var snakeExists = await _unitOfWork.GetRepository<SnakeSpecies>()
+                .ExistsAsync(s => s.Id == snakeSpeciesId, ct);
+            if (!snakeExists)
+                throw new NotFoundException($"Snake species with ID {snakeSpeciesId} not found.");
+
+            // Validate all region IDs exist
+            var regionIds = request.Mappings.Select(m => m.GeographicRegionId).Distinct().ToList();
+            var validRegions = await _unitOfWork.GetRepository<GeographicRegion>()
+                .GetListAsync(predicate: r => regionIds.Contains(r.Id), cancellationToken: ct);
+            if (validRegions.Count != regionIds.Count)
+                throw new NotFoundException("One or more geographic region IDs were not found.");
+
+            var repo = _unitOfWork.GetRepository<RegionSnakeMapping>();
+            var existing = await repo.GetListAsync(
+                predicate: m => m.SnakeSpeciesId == snakeSpeciesId,
+                cancellationToken: ct);
+
+            // Delete mappings not in new list
+            var incomingRegionIds = request.Mappings.Select(m => m.GeographicRegionId).ToHashSet();
+            foreach (var m in existing.Where(m => !incomingRegionIds.Contains(m.GeographicRegionId)))
+                repo.Delete(m);
+
+            // Upsert
+            var existingByRegion = existing.ToDictionary(m => m.GeographicRegionId);
+            foreach (var item in request.Mappings)
+            {
+                if (existingByRegion.TryGetValue(item.GeographicRegionId, out var existingMapping))
+                {
+                    existingMapping.CommonLevel = item.CommonLevel;
+                    existingMapping.Priority = item.Priority;
+                    existingMapping.DistributionNotes = item.DistributionNotes;
+                    existingMapping.IsActive = item.IsActive;
+                    existingMapping.UpdatedAt = DateTime.UtcNow;
+                    repo.Update(existingMapping);
+                }
+                else
+                {
+                    await repo.InsertAsync(new RegionSnakeMapping
+                    {
+                        SnakeSpeciesId = snakeSpeciesId,
+                        GeographicRegionId = item.GeographicRegionId,
+                        CommonLevel = item.CommonLevel,
+                        Priority = item.Priority,
+                        DistributionNotes = item.DistributionNotes,
+                        IsActive = item.IsActive,
+                        CreatedAt = DateTime.UtcNow,
+                        UpdatedAt = DateTime.UtcNow
+                    }, ct);
+                }
+            }
+
+            await _unitOfWork.CommitAsync();
+            return await GetRegionMappingsBySnakeAsync(snakeSpeciesId, ct);
+        }
+
+        public async Task<RegionSnakeMappingResponse> AddRegionMappingAsync(
+            int snakeSpeciesId,
+            AddRegionMappingRequest request,
+            CancellationToken ct = default)
+        {
+            var snakeExists = await _unitOfWork.GetRepository<SnakeSpecies>()
+                .ExistsAsync(s => s.Id == snakeSpeciesId, ct);
+            if (!snakeExists)
+                throw new NotFoundException($"Snake species with ID {snakeSpeciesId} not found.");
+
+            var regionExists = await _unitOfWork.GetRepository<GeographicRegion>()
+                .ExistsAsync(r => r.Id == request.GeographicRegionId, ct);
+            if (!regionExists)
+                throw new NotFoundException($"Geographic region with ID {request.GeographicRegionId} not found.");
+
+            var duplicate = await _unitOfWork.GetRepository<RegionSnakeMapping>()
+                .ExistsAsync(m => m.SnakeSpeciesId == snakeSpeciesId && m.GeographicRegionId == request.GeographicRegionId, ct);
+            if (duplicate)
+                throw new BadRequestException($"Mapping for region {request.GeographicRegionId} already exists. Use PUT to update.");
+
+            var repo = _unitOfWork.GetRepository<RegionSnakeMapping>();
+            var entity = new RegionSnakeMapping
+            {
+                SnakeSpeciesId = snakeSpeciesId,
+                GeographicRegionId = request.GeographicRegionId,
+                CommonLevel = request.CommonLevel,
+                Priority = request.Priority,
+                DistributionNotes = request.DistributionNotes,
+                IsActive = true,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            };
+            await repo.InsertAsync(entity, ct);
+            await _unitOfWork.CommitAsync();
+
+            var created = await _unitOfWork.GetRepository<RegionSnakeMapping>()
+                .FirstOrDefaultAsync(
+                    predicate: m => m.Id == entity.Id,
+                    include: q => q.Include(m => m.GeographicRegion),
+                    cancellationToken: ct);
+
+            return MapMappingToResponse(created!);
+        }
+
+        public async Task<RegionSnakeMappingResponse> UpdateRegionMappingAsync(
+            int snakeSpeciesId,
+            int mappingId,
+            UpdateRegionMappingRequest request,
+            CancellationToken ct = default)
+        {
+            var repo = _unitOfWork.GetRepository<RegionSnakeMapping>();
+            var entity = await repo.FirstOrDefaultAsync(
+                predicate: m => m.Id == mappingId && m.SnakeSpeciesId == snakeSpeciesId,
+                asNoTracking: false,
+                cancellationToken: ct);
+
+            if (entity == null)
+                throw new NotFoundException($"Region mapping with ID {mappingId} not found for snake species {snakeSpeciesId}.");
+
+            if (request.CommonLevel.HasValue) entity.CommonLevel = request.CommonLevel.Value;
+            if (request.Priority.HasValue) entity.Priority = request.Priority.Value;
+            if (request.DistributionNotes != null) entity.DistributionNotes = request.DistributionNotes;
+            if (request.IsActive.HasValue) entity.IsActive = request.IsActive.Value;
+            entity.UpdatedAt = DateTime.UtcNow;
+
+            repo.Update(entity);
+            await _unitOfWork.CommitAsync();
+
+            var updated = await _unitOfWork.GetRepository<RegionSnakeMapping>()
+                .FirstOrDefaultAsync(
+                    predicate: m => m.Id == mappingId,
+                    include: q => q.Include(m => m.GeographicRegion),
+                    cancellationToken: ct);
+
+            return MapMappingToResponse(updated!);
+        }
+
+        public async Task DeleteRegionMappingAsync(int snakeSpeciesId, int mappingId, CancellationToken ct = default)
+        {
+            var repo = _unitOfWork.GetRepository<RegionSnakeMapping>();
+            var entity = await repo.FirstOrDefaultAsync(
+                predicate: m => m.Id == mappingId && m.SnakeSpeciesId == snakeSpeciesId,
+                asNoTracking: false,
+                cancellationToken: ct);
+
+            if (entity == null)
+                throw new NotFoundException($"Region mapping with ID {mappingId} not found for snake species {snakeSpeciesId}.");
+
+            repo.Delete(entity);
+            await _unitOfWork.CommitAsync();
+        }
+
+        private static GeographicRegionResponse MapRegionToResponse(GeographicRegion region)
+        {
+            var coordinates = new List<double[]>();
+            if (region.Boundary?.ExteriorRing != null)
+            {
+                coordinates = region.Boundary.ExteriorRing.Coordinates
+                    .Select(c => new double[] { c.X, c.Y }) // [lng, lat] GeoJSON order
+                    .ToList();
+            }
+
+            return new GeographicRegionResponse
+            {
+                Id = region.Id,
+                Name = region.Name,
+                Code = region.Code,
+                Description = region.Description,
+                DisplayOrder = region.DisplayOrder,
+                IsActive = region.IsActive,
+                BoundaryCoordinates = coordinates
+            };
+        }
+
+        private static RegionSnakeMappingResponse MapMappingToResponse(RegionSnakeMapping m) => new()
+        {
+            Id = m.Id,
+            GeographicRegionId = m.GeographicRegionId,
+            RegionName = m.GeographicRegion?.Name ?? string.Empty,
+            RegionCode = m.GeographicRegion?.Code ?? string.Empty,
+            CommonLevel = m.CommonLevel.ToString(),
+            CommonLevelValue = (int)m.CommonLevel,
+            Priority = m.Priority,
+            DistributionNotes = m.DistributionNotes,
+            IsActive = m.IsActive
+        };
     }
 }

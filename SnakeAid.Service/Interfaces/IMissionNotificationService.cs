@@ -13,6 +13,7 @@ namespace SnakeAid.Service.Interfaces
         Task NotifyRescuerArrivedAsync(Guid incidentId);
         Task NotifyMissionCompletedAsync(Guid incidentId, object result);
         Task NotifyMissionCancelledAsync(Guid incidentId, string reason);
+        Task NotifyMissionAbortedAsync(Guid incidentId, string reason);
         Task NotifyRescuerLocationUpdateAsync(Guid incidentId, double latitude, double longitude);
         Task NotifyMemberSessionExpiredAsync(Guid incidentId);
     }
