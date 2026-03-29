@@ -236,7 +236,8 @@ namespace SnakeAid.Repository.Seeds
                     new FilterQuestion { Id = 3, Question = "Hình dạng đầu của rắn?", IsActive = true },
                     new FilterQuestion { Id = 4, Question = "Màu sắc chủ đạo trên thân?", IsActive = true },
                     new FilterQuestion { Id = 5, Question = "Hoa văn trên lưng rắn?", IsActive = true },
-                    new FilterQuestion { Id = 6, Question = "Đặc điểm nổi bật khác?", IsActive = true }
+                    new FilterQuestion { Id = 6, Question = "Đặc điểm nổi bật khác?", IsActive = true },
+                    new FilterQuestion { Id = 7, Question = "Kích thước con rắn?", IsActive = true }
                 };
                 context.FilterQuestions.AddRange(filterQuestions);
                 await context.SaveChangesAsync();
@@ -278,12 +279,21 @@ namespace SnakeAid.Repository.Seeds
                         new FilterOption { Id = 16, QuestionId = 5, OptionText = "Khoanh tròn (vòng quanh thân)", OptionImageUrl = "https://png.pngtree.com/png-clipart/20200225/original/pngtree-red-snake-with-blue-stripes-icon-isolated-png-image_5261159.jpg" },
                         new FilterOption { Id = 17, QuestionId = 5, OptionText = "Sọc dọc (chạy từ đầu đến đuôi)", OptionImageUrl = "https://pcs.com.vn/static/384/2022/08/30/39.png" },
                         new FilterOption { Id = 18, QuestionId = 5, OptionText = "Đốm hoặc Vân phức tạp (hình thoi, tam giác)", OptionImageUrl = "https://png.pngtree.com/png-vector/20191118/ourmid/pngtree-yellow-spotted-snake-icon-isolated-png-image_1999504.jpg" },
+                        new FilterOption { Id = 23, QuestionId = 4, OptionText = "Có màu trắng hoặc bạc (khoanh trắng)", OptionImageUrl = "https://example.com/white-bands.jpg" },
 
-                        // --- Câu hỏi 5: Đặc điểm nổi bật  ---
+                        // --- Câu hỏi 6: Đặc điểm nổi bật  ---
                         new FilterOption { Id = 19, QuestionId = 6, OptionText = "Có khả năng phình mang ở cổ", OptionImageUrl = "https://png.pngtree.com/png-clipart/20210214/ourmid/pngtree-cobra-clipart-viper-cartoon-style-png-image_2906947.jpg" },
                         new FilterOption { Id = 20, QuestionId = 6, OptionText = "Đuôi có màu đỏ hoặc cam nổi bật", OptionImageUrl = "https://dalieudanang.com/assets/news/2014_11/ran.png" },
                         new FilterOption { Id = 21, QuestionId = 6, OptionText = "Cổ có màu đỏ hoặc vàng", OptionImageUrl = "https://pcs.com.vn/static/326/2022/08/29/25.png" },
-                        new FilterOption { Id = 22, QuestionId = 6, OptionText = "Thân có vảy nhám / gồ ghề", OptionImageUrl = "https://khoahoc.tv/photos/image/022013/04/Trimeresuruscornutus.jpg" }
+                        new FilterOption { Id = 22, QuestionId = 6, OptionText = "Thân có vảy nhám / gồ ghề", OptionImageUrl = "https://khoahoc.tv/photos/image/022013/04/Trimeresuruscornutus.jpg" },      
+
+                        // --- Câu hỏi 5: Hoa văn (Bổ sung cho Lục Nưa) ---
+                        new FilterOption { Id = 24, QuestionId = 5, OptionText = "Hình tam giác đối xứng hai bên thân", OptionImageUrl = "https://example.com/triangle-pattern.jpg" },
+
+                        // --- Câu hỏi 7: Kích thước (MỚI) ---
+                        new FilterOption { Id = 25, QuestionId = 7, OptionText = "Rất lớn (trên 2 mét)", OptionImageUrl = "https://example.com/large-snake.jpg" },
+                        new FilterOption { Id = 26, QuestionId = 7, OptionText = "Trung bình (0.5m - 2m)", OptionImageUrl = "https://example.com/medium-snake.jpg" },
+                        new FilterOption { Id = 27, QuestionId = 7, OptionText = "Nhỏ (dưới 0.5m)", OptionImageUrl = "https://example.com/small-snake.jpg" }
                 };
                 context.FilterOptions.AddRange(filterOptions);
                 await context.SaveChangesAsync();
@@ -1197,6 +1207,8 @@ namespace SnakeAid.Repository.Seeds
                     new FilterSnakeMapping { SnakeSpeciesId = 1, FilterOptionId = 10 }, // Đầu bầu dục
                     new FilterSnakeMapping { SnakeSpeciesId = 1, FilterOptionId = 12 }, // Đen
                     new FilterSnakeMapping { SnakeSpeciesId = 1, FilterOptionId = 16 }, // Khoanh tròn
+                    new FilterSnakeMapping { SnakeSpeciesId = 1, FilterOptionId = 23 }, // Khoanh trắng (MỚI)
+                    new FilterSnakeMapping { SnakeSpeciesId = 1, FilterOptionId = 26 }, // Trung bình (MỚI)
 
                     // --- 2. RẮN LỤC ĐUÔI ĐỎ (SnakeId: 2) ---
                     new FilterSnakeMapping { SnakeSpeciesId = 2, FilterOptionId = 1 },
@@ -1208,6 +1220,7 @@ namespace SnakeAid.Repository.Seeds
                     new FilterSnakeMapping { SnakeSpeciesId = 2, FilterOptionId = 15 }, // Thân trơn
                     new FilterSnakeMapping { SnakeSpeciesId = 2, FilterOptionId = 20 }, // Đuôi đỏ
                     new FilterSnakeMapping { SnakeSpeciesId = 2, FilterOptionId = 22 }, // Vảy nhám
+                    new FilterSnakeMapping { SnakeSpeciesId = 2, FilterOptionId = 26 }, // Trung bình (MỚI)
 
                     // --- 3. RẮN HỔ MANG CHÚA (SnakeId: 3) ---
                     new FilterSnakeMapping { SnakeSpeciesId = 3, FilterOptionId = 1 },
@@ -1218,6 +1231,7 @@ namespace SnakeAid.Repository.Seeds
                     new FilterSnakeMapping { SnakeSpeciesId = 3, FilterOptionId = 12 }, // Đen/Nâu
                     new FilterSnakeMapping { SnakeSpeciesId = 3, FilterOptionId = 18 }, // Vân phức tạp
                     new FilterSnakeMapping { SnakeSpeciesId = 3, FilterOptionId = 19 }, // Phình mang
+                    new FilterSnakeMapping { SnakeSpeciesId = 3, FilterOptionId = 25 }, // Rất lớn (MỚI)
 
                     // --- 4. RẮN RÁO (SnakeId: 4) ---
                     new FilterSnakeMapping { SnakeSpeciesId = 4, FilterOptionId = 1 }, // Toàn quốc
@@ -1227,6 +1241,7 @@ namespace SnakeAid.Repository.Seeds
                     new FilterSnakeMapping { SnakeSpeciesId = 4, FilterOptionId = 10 }, // Đầu bầu dục
                     new FilterSnakeMapping { SnakeSpeciesId = 4, FilterOptionId = 12 }, // Nâu đất
                     new FilterSnakeMapping { SnakeSpeciesId = 4, FilterOptionId = 15 }, // Thân trơn
+                    new FilterSnakeMapping { SnakeSpeciesId = 4, FilterOptionId = 26 }, // Trung bình (MỚI)
 
                     // --- 5. RẮN CẠP NONG (SnakeId: 5) ---
                     new FilterSnakeMapping { SnakeSpeciesId = 5, FilterOptionId = 1 }, // Toàn quốc
@@ -1237,6 +1252,7 @@ namespace SnakeAid.Repository.Seeds
                     new FilterSnakeMapping { SnakeSpeciesId = 5, FilterOptionId = 10 }, // Đầu bầu dục
                     new FilterSnakeMapping { SnakeSpeciesId = 5, FilterOptionId = 14 }, // Vàng/Cam
                     new FilterSnakeMapping { SnakeSpeciesId = 5, FilterOptionId = 16 }, // Khoanh tròn
+                    new FilterSnakeMapping { SnakeSpeciesId = 5, FilterOptionId = 26 }, // Trung bình (MỚI)
 
                     // --- 6. RẮN CẠP NIA NAM (SnakeId: 6) ---
                     new FilterSnakeMapping { SnakeSpeciesId = 6, FilterOptionId = 2 }, // Miền Trung/Nam
@@ -1246,6 +1262,8 @@ namespace SnakeAid.Repository.Seeds
                     new FilterSnakeMapping { SnakeSpeciesId = 6, FilterOptionId = 10 },
                     new FilterSnakeMapping { SnakeSpeciesId = 6, FilterOptionId = 12 }, // Đen
                     new FilterSnakeMapping { SnakeSpeciesId = 6, FilterOptionId = 16 }, // Khoanh tròn
+                    new FilterSnakeMapping { SnakeSpeciesId = 6, FilterOptionId = 23 }, // Khoanh trắng (MỚI)
+                    new FilterSnakeMapping { SnakeSpeciesId = 6, FilterOptionId = 26 }, // Trung bình (MỚI)
 
                     // --- 7. RẮN HỔ MANG XIÊM (SnakeId: 7) ---
                     new FilterSnakeMapping { SnakeSpeciesId = 7, FilterOptionId = 2 }, // Miền Trung
@@ -1255,6 +1273,7 @@ namespace SnakeAid.Repository.Seeds
                     new FilterSnakeMapping { SnakeSpeciesId = 7, FilterOptionId = 10 }, // Đầu bầu dục
                     new FilterSnakeMapping { SnakeSpeciesId = 7, FilterOptionId = 12 }, // Đen/Nâu
                     new FilterSnakeMapping { SnakeSpeciesId = 7, FilterOptionId = 19 }, // Phình mang
+                    new FilterSnakeMapping { SnakeSpeciesId = 7, FilterOptionId = 26 }, // Trung bình (MỚI)
 
                     // --- 8. RẮN HOA CỎ CỔ ĐỎ (SnakeId: 8) ---
                     new FilterSnakeMapping { SnakeSpeciesId = 8, FilterOptionId = 1 },
@@ -1263,6 +1282,7 @@ namespace SnakeAid.Repository.Seeds
                     new FilterSnakeMapping { SnakeSpeciesId = 8, FilterOptionId = 7 }, // Đồng ruộng
                     new FilterSnakeMapping { SnakeSpeciesId = 8, FilterOptionId = 11 }, // Xanh lá (ô liu)
                     new FilterSnakeMapping { SnakeSpeciesId = 8, FilterOptionId = 21 }, // Cổ đỏ/vàng
+                    new FilterSnakeMapping { SnakeSpeciesId = 8, FilterOptionId = 26 }, // Trung bình (MỚI)
 
                     // --- 9. RẮN HỔ NGỰA / SỌC DƯA (SnakeId: 9) ---
                     new FilterSnakeMapping { SnakeSpeciesId = 9, FilterOptionId = 1 }, // Toàn quốc
@@ -1272,6 +1292,7 @@ namespace SnakeAid.Repository.Seeds
                     new FilterSnakeMapping { SnakeSpeciesId = 9, FilterOptionId = 10 },
                     new FilterSnakeMapping { SnakeSpeciesId = 9, FilterOptionId = 14 }, // Vàng nâu
                     new FilterSnakeMapping { SnakeSpeciesId = 9, FilterOptionId = 17 }, // Sọc dọc (4 sọc)
+                    new FilterSnakeMapping { SnakeSpeciesId = 9, FilterOptionId = 26 }, // Trung bình (MỚI)
 
                     // --- 10. RẮN CHUỘT VUA / SỌC GỜ (SnakeId: 10) ---
                     new FilterSnakeMapping { SnakeSpeciesId = 10, FilterOptionId = 1 }, // Chủ yếu miền Bắc
@@ -1280,6 +1301,7 @@ namespace SnakeAid.Repository.Seeds
                     new FilterSnakeMapping { SnakeSpeciesId = 10, FilterOptionId = 12 }, // Nâu ô liu
                     new FilterSnakeMapping { SnakeSpeciesId = 10, FilterOptionId = 18 }, // Vân phức tạp
                     new FilterSnakeMapping { SnakeSpeciesId = 10, FilterOptionId = 22 }, // Vảy nhám
+                    new FilterSnakeMapping { SnakeSpeciesId = 10, FilterOptionId = 25 }, // Rất lớn (MỚI)
 
                     // --- 11. RẮN LỤC CƯỜM (SnakeId: 11) ---
                     new FilterSnakeMapping { SnakeSpeciesId = 11, FilterOptionId = 1 }, // Bắc/Trung
@@ -1289,6 +1311,7 @@ namespace SnakeAid.Repository.Seeds
                     new FilterSnakeMapping { SnakeSpeciesId = 11, FilterOptionId = 13 }, // Xám đất
                     new FilterSnakeMapping { SnakeSpeciesId = 11, FilterOptionId = 18 }, // Vân phức tạp
                     new FilterSnakeMapping { SnakeSpeciesId = 11, FilterOptionId = 22 }, // Vảy nhám
+                    new FilterSnakeMapping { SnakeSpeciesId = 11, FilterOptionId = 26 }, // Trung bình (MỚI)
 
                     // --- 12. RẮN LỤC NƯA / CHÀM QUẠP (SnakeId: 12) ---
                     new FilterSnakeMapping { SnakeSpeciesId = 12, FilterOptionId = 2 }, // Miền Trung
@@ -1307,6 +1330,7 @@ namespace SnakeAid.Repository.Seeds
                     new FilterSnakeMapping { SnakeSpeciesId = 13, FilterOptionId = 11 }, // Xanh lá
                     new FilterSnakeMapping { SnakeSpeciesId = 13, FilterOptionId = 15 }, // Thân trơn
                     new FilterSnakeMapping { SnakeSpeciesId = 13, FilterOptionId = 22 }, // Vảy nhám
+                    new FilterSnakeMapping { SnakeSpeciesId = 13, FilterOptionId = 26 }, // Trung bình (MỚI)
 
                     // --- 14. RẮN KHIẾM VẠCH (SnakeId: 14) ---
                     new FilterSnakeMapping { SnakeSpeciesId = 14, FilterOptionId = 1 },
@@ -1316,6 +1340,7 @@ namespace SnakeAid.Repository.Seeds
                     new FilterSnakeMapping { SnakeSpeciesId = 14, FilterOptionId = 10 },
                     new FilterSnakeMapping { SnakeSpeciesId = 14, FilterOptionId = 13 }, // Xám/Nâu mờ
                     new FilterSnakeMapping { SnakeSpeciesId = 14, FilterOptionId = 18 }, // Vân phức tạp (chữ V đầu)
+                    new FilterSnakeMapping { SnakeSpeciesId = 14, FilterOptionId = 27 }, // Nhỏ (MỚI)
 
                     // --- 15. RẮN CƯỜM / RẮN BAY (SnakeId: 15) ---
                     new FilterSnakeMapping { SnakeSpeciesId = 15, FilterOptionId = 1 },
@@ -1325,6 +1350,7 @@ namespace SnakeAid.Repository.Seeds
                     new FilterSnakeMapping { SnakeSpeciesId = 15, FilterOptionId = 10 },
                     new FilterSnakeMapping { SnakeSpeciesId = 15, FilterOptionId = 14 }, // Vàng chanh
                     new FilterSnakeMapping { SnakeSpeciesId = 15, FilterOptionId = 18 }, // Vân phức tạp
+                    new FilterSnakeMapping { SnakeSpeciesId = 15, FilterOptionId = 26 }, // Trung bình (MỚI)
 
                     // --- 16. RẮN RÁO TRÂU / HỔ HÈO (SnakeId: 16) ---
                     new FilterSnakeMapping { SnakeSpeciesId = 16, FilterOptionId = 1 },
@@ -1335,6 +1361,7 @@ namespace SnakeAid.Repository.Seeds
                     new FilterSnakeMapping { SnakeSpeciesId = 16, FilterOptionId = 10 },
                     new FilterSnakeMapping { SnakeSpeciesId = 16, FilterOptionId = 12 }, // Nâu/Đen
                     new FilterSnakeMapping { SnakeSpeciesId = 16, FilterOptionId = 18 }, // Vân phức tạp (vằn hổ)
+                    new FilterSnakeMapping { SnakeSpeciesId = 16, FilterOptionId = 25 }, // Rất lớn (MỚI)
 
                     // --- 17. RẮN HOA CÂN VÂN ĐỐM (SnakeId: 17) ---
                     new FilterSnakeMapping { SnakeSpeciesId = 17, FilterOptionId = 1 },
@@ -1343,6 +1370,7 @@ namespace SnakeAid.Repository.Seeds
                     new FilterSnakeMapping { SnakeSpeciesId = 17, FilterOptionId = 10 },
                     new FilterSnakeMapping { SnakeSpeciesId = 17, FilterOptionId = 12 }, // Đen/Nâu
                     new FilterSnakeMapping { SnakeSpeciesId = 17, FilterOptionId = 18 }, // Vân phức tạp (hình mắt)
+                    new FilterSnakeMapping { SnakeSpeciesId = 17, FilterOptionId = 26 }, // Trung bình (MỚI)
 
                     // --- 19. RẮN ROI (SnakeId: 19) ---
                     new FilterSnakeMapping { SnakeSpeciesId = 19, FilterOptionId = 1 },
@@ -1351,6 +1379,7 @@ namespace SnakeAid.Repository.Seeds
                     new FilterSnakeMapping { SnakeSpeciesId = 19, FilterOptionId = 6 }, // Trên cây
                     new FilterSnakeMapping { SnakeSpeciesId = 19, FilterOptionId = 11 }, // Xanh lá
                     new FilterSnakeMapping { SnakeSpeciesId = 19, FilterOptionId = 15 }, // Thân trơn
+                    new FilterSnakeMapping { SnakeSpeciesId = 19, FilterOptionId = 26 }, // Trung bình (MỚI)
 
                     // --- 20. RẮN TRUN (SnakeId: 20) ---
                     new FilterSnakeMapping { SnakeSpeciesId = 20, FilterOptionId = 1 },
@@ -1360,6 +1389,7 @@ namespace SnakeAid.Repository.Seeds
                     new FilterSnakeMapping { SnakeSpeciesId = 20, FilterOptionId = 10 },
                     new FilterSnakeMapping { SnakeSpeciesId = 20, FilterOptionId = 12 }, // Đen bóng
                     new FilterSnakeMapping { SnakeSpeciesId = 20, FilterOptionId = 16 }, // Khoanh vạch
+                    new FilterSnakeMapping { SnakeSpeciesId = 20, FilterOptionId = 26 }, // Trung bình (MỚI)
 
                     // --- 21. RẮN ĐAI LỚN - Lycodon fasciatus (SnakeId: 21) ---
                     new FilterSnakeMapping { SnakeSpeciesId = 21, FilterOptionId = 1 }, // Bắc/Trung
@@ -1370,6 +1400,7 @@ namespace SnakeAid.Repository.Seeds
                     new FilterSnakeMapping { SnakeSpeciesId = 21, FilterOptionId = 10 },
                     new FilterSnakeMapping { SnakeSpeciesId = 21, FilterOptionId = 11 }, // Xanh lá
                     new FilterSnakeMapping { SnakeSpeciesId = 21, FilterOptionId = 15 },  // Thân trơn màu xanh
+                    new FilterSnakeMapping { SnakeSpeciesId = 21, FilterOptionId = 26 }, // Trung bình (MỚI)
 
                     // --- 22. RẮN SÃI CỎ (SnakeId: 22) ---
                     new FilterSnakeMapping { SnakeSpeciesId = 22, FilterOptionId = 1 },
@@ -1378,7 +1409,8 @@ namespace SnakeAid.Repository.Seeds
                     new FilterSnakeMapping { SnakeSpeciesId = 22, FilterOptionId = 5 }, // Gần nước
                     new FilterSnakeMapping { SnakeSpeciesId = 22, FilterOptionId = 7 }, // Đồng ruộng
                     new FilterSnakeMapping { SnakeSpeciesId = 22, FilterOptionId = 13 }, // Xám/Đất
-                    new FilterSnakeMapping { SnakeSpeciesId = 22, FilterOptionId = 17 }  // Sọc dọc
+                    new FilterSnakeMapping { SnakeSpeciesId = 22, FilterOptionId = 17 },  // Sọc dọc
+                    new FilterSnakeMapping { SnakeSpeciesId = 22, FilterOptionId = 27 } // Nhỏ (MỚI)
                 };
                 context.FilterSnakeMappings.AddRange(mappings);
                 await context.SaveChangesAsync();
@@ -1948,6 +1980,266 @@ namespace SnakeAid.Repository.Seeds
                 };
 
                 context.AISnakeClassMappings.AddRange(aiSnakeClassMappings);
+                await context.SaveChangesAsync();
+            }
+
+            // ==================================================================================
+            // SEED GEOGRAPHIC REGIONS
+            // ==================================================================================
+            // No dependencies - seed first
+            if (!context.GeographicRegions.Any())
+            {
+                var regions = new List<GeographicRegion>
+                {
+                    // 1. Đông Bắc Bộ (Hà Giang, Cao Bằng, Lạng Sơn, Bắc Kạn, Thái Nguyên, Quảng Ninh)
+                    new GeographicRegion
+                    {
+                        Id = 1,
+                        Name = "Đông Bắc Bộ",
+                        Code = "DBB",
+                        Description = "Vùng núi phía Đông Bắc Bộ, bao gồm các tỉnh: Hà Giang, Cao Bằng, Lạng Sơn, Bắc Kạn, Thái Nguyên, Quảng Ninh",
+                        Boundary = _geometryFactory.CreatePolygon(new[]
+                        {
+                            new Coordinate(104.5, 23.5),
+                            new Coordinate(108.5, 23.5),
+                            new Coordinate(108.5, 20.5),
+                            new Coordinate(104.5, 20.5),
+                            new Coordinate(104.5, 23.5)
+                        }),
+                        DisplayOrder = 1,
+                        IsActive = true
+                    },
+
+                    // 2. Tây Bắc Bộ (Điện Biên, Lai Châu, Sơn La, Hòa Bình, Yên Bái, Lào Cai)
+                    new GeographicRegion
+                    {
+                        Id = 2,
+                        Name = "Tây Bắc Bộ",
+                        Code = "TBB",
+                        Description = "Vùng núi phía Tây Bắc Bộ, bao gồm các tỉnh: Điện Biên, Lai Châu, Sơn La, Hòa Bình, Yên Bái, Lào Cai",
+                        Boundary = _geometryFactory.CreatePolygon(new[]
+                        {
+                            new Coordinate(102.0, 23.5),
+                            new Coordinate(104.5, 23.5),
+                            new Coordinate(104.5, 20.0),
+                            new Coordinate(102.0, 20.0),
+                            new Coordinate(102.0, 23.5)
+                        }),
+                        DisplayOrder = 2,
+                        IsActive = true
+                    },
+
+                    // 3. Đồng bằng sông Hồng (Hà Nội, Hải Phòng, Vĩnh Phúc, Bắc Ninh, Hải Dương, Hưng Yên, Thái Bình, Hà Nam, Nam Định, Ninh Bình)
+                    new GeographicRegion
+                    {
+                        Id = 3,
+                        Name = "Đồng bằng sông Hồng",
+                        Code = "DBSH",
+                        Description = "Vùng đồng bằng sông Hồng, bao gồm các tỉnh thành: Hà Nội, Hải Phòng, Vĩnh Phúc, Bắc Ninh, Hải Dương, Hưng Yên, Thái Bình, Hà Nam, Nam Định, Ninh Bình",
+                        Boundary = _geometryFactory.CreatePolygon(new[]
+                        {
+                            new Coordinate(105.0, 21.5),
+                            new Coordinate(107.5, 21.5),
+                            new Coordinate(107.5, 19.5),
+                            new Coordinate(105.0, 19.5),
+                            new Coordinate(105.0, 21.5)
+                        }),
+                        DisplayOrder = 3,
+                        IsActive = true
+                    },
+
+                    // 4. Bắc Trung Bộ (Thanh Hóa, Nghệ An, Hà Tĩnh, Quảng Bình, Quảng Trị, Thừa Thiên Huế)
+                    new GeographicRegion
+                    {
+                        Id = 4,
+                        Name = "Bắc Trung Bộ",
+                        Code = "BTB",
+                        Description = "Vùng Bắc Trung Bộ, bao gồm các tỉnh: Thanh Hóa, Nghệ An, Hà Tĩnh, Quảng Bình, Quảng Trị, Thừa Thiên Huế",
+                        Boundary = _geometryFactory.CreatePolygon(new[]
+                        {
+                            new Coordinate(104.5, 20.5),
+                            new Coordinate(108.0, 20.5),
+                            new Coordinate(108.0, 16.0),
+                            new Coordinate(104.5, 16.0),
+                            new Coordinate(104.5, 20.5)
+                        }),
+                        DisplayOrder = 4,
+                        IsActive = true
+                    },
+
+                    // 5. Duyên hải Nam Trung Bộ (Đà Nẵng, Quảng Nam, Quảng Ngãi, Bình Định, Phú Yên, Khánh Hòa, Ninh Thuận, Bình Thuận)
+                    new GeographicRegion
+                    {
+                        Id = 5,
+                        Name = "Duyên hải Nam Trung Bộ",
+                        Code = "DHNTB",
+                        Description = "Vùng duyên hải Nam Trung Bộ, bao gồm các tỉnh thành: Đà Nẵng, Quảng Nam, Quảng Ngãi, Bình Định, Phú Yên, Khánh Hòa, Ninh Thuận, Bình Thuận",
+                        Boundary = _geometryFactory.CreatePolygon(new[]
+                        {
+                            new Coordinate(107.0, 16.5),
+                            new Coordinate(109.5, 16.5),
+                            new Coordinate(109.5, 10.5),
+                            new Coordinate(107.0, 10.5),
+                            new Coordinate(107.0, 16.5)
+                        }),
+                        DisplayOrder = 5,
+                        IsActive = true
+                    },
+
+                    // 6. Tây Nguyên (Kon Tum, Gia Lai, Đắk Lắk, Đắk Nông, Lâm Đồng)
+                    new GeographicRegion
+                    {
+                        Id = 6,
+                        Name = "Tây Nguyên",
+                        Code = "TN",
+                        Description = "Vùng Tây Nguyên, bao gồm các tỉnh: Kon Tum, Gia Lai, Đắk Lắk, Đắk Nông, Lâm Đồng",
+                        Boundary = _geometryFactory.CreatePolygon(new[]
+                        {
+                            new Coordinate(106.5, 16.0),
+                            new Coordinate(108.5, 16.0),
+                            new Coordinate(108.5, 11.0),
+                            new Coordinate(106.5, 11.0),
+                            new Coordinate(106.5, 16.0)
+                        }),
+                        DisplayOrder = 6,
+                        IsActive = true
+                    },
+
+                    // 7. Đông Nam Bộ (TP.HCM, Bình Dương, Đồng Nai, Bà Rịa - Vũng Tàu, Bình Phước, Tây Ninh)
+                    new GeographicRegion
+                    {
+                        Id = 7,
+                        Name = "Đông Nam Bộ",
+                        Code = "DNB",
+                        Description = "Vùng Đông Nam Bộ, bao gồm các tỉnh thành: TP.HCM, Bình Dương, Đồng Nai, Bà Rịa - Vũng Tàu, Bình Phước, Tây Ninh",
+                        Boundary = _geometryFactory.CreatePolygon(new[]
+                        {
+                            new Coordinate(106.0, 12.5),
+                            new Coordinate(108.0, 12.5),
+                            new Coordinate(108.0, 10.0),
+                            new Coordinate(106.0, 10.0),
+                            new Coordinate(106.0, 12.5)
+                        }),
+                        DisplayOrder = 7,
+                        IsActive = true
+                    },
+
+                    // 8. Tây Nam Bộ (Long An, Tiền Giang, Bến Tre, Trà Vinh, Vĩnh Long, Đồng Tháp, An Giang, Kiên Giang, Cần Thơ, Hậu Giang, Sóc Trăng, Bạc Liêu, Cà Mau)
+                    new GeographicRegion
+                    {
+                        Id = 8,
+                        Name = "Tây Nam Bộ",
+                        Code = "TNB",
+                        Description = "Vùng Tây Nam Bộ (Đồng bằng sông Cửu Long), bao gồm các tỉnh thành: Long An, Tiền Giang, Bến Tre, Trà Vinh, Vĩnh Long, Đồng Tháp, An Giang, Kiên Giang, Cần Thơ, Hậu Giang, Sóc Trăng, Bạc Liêu, Cà Mau",
+                        Boundary = _geometryFactory.CreatePolygon(new[]
+                        {
+                            new Coordinate(104.5, 11.0),
+                            new Coordinate(106.5, 11.0),
+                            new Coordinate(106.5, 8.5),
+                            new Coordinate(104.5, 8.5),
+                            new Coordinate(104.5, 11.0)
+                        }),
+                        DisplayOrder = 8,
+                        IsActive = true
+                    }
+                };
+
+                context.GeographicRegions.AddRange(regions);
+                await context.SaveChangesAsync();
+            }
+
+            // ==================================================================================
+            // SEED REGION SNAKE MAPPINGS
+            // ==================================================================================
+            // Depends on: GeographicRegions, SnakeSpecies
+            if (!context.RegionSnakeMappings.Any())
+            {
+                var mappings = new List<RegionSnakeMapping>
+                {
+                    // === ĐÔNG BẮC BỘ (RegionId: 1) ===
+                    // Rắn Cạp Nia Bắc - Rất phổ biến ở Đông Bắc Bộ
+                    new RegionSnakeMapping { GeographicRegionId = 1, SnakeSpeciesId = 1, CommonLevel = CommonLevel.VeryCommon, Priority = 90, DistributionNotes = "Rất phổ biến ở vùng đồng bằng và trung du", IsActive = true },
+                    // Rắn Lục Đuôi Đỏ - Phổ biến
+                    new RegionSnakeMapping { GeographicRegionId = 1, SnakeSpeciesId = 2, CommonLevel = CommonLevel.Common, Priority = 70, DistributionNotes = "Thường gặp ở vùng núi và rừng", IsActive = true },
+                    // Rắn Hổ Mang Chúa - Hiếm
+                    new RegionSnakeMapping { GeographicRegionId = 1, SnakeSpeciesId = 3, CommonLevel = CommonLevel.Rare, Priority = 30, DistributionNotes = "Hiếm gặp, chỉ xuất hiện ở rừng sâu", IsActive = true },
+                    // Rắn Ráo - Phổ biến
+                    new RegionSnakeMapping { GeographicRegionId = 1, SnakeSpeciesId = 4, CommonLevel = CommonLevel.Common, Priority = 75, DistributionNotes = "Phổ biến ở vùng đồng bằng", IsActive = true },
+
+                    // === TÂY BẮC BỘ (RegionId: 2) ===
+                    // Rắn Cạp Nia Bắc - Phổ biến
+                    new RegionSnakeMapping { GeographicRegionId = 2, SnakeSpeciesId = 1, CommonLevel = CommonLevel.Common, Priority = 70, DistributionNotes = "Phổ biến ở vùng trung du", IsActive = true },
+                    // Rắn Lục Đuôi Đỏ - Rất phổ biến
+                    new RegionSnakeMapping { GeographicRegionId = 2, SnakeSpeciesId = 2, CommonLevel = CommonLevel.VeryCommon, Priority = 85, DistributionNotes = "Rất phổ biến ở vùng núi cao", IsActive = true },
+                    // Rắn Hổ Mang Chúa - Ít gặp
+                    new RegionSnakeMapping { GeographicRegionId = 2, SnakeSpeciesId = 3, CommonLevel = CommonLevel.Uncommon, Priority = 40, DistributionNotes = "Ít gặp, xuất hiện ở rừng núi", IsActive = true },
+                    // Rắn Cạp Nong - Phổ biến
+                    new RegionSnakeMapping { GeographicRegionId = 2, SnakeSpeciesId = 5, CommonLevel = CommonLevel.Common, Priority = 65, DistributionNotes = "Phổ biến ở vùng núi", IsActive = true },
+
+                    // === ĐỒNG BẰNG SÔNG HỒNG (RegionId: 3) ===
+                    // Rắn Cạp Nia Bắc - Cực kỳ phổ biến
+                    new RegionSnakeMapping { GeographicRegionId = 3, SnakeSpeciesId = 1, CommonLevel = CommonLevel.Abundant, Priority = 95, DistributionNotes = "Loài đặc trưng của vùng đồng bằng sông Hồng", IsActive = true },
+                    // Rắn Lục Đuôi Đỏ - Phổ biến
+                    new RegionSnakeMapping { GeographicRegionId = 3, SnakeSpeciesId = 2, CommonLevel = CommonLevel.Common, Priority = 70, DistributionNotes = "Thường gặp ở vườn nhà, bụi rậm", IsActive = true },
+                    // Rắn Ráo - Rất phổ biến
+                    new RegionSnakeMapping { GeographicRegionId = 3, SnakeSpeciesId = 4, CommonLevel = CommonLevel.VeryCommon, Priority = 85, DistributionNotes = "Rất phổ biến ở đồng ruộng", IsActive = true },
+                    // Rắn Hổ Mang Xiêm - Phổ biến
+                    new RegionSnakeMapping { GeographicRegionId = 3, SnakeSpeciesId = 7, CommonLevel = CommonLevel.Common, Priority = 75, DistributionNotes = "Phổ biến ở khu dân cư", IsActive = true },
+
+                    // === BẮC TRUNG BỘ (RegionId: 4) ===
+                    // Rắn Cạp Nia Bắc - Phổ biến
+                    new RegionSnakeMapping { GeographicRegionId = 4, SnakeSpeciesId = 1, CommonLevel = CommonLevel.Common, Priority = 70, DistributionNotes = "Phổ biến ở vùng đồng bằng ven biển", IsActive = true },
+                    // Rắn Lục Đuôi Đỏ - Rất phổ biến
+                    new RegionSnakeMapping { GeographicRegionId = 4, SnakeSpeciesId = 2, CommonLevel = CommonLevel.VeryCommon, Priority = 85, DistributionNotes = "Rất phổ biến ở vùng núi và rừng", IsActive = true },
+                    // Rắn Hổ Mang Chúa - Ít gặp
+                    new RegionSnakeMapping { GeographicRegionId = 4, SnakeSpeciesId = 3, CommonLevel = CommonLevel.Uncommon, Priority = 45, DistributionNotes = "Ít gặp, xuất hiện ở rừng núi", IsActive = true },
+                    // Rắn Hoa Cỏ Cổ Đỏ - Phổ biến
+                    new RegionSnakeMapping { GeographicRegionId = 4, SnakeSpeciesId = 8, CommonLevel = CommonLevel.Common, Priority = 65, DistributionNotes = "Phổ biến ở đồng cỏ", IsActive = true },
+
+                    // === DUYÊN HẢI NAM TRUNG BỘ (RegionId: 5) ===
+                    // Rắn Lục Đuôi Đỏ - Rất phổ biến
+                    new RegionSnakeMapping { GeographicRegionId = 5, SnakeSpeciesId = 2, CommonLevel = CommonLevel.VeryCommon, Priority = 90, DistributionNotes = "Rất phổ biến ở vùng ven biển và núi", IsActive = true },
+                    // Rắn Cạp Nia Nam - Phổ biến
+                    new RegionSnakeMapping { GeographicRegionId = 5, SnakeSpeciesId = 6, CommonLevel = CommonLevel.Common, Priority = 75, DistributionNotes = "Phổ biến ở vùng đồng bằng ven biển", IsActive = true },
+                    // Rắn Hổ Mang Xiêm - Phổ biến
+                    new RegionSnakeMapping { GeographicRegionId = 5, SnakeSpeciesId = 7, CommonLevel = CommonLevel.Common, Priority = 70, DistributionNotes = "Phổ biến ở khu dân cư", IsActive = true },
+                    // Rắn Ri Cá - Rất phổ biến
+                    new RegionSnakeMapping { GeographicRegionId = 5, SnakeSpeciesId = 18, CommonLevel = CommonLevel.VeryCommon, Priority = 85, DistributionNotes = "Rất phổ biến ở vùng ven biển, sông suối", IsActive = true },
+
+                    // === TÂY NGUYÊN (RegionId: 6) ===
+                    // Rắn Lục Đuôi Đỏ - Cực kỳ phổ biến
+                    new RegionSnakeMapping { GeographicRegionId = 6, SnakeSpeciesId = 2, CommonLevel = CommonLevel.Abundant, Priority = 95, DistributionNotes = "Loài đặc trưng của Tây Nguyên", IsActive = true },
+                    // Rắn Hổ Mang Chúa - Phổ biến
+                    new RegionSnakeMapping { GeographicRegionId = 6, SnakeSpeciesId = 3, CommonLevel = CommonLevel.Common, Priority = 70, DistributionNotes = "Phổ biến ở rừng núi cao", IsActive = true },
+                    // Rắn Cạp Nong - Rất phổ biến
+                    new RegionSnakeMapping { GeographicRegionId = 6, SnakeSpeciesId = 5, CommonLevel = CommonLevel.VeryCommon, Priority = 85, DistributionNotes = "Rất phổ biến ở vùng núi", IsActive = true },
+                    // Rắn Lục Cườm - Phổ biến
+                    new RegionSnakeMapping { GeographicRegionId = 6, SnakeSpeciesId = 11, CommonLevel = CommonLevel.Common, Priority = 65, DistributionNotes = "Phổ biến ở rừng núi", IsActive = true },
+
+                    // === ĐÔNG NAM BỘ (RegionId: 7) ===
+                    // Rắn Cạp Nia Nam - Rất phổ biến
+                    new RegionSnakeMapping { GeographicRegionId = 7, SnakeSpeciesId = 6, CommonLevel = CommonLevel.VeryCommon, Priority = 90, DistributionNotes = "Rất phổ biến ở vùng đồng bằng", IsActive = true },
+                    // Rắn Hổ Mang Xiêm - Cực kỳ phổ biến
+                    new RegionSnakeMapping { GeographicRegionId = 7, SnakeSpeciesId = 7, CommonLevel = CommonLevel.Abundant, Priority = 95, DistributionNotes = "Loài đặc trưng của Đông Nam Bộ", IsActive = true },
+                    // Rắn Lục Đuôi Đỏ - Phổ biến
+                    new RegionSnakeMapping { GeographicRegionId = 7, SnakeSpeciesId = 2, CommonLevel = CommonLevel.Common, Priority = 70, DistributionNotes = "Phổ biến ở vùng rừng núi", IsActive = true },
+                    // Rắn Hổ Ngựa - Phổ biến
+                    new RegionSnakeMapping { GeographicRegionId = 7, SnakeSpeciesId = 9, CommonLevel = CommonLevel.Common, Priority = 65, DistributionNotes = "Phổ biến ở khu dân cư", IsActive = true },
+
+                    // === TÂY NAM BỘ (RegionId: 8) ===
+                    // Rắn Cạp Nia Nam - Cực kỳ phổ biến
+                    new RegionSnakeMapping { GeographicRegionId = 8, SnakeSpeciesId = 6, CommonLevel = CommonLevel.Abundant, Priority = 95, DistributionNotes = "Loài đặc trưng của Đồng bằng sông Cửu Long", IsActive = true },
+                    // Rắn Hổ Mang Xiêm - Rất phổ biến
+                    new RegionSnakeMapping { GeographicRegionId = 8, SnakeSpeciesId = 7, CommonLevel = CommonLevel.VeryCommon, Priority = 90, DistributionNotes = "Rất phổ biến ở khu dân cư và đồng ruộng", IsActive = true },
+                    // Rắn Ráo - Phổ biến
+                    new RegionSnakeMapping { GeographicRegionId = 8, SnakeSpeciesId = 4, CommonLevel = CommonLevel.Common, Priority = 75, DistributionNotes = "Phổ biến ở đồng ruộng", IsActive = true },
+                    // Rắn Ri Cá - Rất phổ biến
+                    new RegionSnakeMapping { GeographicRegionId = 8, SnakeSpeciesId = 18, CommonLevel = CommonLevel.VeryCommon, Priority = 85, DistributionNotes = "Rất phổ biến ở sông rạch, kênh mương", IsActive = true },
+                    // Rắn Lục Đuôi Đỏ - Ít gặp
+                    new RegionSnakeMapping { GeographicRegionId = 8, SnakeSpeciesId = 2, CommonLevel = CommonLevel.Uncommon, Priority = 40, DistributionNotes = "Ít gặp, chỉ xuất hiện ở vùng rừng U Minh", IsActive = true }
+                };
+
+                context.RegionSnakeMappings.AddRange(mappings);
                 await context.SaveChangesAsync();
             }
 

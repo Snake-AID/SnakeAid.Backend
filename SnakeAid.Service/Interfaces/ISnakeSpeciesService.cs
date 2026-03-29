@@ -41,6 +41,14 @@ namespace SnakeAid.Service.Interfaces
         /// </summary>
         Task<DetailSnakeSpeciesResponse> CreateSnakeSpeciesWithFileAsync(CreateSnakeSpeciesWithFileRequest request, ClaimsPrincipal user, CancellationToken ct = default);
 
+        /// <summary>
+        /// Filter snake species by questionnaire answers
+        /// </summary>
+        Task<List<FilteredSnakeResponse>> FilterSnakesByAnswersAsync(List<int> selectedOptionIds, CancellationToken ct = default);
 
+        /// <summary>
+        /// Get snakes by GPS location (location-based filtering)
+        /// </summary>
+        Task<SnakesByLocationResponse> GetSnakesByLocationAsync(double lat, double lng, CancellationToken ct = default);
     }
 }

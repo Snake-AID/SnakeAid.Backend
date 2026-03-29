@@ -1126,124 +1126,80 @@ namespace SnakeAid.Service.Implements
                         throw new NotFoundException("Snakebite incident not found.");
                     }
 
-                    // 2. Validate answers and get questions/options
-                    var questionIds = request.Answers.Select(a => a.QuestionId).Distinct().ToList();
-                    var questions = await _unitOfWork.GetRepository<FilterQuestion>()
-                        .GetListAsync(
-                            predicate: q => questionIds.Contains(q.Id) && q.IsActive,
-                            include: query => query.Include(q => q.FilterOptions)
+                    // 2. Validate selected snake species exists
+                    var selectedSnake = await _unitOfWork.GetRepository<SnakeSpecies>()
+                        .FirstOrDefaultAsync(
+                            predicate: s => s.Id == request.SelectedSnakeSpeciesId && s.IsActive
                         );
 
-                    if (questions.Count != questionIds.Count)
+                    if (selectedSnake == null)
                     {
-                        throw new BadRequestException("Some questions are invalid or inactive.");
+                        _logger.LogWarning("Selected snake species not found or inactive: {SpeciesId}", request.SelectedSnakeSpeciesId);
+                        throw new BadRequestException("Selected snake species is invalid or inactive.");
                     }
 
-                    // 3. Find all snake species that match the selected options
-                    var selectedOptionIds = request.Answers.Select(a => a.SelectedOptionId).ToList();
-
-                    var mappings = await _unitOfWork.GetRepository<FilterSnakeMapping>()
+                    // 3. Validate selected options exist and are active
+                    var selectedOptions = await _unitOfWork.GetRepository<FilterOption>()
                         .GetListAsync(
-                            predicate: m => selectedOptionIds.Contains(m.FilterOptionId) && m.IsActive,
-                            include: query => query
-                                .Include(m => m.FilterOption)
-                                .Include(m => m.SnakeSpecies)
+                            predicate: o => request.SelectedOptionIds.Contains(o.Id) && o.IsActive
                         );
 
-                    // Group by snake species and count how many filter criteria match
-                    var snakeMatches = mappings
-                        .GroupBy(m => m.SnakeSpeciesId)
-                        .Select(g => new
-                        {
-                            SnakeSpeciesId = g.Key,
-                            MatchCount = g.Count(),
-                            Species = g.First().SnakeSpecies
-                        })
-                        .OrderByDescending(s => s.MatchCount)
-                        .ToList();
-
-                    if (!snakeMatches.Any())
+                    if (selectedOptions.Count != request.SelectedOptionIds.Count)
                     {
-                        _logger.LogWarning("No snake species matched the filter answers for incident {IncidentId}", incidentId);
-                        throw new BadRequestException("No snake species found matching the provided answers.");
+                        throw new BadRequestException("Some selected options are invalid or inactive.");
                     }
 
-                    // 4. Determine which snake to identify
-                    int identifiedSpeciesId;
-                    SnakeSpecies identifiedSpecies;
-
-                    if (request.SelectedSnakeSpeciesId.HasValue)
-                    {
-                        // User explicitly selected from multiple matches
-                        var selected = snakeMatches.FirstOrDefault(m => m.SnakeSpeciesId == request.SelectedSnakeSpeciesId.Value);
-                        if (selected == null)
-                        {
-                            throw new BadRequestException("Selected snake species is not in the matched results.");
-                        }
-                        identifiedSpeciesId = selected.SnakeSpeciesId;
-                        identifiedSpecies = selected.Species;
-                    }
-                    else
-                    {
-                        // Use the best match (highest match count)
-                        var bestMatch = snakeMatches.First();
-                        identifiedSpeciesId = bestMatch.SnakeSpeciesId;
-                        identifiedSpecies = bestMatch.Species;
-                    }
-
-                    // 5. Build FilterAnswerData
+                    // 4. Build FilterAnswerData (optimized - only store IDs)
                     var filterAnswerData = new FilterAnswerData
                     {
-                        Answers = request.Answers.Select(a =>
-                        {
-                            var question = questions.First(q => q.Id == a.QuestionId);
-                            var option = question.FilterOptions.First(o => o.Id == a.SelectedOptionId);
-                            return new FilterAnswer
-                            {
-                                QuestionId = a.QuestionId,
-                                QuestionText = question.Question,
-                                SelectedOptionId = a.SelectedOptionId,
-                                SelectedOptionText = option.OptionText
-                            };
-                        }).ToList(),
-                        MatchedSnakeSpeciesIds = snakeMatches.Select(m => m.SnakeSpeciesId).ToList(),
-                        SelectedSnakeSpeciesId = identifiedSpeciesId
+                        SelectedOptionIds = request.SelectedOptionIds,
+                        SelectedSnakeSpeciesId = request.SelectedSnakeSpeciesId,
+                        MatchScore = request.MatchScore,
+                        MatchPercentage = request.MatchPercentage,
+                        SelectedAt = DateTime.UtcNow
                     };
 
-                    // 6. Update incident with identification
-                    incident.IdentifiedSnakeSpeciesId = identifiedSpeciesId;
+                    // 5. Update incident with identification
+                    incident.IdentifiedSnakeSpeciesId = request.SelectedSnakeSpeciesId;
                     incident.IdentificationMethod = SnakeIdentificationMethod.FilterQuestions;
                     incident.FilterAnswers = filterAnswerData;
                     incident.IdentifiedAt = DateTime.UtcNow;
 
                     _unitOfWork.GetRepository<SnakebiteIncident>().Update(incident);
 
-                    _logger.LogInformation("Snake identified for incident {IncidentId}: Species {SpeciesId} via filter questions with {MatchCount} matches",
-                        incidentId, identifiedSpeciesId, snakeMatches.Count);
+                    _logger.LogInformation(
+                        "Snake identified for incident {IncidentId}: Species {SpeciesId} via filter questions with {MatchScore}/{TotalAnswers} matches ({MatchPercentage}%)",
+                        incidentId, 
+                        request.SelectedSnakeSpeciesId, 
+                        request.MatchScore, 
+                        request.SelectedOptionIds.Count,
+                        request.MatchPercentage
+                    );
 
                     return new IdentifySnakeResponse
                     {
                         IncidentId = incidentId,
-                        IdentifiedSnakeSpeciesId = identifiedSpeciesId,
+                        IdentifiedSnakeSpeciesId = selectedSnake.Id,
                         IdentificationMethod = SnakeIdentificationMethod.FilterQuestions,
                         IdentifiedAt = incident.IdentifiedAt.Value,
                         Snake = new SnakeSpeciesResponse
                         {
-                            Id = identifiedSpecies.Id,
-                            ScientificName = identifiedSpecies.ScientificName,
-                            CommonName = identifiedSpecies.CommonName ?? string.Empty,
-                            Slug = identifiedSpecies.Slug,
-                            ImageUrl = identifiedSpecies.ImageUrl,
-                            Description = identifiedSpecies.Description ?? string.Empty,
-                            IdentificationSummary = identifiedSpecies.IdentificationSummary ?? string.Empty,
-                            PrimaryVenomType = identifiedSpecies.PrimaryVenomType,
-                            RiskLevel = identifiedSpecies.RiskLevel,
-                            IsVenomous = identifiedSpecies.IsVenomous,
-                            IsActive = identifiedSpecies.IsActive
+                            Id = selectedSnake.Id,
+                            ScientificName = selectedSnake.ScientificName,
+                            CommonName = selectedSnake.CommonName ?? string.Empty,
+                            Slug = selectedSnake.Slug,
+                            ImageUrl = selectedSnake.ImageUrl,
+                            Description = selectedSnake.Description ?? string.Empty,
+                            IdentificationSummary = selectedSnake.IdentificationSummary ?? string.Empty,
+                            PrimaryVenomType = selectedSnake.PrimaryVenomType,
+                            RiskLevel = selectedSnake.RiskLevel,
+                            IsVenomous = selectedSnake.IsVenomous,
+                            IsActive = selectedSnake.IsActive
                         },
-                        MatchedSnakes = snakeMatches.Select(m =>
-                            $"{m.Species.CommonName ?? m.Species.ScientificName} ({m.MatchCount} matches)")
-                            .ToList()
+                        MatchedSnakes = new List<string>
+                        {
+                            $"{selectedSnake.CommonName ?? selectedSnake.ScientificName} ({request.MatchScore}/{request.SelectedOptionIds.Count} matches - {request.MatchPercentage:F1}%)"
+                        }
                     };
                 });
             }

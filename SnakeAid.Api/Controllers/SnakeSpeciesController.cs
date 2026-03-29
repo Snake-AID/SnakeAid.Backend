@@ -2,6 +2,7 @@ using MapsterMapper;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SnakeAid.Core.Meta;
+using SnakeAid.Core.Requests.FilterQuestion;
 using SnakeAid.Core.Requests.SnakeSpecies;
 using SnakeAid.Core.Responses.SnakeSpecies;
 using SnakeAid.Core.Validators;
@@ -108,6 +109,47 @@ namespace SnakeAid.Api.Controllers
         {
             var result = await _snakeSpeciesService.CreateSnakeSpeciesWithFileAsync(request, User, ct);
             return Ok(ApiResponseBuilder.BuildSuccessResponse(result, "Snake species created successfully with file."));
+        }
+
+        /// <summary>
+        /// Filter snake species by questionnaire answers
+        /// </summary>
+        [HttpPost("filter-by-answers")]
+        [SwaggerOperation(
+            Summary = "Filter Snakes by Questionnaire Answers",
+            Description = "Filter snake species based on user's answers to identification questionnaire. Returns snakes sorted by match score (best matches first)."
+        )]
+        [SwaggerResponse(200, "Success", typeof(ApiResponse<List<FilteredSnakeResponse>>))]
+        [SwaggerResponse(400, "Invalid request - no options selected")]
+        public async Task<IActionResult> FilterSnakesByAnswers(
+            [FromBody] FilterSnakeByAnswersRequest request,
+            CancellationToken ct)
+        {
+            var result = await _snakeSpeciesService.FilterSnakesByAnswersAsync(
+                request.SelectedOptionIds,
+                ct
+            );
+            return Ok(ApiResponseBuilder.BuildSuccessResponse(result));
+        }
+
+        /// <summary>
+        /// Get snakes by GPS location (location-based filtering)
+        /// </summary>
+        [HttpGet("by-location")]
+        [SwaggerOperation(
+            Summary = "Get Snakes by GPS Location",
+            Description = "Get list of snake species common in the geographic region based on GPS coordinates. Returns snakes sorted by priority (most common first)."
+        )]
+        [SwaggerResponse(200, "Success", typeof(ApiResponse<SnakesByLocationResponse>))]
+        [SwaggerResponse(400, "Invalid coordinates")]
+        [SwaggerResponse(404, "No region found for this location")]
+        public async Task<IActionResult> GetSnakesByLocation(
+            [FromQuery] double lat,
+            [FromQuery] double lng,
+            CancellationToken ct)
+        {
+            var result = await _snakeSpeciesService.GetSnakesByLocationAsync(lat, lng, ct);
+            return Ok(ApiResponseBuilder.BuildSuccessResponse(result));
         }
     }
 }

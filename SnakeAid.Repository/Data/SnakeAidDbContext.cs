@@ -43,6 +43,8 @@ namespace SnakeAid.Repository.Data
         public DbSet<FilterQuestion> FilterQuestions { get; set; }
         public DbSet<FilterSnakeMapping> FilterSnakeMappings { get; set; }
         public DbSet<FirstAidGuideline> FirstAidGuidelines { get; set; }
+        public DbSet<GeographicRegion> GeographicRegions { get; set; }
+        public DbSet<RegionSnakeMapping> RegionSnakeMappings { get; set; }
         public DbSet<Lesson> Lessons { get; set; }
         public DbSet<LibraryMedia> LibraryMedias { get; set; }
         public DbSet<LocationEvent> LocationEvents { get; set; }

@@ -57,7 +57,9 @@ namespace SnakeAid.Core.Domains
 
 
         // Navigation properties
+        [Obsolete("Question-based filtering is deprecated. Use RegionSnakeMappings instead.")]
         public ICollection<FilterSnakeMapping> FilterSnakeMappings { get; set; } = new List<FilterSnakeMapping>();
+        public ICollection<RegionSnakeMapping> RegionSnakeMappings { get; set; } = new List<RegionSnakeMapping>();
         public ICollection<SpeciesAntivenom> SpeciesAntivenoms { get; set; } = new List<SpeciesAntivenom>();
         public ICollection<SpeciesVenom> SpeciesVenoms { get; set; } = new List<SpeciesVenom>();
         public ICollection<SnakeCatchingTariff> SnakeCatchingTariffs { get; set; } = new List<SnakeCatchingTariff>();

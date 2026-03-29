@@ -1326,6 +1326,167 @@ SELECT setval(
             await _unitOfWork.Context.Database.ExecuteSqlRawAsync(sql, ct);
         }
 
+        public async Task<List<FilteredSnakeResponse>> FilterSnakesByAnswersAsync(
+            List<int> selectedOptionIds,
+            CancellationToken ct = default)
+        {
+            if (selectedOptionIds == null || !selectedOptionIds.Any())
+            {
+                throw new ArgumentException("Vui lòng chọn ít nhất 1 đáp án", nameof(selectedOptionIds));
+            }
+
+            try
+            {
+                _logger.LogInformation("Filtering snakes with {Count} selected options: {Options}",
+                    selectedOptionIds.Count, string.Join(", ", selectedOptionIds));
+
+                // Get all mappings that match selected options
+                var matchedMappings = await _unitOfWork.GetRepository<FilterSnakeMapping>()
+                    .GetListAsync(
+                        predicate: m => m.IsActive && selectedOptionIds.Contains(m.FilterOptionId),
+                        include: query => query
+                            .Include(m => m.SnakeSpecies)
+                            .Include(m => m.FilterOption)
+                                .ThenInclude(o => o.Question),
+                        asNoTracking: true,
+                        cancellationToken: ct
+                    );
+
+                // Filter out inactive snakes
+                matchedMappings = matchedMappings
+                    .Where(m => m.SnakeSpecies.IsActive)
+                    .ToList();
+
+                _logger.LogInformation("Found {Count} filter mappings", matchedMappings.Count);
+
+                // Group by snake species and calculate match scores
+                var snakeMatchScores = matchedMappings
+                    .GroupBy(m => m.SnakeSpeciesId)
+                    .Select(g => new
+                    {
+                        SnakeId = g.Key,
+                        MatchCount = g.Count(),
+                        MatchedOptions = g.Select(m => m.FilterOption.OptionText).Distinct().ToList(),
+                        Snake = g.First().SnakeSpecies
+                    })
+                    .OrderByDescending(x => x.MatchCount) // Sort by best match first
+                    .ThenByDescending(x => x.Snake.RiskLevel) // Then by risk level (venomous first)
+                    .ThenBy(x => x.Snake.CommonName)
+                    .ToList();
+
+                _logger.LogInformation("Matched {Count} snake species", snakeMatchScores.Count);
+
+                // Build response
+                var results = snakeMatchScores.Select(match => new FilteredSnakeResponse
+                {
+                    Id = match.Snake.Id,
+                    ScientificName = match.Snake.ScientificName,
+                    CommonName = match.Snake.CommonName,
+                    ImageUrl = match.Snake.ImageUrl,
+                    IsVenomous = match.Snake.IsVenomous,
+                    RiskLevel = match.Snake.RiskLevel,
+                    MatchScore = match.MatchCount,
+                    TotalAnswered = selectedOptionIds.Count,
+                    MatchPercentage = Math.Round((double)match.MatchCount / selectedOptionIds.Count * 100, 1),
+                    MatchedFeatures = match.MatchedOptions
+                }).ToList();
+
+                return results;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error filtering snakes by answers: {Message}", ex.Message);
+                throw;
+            }
+        }
+
+        public async Task<SnakesByLocationResponse> GetSnakesByLocationAsync(double lat, double lng, CancellationToken ct = default)
+        {
+            try
+            {
+                _logger.LogInformation("Getting snakes by location: lat={Lat}, lng={Lng}", lat, lng);
+
+                // Step 1: Find geographic region using PostGIS ST_Contains
+                var geometryFactory = NetTopologySuite.NtsGeometryServices.Instance.CreateGeometryFactory(srid: 4326);
+                var point = geometryFactory.CreatePoint(new NetTopologySuite.Geometries.Coordinate(lng, lat));
+
+                var region = await _unitOfWork.GetRepository<GeographicRegion>()
+                    .CreateBaseQuery(asNoTracking: true)
+                    .Where(r => r.IsActive && r.Boundary.Contains(point))
+                    .FirstOrDefaultAsync(ct);
+
+                if (region == null)
+                {
+                    _logger.LogWarning("No geographic region found for location: lat={Lat}, lng={Lng}", lat, lng);
+                    throw new NotFoundException("Không xác định được khu vực. Vui lòng kiểm tra lại vị trí GPS.");
+                }
+
+                _logger.LogInformation("Found region: {RegionName} (ID: {RegionId})", region.Name, region.Id);
+
+                // Step 2: Get snakes in this region with metadata
+                var snakesInRegion = await _unitOfWork.GetRepository<SnakeSpecies>()
+                    .CreateBaseQuery(asNoTracking: true)
+                    .Where(s => s.IsActive && 
+                                s.RegionSnakeMappings.Any(m => 
+                                    m.GeographicRegionId == region.Id && 
+                                    m.IsActive))
+                    .Select(s => new
+                    {
+                        Snake = s,
+                        Mapping = s.RegionSnakeMappings.First(m => 
+                            m.GeographicRegionId == region.Id && 
+                            m.IsActive)
+                    })
+                    .OrderByDescending(x => x.Mapping.Priority)
+                    .ThenByDescending(x => x.Mapping.CommonLevel)
+                    .ToListAsync(ct);
+
+                _logger.LogInformation("Found {Count} snakes in region {RegionName}", snakesInRegion.Count, region.Name);
+
+                // Step 3: Map to response
+                var response = new SnakesByLocationResponse
+                {
+                    Region = new GeographicRegionDto
+                    {
+                        Id = region.Id,
+                        Name = region.Name,
+                        Code = region.Code,
+                        Description = region.Description
+                    },
+                    Snakes = snakesInRegion.Select(x => new SnakeInRegionDto
+                    {
+                        // Basic snake info
+                        Id = x.Snake.Id,
+                        ScientificName = x.Snake.ScientificName,
+                        CommonName = x.Snake.CommonName ?? string.Empty,
+                        Slug = x.Snake.Slug,
+                        ImageUrl = x.Snake.ImageUrl,
+                        Description = x.Snake.Description,
+                        IdentificationSummary = x.Snake.IdentificationSummary,
+                        PrimaryVenomType = x.Snake.PrimaryVenomType,
+                        RiskLevel = x.Snake.RiskLevel,
+                        IsVenomous = x.Snake.IsVenomous,
+                        
+                        // Region-specific metadata
+                        CommonLevel = x.Mapping.CommonLevel.ToString(),
+                        Priority = x.Mapping.Priority,
+                        DistributionNotes = x.Mapping.DistributionNotes
+                    }).ToList()
+                };
+
+                return response;
+            }
+            catch (NotFoundException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting snakes by location: lat={Lat}, lng={Lng}, Message={Message}", lat, lng, ex.Message);
+                throw;
+            }
+        }
+
         private sealed class ParsedSnakeSpeciesExcel
         {
             public BasicInfoRow BasicInfo { get; set; } = new();
