@@ -163,5 +163,99 @@ namespace SnakeAid.Api.Controllers
             var result = await _snakeSpeciesService.GetSnakesByLocationAsync(lat, lng, ct);
             return Ok(ApiResponseBuilder.BuildSuccessResponse(result));
         }
+
+        // ── Geographic Regions ────────────────────────────────────────────────
+
+        /// <summary>
+        /// Get all geographic regions with polygon boundaries for map rendering
+        /// </summary>
+        [HttpGet("/api/geographic-regions")]
+        [SwaggerOperation(
+            Summary = "Get All Geographic Regions",
+            Description = "Returns all active regions with polygon boundary coordinates (GeoJSON [lng,lat] order). Pass snakeSpeciesId to get IsMapped + Mapping metadata for each region — useful for highlighting distribution on admin map."
+        )]
+        [SwaggerResponse(200, "Success", typeof(ApiResponse<List<GeographicRegionResponse>>))]
+        public async Task<IActionResult> GetAllRegions([FromQuery] int? snakeSpeciesId, CancellationToken ct)
+        {
+            var result = await _snakeSpeciesService.GetAllRegionsAsync(snakeSpeciesId, ct);
+            return Ok(ApiResponseBuilder.BuildSuccessResponse(result));
+        }
+
+        // ── Region-Snake Mappings ─────────────────────────────────────────────
+
+        /// <summary>
+        /// Get all region distribution mappings for a snake species
+        /// </summary>
+        [HttpGet("{id}/region-mappings")]
+        [SwaggerOperation(Summary = "Get Region Mappings for Snake", Description = "Returns all geographic regions this snake species is mapped to, with commonality and priority metadata.")]
+        [SwaggerResponse(200, "Success", typeof(ApiResponse<List<RegionSnakeMappingResponse>>))]
+        [SwaggerResponse(404, "Snake species not found")]
+        public async Task<IActionResult> GetRegionMappings(int id, CancellationToken ct)
+        {
+            var result = await _snakeSpeciesService.GetRegionMappingsBySnakeAsync(id, ct);
+            return Ok(ApiResponseBuilder.BuildSuccessResponse(result));
+        }
+
+        /// <summary>
+        /// Sync (replace-all) region mappings for a snake species
+        /// </summary>
+        [HttpPut("{id}/region-mappings")]
+        [Authorize]
+        [ValidateModel]
+        [SwaggerOperation(
+            Summary = "Sync Region Mappings",
+            Description = "Replaces all region mappings for this snake species with the provided list. Regions not in the list will be removed."
+        )]
+        [SwaggerResponse(200, "Success", typeof(ApiResponse<List<RegionSnakeMappingResponse>>))]
+        [SwaggerResponse(404, "Snake species or region not found")]
+        public async Task<IActionResult> SyncRegionMappings(int id, [FromBody] SyncRegionMappingsRequest request, CancellationToken ct)
+        {
+            var result = await _snakeSpeciesService.SyncRegionMappingsAsync(id, request, ct);
+            return Ok(ApiResponseBuilder.BuildSuccessResponse(result, "Region mappings updated successfully."));
+        }
+
+        /// <summary>
+        /// Add a single region mapping to a snake species
+        /// </summary>
+        [HttpPost("{id}/region-mappings")]
+        [Authorize]
+        [ValidateModel]
+        [SwaggerOperation(Summary = "Add Region Mapping", Description = "Adds a single geographic region distribution mapping for this snake species.")]
+        [SwaggerResponse(200, "Created", typeof(ApiResponse<RegionSnakeMappingResponse>))]
+        [SwaggerResponse(400, "Duplicate mapping")]
+        [SwaggerResponse(404, "Snake species or region not found")]
+        public async Task<IActionResult> AddRegionMapping(int id, [FromBody] AddRegionMappingRequest request, CancellationToken ct)
+        {
+            var result = await _snakeSpeciesService.AddRegionMappingAsync(id, request, ct);
+            return Ok(ApiResponseBuilder.BuildSuccessResponse(result, "Region mapping added successfully."));
+        }
+
+        /// <summary>
+        /// Update an existing region mapping
+        /// </summary>
+        [HttpPatch("{id}/region-mappings/{mappingId}")]
+        [Authorize]
+        [SwaggerOperation(Summary = "Update Region Mapping", Description = "Updates commonality level, priority, or distribution notes for an existing region mapping.")]
+        [SwaggerResponse(200, "Updated", typeof(ApiResponse<RegionSnakeMappingResponse>))]
+        [SwaggerResponse(404, "Mapping not found")]
+        public async Task<IActionResult> UpdateRegionMapping(int id, int mappingId, [FromBody] UpdateRegionMappingRequest request, CancellationToken ct)
+        {
+            var result = await _snakeSpeciesService.UpdateRegionMappingAsync(id, mappingId, request, ct);
+            return Ok(ApiResponseBuilder.BuildSuccessResponse(result, "Region mapping updated successfully."));
+        }
+
+        /// <summary>
+        /// Delete a region mapping
+        /// </summary>
+        [HttpDelete("{id}/region-mappings/{mappingId}")]
+        [Authorize]
+        [SwaggerOperation(Summary = "Delete Region Mapping")]
+        [SwaggerResponse(200, "Deleted")]
+        [SwaggerResponse(404, "Mapping not found")]
+        public async Task<IActionResult> DeleteRegionMapping(int id, int mappingId, CancellationToken ct)
+        {
+            await _snakeSpeciesService.DeleteRegionMappingAsync(id, mappingId, ct);
+            return Ok(ApiResponseBuilder.BuildSuccessResponse("Region mapping deleted successfully."));
+        }
     }
 }

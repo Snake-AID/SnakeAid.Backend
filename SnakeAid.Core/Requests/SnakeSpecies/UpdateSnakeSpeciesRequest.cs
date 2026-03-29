@@ -8,9 +8,6 @@ public class UpdateSnakeSpeciesRequest
     [MaxLength(500)]
     public string? ScientificName { get; set; }
 
-    [MaxLength(200)]
-    public string? Slug { get; set; }
-
     [MaxLength(500)]
     public string? CommonName { get; set; }
 

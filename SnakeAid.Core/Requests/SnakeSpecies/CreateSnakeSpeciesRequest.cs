@@ -9,10 +9,6 @@ public class CreateSnakeSpeciesRequest
     [MaxLength(500)]
     public string ScientificName { get; set; } = string.Empty;
 
-    [Required]
-    [MaxLength(200)]
-    public string Slug { get; set; } = string.Empty;
-
     [MaxLength(500)]
     public string CommonName { get; set; } = string.Empty;
 

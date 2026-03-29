@@ -362,14 +362,14 @@ namespace SnakeAid.Repository.Seeds
                         CommonName = "Rắn Cạp Nia Bắc",
                         Slug = "ran-cap-nia-bac",
                         Description = "Một trong những loài rắn độc nhất châu Á, thường gặp ở vùng đồng bằng và trung du Bắc Bộ.",
-                        IdentificationSummary = "Chiều dài trung bình 1.0m - 1.5m. Thân có các khoanh trắng và đen rõ rệt, vảy trơn bóng.",
+                        IdentificationSummary = "Chiều dài trung bình 1.0m - 1.5m. Thân có các khoanh trắng rộng và đen hẹp rõ rệt, vảy trơn bóng.",
                         PrimaryVenomType = PrimaryVenomType.Neurotoxic,
                         RiskLevel = 9.5f,
                         IsVenomous = true,
                         ImageUrl = "https://e.khoahoc.tv/photos/image/2020/09/19/ran-cap-nia-1.jpg",
                         Identification = new IdentificationFeature
                         {
-                            PhysicalTraits = new List<string> { "Chiều dài: 100 - 150 cm", "Khoanh trắng đen rõ rệt", "Đầu bầu dục", "Vảy bóng", "Thân hình tam giác nhẹ" },
+                            PhysicalTraits = new List<string> { "Chiều dài: 100 - 150 cm", "Khoanh trắng rộng đen hẹp rõ rệt", "Đầu bầu dục", "Vảy bóng", "Thân hình tam giác nhẹ" },
                             Behaviors = new List<string> { "Hoạt động mạnh về đêm", "Thích nơi ẩm ướt", "Thường chui vào nhà dân tìm mồi" },
                             Habitat = "Cánh đồng, ven sông, khu dân cư miền Bắc"
                         },
@@ -423,9 +423,26 @@ namespace SnakeAid.Repository.Seeds
                             {
                                 Steps = new List<FirstAidStep>
                                 {
-                                    new FirstAidStep { Text = "Rửa sạch vết thương." },
-                                    new FirstAidStep { Text = "Bất động lỏng chi." },
-                                    new FirstAidStep { Text = "TUYỆT ĐỐI KHÔNG BĂNG ÉP CHẶT vì gây hoại tử nhanh." }
+                                    new FirstAidStep { Text = "Rửa sạch vết thương bằng nước sạch.", MediaUrl = "" },
+                                    new FirstAidStep { Text = "Bất động lỏng chi bằng nẹp hoặc vải.", MediaUrl = "" },
+                                    new FirstAidStep { Text = "Giữ vết cắn ngang mức tim.", MediaUrl = "" },
+                                    new FirstAidStep { Text = "Chuyển đến bệnh viện ngay lập tức.", MediaUrl = "" }
+                                },
+                                Dos = new List<FirstAidStep>
+                                {
+                                    new FirstAidStep { Text = "Tháo nhẫn, đồng hồ, vòng tay ngay lập tức.", MediaUrl = "" },
+                                    new FirstAidStep { Text = "Giữ bình tĩnh và hạn chế vận động.", MediaUrl = "" }
+                                },
+                                Donts = new List<FirstAidStep>
+                                {
+                                    new FirstAidStep { Text = "TUYỆT ĐỐI KHÔNG băng ép chặt (ga-rô) vì gây hoại tử nhanh.", MediaUrl = "" },
+                                    new FirstAidStep { Text = "Không rạch vết thương hoặc hút nọc độc.", MediaUrl = "" },
+                                    new FirstAidStep { Text = "Không chườm đá lạnh trực tiếp lên vết cắn.", MediaUrl = "" }
+                                },
+                                Notes = new List<string>
+                                {
+                                    "Nọc độc máu gây sưng nề nhanh và chảy máu không cầm.",
+                                    "Băng ép chặt sẽ làm tăng hoại tử mô tại chỗ - CỰC KỲ NGUY HIỂM!"
                                 }
                             }
                         }
@@ -459,12 +476,38 @@ namespace SnakeAid.Repository.Seeds
                         },
                         FirstAidGuidelineOverride = new FirstAidOverride
                         {
-                            Mode = OverrideMode.Append,
+                            Mode = OverrideMode.Replace,
                             Content = new FirstAidContent
                             {
                                 Steps = new List<FirstAidStep>
                                 {
-                                    new FirstAidStep { Text = "Vận chuyển nạn nhân bằng phương tiện nhanh nhất có thể đến bệnh viện lớn." }
+                                    new FirstAidStep { Text = "Di chuyển ra xa con rắn NGAY LẬP TỨC - rắn hổ mang chúa có thể tấn công liên tục.", MediaUrl = "" },
+                                    new FirstAidStep { Text = "Gọi cấp cứu 115 hoặc trực thăng y tế KHẨN CẤP.", MediaUrl = "https://dichvuxecuuthuong115.com/upload/images/goi-cap-cuu-115.jpg" },
+                                    new FirstAidStep { Text = "Quấn băng thun chặt toàn bộ chi bị cắn từ ngón tay/chân lên đến nách/háng (như băng bong gân).", MediaUrl = "https://hscc.vn/hinhanh/randoccan_socuu.png" },
+                                    new FirstAidStep { Text = "Dùng nẹp cố định cứng để chi hoàn toàn bất động.", MediaUrl = "" },
+                                    new FirstAidStep { Text = "Nằm yên tuyệt đối, vận chuyển bằng cáng - KHÔNG được tự đi bộ.", MediaUrl = "https://lh5.googleusercontent.com/i8pGvoLht7TcUieukFfbJgxyhfSjBKKh6HgjaBdOG949U2qn7JdQ4HApvHFebdFG5zpP2nrNwCfESg2yzAqZXSXW_aOXRe_lnsSeBgfyTtIXbiIBOiTUj4kvlVcPiqFDY6xOz0w" },
+                                    new FirstAidStep { Text = "Chuyển đến bệnh viện TUYẾN TRUNG ƯƠNG có huyết thanh kháng độc rắn hổ mang chúa.", MediaUrl = "" }
+                                },
+                                Dos = new List<FirstAidStep>
+                                {
+                                    new FirstAidStep { Text = "Chụp ảnh con rắn từ xa nếu an toàn để xác định chính xác.", MediaUrl = "" },
+                                    new FirstAidStep { Text = "Thông báo cho bệnh viện trước về trường hợp rắn hổ mang chúa cắn.", MediaUrl = "" },
+                                    new FirstAidStep { Text = "Theo dõi hô hấp liên tục - sẵn sàng hỗ trợ thở nhân tạo.", MediaUrl = "" },
+                                    new FirstAidStep { Text = "Giữ băng quấn cho đến khi gặp bác sĩ.", MediaUrl = "" }
+                                },
+                                Donts = new List<FirstAidStep>
+                                {
+                                    new FirstAidStep { Text = "TUYỆT ĐỐI KHÔNG tháo băng quấn trước khi có bác sĩ.", MediaUrl = "" },
+                                    new FirstAidStep { Text = "KHÔNG để nạn nhân vận động - mỗi cử động làm nọc lan nhanh hơn.", MediaUrl = "" },
+                                    new FirstAidStep { Text = "KHÔNG rạch vết thương hoặc hút nọc độc.", MediaUrl = "" },
+                                    new FirstAidStep { Text = "KHÔNG chờ đợi triệu chứng - phải đi viện NGAY.", MediaUrl = "" }
+                                },
+                                Notes = new List<string>
+                                {
+                                    "CẢNH BÁO CỰC NGUY HIỂM: Rắn hổ mang chúa có lượng nọc độc khổng lồ (có thể tiêm đủ giết 20 người).",
+                                    "Tỷ lệ tử vong CỰC CAO nếu không được điều trị trong vòng 30-60 phút.",
+                                    "Cần liều huyết thanh kháng độc RẤT LỚN (10-20 lọ) - chỉ bệnh viện lớn mới có đủ.",
+                                    "Đây là TRƯỜNG HỢP CẤP CỨU Y KHOA MỨC ĐỘ CAO NHẤT - ưu tiên tuyệt đối."
                                 }
                             }
                         }
@@ -495,12 +538,27 @@ namespace SnakeAid.Repository.Seeds
                         },
                         FirstAidGuidelineOverride = new FirstAidOverride
                         {
-                            Mode = OverrideMode.Append,
+                            Mode = OverrideMode.Replace,
                             Content = new FirstAidContent
                             {
                                 Steps = new List<FirstAidStep>
                                 {
-                                    new FirstAidStep { Text = "Sát trùng vết thương bằng cồn hoặc nước sạch." }
+                                    new FirstAidStep { Text = "Rửa sạch vết thương bằng xà phòng và nước.", MediaUrl = "" },
+                                    new FirstAidStep { Text = "Sát trùng vết thương bằng cồn hoặc dung dịch sát khuẩn.", MediaUrl = "" },
+                                    new FirstAidStep { Text = "Bình tĩnh - đây là loài rắn không độc.", MediaUrl = "" }
+                                },
+                                Dos = new List<FirstAidStep>
+                                {
+                                    new FirstAidStep { Text = "Theo dõi vết thương để phát hiện nhiễm trùng.", MediaUrl = "" }
+                                },
+                                Donts = new List<FirstAidStep>
+                                {
+                                    new FirstAidStep { Text = "Không cần lo lắng - loài này hoàn toàn vô hại.", MediaUrl = "" }
+                                },
+                                Notes = new List<string>
+                                {
+                                    "Rắn Ráo là loài rắn ích lợi, giúp kiểm soát chuột và các loài gặm nhấm.",
+                                    "Chúng rất nhanh nhẹn và thường chạy trốn khi gặp người."
                                 }
                             }
                         }
@@ -665,7 +723,7 @@ namespace SnakeAid.Repository.Seeds
                                     new FirstAidStep { Text = "Nhanh chóng chuyển nạn nhân đến bệnh viện tuyến tỉnh hoặc trung ương có khả năng lọc máu và truyền máu.", MediaUrl = "" }
                                 },
                                 Dos = new List<FirstAidStep> {
-                                    new FirstAidStep { Text = "Báo cho bác sĩ đây là rắn 'Rhabdophis subminiatus' (Hoa cỏ cổ đỏ).", MediaUrl = "" },
+                                    new FirstAidStep { Text = "Báo cho bác sĩ đây là rắn Hoa cỏ cổ đỏ.", MediaUrl = "" },
                                     new FirstAidStep { Text = "Theo dõi sát màu nước tiểu và tình trạng chảy máu.", MediaUrl = "" }
                                 },
                                 Donts = new List<FirstAidStep> {
@@ -705,12 +763,27 @@ namespace SnakeAid.Repository.Seeds
                         },
                         FirstAidGuidelineOverride = new FirstAidOverride
                         {
-                            Mode = OverrideMode.Append,
+                            Mode = OverrideMode.Replace,
                             Content = new FirstAidContent
                             {
                                 Steps = new List<FirstAidStep>
                                 {
-                                    new FirstAidStep { Text = "Chỉ cần rửa sạch vết thương bằng xà phòng để tránh nhiễm trùng." }
+                                    new FirstAidStep { Text = "Rửa sạch vết thương bằng xà phòng và nước.", MediaUrl = "" },
+                                    new FirstAidStep { Text = "Sát trùng kỹ vết thương.", MediaUrl = "" },
+                                    new FirstAidStep { Text = "Bình tĩnh - đây là loài rắn không độc.", MediaUrl = "" }
+                                },
+                                Dos = new List<FirstAidStep>
+                                {
+                                    new FirstAidStep { Text = "Theo dõi vết thương để phát hiện nhiễm trùng.", MediaUrl = "" }
+                                },
+                                Donts = new List<FirstAidStep>
+                                {
+                                    new FirstAidStep { Text = "Không cần lo lắng về nọc độc - loài này không độc.", MediaUrl = "" }
+                                },
+                                Notes = new List<string>
+                                {
+                                    "Rắn Hổ Ngựa thường bị nhầm với rắn hổ mang do hành vi bẹt cổ và ngóc cao đầu.",
+                                    "Chúng rất hung dữ khi bị đe dọa nhưng hoàn toàn không độc."
                                 }
                             }
                         }
@@ -740,12 +813,29 @@ namespace SnakeAid.Repository.Seeds
                         },
                         FirstAidGuidelineOverride = new FirstAidOverride
                         {
-                            Mode = OverrideMode.Append,
+                            Mode = OverrideMode.Replace,
                             Content = new FirstAidContent
                             {
                                 Steps = new List<FirstAidStep>
                                 {
-                                    new FirstAidStep { Text = "Sát trùng kỹ vết thương vì miệng loài này chứa nhiều vi khuẩn do ăn chuột và thịt thối." }
+                                    new FirstAidStep { Text = "Rửa sạch vết thương bằng xà phòng và nước.", MediaUrl = "" },
+                                    new FirstAidStep { Text = "Sát trùng kỹ vì miệng loài này chứa nhiều vi khuẩn do ăn chuột và thịt thối.", MediaUrl = "" },
+                                    new FirstAidStep { Text = "Băng vết thương nếu chảy máu nhiều.", MediaUrl = "" }
+                                },
+                                Dos = new List<FirstAidStep>
+                                {
+                                    new FirstAidStep { Text = "Theo dõi vết thương kỹ để phát hiện nhiễm trùng.", MediaUrl = "" },
+                                    new FirstAidStep { Text = "Đến trạm y tế nếu vết thương sâu cần khâu.", MediaUrl = "" }
+                                },
+                                Donts = new List<FirstAidStep>
+                                {
+                                    new FirstAidStep { Text = "Không cần lo lắng về nọc độc - loài này không độc.", MediaUrl = "" }
+                                },
+                                Notes = new List<string>
+                                {
+                                    "Rắn Chuột Vua không có nọc độc nhưng răng sắc nhọn có thể gây vết thương sâu.",
+                                    "Chúng có mùi hôi đặc trưng và cực kỳ hung dữ khi bị đe dọa.",
+                                    "Dễ bị nhầm với rắn hổ mang chúa do kích thước lớn."
                                 }
                             }
                         }
@@ -774,7 +864,27 @@ namespace SnakeAid.Repository.Seeds
                             new SymptomTimeline { TimeRange = "1 - 6 giờ", Signs = new List<string> { "Xuất huyết dưới da", "Máu chảy không cầm tại vết cắn", "Bầm tím nặng" }, IsCritical = true }
                         },
                         FirstAidGuidelineOverride = new FirstAidOverride {
-                            Mode = OverrideMode.Replace, Content = new FirstAidContent { Steps = new List<FirstAidStep> { new FirstAidStep { Text = "KHÔNG garô/băng ép." }, new FirstAidStep { Text = "Bất động chi bằng nẹp lỏng." }, new FirstAidStep { Text = "Chuyển viện gấp." } } } }
+                            Mode = OverrideMode.Replace,
+                            Content = new FirstAidContent {
+                                Steps = new List<FirstAidStep> {
+                                    new FirstAidStep { Text = "Bất động chi bằng nẹp lỏng.", MediaUrl = "" },
+                                    new FirstAidStep { Text = "Giữ vết cắn ngang mức tim.", MediaUrl = "" },
+                                    new FirstAidStep { Text = "Chuyển viện khẩn cấp.", MediaUrl = "" }
+                                },
+                                Dos = new List<FirstAidStep> {
+                                    new FirstAidStep { Text = "Tháo trang sức ngay lập tức.", MediaUrl = "" },
+                                    new FirstAidStep { Text = "Theo dõi vùng sưng nề và bầm tím.", MediaUrl = "" }
+                                },
+                                Donts = new List<FirstAidStep> {
+                                    new FirstAidStep { Text = "KHÔNG băng ép chặt (ga-rô).", MediaUrl = "" },
+                                    new FirstAidStep { Text = "KHÔNG rạch vết thương.", MediaUrl = "" }
+                                },
+                                Notes = new List<string> {
+                                    "Nọc độc máu gây xuất huyết và chảy máu không cầm.",
+                                    "Cần huyết thanh kháng độc càng sớm càng tốt."
+                                }
+                            }
+                        }
                     },
 
                     // 12. RẮN LỤC NƯA (CHÀM QUẠP) - Calloselasma rhodostoma
@@ -799,7 +909,32 @@ namespace SnakeAid.Repository.Seeds
                             new SymptomTimeline { TimeRange = "0 - 30 phút", Signs = new List<string> { "Sưng nề cực nhanh", "Đau buốt như lửa đốt" }, IsCritical = true },
                             new SymptomTimeline { TimeRange = "6 - 12 giờ", Signs = new List<string> { "Hoại tử mô diện rộng", "Xuất huyết toàn thân", "Phồng rộp máu" }, IsCritical = true }
                         },
-                        FirstAidGuidelineOverride = new FirstAidOverride { Mode = OverrideMode.Replace, Content = new FirstAidContent { Steps = new List<FirstAidStep> { new FirstAidStep { Text = "Tuyệt đối không rạch vết thương vì nọc gây rối loạn đông máu cực nặng." }, new FirstAidStep { Text = "Băng ép nhẹ bằng băng thun (không chặt)." } } } }
+                        FirstAidGuidelineOverride = new FirstAidOverride {
+                            Mode = OverrideMode.Replace,
+                            Content = new FirstAidContent {
+                                Steps = new List<FirstAidStep> {
+                                    new FirstAidStep { Text = "Nằm yên, bất động hoàn toàn chi bị cắn.", MediaUrl = "" },
+                                    new FirstAidStep { Text = "Băng ép nhẹ bằng băng thun (KHÔNG chặt).", MediaUrl = "" },
+                                    new FirstAidStep { Text = "Giữ vết cắn ngang mức tim.", MediaUrl = "" },
+                                    new FirstAidStep { Text = "Chuyển đến bệnh viện CÓ HUYẾT THANH KHÁNG ĐỘC ngay lập tức.", MediaUrl = "" }
+                                },
+                                Dos = new List<FirstAidStep> {
+                                    new FirstAidStep { Text = "Tháo trang sức ngay vì sưng nề rất nhanh.", MediaUrl = "" },
+                                    new FirstAidStep { Text = "Chụp ảnh con rắn nếu an toàn để bác sĩ xác định.", MediaUrl = "" },
+                                    new FirstAidStep { Text = "Theo dõi sát vùng sưng nề và màu da.", MediaUrl = "" }
+                                },
+                                Donts = new List<FirstAidStep> {
+                                    new FirstAidStep { Text = "Tuyệt đối KHÔNG rạch vết thương vì nọc gây rối loạn đông máu cực nặng.", MediaUrl = "" },
+                                    new FirstAidStep { Text = "KHÔNG băng ép chặt (ga-rô) - sẽ làm hoại tử nhanh hơn.", MediaUrl = "" },
+                                    new FirstAidStep { Text = "KHÔNG chườm đá lạnh trực tiếp.", MediaUrl = "" }
+                                },
+                                Notes = new List<string> {
+                                    "Rắn Lục Nưa có nọc độc CỰC MẠNH gây hoại tử mô diện rộng và rối loạn đông máu.",
+                                    "Tỷ lệ tử vong cao nếu không được điều trị kịp thời với huyết thanh kháng độc.",
+                                    "Đây là loài rắn NGUY HIỂM NHẤT ở Tây Nguyên và miền Nam."
+                                }
+                            }
+                        }
                     },
 
                     // 13. RẮN LỤC XANH - Trimeresurus stejnegeri
@@ -854,10 +989,17 @@ namespace SnakeAid.Repository.Seeds
                             {
                                 Steps = new List<FirstAidStep>
                                 {
-                                    new FirstAidStep { Text = "Rửa sạch vết thương bằng xà phòng hoặc dung dịch sát khuẩn." },
-                                    new FirstAidStep { Text = "Cầm máu nếu cần thiết." },
-                                    new FirstAidStep { Text = "Theo dõi dấu hiệu nhiễm trùng (sưng, đỏ, mưng mủ)." },
-                                    new FirstAidStep { Text = "Đến cơ sở y tế nếu vết thương không lành hoặc có dấu hiệu nhiễm trùng." }
+                                    new FirstAidStep { Text = "Rửa sạch vết thương bằng xà phòng hoặc dung dịch sát khuẩn.", MediaUrl = "" },
+                                    new FirstAidStep { Text = "Cầm máu nếu cần thiết bằng gạc sạch.", MediaUrl = "" },
+                                    new FirstAidStep { Text = "Đến cơ sở y tế nếu vết thương sâu hoặc có dấu hiệu nhiễm trùng.", MediaUrl = "" }
+                                },
+                                Dos = new List<FirstAidStep>
+                                {
+                                    new FirstAidStep { Text = "Rửa sạch bằng xà phòng để tránh nhiễm trùng.", MediaUrl = "" }
+                                },
+                                Donts = new List<FirstAidStep>
+                                {
+                                    new FirstAidStep { Text = "Không cần lo lắng vì đây là loài rắn không độc.", MediaUrl = "" }
                                 }
                             }
                         }
@@ -880,6 +1022,35 @@ namespace SnakeAid.Repository.Seeds
                             PhysicalTraits = new List<string> { "Vảy màu vàng chanh viền đen", "Thân thon dài", "Mắt to tròn" },
                             Behaviors = new List<string> { "Leo trèo cực giỏi", "Nhảy từ trên cây cao xuống", "Rất hiền lành" },
                             Habitat = "Cây cao, vườn nhà, rừng rậm"
+                        },
+                        SymptomsByTime = new List<SymptomTimeline>
+                        {
+                            new SymptomTimeline { TimeRange = "Sau khi cắn", Signs = new List<string> { "Vết xước nhỏ", "Không sưng nề", "Không đau" }, IsCritical = false }
+                        },
+                        FirstAidGuidelineOverride = new FirstAidOverride
+                        {
+                            Mode = OverrideMode.Replace,
+                            Content = new FirstAidContent
+                            {
+                                Steps = new List<FirstAidStep>
+                                {
+                                    new FirstAidStep { Text = "Rửa sạch vết thương bằng xà phòng và nước.", MediaUrl = "" },
+                                    new FirstAidStep { Text = "Bình tĩnh - đây là loài rắn hoàn toàn vô hại và rất hiền lành.", MediaUrl = "" }
+                                },
+                                Dos = new List<FirstAidStep>
+                                {
+                                    new FirstAidStep { Text = "Sát trùng nhẹ nếu có vết xước.", MediaUrl = "" }
+                                },
+                                Donts = new List<FirstAidStep>
+                                {
+                                    new FirstAidStep { Text = "Không cần lo lắng hay đi bệnh viện - loài này không độc.", MediaUrl = "" }
+                                },
+                                Notes = new List<string>
+                                {
+                                    "Rắn Cườm (Rắn Bay) là loài rắn ích lợi, ăn côn trùng và thằn lằn.",
+                                    "Chúng rất hiền lành và hiếm khi cắn người."
+                                }
+                            }
                         }
                     },
 
@@ -900,6 +1071,37 @@ namespace SnakeAid.Repository.Seeds
                             PhysicalTraits = new List<string> { "Kích thước lớn (tới 3m)", "Vằn ngang zig zag trắng nửa thân trước chuyển đen nửa thân sau", "Mắt rất to, tròn", "Vảy trơn, óng ánh, xếp đều", "Họa tiết vảy đầu giống rắn hổ mang" },
                             Behaviors = new List<string> { "Chạy trốn cực nhanh", "Hung dữ khi bị dồn vào đường cùng", "Bị đe dọa sẽ mở rộng vùng cổ và tạo âm thanh rít liên tục" },
                             Habitat = "Đồng ruộng, bụi rậm, hang hốc"
+                        },
+                        SymptomsByTime = new List<SymptomTimeline>
+                        {
+                            new SymptomTimeline { TimeRange = "Sau khi cắn", Signs = new List<string> { "Vết cắn hình vòng cung", "Chảy máu do răng sắc", "Đau rát nhẹ" }, IsCritical = false }
+                        },
+                        FirstAidGuidelineOverride = new FirstAidOverride
+                        {
+                            Mode = OverrideMode.Replace,
+                            Content = new FirstAidContent
+                            {
+                                Steps = new List<FirstAidStep>
+                                {
+                                    new FirstAidStep { Text = "Rửa sạch vết thương bằng xà phòng và nước.", MediaUrl = "" },
+                                    new FirstAidStep { Text = "Sát trùng kỹ vì vết cắn có thể sâu do răng sắc nhọn.", MediaUrl = "" },
+                                    new FirstAidStep { Text = "Băng vết thương nếu chảy máu nhiều.", MediaUrl = "" }
+                                },
+                                Dos = new List<FirstAidStep>
+                                {
+                                    new FirstAidStep { Text = "Theo dõi vết thương để phát hiện nhiễm trùng.", MediaUrl = "" },
+                                    new FirstAidStep { Text = "Đến trạm y tế nếu vết thương sâu cần khâu.", MediaUrl = "" }
+                                },
+                                Donts = new List<FirstAidStep>
+                                {
+                                    new FirstAidStep { Text = "Không cần lo lắng về nọc độc - loài này không độc.", MediaUrl = "" }
+                                },
+                                Notes = new List<string>
+                                {
+                                    "Rắn Ráo Trâu không có nọc độc nhưng có răng sắc nhọn có thể gây vết thương sâu.",
+                                    "Chúng thường bị nhầm với rắn hổ mang do họa tiết đầu tương tự."
+                                }
+                            }
                         }
                     },
 
@@ -920,6 +1122,34 @@ namespace SnakeAid.Repository.Seeds
                             PhysicalTraits = new List<string> { "Thân mập hình trụ", "Hoa văn hình mắt màu vàng đen chạy dọc thân", "Đầu bầu dục" },
                             Behaviors = new List<string> { "Sống bán thủy sinh", "Ăn cá và ếch nhái" },
                             Habitat = "Suối, ao hồ, đầm lầy vùng núi"
+                        },
+                        SymptomsByTime = new List<SymptomTimeline>
+                        {
+                            new SymptomTimeline { TimeRange = "Sau khi cắn", Signs = new List<string> { "Vết xước nhỏ", "Không sưng nề", "Không đau nhiều" }, IsCritical = false }
+                        },
+                        FirstAidGuidelineOverride = new FirstAidOverride
+                        {
+                            Mode = OverrideMode.Replace,
+                            Content = new FirstAidContent
+                            {
+                                Steps = new List<FirstAidStep>
+                                {
+                                    new FirstAidStep { Text = "Rửa sạch vết thương bằng nước và xà phòng.", MediaUrl = "" },
+                                    new FirstAidStep { Text = "Bình tĩnh - đây là loài rắn nước không độc.", MediaUrl = "" }
+                                },
+                                Dos = new List<FirstAidStep>
+                                {
+                                    new FirstAidStep { Text = "Sát trùng nhẹ để tránh nhiễm trùng.", MediaUrl = "" }
+                                },
+                                Donts = new List<FirstAidStep>
+                                {
+                                    new FirstAidStep { Text = "Không cần lo lắng - loài này hoàn toàn vô hại.", MediaUrl = "" }
+                                },
+                                Notes = new List<string>
+                                {
+                                    "Rắn Hoa Cân Vân Đốm là loài rắn nước ích lợi, giúp kiểm soát quần thể cá và ếch."
+                                }
+                            }
                         }
                     },
 
@@ -940,6 +1170,35 @@ namespace SnakeAid.Repository.Seeds
                             PhysicalTraits = new List<string> { "Kích thước trung bình khoảng 70cm", "Đầu to rộng", "Hoa văn mặt nạ trên đỉnh đầu", "Thân chắc, vảy gồ" },
                             Behaviors = new List<string> { "Ăn đêm", "Sống dưới nước", "Nhút nhát" },
                             Habitat = "Kênh rạch, ao hồ, đầm lầy bùn"
+                        },
+                        SymptomsByTime = new List<SymptomTimeline>
+                        {
+                            new SymptomTimeline { TimeRange = "Sau khi cắn", Signs = new List<string> { "Vết xước nhỏ", "Không sưng nề", "Không nguy hiểm" }, IsCritical = false }
+                        },
+                        FirstAidGuidelineOverride = new FirstAidOverride
+                        {
+                            Mode = OverrideMode.Replace,
+                            Content = new FirstAidContent
+                            {
+                                Steps = new List<FirstAidStep>
+                                {
+                                    new FirstAidStep { Text = "Rửa sạch vết thương bằng nước và xà phòng.", MediaUrl = "" },
+                                    new FirstAidStep { Text = "Bình tĩnh - đây là loài rắn nước không độc.", MediaUrl = "" }
+                                },
+                                Dos = new List<FirstAidStep>
+                                {
+                                    new FirstAidStep { Text = "Sát trùng nhẹ vì rắn nước có thể mang vi khuẩn.", MediaUrl = "" }
+                                },
+                                Donts = new List<FirstAidStep>
+                                {
+                                    new FirstAidStep { Text = "Không cần lo lắng - loài này không độc.", MediaUrl = "" }
+                                },
+                                Notes = new List<string>
+                                {
+                                    "Rắn Ri Cá là loài rắn nước phổ biến ở miền Nam, thường bị bắt làm thực phẩm.",
+                                    "Chúng rất nhút nhát và hiếm khi cắn người."
+                                }
+                            }
                         }
                     },
 
@@ -960,6 +1219,37 @@ namespace SnakeAid.Repository.Seeds
                             PhysicalTraits = new List<string> { "Thân cực mảnh", "Mõm nhọn dài", "Con ngươi ngang đặc trưng", "Màu xanh lá hoặc nâu nhạt" },
                             Behaviors = new List<string> { "Sống trên cây", "Di chuyển chậm chạp", "Hay thò thụt lưỡi đánh hơi" },
                             Habitat = "Vườn cây, rừng thưa, bụi rậm"
+                        },
+                        SymptomsByTime = new List<SymptomTimeline>
+                        {
+                            new SymptomTimeline { TimeRange = "Sau khi cắn", Signs = new List<string> { "Sưng nhẹ tại chỗ", "Đau rát nhẹ", "Không nguy hiểm" }, IsCritical = false }
+                        },
+                        FirstAidGuidelineOverride = new FirstAidOverride
+                        {
+                            Mode = OverrideMode.Replace,
+                            Content = new FirstAidContent
+                            {
+                                Steps = new List<FirstAidStep>
+                                {
+                                    new FirstAidStep { Text = "Rửa sạch vết thương bằng nước và xà phòng.", MediaUrl = "" },
+                                    new FirstAidStep { Text = "Chườm lạnh nếu có sưng nhẹ.", MediaUrl = "" },
+                                    new FirstAidStep { Text = "Bình tĩnh - độc tính rất yếu, không nguy hiểm cho người.", MediaUrl = "" }
+                                },
+                                Dos = new List<FirstAidStep>
+                                {
+                                    new FirstAidStep { Text = "Sát trùng vết thương.", MediaUrl = "" },
+                                    new FirstAidStep { Text = "Theo dõi vết cắn trong 24h.", MediaUrl = "" }
+                                },
+                                Donts = new List<FirstAidStep>
+                                {
+                                    new FirstAidStep { Text = "Không cần lo lắng - độc tính rất yếu, chỉ gây sưng nhẹ tại chỗ.", MediaUrl = "" }
+                                },
+                                Notes = new List<string>
+                                {
+                                    "Rắn Roi có nọc độc nhẹ (hậu nha) nhưng không đủ mạnh để gây nguy hiểm cho người.",
+                                    "Chúng rất hiền lành và chậm chạp, hiếm khi cắn người."
+                                }
+                            }
                         }
                     },
 
@@ -980,6 +1270,35 @@ namespace SnakeAid.Repository.Seeds
                             PhysicalTraits = new List<string> { "Thân hình trụ đồng nhất", "Đuôi ngắn giống đầu", "Mặt dưới đuôi màu đỏ" },
                             Behaviors = new List<string> { "Chui rúc trong bùn đất", "Khi gặp nguy hiểm sẽ cuộn tròn và giơ đuôi đỏ lên để lừa kẻ thù" },
                             Habitat = "Đầm lầy, ruộng lúa, nơi đất ẩm"
+                        },
+                        SymptomsByTime = new List<SymptomTimeline>
+                        {
+                            new SymptomTimeline { TimeRange = "Sau khi cắn", Signs = new List<string> { "Vết xước nhỏ", "Không sưng nề", "Không đau" }, IsCritical = false }
+                        },
+                        FirstAidGuidelineOverride = new FirstAidOverride
+                        {
+                            Mode = OverrideMode.Replace,
+                            Content = new FirstAidContent
+                            {
+                                Steps = new List<FirstAidStep>
+                                {
+                                    new FirstAidStep { Text = "Rửa sạch vết thương bằng nước và xà phòng.", MediaUrl = "" },
+                                    new FirstAidStep { Text = "Bình tĩnh - đây là loài rắn hoàn toàn vô hại.", MediaUrl = "" }
+                                },
+                                Dos = new List<FirstAidStep>
+                                {
+                                    new FirstAidStep { Text = "Sát trùng nhẹ để tránh nhiễm trùng.", MediaUrl = "" }
+                                },
+                                Donts = new List<FirstAidStep>
+                                {
+                                    new FirstAidStep { Text = "Không cần lo lắng - loài này không độc.", MediaUrl = "" }
+                                },
+                                Notes = new List<string>
+                                {
+                                    "Rắn Trun thường bị nhầm với rắn độc do màu sắc đen bóng và vạch vàng.",
+                                    "Chúng có hành vi phòng thủ đặc biệt: giơ đuôi đỏ lên để đánh lừa kẻ thù tưởng đó là đầu."
+                                }
+                            }
                         }
                     },
 
@@ -1022,8 +1341,14 @@ namespace SnakeAid.Repository.Seeds
                             Mode = OverrideMode.Replace,
                             Content = new FirstAidContent {
                                 Steps = new List<FirstAidStep> {
-                                    new FirstAidStep { Text = "Rửa sạch vết thương bằng nước hoặc xà phòng." },
-                                    new FirstAidStep { Text = "Bình tĩnh vì đây là loài rắn ích lợi, chuyên ăn côn trùng và sâu bọ." }
+                                    new FirstAidStep { Text = "Rửa sạch vết thương bằng nước hoặc xà phòng.", MediaUrl = "" },
+                                    new FirstAidStep { Text = "Bình tĩnh vì đây là loài rắn ích lợi, không độc.", MediaUrl = "" }
+                                },
+                                Dos = new List<FirstAidStep> {
+                                    new FirstAidStep { Text = "Rửa sạch để tránh nhiễm trùng.", MediaUrl = "" }
+                                },
+                                Donts = new List<FirstAidStep> {
+                                    new FirstAidStep { Text = "Không cần lo lắng - loài này hoàn toàn vô hại.", MediaUrl = "" }
                                 }
                             }
                         }
@@ -1066,8 +1391,14 @@ namespace SnakeAid.Repository.Seeds
                             Mode = OverrideMode.Replace,
                             Content = new FirstAidContent {
                                 Steps = new List<FirstAidStep> {
-                                    new FirstAidStep { Text = "Rửa vết thương bằng xà phòng và nước sạch để tránh nhiễm trùng." },
-                                    new FirstAidStep { Text = "Bình tĩnh vì đây là loài rắn hoàn toàn vô hại." }
+                                    new FirstAidStep { Text = "Rửa vết thương bằng xà phòng và nước sạch để tránh nhiễm trùng.", MediaUrl = "" },
+                                    new FirstAidStep { Text = "Bình tĩnh vì đây là loài rắn hoàn toàn vô hại.", MediaUrl = "" }
+                                },
+                                Dos = new List<FirstAidStep> {
+                                    new FirstAidStep { Text = "Rửa sạch bằng xà phòng để tránh nhiễm trùng.", MediaUrl = "" }
+                                },
+                                Donts = new List<FirstAidStep> {
+                                    new FirstAidStep { Text = "Không cần lo lắng - loài này hoàn toàn vô hại.", MediaUrl = "" }
                                 }
                             }
                         }
@@ -2165,6 +2496,34 @@ namespace SnakeAid.Repository.Seeds
                     new RegionSnakeMapping { GeographicRegionId = 1, SnakeSpeciesId = 3, CommonLevel = CommonLevel.Rare, Priority = 30, DistributionNotes = "Hiếm gặp, chỉ xuất hiện ở rừng sâu", IsActive = true },
                     // Rắn Ráo - Phổ biến
                     new RegionSnakeMapping { GeographicRegionId = 1, SnakeSpeciesId = 4, CommonLevel = CommonLevel.Common, Priority = 75, DistributionNotes = "Phổ biến ở vùng đồng bằng", IsActive = true },
+                    // Rắn Chuột Vua - Phổ biến ở vùng núi
+                    new RegionSnakeMapping { GeographicRegionId = 1, SnakeSpeciesId = 10, CommonLevel = CommonLevel.Common, Priority = 60, DistributionNotes = "Phổ biến ở vùng đồi núi", IsActive = true },
+                    // Rắn Lục Xanh - Phổ biến ở vùng núi
+                    new RegionSnakeMapping { GeographicRegionId = 1, SnakeSpeciesId = 13, CommonLevel = CommonLevel.Common, Priority = 65, DistributionNotes = "Phổ biến ở vùng núi, sống trên cây", IsActive = true },
+                    // Rắn Cạp Nong - Phổ biến
+                    new RegionSnakeMapping { GeographicRegionId = 1, SnakeSpeciesId = 5, CommonLevel = CommonLevel.Common, Priority = 60, DistributionNotes = "Phổ biến ở vùng suối, ruộng, rừng", IsActive = true },
+                    // Rắn Hoa Cỏ Cổ Đỏ - Rất Phổ biến
+                    new RegionSnakeMapping { GeographicRegionId = 1, SnakeSpeciesId = 8, CommonLevel = CommonLevel.VeryCommon, Priority = 75, DistributionNotes = "Phổ biến ở đồng cỏ", IsActive = true },
+                    // Rắn Hổ Ngựa - Phổ biến
+                    new RegionSnakeMapping { GeographicRegionId = 1, SnakeSpeciesId = 9, CommonLevel = CommonLevel.Common, Priority = 65, DistributionNotes = "Phổ biến ở khu vực đồng bằng", IsActive = true },
+                    // Rắn Lục Cườm - Phổ biến
+                    new RegionSnakeMapping { GeographicRegionId = 1, SnakeSpeciesId = 11, CommonLevel = CommonLevel.Common, Priority = 55, DistributionNotes = "Phổ biến ở vùng rừng, đồi núi thấp", IsActive = true },
+                    // Rắn Cườm (Bay) - Ít phổ biến
+                    new RegionSnakeMapping { GeographicRegionId = 1, SnakeSpeciesId = 15, CommonLevel = CommonLevel.Uncommon, Priority = 45, DistributionNotes = "Ít phổ biến ở vùng rừng, đồi núi thấp", IsActive = true },
+                    // Rắn Ráo Trâu - Phổ biến
+                    new RegionSnakeMapping { GeographicRegionId = 1, SnakeSpeciesId = 16, CommonLevel = CommonLevel.Common, Priority = 45, DistributionNotes = "Phổ biến ở vùng rừng, đồi núi thấp", IsActive = true },
+                    // Rắn Hoa Cân Vân Đốm - Ít phổ biến
+                    new RegionSnakeMapping { GeographicRegionId = 1, SnakeSpeciesId = 17, CommonLevel = CommonLevel.Rare, Priority = 20, DistributionNotes = "Hiếm gặp.", IsActive = true },
+                    // Rắn Roi - Phổ biến
+                    new RegionSnakeMapping { GeographicRegionId = 1, SnakeSpeciesId = 19, CommonLevel = CommonLevel.Common, Priority = 65, DistributionNotes = "Hay gặp.", IsActive = true },
+                    // Rắn Trun - Phổ biến
+                    new RegionSnakeMapping { GeographicRegionId = 1, SnakeSpeciesId = 20, CommonLevel = CommonLevel.Common, Priority = 65, DistributionNotes = "Đất ẩm, vườn, chậu cây, lá mục", IsActive = true },
+                    // Rắn Đai Lớn - Phổ biến
+                    new RegionSnakeMapping { GeographicRegionId = 1, SnakeSpeciesId = 21, CommonLevel = CommonLevel.Common, Priority = 65, DistributionNotes = "Rừng, đồng cỏ gần ao, sông suối", IsActive = true },
+                    // Rắn Sãi cỏ- phổ biến
+                    new RegionSnakeMapping { GeographicRegionId = 1, SnakeSpeciesId = 22, CommonLevel = CommonLevel.Common, Priority = 55, DistributionNotes = "Gần sông suối, ao hồ", IsActive = true },
+
+
 
                     // === TÂY BẮC BỘ (RegionId: 2) ===
                     // Rắn Cạp Nia Bắc - Phổ biến
@@ -2173,8 +2532,30 @@ namespace SnakeAid.Repository.Seeds
                     new RegionSnakeMapping { GeographicRegionId = 2, SnakeSpeciesId = 2, CommonLevel = CommonLevel.VeryCommon, Priority = 85, DistributionNotes = "Rất phổ biến ở vùng núi cao", IsActive = true },
                     // Rắn Hổ Mang Chúa - Ít gặp
                     new RegionSnakeMapping { GeographicRegionId = 2, SnakeSpeciesId = 3, CommonLevel = CommonLevel.Uncommon, Priority = 40, DistributionNotes = "Ít gặp, xuất hiện ở rừng núi", IsActive = true },
-                    // Rắn Cạp Nong - Phổ biến
-                    new RegionSnakeMapping { GeographicRegionId = 2, SnakeSpeciesId = 5, CommonLevel = CommonLevel.Common, Priority = 65, DistributionNotes = "Phổ biến ở vùng núi", IsActive = true },
+                    // Rắn Cạp Nong - Khong phổ biến nhưng vẫn gặp
+                    new RegionSnakeMapping { GeographicRegionId = 2, SnakeSpeciesId = 5, CommonLevel = CommonLevel.Uncommon, Priority = 40, DistributionNotes = "Phổ biến ở vùng suối, ruộng, rừng", IsActive = true },
+                    // Rắn Chuột Vua - Rất phổ biến ở vùng núi
+                    new RegionSnakeMapping { GeographicRegionId = 2, SnakeSpeciesId = 10, CommonLevel = CommonLevel.VeryCommon, Priority = 75, DistributionNotes = "Rất phổ biến ở vùng núi cao", IsActive = true },
+                    // Rắn Lục Xanh - Rất phổ biến ở vùng núi
+                    new RegionSnakeMapping { GeographicRegionId = 2, SnakeSpeciesId = 13, CommonLevel = CommonLevel.VeryCommon, Priority = 80, DistributionNotes = "Rất phổ biến ở vùng núi cao, sống trên cây", IsActive = true },
+                    // Rắn Lục Cườm - Ít gặp ở vùng núi
+                    new RegionSnakeMapping { GeographicRegionId = 2, SnakeSpeciesId = 11, CommonLevel = CommonLevel.Uncommon, Priority = 55, DistributionNotes = "Ít gặp ở vùng núi cao", IsActive = true },
+                    // Rắn Hoa Cỏ Cổ Đỏ - Ít Phổ biến
+                    new RegionSnakeMapping { GeographicRegionId = 2, SnakeSpeciesId = 8, CommonLevel = CommonLevel.Uncommon, Priority = 45, DistributionNotes = "Phổ biến ở đồng cỏ", IsActive = true },
+                    // Rắn Ráo Trâu - Phổ biến
+                    new RegionSnakeMapping { GeographicRegionId = 2, SnakeSpeciesId = 16, CommonLevel = CommonLevel.Common, Priority = 45, DistributionNotes = "Chủ yếu ở vùng rừng, đồi núi thấp", IsActive = true },
+                    // Rắn Hoa Cân Vân Đốm - Ít phổ biến
+                    new RegionSnakeMapping { GeographicRegionId = 2, SnakeSpeciesId = 17, CommonLevel = CommonLevel.Rare, Priority = 20, DistributionNotes = "Hiếm gặp.", IsActive = true },
+                    // Rắn Roi - Ít Phổ biến
+                    new RegionSnakeMapping { GeographicRegionId = 2, SnakeSpeciesId = 19, CommonLevel = CommonLevel.Uncommon, Priority = 45, DistributionNotes = "Ít gặp.", IsActive = true },
+                    // Rắn Trun - Phổ biến
+                    new RegionSnakeMapping { GeographicRegionId = 2, SnakeSpeciesId = 20, CommonLevel = CommonLevel.Uncommon, Priority = 45, DistributionNotes = "Đất ẩm, lá mục", IsActive = true },
+                    // Rắn Đai Lớn - Phổ biến
+                    new RegionSnakeMapping { GeographicRegionId = 2, SnakeSpeciesId = 21, CommonLevel = CommonLevel.Uncommon, Priority = 45, DistributionNotes = "Rừng, đồng cỏ gần ao, sông suối", IsActive = true },
+                    // Rắn Sãi cỏ- Ít phổ biến
+                    new RegionSnakeMapping { GeographicRegionId = 2, SnakeSpeciesId = 22, CommonLevel = CommonLevel.Uncommon, Priority = 45, DistributionNotes = "Gần sông suối, ao hồ", IsActive = true },
+
+                    
 
                     // === ĐỒNG BẰNG SÔNG HỒNG (RegionId: 3) ===
                     // Rắn Cạp Nia Bắc - Cực kỳ phổ biến
@@ -2183,8 +2564,29 @@ namespace SnakeAid.Repository.Seeds
                     new RegionSnakeMapping { GeographicRegionId = 3, SnakeSpeciesId = 2, CommonLevel = CommonLevel.Common, Priority = 70, DistributionNotes = "Thường gặp ở vườn nhà, bụi rậm", IsActive = true },
                     // Rắn Ráo - Rất phổ biến
                     new RegionSnakeMapping { GeographicRegionId = 3, SnakeSpeciesId = 4, CommonLevel = CommonLevel.VeryCommon, Priority = 85, DistributionNotes = "Rất phổ biến ở đồng ruộng", IsActive = true },
-                    // Rắn Hổ Mang Xiêm - Phổ biến
-                    new RegionSnakeMapping { GeographicRegionId = 3, SnakeSpeciesId = 7, CommonLevel = CommonLevel.Common, Priority = 75, DistributionNotes = "Phổ biến ở khu dân cư", IsActive = true },
+                    // Rắn Hổ Ngựa - Phổ biến ở đồng bằng
+                    new RegionSnakeMapping { GeographicRegionId = 3, SnakeSpeciesId = 9, CommonLevel = CommonLevel.Common, Priority = 60, DistributionNotes = "Phổ biến ở đồng ruộng và khu dân cư", IsActive = true },
+                    // Rắn Hổ Mang Chúa - Hiếm gặp
+                    new RegionSnakeMapping { GeographicRegionId = 3, SnakeSpeciesId = 3, CommonLevel = CommonLevel.Rare, Priority = 15, DistributionNotes = "Rất hiếm gặp tại vùng đồng bằng", IsActive = true },
+                    // Rắn Cạp Nong - Phổ biến
+                    new RegionSnakeMapping { GeographicRegionId = 3, SnakeSpeciesId = 5, CommonLevel = CommonLevel.Common, Priority = 65, DistributionNotes = "Phổ biến ở vùng ruộng, suối", IsActive = true },
+                    // Rắn Hoa Cỏ Cổ Đỏ - Phổ biến
+                    new RegionSnakeMapping { GeographicRegionId = 3, SnakeSpeciesId = 8, CommonLevel = CommonLevel.Common, Priority = 65, DistributionNotes = "Phổ biến ở đồng cỏ", IsActive = true },
+                    // Rắn Lục Cườm - Ít gặp ở đồng bằng
+                    new RegionSnakeMapping { GeographicRegionId = 3, SnakeSpeciesId = 11, CommonLevel = CommonLevel.Uncommon, Priority = 45, DistributionNotes = "Ít gặp ở vùng đồng bằng", IsActive = true },
+                    // Rắn Cườm (Bay) - Ít phổ biến
+                    new RegionSnakeMapping { GeographicRegionId = 3, SnakeSpeciesId = 15, CommonLevel = CommonLevel.Uncommon, Priority = 45, DistributionNotes = "Ít phổ biến", IsActive = true },
+                    // Rắn Ráo Trâu - Rất Phổ biến
+                    new RegionSnakeMapping { GeographicRegionId = 3, SnakeSpeciesId = 16, CommonLevel = CommonLevel.VeryCommon, Priority = 85, DistributionNotes = "Phân bố ở các vùng đồi núi thấp, ruộng, làng", IsActive = true },
+                    // Rắn Roi - Ít Phổ biến
+                    new RegionSnakeMapping { GeographicRegionId = 3, SnakeSpeciesId = 19, CommonLevel = CommonLevel.Uncommon, Priority = 45, DistributionNotes = "Vùng ngoại thành, vườn cây", IsActive = true },
+                    // Rắn Trun - Phổ biến
+                    new RegionSnakeMapping { GeographicRegionId = 3, SnakeSpeciesId = 20, CommonLevel = CommonLevel.Common, Priority = 65, DistributionNotes = "Đất ẩm, vườn, chậu cây, lá mục", IsActive = true },
+                    // Rắn Đai Lớn - Phổ biến
+                    new RegionSnakeMapping { GeographicRegionId = 3, SnakeSpeciesId = 21, CommonLevel = CommonLevel.Common, Priority = 55, DistributionNotes = "Rừng, đồng cỏ gần ao, sông suối", IsActive = true },
+                    // Rắn Sãi cỏ- rất phổ biến
+                    new RegionSnakeMapping { GeographicRegionId = 3, SnakeSpeciesId = 22, CommonLevel = CommonLevel.VeryCommon, Priority = 85, DistributionNotes = "Gần sông suối, ao hồ", IsActive = true },
+
 
                     // === BẮC TRUNG BỘ (RegionId: 4) ===
                     // Rắn Cạp Nia Bắc - Phổ biến
@@ -2195,6 +2597,35 @@ namespace SnakeAid.Repository.Seeds
                     new RegionSnakeMapping { GeographicRegionId = 4, SnakeSpeciesId = 3, CommonLevel = CommonLevel.Uncommon, Priority = 45, DistributionNotes = "Ít gặp, xuất hiện ở rừng núi", IsActive = true },
                     // Rắn Hoa Cỏ Cổ Đỏ - Phổ biến
                     new RegionSnakeMapping { GeographicRegionId = 4, SnakeSpeciesId = 8, CommonLevel = CommonLevel.Common, Priority = 65, DistributionNotes = "Phổ biến ở đồng cỏ", IsActive = true },
+                    // Rắn Chuột Vua - Phổ biến ở vùng núi
+                    new RegionSnakeMapping { GeographicRegionId = 4, SnakeSpeciesId = 10, CommonLevel = CommonLevel.Common, Priority = 60, DistributionNotes = "Phổ biến ở vùng núi", IsActive = true },
+                    // Rắn Lục Xanh - Phổ biến ở vùng núi
+                    new RegionSnakeMapping { GeographicRegionId = 4, SnakeSpeciesId = 13, CommonLevel = CommonLevel.Common, Priority = 70, DistributionNotes = "Phổ biến ở vùng núi, sống trên cây", IsActive = true },
+                    // Rắn Cạp Nong - Phổ biến ở vùng núi
+                    new RegionSnakeMapping { GeographicRegionId = 4, SnakeSpeciesId = 5, CommonLevel = CommonLevel.Common, Priority = 50, DistributionNotes = "Phổ biến ở vùng núi", IsActive = true },
+                    // Rắn Lục Cườm - Ít gặp ở vùng núi
+                    new RegionSnakeMapping { GeographicRegionId = 4, SnakeSpeciesId = 11, CommonLevel = CommonLevel.Uncommon, Priority = 55, DistributionNotes = "Ít gặp ở vùng núi", IsActive = true },
+                    // Rắn Ráo - Phổ biến ở đồng bằng
+                    new RegionSnakeMapping { GeographicRegionId = 4, SnakeSpeciesId = 4, CommonLevel = CommonLevel.Common, Priority = 70, DistributionNotes = "Phổ biến ở đồng ruộng", IsActive = true },
+                    // Rắn Cạp Nia Nam - Ít phổ biến
+                    new RegionSnakeMapping { GeographicRegionId = 4, SnakeSpeciesId = 6, CommonLevel = CommonLevel.Uncommon, Priority = 45, DistributionNotes = "Phổ biến ở vùng đồng bằng", IsActive = true },
+                    // Rắn Hổ Ngựa - Phổ biến
+                    new RegionSnakeMapping { GeographicRegionId = 4, SnakeSpeciesId = 9, CommonLevel = CommonLevel.Common, Priority = 65, DistributionNotes = "Phổ biến ở khu vực đồng bằng", IsActive = true },
+                    // Rắn Cườm (Bay) - Phổ biến
+                    new RegionSnakeMapping { GeographicRegionId = 4, SnakeSpeciesId = 15, CommonLevel = CommonLevel.Common, Priority = 55, DistributionNotes = "Phổ biến", IsActive = true },
+                    // Rắn Ráo Trâu - Rất Phổ biến
+                    new RegionSnakeMapping { GeographicRegionId = 4, SnakeSpeciesId = 16, CommonLevel = CommonLevel.VeryCommon, Priority = 85, DistributionNotes = "Phân bố ở các vùng đồi núi thấp, ruộng, làng", IsActive = true },
+                    // Rắn Hoa Cân Vân Đốm - Ít phổ biến
+                    new RegionSnakeMapping { GeographicRegionId = 4, SnakeSpeciesId = 17, CommonLevel = CommonLevel.Rare, Priority = 10, DistributionNotes = "Hiếm gặp.", IsActive = true },
+                    // Rắn Roi - Phổ biến
+                    new RegionSnakeMapping { GeographicRegionId = 4, SnakeSpeciesId = 19, CommonLevel = CommonLevel.Common, Priority = 45, DistributionNotes = "Vùng ngoại thành, vườn cây", IsActive = true },
+                    // Rắn Trun - Phổ biến
+                    new RegionSnakeMapping { GeographicRegionId = 4, SnakeSpeciesId = 20, CommonLevel = CommonLevel.Common, Priority = 65, DistributionNotes = "Đất ẩm, vườn, chậu cây, lá mục", IsActive = true },
+                    // Rắn Đai Lớn - Phổ biến
+                    new RegionSnakeMapping { GeographicRegionId = 4, SnakeSpeciesId = 21, CommonLevel = CommonLevel.Common, Priority = 55, DistributionNotes = "Rừng, đồng cỏ gần ao, sông suối", IsActive = true },
+                    // Rắn Sãi cỏ- rất phổ biến
+                    new RegionSnakeMapping { GeographicRegionId = 4, SnakeSpeciesId = 22, CommonLevel = CommonLevel.VeryCommon, Priority = 85, DistributionNotes = "Gần sông suối, ao hồ", IsActive = true },
+
 
                     // === DUYÊN HẢI NAM TRUNG BỘ (RegionId: 5) ===
                     // Rắn Lục Đuôi Đỏ - Rất phổ biến
@@ -2204,7 +2635,36 @@ namespace SnakeAid.Repository.Seeds
                     // Rắn Hổ Mang Xiêm - Phổ biến
                     new RegionSnakeMapping { GeographicRegionId = 5, SnakeSpeciesId = 7, CommonLevel = CommonLevel.Common, Priority = 70, DistributionNotes = "Phổ biến ở khu dân cư", IsActive = true },
                     // Rắn Ri Cá - Rất phổ biến
-                    new RegionSnakeMapping { GeographicRegionId = 5, SnakeSpeciesId = 18, CommonLevel = CommonLevel.VeryCommon, Priority = 85, DistributionNotes = "Rất phổ biến ở vùng ven biển, sông suối", IsActive = true },
+                    new RegionSnakeMapping { GeographicRegionId = 5, SnakeSpeciesId = 18, CommonLevel = CommonLevel.Common, Priority = 65, DistributionNotes = "Rất phổ biến ở vùng ven biển, sông suối", IsActive = true },
+                    // 🚨 PRIORITY 1 - Rắn Lục Nưa - Phổ biến ở vùng núi (CỰC KỲ NGUY HIỂM!)
+                    new RegionSnakeMapping { GeographicRegionId = 5, SnakeSpeciesId = 12, CommonLevel = CommonLevel.Common, Priority = 80, DistributionNotes = "Phổ biến ở vùng rừng núi", IsActive = true },
+                    // Rắn Ráo - Phổ biến ở đồng bằng
+                    new RegionSnakeMapping { GeographicRegionId = 5, SnakeSpeciesId = 4, CommonLevel = CommonLevel.Common, Priority = 70, DistributionNotes = "Phổ biến ở đồng ruộng", IsActive = true },
+                    // Rắn Hổ Ngựa - Phổ biến ở đồng bằng
+                    new RegionSnakeMapping { GeographicRegionId = 5, SnakeSpeciesId = 9, CommonLevel = CommonLevel.Common, Priority = 60, DistributionNotes = "Phổ biến ở khu dân cư", IsActive = true },
+                    // Rắn Hoa Cỏ Cổ Đỏ - Ít gặp ở vùng núi
+                    new RegionSnakeMapping { GeographicRegionId = 5, SnakeSpeciesId = 8, CommonLevel = CommonLevel.Uncommon, Priority = 55, DistributionNotes = "Ít gặp ở vùng núi", IsActive = true },
+                    // Rắn Hổ Mang Chúa - Phổ biến
+                    new RegionSnakeMapping { GeographicRegionId = 5, SnakeSpeciesId = 3, CommonLevel = CommonLevel.Uncommon, Priority = 45, DistributionNotes = "Phổ biến ở rừng núi cao", IsActive = true },
+                    // Rắn Cạp Nong - Ít phổ biến
+                    new RegionSnakeMapping { GeographicRegionId = 5, SnakeSpeciesId = 5, CommonLevel = CommonLevel.VeryCommon, Priority = 85, DistributionNotes = "Rất phổ biến ở vùng núi", IsActive = true },
+                    // Rắn Lục Cườm - Phổ biến
+                    new RegionSnakeMapping { GeographicRegionId = 5, SnakeSpeciesId = 11, CommonLevel = CommonLevel.Common, Priority = 65, DistributionNotes = "Phổ biến ở rừng núi", IsActive = true },
+                    // Rắn Khiếm Vạch - Ít Phổ biến
+                    new RegionSnakeMapping { GeographicRegionId = 5, SnakeSpeciesId = 14, CommonLevel = CommonLevel.Uncommon, Priority = 55, DistributionNotes = "Ít gặp ", IsActive = true },
+                    // Rắn Cườm (Bay) - Phổ biến
+                    new RegionSnakeMapping { GeographicRegionId = 5, SnakeSpeciesId = 15, CommonLevel = CommonLevel.Common, Priority = 55, DistributionNotes = "Phổ biến", IsActive = true },
+                    // Rắn Ráo Trâu - Phổ biến
+                    new RegionSnakeMapping { GeographicRegionId = 5, SnakeSpeciesId = 16, CommonLevel = CommonLevel.Common, Priority = 65, DistributionNotes = "Phân bố ở các vùng đồi núi thấp.", IsActive = true },
+                    // Rắn Hoa Cân Vân Đốm - Ít phổ biến
+                    new RegionSnakeMapping { GeographicRegionId = 5, SnakeSpeciesId = 17, CommonLevel = CommonLevel.Rare, Priority = 10, DistributionNotes = "Hiếm gặp.", IsActive = true },
+                    // Rắn Roi - Phổ biến
+                    new RegionSnakeMapping { GeographicRegionId = 5, SnakeSpeciesId = 19, CommonLevel = CommonLevel.Common, Priority = 45, DistributionNotes = "Vùng ngoại thành, vườn cây", IsActive = true },
+                    // Rắn Trun - Phổ biến
+                    new RegionSnakeMapping { GeographicRegionId = 5, SnakeSpeciesId = 20, CommonLevel = CommonLevel.Common, Priority = 65, DistributionNotes = "Đất ẩm, vườn, chậu cây, lá mục", IsActive = true },
+                    // Rắn Sãi cỏ- phổ biến
+                    new RegionSnakeMapping { GeographicRegionId = 5, SnakeSpeciesId = 22, CommonLevel = CommonLevel.Common, Priority = 65, DistributionNotes = "Gần sông suối, ao hồ", IsActive = true },
+
 
                     // === TÂY NGUYÊN (RegionId: 6) ===
                     // Rắn Lục Đuôi Đỏ - Cực kỳ phổ biến
@@ -2215,6 +2675,31 @@ namespace SnakeAid.Repository.Seeds
                     new RegionSnakeMapping { GeographicRegionId = 6, SnakeSpeciesId = 5, CommonLevel = CommonLevel.VeryCommon, Priority = 85, DistributionNotes = "Rất phổ biến ở vùng núi", IsActive = true },
                     // Rắn Lục Cườm - Phổ biến
                     new RegionSnakeMapping { GeographicRegionId = 6, SnakeSpeciesId = 11, CommonLevel = CommonLevel.Common, Priority = 65, DistributionNotes = "Phổ biến ở rừng núi", IsActive = true },
+                    // 🚨 PRIORITY 1 - Rắn Lục Nưa - Rất phổ biến (CỰC KỲ NGUY HIỂM! Đặc trưng Tây Nguyên)
+                    new RegionSnakeMapping { GeographicRegionId = 6, SnakeSpeciesId = 12, CommonLevel = CommonLevel.VeryCommon, Priority = 95, DistributionNotes = "CỰC KỲ NGUY HIỂM! Rất phổ biến ở rừng cao su, vườn điều Tây Nguyên", IsActive = true },
+                    // Rắn Chuột Vua - Phổ biến ở vùng núi
+                    new RegionSnakeMapping { GeographicRegionId = 6, SnakeSpeciesId = 10, CommonLevel = CommonLevel.Common, Priority = 60, DistributionNotes = "Phổ biến ở vùng núi", IsActive = true },
+                    // Rắn Hoa Cỏ Cổ Đỏ - Ít gặp
+                    new RegionSnakeMapping { GeographicRegionId = 6, SnakeSpeciesId = 8, CommonLevel = CommonLevel.Uncommon, Priority = 45, DistributionNotes = "Ít gặp ở vùng núi", IsActive = true },
+                    // Rắn Cạp Nia Nam - phổ biến
+                    new RegionSnakeMapping { GeographicRegionId = 6, SnakeSpeciesId = 6, CommonLevel = CommonLevel.Common, Priority = 60, DistributionNotes = "Rất phổ biến ở vùng đồng bằng", IsActive = true },
+                    // Rắn Hổ Mang Xiêm - Phổ biến
+                    new RegionSnakeMapping { GeographicRegionId = 6, SnakeSpeciesId = 7, CommonLevel = CommonLevel.Common, Priority = 70, DistributionNotes = "Phổ biến ở khu nông lâm nghiệp", IsActive = true },
+                    // Rắn Hổ Ngựa - Phổ biến
+                    new RegionSnakeMapping { GeographicRegionId = 6, SnakeSpeciesId = 9, CommonLevel = CommonLevel.Common, Priority = 65, DistributionNotes = "Phổ biến ở khu ruộng lúa", IsActive = true },
+                    // Rắn Khiếm Vạch - Ít Phổ biến
+                    new RegionSnakeMapping { GeographicRegionId = 6, SnakeSpeciesId = 14, CommonLevel = CommonLevel.Uncommon, Priority = 55, DistributionNotes = "Ít gặp ", IsActive = true },
+                    // Rắn Cườm (Bay) - Phổ biến
+                    new RegionSnakeMapping { GeographicRegionId = 6, SnakeSpeciesId = 15, CommonLevel = CommonLevel.Common, Priority = 55, DistributionNotes = "Phổ biến", IsActive = true },
+                    // Rắn Ráo Trâu - Ít Phổ biến
+                    new RegionSnakeMapping { GeographicRegionId = 6, SnakeSpeciesId = 16, CommonLevel = CommonLevel.Uncommon, Priority = 45, DistributionNotes = "Phân bố ở các vùng đồi núi thấp.", IsActive = true },
+                    // Rắn Roi - Phổ biến
+                    new RegionSnakeMapping { GeographicRegionId = 6, SnakeSpeciesId = 19, CommonLevel = CommonLevel.Common, Priority = 45, DistributionNotes = "Vùng ngoại thành, vườn cây", IsActive = true },
+                    // Rắn Trun - Phổ biến
+                    new RegionSnakeMapping { GeographicRegionId = 6, SnakeSpeciesId = 20, CommonLevel = CommonLevel.Common, Priority = 65, DistributionNotes = "Đất ẩm, vườn, chậu cây, lá mục", IsActive = true },
+                    // Rắn Sãi cỏ- Ít phổ biến
+                    new RegionSnakeMapping { GeographicRegionId = 6, SnakeSpeciesId = 22, CommonLevel = CommonLevel.Uncommon, Priority = 45, DistributionNotes = "Gần sông suối, ao hồ", IsActive = true },
+                    
 
                     // === ĐÔNG NAM BỘ (RegionId: 7) ===
                     // Rắn Cạp Nia Nam - Rất phổ biến
@@ -2224,7 +2709,32 @@ namespace SnakeAid.Repository.Seeds
                     // Rắn Lục Đuôi Đỏ - Phổ biến
                     new RegionSnakeMapping { GeographicRegionId = 7, SnakeSpeciesId = 2, CommonLevel = CommonLevel.Common, Priority = 70, DistributionNotes = "Phổ biến ở vùng rừng núi", IsActive = true },
                     // Rắn Hổ Ngựa - Phổ biến
-                    new RegionSnakeMapping { GeographicRegionId = 7, SnakeSpeciesId = 9, CommonLevel = CommonLevel.Common, Priority = 65, DistributionNotes = "Phổ biến ở khu dân cư", IsActive = true },
+                    new RegionSnakeMapping { GeographicRegionId = 7, SnakeSpeciesId = 9, CommonLevel = CommonLevel.VeryCommon, Priority = 75, DistributionNotes = "Phổ biến ở khu dân cư", IsActive = true },
+                    // 🚨 PRIORITY 1 - Rắn Lục Nưa - Phổ biến ở vùng núi (CỰC KỲ NGUY HIỂM!)
+                    new RegionSnakeMapping { GeographicRegionId = 7, SnakeSpeciesId = 12, CommonLevel = CommonLevel.Common, Priority = 75, DistributionNotes = "Phổ biến ở vùng rừng núi", IsActive = true },
+                    // Rắn Ráo - Phổ biến ở đồng bằng
+                    new RegionSnakeMapping { GeographicRegionId = 7, SnakeSpeciesId = 4, CommonLevel = CommonLevel.Common, Priority = 70, DistributionNotes = "Phổ biến ở đồng ruộng", IsActive = true },
+                    // Rắn Hổ Mang Chúa - Trung bình
+                    new RegionSnakeMapping { GeographicRegionId = 7, SnakeSpeciesId = 3, CommonLevel = CommonLevel.Rare, Priority = 45, DistributionNotes = "Ít gặp ở vùng đồng bằng", IsActive = true },
+                    // Rắn Cạp Nong - Phổ biến
+                    new RegionSnakeMapping { GeographicRegionId = 7, SnakeSpeciesId = 5, CommonLevel = CommonLevel.Common, Priority = 60, DistributionNotes = "Rất phổ biến ở vùng nông thôn", IsActive = true },
+                    // Rắn Hoa Cỏ Cổ Đỏ - Phổ biến
+                    new RegionSnakeMapping { GeographicRegionId = 7, SnakeSpeciesId = 8, CommonLevel = CommonLevel.VeryCommon, Priority = 75, DistributionNotes = "Phổ biến ở đồng cỏ", IsActive = true },
+                    // Rắn Khiếm Vạch - Phổ biến
+                    new RegionSnakeMapping { GeographicRegionId = 7, SnakeSpeciesId = 14, CommonLevel = CommonLevel.Common, Priority = 65, DistributionNotes = "Hay gặp tại vùng ruộng nước", IsActive = true },
+                    // Rắn Cườm (Bay) - Phổ biến
+                    new RegionSnakeMapping { GeographicRegionId = 7, SnakeSpeciesId = 15, CommonLevel = CommonLevel.Common, Priority = 55, DistributionNotes = "Phổ biến", IsActive = true },
+                    // Rắn Ráo Trâu - Phổ biến
+                    new RegionSnakeMapping { GeographicRegionId = 7, SnakeSpeciesId = 16, CommonLevel = CommonLevel.Common, Priority = 65, DistributionNotes = "Phân bố ở các vùng ruộng, đồi núi thấp.", IsActive = true },
+                    // Rắn Ri Cá - Phổ biến
+                    new RegionSnakeMapping { GeographicRegionId = 7, SnakeSpeciesId = 18, CommonLevel = CommonLevel.Common, Priority = 75, DistributionNotes = "Phổ biến ở vùng ven biển, sông suối", IsActive = true },
+                    // Rắn Roi - Phổ biến
+                    new RegionSnakeMapping { GeographicRegionId = 7, SnakeSpeciesId = 19, CommonLevel = CommonLevel.Common, Priority = 45, DistributionNotes = "Vùng ngoại thành, vườn cây", IsActive = true },
+                    // Rắn Trun - Phổ biến
+                    new RegionSnakeMapping { GeographicRegionId = 7, SnakeSpeciesId = 20, CommonLevel = CommonLevel.Common, Priority = 65, DistributionNotes = "Đất ẩm, vườn, chậu cây, lá mục", IsActive = true },
+                    // Rắn Sãi cỏ- Phổ biến
+                    new RegionSnakeMapping { GeographicRegionId = 7, SnakeSpeciesId = 22, CommonLevel = CommonLevel.Common, Priority = 65, DistributionNotes = "Gần sông suối, ao hồ", IsActive = true },
+
 
                     // === TÂY NAM BỘ (RegionId: 8) ===
                     // Rắn Cạp Nia Nam - Cực kỳ phổ biến
@@ -2232,11 +2742,31 @@ namespace SnakeAid.Repository.Seeds
                     // Rắn Hổ Mang Xiêm - Rất phổ biến
                     new RegionSnakeMapping { GeographicRegionId = 8, SnakeSpeciesId = 7, CommonLevel = CommonLevel.VeryCommon, Priority = 90, DistributionNotes = "Rất phổ biến ở khu dân cư và đồng ruộng", IsActive = true },
                     // Rắn Ráo - Phổ biến
-                    new RegionSnakeMapping { GeographicRegionId = 8, SnakeSpeciesId = 4, CommonLevel = CommonLevel.Common, Priority = 75, DistributionNotes = "Phổ biến ở đồng ruộng", IsActive = true },
+                    new RegionSnakeMapping { GeographicRegionId = 8, SnakeSpeciesId = 4, CommonLevel = CommonLevel.Abundant, Priority = 90, DistributionNotes = "Phổ biến ở đồng ruộng", IsActive = true },
                     // Rắn Ri Cá - Rất phổ biến
                     new RegionSnakeMapping { GeographicRegionId = 8, SnakeSpeciesId = 18, CommonLevel = CommonLevel.VeryCommon, Priority = 85, DistributionNotes = "Rất phổ biến ở sông rạch, kênh mương", IsActive = true },
                     // Rắn Lục Đuôi Đỏ - Ít gặp
-                    new RegionSnakeMapping { GeographicRegionId = 8, SnakeSpeciesId = 2, CommonLevel = CommonLevel.Uncommon, Priority = 40, DistributionNotes = "Ít gặp, chỉ xuất hiện ở vùng rừng U Minh", IsActive = true }
+                    new RegionSnakeMapping { GeographicRegionId = 8, SnakeSpeciesId = 2, CommonLevel = CommonLevel.Uncommon, Priority = 40, DistributionNotes = "Ít gặp, chỉ xuất hiện ở vùng rừng U Minh", IsActive = true },
+                    // Rắn Hổ Ngựa - Phổ biến ở đồng bằng
+                    new RegionSnakeMapping { GeographicRegionId = 8, SnakeSpeciesId = 9, CommonLevel = CommonLevel.VeryCommon, Priority = 75, DistributionNotes = "Phổ biến ở đồng ruộng và khu dân cư", IsActive = true },
+                    // Rắn Hổ Mang Chúa - Hiếm
+                    new RegionSnakeMapping { GeographicRegionId = 8, SnakeSpeciesId = 3, CommonLevel = CommonLevel.Uncommon, Priority = 45, DistributionNotes = "Ít gặp ở vùng đồng bằng", IsActive = true },
+                    // Rắn Cạp Nong - Rất Phổ biến
+                    new RegionSnakeMapping { GeographicRegionId = 8, SnakeSpeciesId = 5, CommonLevel = CommonLevel.VeryCommon, Priority = 80, DistributionNotes = "Rất phổ biến ở vùng suối, ruộng, rừng", IsActive = true },
+                    // Rắn Khiếm Vạch - Phổ biến
+                    new RegionSnakeMapping { GeographicRegionId = 8, SnakeSpeciesId = 14, CommonLevel = CommonLevel.Common, Priority = 65, DistributionNotes = "Hay gặp tại vùng ruộng nước", IsActive = true },
+                    // Rắn Cườm (Bay) - Phổ biến
+                    new RegionSnakeMapping { GeographicRegionId = 8, SnakeSpeciesId = 15, CommonLevel = CommonLevel.Common, Priority = 55, DistributionNotes = "Phổ biến", IsActive = true },
+                    // Rắn Ráo Trâu - Rất Phổ biến
+                    new RegionSnakeMapping { GeographicRegionId = 8, SnakeSpeciesId = 16, CommonLevel = CommonLevel.VeryCommon, Priority = 85, DistributionNotes = "Phân bố ở các vùng ruộng.", IsActive = true },
+                    // Rắn Roi - Phổ biến
+                    new RegionSnakeMapping { GeographicRegionId = 8, SnakeSpeciesId = 19, CommonLevel = CommonLevel.Common, Priority = 45, DistributionNotes = "Vùng ngoại thành, vườn cây", IsActive = true },
+                    // Rắn Trun - Phổ biến
+                    new RegionSnakeMapping { GeographicRegionId = 8, SnakeSpeciesId = 20, CommonLevel = CommonLevel.Common, Priority = 65, DistributionNotes = "Đất ẩm, vườn, chậu cây, lá mục", IsActive = true },
+                    // Rắn Sãi cỏ- Rất Phổ biến
+                    new RegionSnakeMapping { GeographicRegionId = 8, SnakeSpeciesId = 22, CommonLevel = CommonLevel.VeryCommon, Priority = 85, DistributionNotes = "Gần sông suối, ao hồ", IsActive = true },
+
+
                 };
 
                 context.RegionSnakeMappings.AddRange(mappings);
