@@ -209,11 +209,21 @@ public class ConsultationService : IConsultationService
         var includeEmergency = string.IsNullOrEmpty(query.Type)
             || query.Type.Equals("Emergency", StringComparison.OrdinalIgnoreCase);
 
+        // Parse status filter once for DB-level filtering
+        ConsultationStatus? statusFilter = null;
+        if (!string.IsNullOrEmpty(query.Status)
+            && Enum.TryParse<ConsultationStatus>(query.Status, ignoreCase: true, out var parsed))
+        {
+            statusFilter = parsed;
+        }
+
         // Scheduled consultations
         if (includeScheduled)
         {
             var bookings = await _unitOfWork.GetRepository<ConsultationBooking>().GetListAsync(
-                predicate: b => b.UserId == userId && b.ConsultationId.HasValue,
+                predicate: b => b.UserId == userId
+                    && b.ConsultationId.HasValue
+                    && (!statusFilter.HasValue || b.Consultation!.Status == statusFilter.Value),
                 include: q => q.Include(b => b.Expert).Include(b => b.TimeSlot).Include(b => b.Consultation));
 
             foreach (var b in bookings)
@@ -237,27 +247,15 @@ public class ConsultationService : IConsultationService
             }
         }
 
-        // Emergency consultations
+        // Emergency consultations (include Consultation directly — no separate query needed)
         if (includeEmergency)
         {
             var emergencyRequests = await _unitOfWork.GetRepository<ConsultationPingRequest>().GetListAsync(
                 predicate: p => p.RescuerId == userId
                              && p.ConsultationId.HasValue
-                             && p.Status == ConsultationPingStatus.AcceptedByExpert,
-                include: q => q.Include(p => p.Expert));
-
-            var consultationIds = emergencyRequests
-                .Where(p => p.ConsultationId.HasValue)
-                .Select(p => p.ConsultationId!.Value)
-                .Distinct()
-                .ToList();
-
-            var consultations = consultationIds.Count > 0
-                ? await _unitOfWork.GetRepository<Consultation>().GetListAsync(
-                    predicate: c => consultationIds.Contains(c.Id))
-                : new List<Consultation>();
-
-            var consultationLookup = consultations.ToDictionary(c => c.Id);
+                             && p.Status == ConsultationPingStatus.AcceptedByExpert
+                             && (!statusFilter.HasValue || p.Consultation!.Status == statusFilter.Value),
+                include: q => q.Include(p => p.Expert).Include(p => p.Consultation));
 
             // Batch-fetch transactions for emergency consultations (single query, no N+1)
             var emergencyRequestIds = emergencyRequests.Select(p => p.Id).ToList();
@@ -266,13 +264,16 @@ public class ConsultationService : IConsultationService
                     predicate: t => t.TransactionType == TransactionType.ConsultationPayment
                                  && emergencyRequestIds.Contains(t.ReferenceId))
                 : new List<Transaction>();
-            var transactionLookup = emergencyTransactions.ToDictionary(t => t.ReferenceId, t => t.Amount);
+            var transactionLookup = emergencyTransactions
+                .GroupBy(t => t.ReferenceId)
+                .ToDictionary(g => g.Key, g => g.OrderByDescending(t => t.CreatedAt).First().Amount);
 
             foreach (var p in emergencyRequests)
             {
-                if (!p.ConsultationId.HasValue || !consultationLookup.TryGetValue(p.ConsultationId.Value, out var consultation))
+                if (p.Consultation is null)
                     continue;
 
+                var consultation = p.Consultation;
                 results.Add(new MyConsultationResponse
                 {
                     ConsultationId = consultation.Id,
@@ -287,12 +288,6 @@ public class ConsultationService : IConsultationService
                     Price = transactionLookup.TryGetValue(p.Id, out var amount) ? amount : null
                 });
             }
-        }
-
-        // Filter by status
-        if (!string.IsNullOrEmpty(query.Status))
-        {
-            results = results.Where(r => r.Status.Equals(query.Status, StringComparison.OrdinalIgnoreCase)).ToList();
         }
 
         // Sort + paginate
