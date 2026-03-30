@@ -165,6 +165,82 @@ namespace SnakeAid.Service.Implements
             return ToResponse(blog);
         }
 
+        public async Task<BlogResponse> IncreaseViewAsync(Guid id)
+        {
+            var blog = await _unitOfWork.GetRepository<Blog>()
+                .FirstOrDefaultAsync(
+                    predicate: b => b.Id == id,
+                    include: q => q.Include(b => b.Author),
+                    asNoTracking: false);
+
+            if (blog == null)
+            {
+                throw new NotFoundException($"Blog with id '{id}' not found.");
+            }
+
+            blog.ViewCount += 1;
+
+            _unitOfWork.GetRepository<Blog>().Update(blog);
+            await _unitOfWork.CommitAsync();
+
+            return ToResponse(blog);
+        }
+
+        public async Task<BlogResponse> LikeBlogAsync(Guid id, Guid userId)
+        {
+            var blog = await _unitOfWork.GetRepository<Blog>()
+                .FirstOrDefaultAsync(
+                    predicate: b => b.Id == id,
+                    include: q => q.Include(b => b.Author),
+                    asNoTracking: false);
+
+            if (blog == null)
+            {
+                throw new NotFoundException($"Blog with id '{id}' not found.");
+            }
+
+            blog.LikedViewer ??= new List<string>();
+            var userIdText = userId.ToString();
+
+            if (!blog.LikedViewer.Contains(userIdText))
+            {
+                blog.LikedViewer.Add(userIdText);
+                blog.LikeCount += 1;
+            }
+
+            _unitOfWork.GetRepository<Blog>().Update(blog);
+            await _unitOfWork.CommitAsync();
+
+            return ToResponse(blog);
+        }
+
+        public async Task<BlogResponse> UnlikeBlogAsync(Guid id, Guid userId)
+        {
+            var blog = await _unitOfWork.GetRepository<Blog>()
+                .FirstOrDefaultAsync(
+                    predicate: b => b.Id == id,
+                    include: q => q.Include(b => b.Author),
+                    asNoTracking: false);
+
+            if (blog == null)
+            {
+                throw new NotFoundException($"Blog with id '{id}' not found.");
+            }
+
+            blog.LikedViewer ??= new List<string>();
+            var userIdText = userId.ToString();
+
+            if (blog.LikedViewer.Remove(userIdText) && blog.LikeCount > 0)
+            {
+                blog.LikeCount -= 1;
+            }
+
+            _unitOfWork.GetRepository<Blog>().Update(blog);
+            await _unitOfWork.CommitAsync();
+
+            return ToResponse(blog);
+        }
+
         public async Task DeleteBlogAsync(Guid id)
         {
             var blog = await _unitOfWork.GetRepository<Blog>()
@@ -197,7 +273,7 @@ namespace SnakeAid.Service.Implements
                 ReadingTime = blog.ReadingTime,
                 Status = blog.Status,
                 RejectionReason = blog.RejectionReason,
-                LikedViewer = blog.LikedViewer.ToList(),
+                LikedViewer = blog.LikedViewer?.ToList() ?? new List<string>(),
                 CreatedAt = blog.CreatedAt,
                 UpdatedAt = blog.UpdatedAt,
                 Account = blog.Author == null
