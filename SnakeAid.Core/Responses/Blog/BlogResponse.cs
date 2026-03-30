@@ -10,11 +10,25 @@ namespace SnakeAid.Core.Responses.Blog
 
         public string Title { get; set; } = string.Empty;
 
+        public string ThumbnailUrl { get; set; } = string.Empty;
+
         public string Content { get; set; } = string.Empty;
+
+        public BlogCategory Category { get; set; }
+
+        public List<BlogTag> Tags { get; set; } = new();
+
+        public int ViewCount { get; set; }
+
+        public int LikeCount { get; set; }
+
+        public int ReadingTime { get; set; }
 
         public BlogStatus Status { get; set; }
 
         public string? RejectionReason { get; set; }
+
+        public List<string> LikedViewer { get; set; } = new();
 
         public DateTime CreatedAt { get; set; }
 

@@ -25,6 +25,11 @@ namespace SnakeAid.Service.Implements
                 throw new BadRequestException("Request data cannot be null.");
             }
 
+            if (request.Tags == null || request.Tags.Count == 0)
+            {
+                throw new BadRequestException("At least one blog tag is required.");
+            }
+
             var account = await _unitOfWork.GetRepository<Account>()
                 .FirstOrDefaultAsync(predicate: a => a.Id == authorId);
 
@@ -38,7 +43,11 @@ namespace SnakeAid.Service.Implements
                 Id = Guid.NewGuid(),
                 AuthorId = authorId,
                 Title = request.Title.Trim(),
+                ThumbnailUrl = request.ThumbnailUrl.Trim(),
                 Content = request.Content,
+                Category = request.Category,
+                Tags = request.Tags.ToList(),
+                ReadingTime = request.ReadingTime,
                 Status = BlogStatus.Draft,
                 RejectionReason = null
             };
@@ -47,6 +56,45 @@ namespace SnakeAid.Service.Implements
             await _unitOfWork.CommitAsync();
 
             blog.Author = account;
+            return ToResponse(blog);
+        }
+
+        public async Task<BlogResponse> UpdateBlogAsync(Guid id, UpdateBlogRequest request)
+        {
+            if (request == null)
+            {
+                throw new BadRequestException("Request data cannot be null.");
+            }
+
+            if (request.Tags == null || request.Tags.Count == 0)
+            {
+                throw new BadRequestException("At least one blog tag is required.");
+            }
+
+            var blog = await _unitOfWork.GetRepository<Blog>()
+                .FirstOrDefaultAsync(
+                    predicate: b => b.Id == id,
+                    include: q => q.Include(b => b.Author),
+                    asNoTracking: false);
+
+            if (blog == null)
+            {
+                throw new NotFoundException($"Blog with id '{id}' not found.");
+            }
+
+            blog.Title = request.Title.Trim();
+            blog.ThumbnailUrl = request.ThumbnailUrl.Trim();
+            blog.Content = request.Content;
+            blog.Category = request.Category;
+            blog.Tags = request.Tags.ToList();
+            blog.ReadingTime = request.ReadingTime;
+            blog.RejectionReason = string.IsNullOrWhiteSpace(request.RejectionReason)
+                ? null
+                : request.RejectionReason.Trim();
+
+            _unitOfWork.GetRepository<Blog>().Update(blog);
+            await _unitOfWork.CommitAsync();
+
             return ToResponse(blog);
         }
 
@@ -83,7 +131,7 @@ namespace SnakeAid.Service.Implements
             return ToResponse(blog);
         }
 
-        public async Task<BlogResponse> UpdateBlogAsync(Guid id, UpdateBlogRequest request)
+        public async Task<BlogResponse> UpdateBlogStatusAsync(Guid id, UpdateBlogStatusRequest request)
         {
             if (request == null)
             {
@@ -140,9 +188,16 @@ namespace SnakeAid.Service.Implements
                 Id = blog.Id,
                 AuthorId = blog.AuthorId,
                 Title = blog.Title,
+                ThumbnailUrl = blog.ThumbnailUrl,
                 Content = blog.Content,
+                Category = blog.Category,
+                Tags = blog.Tags.ToList(),
+                ViewCount = blog.ViewCount,
+                LikeCount = blog.LikeCount,
+                ReadingTime = blog.ReadingTime,
                 Status = blog.Status,
                 RejectionReason = blog.RejectionReason,
+                LikedViewer = blog.LikedViewer.ToList(),
                 CreatedAt = blog.CreatedAt,
                 UpdatedAt = blog.UpdatedAt,
                 Account = blog.Author == null

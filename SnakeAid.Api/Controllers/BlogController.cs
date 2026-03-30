@@ -57,13 +57,24 @@ namespace SnakeAid.Api.Controllers
 
         [HttpPut("{id}")]
         [ValidateModel]
-        [SwaggerOperation(Summary = "Update blog status")]
+        [SwaggerOperation(Summary = "Update blog")]
         [SwaggerResponse(200, "Updated successfully", typeof(ApiResponse<BlogResponse>))]
         [SwaggerResponse(404, "Not found")]
         public async Task<IActionResult> UpdateBlog([FromRoute] Guid id, [FromBody] UpdateBlogRequest request)
         {
             var result = await _blogService.UpdateBlogAsync(id, request);
             return Ok(ApiResponseBuilder.BuildSuccessResponse(result, "Blog updated successfully."));
+        }
+
+        [HttpPatch("{id}/status")]
+        [ValidateModel]
+        [SwaggerOperation(Summary = "Update blog status")]
+        [SwaggerResponse(200, "Updated successfully", typeof(ApiResponse<BlogResponse>))]
+        [SwaggerResponse(404, "Not found")]
+        public async Task<IActionResult> UpdateBlogStatus([FromRoute] Guid id, [FromBody] UpdateBlogStatusRequest request)
+        {
+            var result = await _blogService.UpdateBlogStatusAsync(id, request);
+            return Ok(ApiResponseBuilder.BuildSuccessResponse(result, "Blog status updated successfully."));
         }
 
         [HttpDelete("{id}")]

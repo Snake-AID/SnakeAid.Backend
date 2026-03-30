@@ -13,6 +13,8 @@ namespace SnakeAid.Service.Interfaces
 
         Task<BlogResponse> UpdateBlogAsync(Guid id, UpdateBlogRequest request);
 
+        Task<BlogResponse> UpdateBlogStatusAsync(Guid id, UpdateBlogStatusRequest request);
+
         Task DeleteBlogAsync(Guid id);
     }
 }
