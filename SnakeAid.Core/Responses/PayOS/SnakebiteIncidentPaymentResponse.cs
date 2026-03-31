@@ -1,5 +1,4 @@
 using System;
-using SnakeAid.Core.Domains;
 
 namespace SnakeAid.Core.Responses.PayOS
 {
@@ -36,9 +35,10 @@ namespace SnakeAid.Core.Responses.PayOS
         public string Currency { get; set; } = "VND";
 
         /// <summary>
-        /// The payment status.
+        /// The payment status (e.g. "Pending", "Escrowed", "Paid", "Cancelled", "Failed", "Refunded").
+        /// Changed from PaymentStatus enum to string to support escrow statuses.
         /// </summary>
-        public PaymentStatus Status { get; set; }
+        public string Status { get; set; } = string.Empty;
 
         /// <summary>
         /// The payment provider (PayOS or Wallet).
@@ -70,5 +70,17 @@ namespace SnakeAid.Core.Responses.PayOS
         /// The timestamp when payment was completed. Null if not yet paid.
         /// </summary>
         public DateTime? PaidAt { get; set; }
+
+        /// <summary>
+        /// The user's wallet balance after the payment operation.
+        /// Populated for wallet payments. Null for PayOS payments before confirmation.
+        /// </summary>
+        public decimal? UserWalletBalanceAfter { get; set; }
+
+        /// <summary>
+        /// The system wallet (escrow) balance after the payment operation.
+        /// Populated for wallet payments. Null for PayOS payments before confirmation.
+        /// </summary>
+        public decimal? SystemWalletBalanceAfter { get; set; }
     }
 }
