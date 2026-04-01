@@ -13,6 +13,7 @@ using SnakeAid.Core.Mappings;
 using SnakeAid.Core.Middlewares;
 using SnakeAid.Api.DI;
 using SnakeAid.Api.Hubs;
+using SnakeAid.Service.Hubs;
 using SnakeAid.Repository.Data;
 using SnakeAid.Repository.Seeds;
 using SQLitePCL;

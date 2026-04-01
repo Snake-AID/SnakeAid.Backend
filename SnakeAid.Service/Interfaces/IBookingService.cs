@@ -12,4 +12,5 @@ public interface IBookingService
     Task<IEnumerable<ConsultationBookingResponse>> GetMyBookingsAsync(Guid userId);
     Task<IEnumerable<ConsultationBookingResponse>> GetExpertBookingsAsync(Guid expertId);
     Task<int> AutoCompleteElapsedScheduledConsultationsAsync(CancellationToken cancellationToken = default);
+    Task<int> AutoCompleteElapsedEmergencyConsultationsAsync(CancellationToken cancellationToken = default);
 }

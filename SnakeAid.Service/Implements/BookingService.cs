@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using SnakeAid.Core.Domains;
@@ -6,6 +7,7 @@ using SnakeAid.Core.Requests.Consultation;
 using SnakeAid.Core.Responses.Consultation;
 using SnakeAid.Repository.Data;
 using SnakeAid.Repository.Interfaces;
+using SnakeAid.Service.Hubs;
 using SnakeAid.Service.Interfaces;
 
 namespace SnakeAid.Service.Implements;
@@ -14,15 +16,21 @@ public class BookingService : IBookingService
 {
     private readonly IUnitOfWork<SnakeAidDbContext> _unitOfWork;
     private readonly IConsultationPaymentService _consultationPaymentService;
+    private readonly IHubContext<ConsultationHub> _hubContext;
+    private readonly ILiveKitService _liveKitService;
     private readonly ILogger<BookingService> _logger;
 
     public BookingService(
         IUnitOfWork<SnakeAidDbContext> unitOfWork,
         IConsultationPaymentService consultationPaymentService,
+        IHubContext<ConsultationHub> hubContext,
+        ILiveKitService liveKitService,
         ILogger<BookingService> logger)
     {
         _unitOfWork = unitOfWork;
         _consultationPaymentService = consultationPaymentService;
+        _hubContext = hubContext;
+        _liveKitService = liveKitService;
         _logger = logger;
     }
 
@@ -205,31 +213,183 @@ public class BookingService : IBookingService
         var completedCount = 0;
         foreach (var booking in bookings)
         {
-            booking.Status = BookingStatus.Completed;
-            _unitOfWork.GetRepository<ConsultationBooking>().Update(booking);
+            var consultationId = booking.ConsultationId!.Value;
+            var roomName = $"consultation-{consultationId}";
 
-            if (booking.Consultation != null)
+            try
             {
-                booking.Consultation.Status = ConsultationStatus.Completed;
-                booking.Consultation.EndTime = booking.TimeSlot.EndTime;
-                _unitOfWork.GetRepository<Consultation>().Update(booking.Consultation);
-            }
+                // Step 1: Send RoomExpiring signal via SignalR (best-effort)
+                try
+                {
+                    await _hubContext.Clients.Group($"consultation:{consultationId}")
+                        .SendAsync("RoomExpiring", new
+                        {
+                            ConsultationId = consultationId,
+                            Reason = "slot_elapsed"
+                        }, cancellationToken);
 
-            if (booking.TimeSlot.Status == TimeSlotStatus.Reserved)
+                    _logger.LogInformation(
+                        "Sent RoomExpiring signal for consultation {ConsultationId}, RoomId={RoomId}, StartTime={StartTime}, ExpiryAction={ExpiryAction}",
+                        consultationId, roomName, booking.Consultation?.StartTime, "room_expiring_signal_sent");
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex,
+                        "Failed to send RoomExpiring signal for consultation {ConsultationId}, RoomId={RoomId}, StartTime={StartTime}, ExpiryAction={ExpiryAction}",
+                        consultationId, roomName, booking.Consultation?.StartTime, "room_expiring_signal_failed");
+                }
+
+                // Step 2: Delete LiveKit room (log error and continue if fails)
+                try
+                {
+                    await _liveKitService.DeleteRoomAsync(roomName, cancellationToken);
+
+                    _logger.LogInformation(
+                        "Deleted LiveKit room for consultation {ConsultationId}, RoomId={RoomId}, StartTime={StartTime}, ExpiryAction={ExpiryAction}",
+                        consultationId, roomName, booking.Consultation?.StartTime, "room_deleted");
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex,
+                        "Failed to delete LiveKit room for consultation {ConsultationId}, RoomId={RoomId}, StartTime={StartTime}, ExpiryAction={ExpiryAction}",
+                        consultationId, roomName, booking.Consultation?.StartTime, "room_deletion_failed");
+                }
+
+                // Step 3: Update BookingStatus = Completed
+                booking.Status = BookingStatus.Completed;
+                _unitOfWork.GetRepository<ConsultationBooking>().Update(booking);
+
+                // Step 4: Update Consultation.Status = Completed, EndTime = SlotEndTime
+                if (booking.Consultation != null)
+                {
+                    booking.Consultation.Status = ConsultationStatus.Completed;
+                    booking.Consultation.EndTime = booking.TimeSlot.EndTime;
+                    _unitOfWork.GetRepository<Consultation>().Update(booking.Consultation);
+                }
+
+                _logger.LogInformation(
+                    "Updated status for consultation {ConsultationId}, RoomId={RoomId}, StartTime={StartTime}, ExpiryAction={ExpiryAction}",
+                    consultationId, roomName, booking.Consultation?.StartTime, "status_updated");
+
+                // Step 5: Update TimeSlot.Status = Booked if Reserved
+                if (booking.TimeSlot.Status == TimeSlotStatus.Reserved)
+                {
+                    booking.TimeSlot.Status = TimeSlotStatus.Booked;
+                    _unitOfWork.GetRepository<ExpertTimeSlot>().Update(booking.TimeSlot);
+                }
+
+                // Step 6: CommitAsync
+                await _unitOfWork.CommitAsync();
+
+                // Step 7: SettleConsultationEscrowAsync
+                await _consultationPaymentService.SettleConsultationEscrowAsync(consultationId, cancellationToken);
+
+                _logger.LogInformation(
+                    "Settlement triggered for consultation {ConsultationId}, RoomId={RoomId}, StartTime={StartTime}, ExpiryAction={ExpiryAction}",
+                    consultationId, roomName, booking.Consultation?.StartTime, "settlement_triggered");
+
+                completedCount++;
+            }
+            catch (Exception ex)
             {
-                booking.TimeSlot.Status = TimeSlotStatus.Booked;
-                _unitOfWork.GetRepository<ExpertTimeSlot>().Update(booking.TimeSlot);
+                _logger.LogError(ex,
+                    "Error processing auto-complete for consultation {ConsultationId}, RoomId={RoomId}, StartTime={StartTime}, ExpiryAction={ExpiryAction}",
+                    consultationId, roomName, booking.Consultation?.StartTime, "auto_complete_failed");
             }
-
-            await _unitOfWork.CommitAsync();
-
-            if (booking.ConsultationId.HasValue)
-            {
-                await _consultationPaymentService.SettleConsultationEscrowAsync(booking.ConsultationId.Value, cancellationToken);
-            }
-
-            completedCount++;
         }
+
+        _logger.LogInformation("Auto-complete scheduled consultations sweep completed. Total rooms processed: {CompletedCount}", completedCount);
+
+        return completedCount;
+    }
+
+    public async Task<int> AutoCompleteElapsedEmergencyConsultationsAsync(CancellationToken cancellationToken = default)
+    {
+        var now = DateTime.UtcNow;
+        var expiryThreshold = now.AddMinutes(-30);
+
+        var consultations = await _unitOfWork.GetRepository<Consultation>().GetListAsync(
+            predicate: c =>
+                c.Status == ConsultationStatus.Ongoing
+                && c.Type == ConsultationType.Emergency
+                && c.StartTime <= expiryThreshold,
+            asNoTracking: false,
+            cancellationToken: cancellationToken);
+
+        var completedCount = 0;
+        foreach (var consultation in consultations)
+        {
+            var roomName = $"consultation-{consultation.Id}";
+
+            try
+            {
+                // Step 1: Send RoomExpiring signal via SignalR (best-effort)
+                try
+                {
+                    await _hubContext.Clients.Group($"consultation:{consultation.Id}")
+                        .SendAsync("RoomExpiring", new
+                        {
+                            ConsultationId = consultation.Id,
+                            Reason = "slot_elapsed"
+                        }, cancellationToken);
+
+                    _logger.LogInformation(
+                        "Sent RoomExpiring signal for emergency consultation {ConsultationId}, RoomId={RoomId}, StartTime={StartTime}, ExpiryAction={ExpiryAction}",
+                        consultation.Id, roomName, consultation.StartTime, "room_expiring_signal_sent");
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex,
+                        "Failed to send RoomExpiring signal for emergency consultation {ConsultationId}, RoomId={RoomId}, StartTime={StartTime}, ExpiryAction={ExpiryAction}",
+                        consultation.Id, roomName, consultation.StartTime, "room_expiring_signal_failed");
+                }
+
+                // Step 2: Delete LiveKit room (log error and continue if fails)
+                try
+                {
+                    await _liveKitService.DeleteRoomAsync(roomName, cancellationToken);
+
+                    _logger.LogInformation(
+                        "Deleted LiveKit room for emergency consultation {ConsultationId}, RoomId={RoomId}, StartTime={StartTime}, ExpiryAction={ExpiryAction}",
+                        consultation.Id, roomName, consultation.StartTime, "room_deleted");
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex,
+                        "Failed to delete LiveKit room for emergency consultation {ConsultationId}, RoomId={RoomId}, StartTime={StartTime}, ExpiryAction={ExpiryAction}",
+                        consultation.Id, roomName, consultation.StartTime, "room_deletion_failed");
+                }
+
+                // Step 3: Update Consultation.Status = Completed, EndTime = UtcNow
+                consultation.Status = ConsultationStatus.Completed;
+                consultation.EndTime = DateTime.UtcNow;
+                _unitOfWork.GetRepository<Consultation>().Update(consultation);
+
+                _logger.LogInformation(
+                    "Updated status for emergency consultation {ConsultationId}, RoomId={RoomId}, StartTime={StartTime}, ExpiryAction={ExpiryAction}",
+                    consultation.Id, roomName, consultation.StartTime, "status_updated");
+
+                // Step 4: CommitAsync
+                await _unitOfWork.CommitAsync();
+
+                // Step 5: SettleConsultationEscrowAsync
+                await _consultationPaymentService.SettleConsultationEscrowAsync(consultation.Id, cancellationToken);
+
+                _logger.LogInformation(
+                    "Settlement triggered for emergency consultation {ConsultationId}, RoomId={RoomId}, StartTime={StartTime}, ExpiryAction={ExpiryAction}",
+                    consultation.Id, roomName, consultation.StartTime, "settlement_triggered");
+
+                completedCount++;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex,
+                    "Error processing auto-complete for emergency consultation {ConsultationId}, RoomId={RoomId}, StartTime={StartTime}, ExpiryAction={ExpiryAction}",
+                    consultation.Id, roomName, consultation.StartTime, "auto_complete_failed");
+            }
+        }
+
+        _logger.LogInformation("Auto-complete emergency consultations sweep completed. Total rooms processed: {CompletedCount}", completedCount);
 
         return completedCount;
     }

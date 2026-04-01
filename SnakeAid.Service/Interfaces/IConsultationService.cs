@@ -13,4 +13,5 @@ public interface IConsultationService
     Task<UserFeedbackResponse> CreateConsultationReviewAsync(Guid consultationId, Guid raterId, CreateConsultationReviewRequest request);
     Task<UserFeedbackResponse?> GetConsultationReviewAsync(Guid consultationId, Guid actorId);
     Task<PagingResponse<MyConsultationResponse>> GetMyConsultationsAsync(Guid userId, MyConsultationsQueryRequest query);
+    Task<PagingResponse<ExpertConsultationResponse>> GetExpertConsultationsAsync(Guid expertId, MyConsultationsQueryRequest query);
 }

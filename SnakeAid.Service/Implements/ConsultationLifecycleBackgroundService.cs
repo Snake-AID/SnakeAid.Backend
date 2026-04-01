@@ -30,13 +30,15 @@ public class ConsultationLifecycleBackgroundService : BackgroundService
 
                 var expiredCount = await paymentService.ExpireEmergencyRequestsAsync(stoppingToken);
                 var completedCount = await bookingService.AutoCompleteElapsedScheduledConsultationsAsync(stoppingToken);
+                var emergencyCompletedCount = await bookingService.AutoCompleteElapsedEmergencyConsultationsAsync(stoppingToken);
 
-                if (expiredCount > 0 || completedCount > 0)
+                if (expiredCount > 0 || completedCount > 0 || emergencyCompletedCount > 0)
                 {
                     _logger.LogInformation(
-                        "Consultation lifecycle sweep completed. ExpiredEmergencyRequests={ExpiredCount}, AutoCompletedScheduledConsultations={CompletedCount}",
+                        "Consultation lifecycle sweep completed. ExpiredEmergencyRequests={ExpiredCount}, AutoCompletedScheduledConsultations={CompletedCount}, AutoCompletedEmergencyConsultations={EmergencyCompletedCount}",
                         expiredCount,
-                        completedCount);
+                        completedCount,
+                        emergencyCompletedCount);
                 }
             }
             catch (OperationCanceledException)
