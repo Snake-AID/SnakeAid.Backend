@@ -8,6 +8,7 @@ using SnakeAid.Api.Controllers;
 using SnakeAid.Core.Domains;
 using SnakeAid.Core.Exceptions;
 using SnakeAid.Core.Meta;
+using SnakeAid.Service.Interfaces;
 using SnakeAid.Core.Requests.Expert;
 using SnakeAid.Core.Responses.Expert;
 using SnakeAid.Core.Responses.UserFeedback;
@@ -212,7 +213,7 @@ public class ExpertControllerIntegrationTests
 
     private static ExpertController BuildController(ExpertService service, Guid userId, string role)
     {
-        var controller = new ExpertController(service);
+        var controller = new ExpertController(service, null!);
         var claims = new List<Claim>
         {
             new(ClaimTypes.NameIdentifier, userId.ToString()),

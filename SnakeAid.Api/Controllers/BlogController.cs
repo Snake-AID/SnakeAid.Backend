@@ -57,13 +57,56 @@ namespace SnakeAid.Api.Controllers
 
         [HttpPut("{id}")]
         [ValidateModel]
-        [SwaggerOperation(Summary = "Update blog status")]
+        [SwaggerOperation(Summary = "Update blog")]
         [SwaggerResponse(200, "Updated successfully", typeof(ApiResponse<BlogResponse>))]
         [SwaggerResponse(404, "Not found")]
         public async Task<IActionResult> UpdateBlog([FromRoute] Guid id, [FromBody] UpdateBlogRequest request)
         {
             var result = await _blogService.UpdateBlogAsync(id, request);
             return Ok(ApiResponseBuilder.BuildSuccessResponse(result, "Blog updated successfully."));
+        }
+
+        [HttpPatch("{id}/status")]
+        [ValidateModel]
+        [SwaggerOperation(Summary = "Update blog status")]
+        [SwaggerResponse(200, "Updated successfully", typeof(ApiResponse<BlogResponse>))]
+        [SwaggerResponse(404, "Not found")]
+        public async Task<IActionResult> UpdateBlogStatus([FromRoute] Guid id, [FromBody] UpdateBlogStatusRequest request)
+        {
+            var result = await _blogService.UpdateBlogStatusAsync(id, request);
+            return Ok(ApiResponseBuilder.BuildSuccessResponse(result, "Blog status updated successfully."));
+        }
+
+        [HttpPatch("{id}/view")]
+        [SwaggerOperation(Summary = "Increase blog view")]
+        [SwaggerResponse(200, "Updated successfully", typeof(ApiResponse<BlogResponse>))]
+        [SwaggerResponse(404, "Not found")]
+        public async Task<IActionResult> ViewBlog([FromRoute] Guid id)
+        {
+            var result = await _blogService.IncreaseViewAsync(id);
+            return Ok(ApiResponseBuilder.BuildSuccessResponse(result, "Blog view increased successfully."));
+        }
+
+        [HttpPatch("{id}/like")]
+        [SwaggerOperation(Summary = "Like blog")]
+        [SwaggerResponse(200, "Updated successfully", typeof(ApiResponse<BlogResponse>))]
+        [SwaggerResponse(404, "Not found")]
+        public async Task<IActionResult> LikeBlog([FromRoute] Guid id)
+        {
+            var userId = GetCurrentUserId();
+            var result = await _blogService.LikeBlogAsync(id, userId);
+            return Ok(ApiResponseBuilder.BuildSuccessResponse(result, "Blog liked successfully."));
+        }
+
+        [HttpPatch("{id}/unlike")]
+        [SwaggerOperation(Summary = "Unlike blog")]
+        [SwaggerResponse(200, "Updated successfully", typeof(ApiResponse<BlogResponse>))]
+        [SwaggerResponse(404, "Not found")]
+        public async Task<IActionResult> UnlikeBlog([FromRoute] Guid id)
+        {
+            var userId = GetCurrentUserId();
+            var result = await _blogService.UnlikeBlogAsync(id, userId);
+            return Ok(ApiResponseBuilder.BuildSuccessResponse(result, "Blog unliked successfully."));
         }
 
         [HttpDelete("{id}")]
