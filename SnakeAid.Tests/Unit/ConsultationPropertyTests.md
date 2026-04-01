@@ -17,11 +17,11 @@ Property-based tests sử dụng FsCheck.Xunit để kiểm chứng tính đúng
 
 ## Danh sách Property Tests
 
-### Property 1: Slot-elapsed scheduled detection filter
+### Property 1: BookingService.AutoCompleteElapsedScheduledConsultationsAsync slot-elapsed detection filter
 
 **Validates**: Requirements 1.1, 1.3
 
-Với bất kỳ tập hợp `ConsultationBooking` ngẫu nhiên, logic auto-complete scheduled chỉ trả về booking thỏa đồng thời:
+Với bất kỳ tập hợp `ConsultationBooking` ngẫu nhiên, logic `BookingService.AutoCompleteElapsedScheduledConsultationsAsync` chỉ trả về booking thỏa đồng thời:
 - `Status == Confirmed`
 - `ConsultationId != null`
 - `TimeSlot.EndTime <= DateTime.UtcNow`
@@ -29,11 +29,11 @@ Với bất kỳ tập hợp `ConsultationBooking` ngẫu nhiên, logic auto-com
 
 Booking có status khác hoặc slot chưa hết giờ KHÔNG được trả về.
 
-### Property 2: Emergency elapsed detection filter
+### Property 2: BookingService.AutoCompleteElapsedEmergencyConsultationsAsync emergency-elapsed detection filter
 
 **Validates**: Requirements 1.1, 1.3
 
-Với bất kỳ tập hợp `Consultation` ngẫu nhiên, logic auto-complete emergency chỉ trả về consultation thỏa đồng thời:
+Với bất kỳ tập hợp `Consultation` ngẫu nhiên, logic `BookingService.AutoCompleteElapsedEmergencyConsultationsAsync` chỉ trả về consultation thỏa đồng thời:
 - `Status == Ongoing`
 - `Type == Emergency`
 - `StartTime + 30 phút <= DateTime.UtcNow`

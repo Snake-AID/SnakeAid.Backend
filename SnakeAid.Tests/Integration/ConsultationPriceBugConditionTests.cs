@@ -269,6 +269,7 @@ public class ConsultationPriceBugConditionTests
             modelBuilder.Entity<Transaction>(entity =>
             {
                 entity.HasKey(t => t.Id);
+                entity.Property(t => t.TransactionType).HasConversion<int>();
                 entity.HasOne(t => t.User)
                     .WithMany()
                     .HasForeignKey(t => t.UserId)

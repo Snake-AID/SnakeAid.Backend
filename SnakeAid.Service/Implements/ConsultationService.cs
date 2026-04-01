@@ -210,9 +210,12 @@ public class ConsultationService : IConsultationService
             || query.Type.Equals("Emergency", StringComparison.OrdinalIgnoreCase);
 
         ConsultationStatus? statusFilter = null;
-        if (!string.IsNullOrEmpty(query.Status)
-            && Enum.TryParse<ConsultationStatus>(query.Status, ignoreCase: true, out var parsed))
+        if (!string.IsNullOrEmpty(query.Status))
         {
+            if (!Enum.TryParse<ConsultationStatus>(query.Status, ignoreCase: true, out var parsed))
+            {
+                throw new ArgumentException($"Invalid status value: {query.Status}", nameof(query.Status));
+            }
             statusFilter = parsed;
         }
 
@@ -250,10 +253,21 @@ public class ConsultationService : IConsultationService
         {
             var emergencyRequests = await _unitOfWork.GetRepository<ConsultationPingRequest>().GetListAsync(
                 predicate: p => p.ExpertId == expertId
-                             && p.ConsultationId.HasValue
-                             && p.Status == ConsultationPingStatus.AcceptedByExpert
-                             && (!statusFilter.HasValue || p.Consultation!.Status == statusFilter.Value),
+                              && p.ConsultationId.HasValue
+                              && p.Status == ConsultationPingStatus.AcceptedByExpert
+                              && (!statusFilter.HasValue || p.Consultation!.Status == statusFilter.Value),
                 include: q => q.Include(p => p.Rescuer).Include(p => p.Consultation));
+
+            // Batch-fetch transactions for emergency consultations (single query, no N+1)
+            var emergencyConsultationIds = emergencyRequests.Where(p => p.ConsultationId.HasValue).Select(p => p.ConsultationId!.Value).ToList();
+            var emergencyTransactions = emergencyConsultationIds.Count > 0
+                ? await _unitOfWork.GetRepository<Transaction>().GetListAsync(
+                    predicate: t => t.TransactionType == TransactionType.ExpertPayout
+                                  && emergencyConsultationIds.Contains(t.ReferenceId))
+                : new List<Transaction>();
+            var transactionLookup = emergencyTransactions
+                .GroupBy(t => t.ReferenceId)
+                .ToDictionary(g => g.Key, g => g.OrderByDescending(t => t.CreatedAt).First().Amount);
 
             foreach (var p in emergencyRequests)
             {
@@ -271,7 +285,7 @@ public class ConsultationService : IConsultationService
                     RoomId = consultation.RoomId,
                     StartTime = consultation.StartTime,
                     EndTime = consultation.EndTime,
-                    Price = null,
+                    Price = transactionLookup.TryGetValue(consultation.Id, out var amount) ? amount : null,
                     EmergencyRequestId = p.Id
                 });
             }
