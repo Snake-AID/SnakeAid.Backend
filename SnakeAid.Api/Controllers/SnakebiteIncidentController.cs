@@ -5,8 +5,10 @@ using Microsoft.AspNetCore.Mvc;
 using SnakeAid.Core.Domains;
 using SnakeAid.Core.Meta;
 using SnakeAid.Core.Requests;
+using SnakeAid.Core.Requests.PayOs;
 using SnakeAid.Core.Requests.PayOS;
 using SnakeAid.Core.Requests.SnakebiteIncident;
+using SnakeAid.Core.Responses.PayOs;
 using SnakeAid.Core.Responses.PayOS;
 using SnakeAid.Core.Responses.SnakebiteIncident;
 using SnakeAid.Core.Validators;
@@ -86,6 +88,38 @@ namespace SnakeAid.Api.Controllers
 
             var result = await _incidentPaymentService.CreateSnakebiteIncidentWalletPaymentAsync(request, currentUserId, HttpContext.RequestAborted);
             return Ok(ApiResponseBuilder.BuildSuccessResponse(result, "Wallet payment completed successfully."));
+        }
+
+        /// <summary>
+        /// Cancel a PayOS payment link for a snakebite incident
+        /// </summary>
+        [HttpDelete("{incidentId}/payment/payos/{orderCode}")]
+        [Authorize]
+        [SwaggerOperation(Summary = "Cancel Snakebite Incident PayOS Payment Link", Description = "Cancel an existing PayOS payment link for a snakebite incident.")]
+        [SwaggerResponse(200, "Payment link cancelled successfully", typeof(ApiResponse<CancelPaymentLinkResponse>))]
+        [SwaggerResponse(400, "Validation error")]
+        [SwaggerResponse(404, "Incident not found")]
+        public async Task<IActionResult> CancelSnakebiteIncidentPaymentLink(Guid incidentId, long orderCode, [FromBody] CancelPaymentLinkRequest request)
+        {
+            var result = await _incidentPaymentService.CancelSnakebiteIncidentPaymentLinkAsync(orderCode, request, HttpContext.RequestAborted);
+            return Ok(ApiResponseBuilder.BuildSuccessResponse(result, "Payment link cancelled successfully."));
+        }
+
+        /// <summary>
+        /// Refund a snakebite incident payment (Admin/Operator only)
+        /// </summary>
+        [HttpPost("{incidentId}/payment/refund")]
+        [Authorize(Roles = "Operator,Admin")]
+        [SwaggerOperation(Summary = "Refund Snakebite Incident Payment", Description = "Refund a snakebite incident payment. Only accessible by Operators and Admins.")]
+        [SwaggerResponse(200, "Refund successful", typeof(ApiResponse<RefundTransactionResponse>))]
+        [SwaggerResponse(400, "Validation error")]
+        [SwaggerResponse(404, "Payment not found")]
+        [SwaggerResponse(409, "Insufficient balance")]
+        public async Task<IActionResult> RefundSnakebiteIncidentPayment(Guid incidentId, [FromBody] RefundTransactionRequest request)
+        {
+            request.ReferenceId = incidentId;
+            var result = await _incidentPaymentService.RefundSnakebiteIncidentTransactionAsync(request, HttpContext.RequestAborted);
+            return Ok(ApiResponseBuilder.BuildSuccessResponse(result, "Refund completed successfully."));
         }
 
         /// <summary>
