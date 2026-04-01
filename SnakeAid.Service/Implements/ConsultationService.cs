@@ -364,9 +364,12 @@ public class ConsultationService : IConsultationService
 
         // Parse status filter once for DB-level filtering
         ConsultationStatus? statusFilter = null;
-        if (!string.IsNullOrEmpty(query.Status)
-            && Enum.TryParse<ConsultationStatus>(query.Status, ignoreCase: true, out var parsed))
+        if (!string.IsNullOrEmpty(query.Status))
         {
+            if (!Enum.TryParse<ConsultationStatus>(query.Status, ignoreCase: true, out var parsed))
+            {
+                throw new ArgumentException($"Invalid status value: {query.Status}", nameof(query.Status));
+            }
             statusFilter = parsed;
         }
 
