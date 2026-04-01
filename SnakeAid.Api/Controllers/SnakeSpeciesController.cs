@@ -172,12 +172,12 @@ namespace SnakeAid.Api.Controllers
         [HttpGet("/api/geographic-regions")]
         [SwaggerOperation(
             Summary = "Get All Geographic Regions",
-            Description = "Returns all active regions with polygon boundary coordinates (GeoJSON [lng,lat] order). Pass snakeSpeciesId to get IsMapped + Mapping metadata for each region — useful for highlighting distribution on admin map."
+            Description = "Returns all active regions with polygon boundary coordinates (GeoJSON [lng,lat] order). Geometry-only payload for map initialization/cache."
         )]
         [SwaggerResponse(200, "Success", typeof(ApiResponse<List<GeographicRegionResponse>>))]
-        public async Task<IActionResult> GetAllRegions([FromQuery] int? snakeSpeciesId, CancellationToken ct)
+        public async Task<IActionResult> GetAllRegions(CancellationToken ct)
         {
-            var result = await _snakeSpeciesService.GetAllRegionsAsync(snakeSpeciesId, ct);
+            var result = await _snakeSpeciesService.GetAllRegionsAsync(ct);
             return Ok(ApiResponseBuilder.BuildSuccessResponse(result));
         }
 

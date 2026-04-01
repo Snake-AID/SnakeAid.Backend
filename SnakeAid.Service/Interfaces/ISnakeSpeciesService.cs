@@ -55,9 +55,9 @@ namespace SnakeAid.Service.Interfaces
 
         /// <summary>
         /// Get all geographic regions with polygon boundaries for map rendering.
-        /// If snakeSpeciesId is provided, each region includes IsMapped + Mapping metadata.
+        /// Geometry-only payload for map initialization/cache.
         /// </summary>
-        Task<List<GeographicRegionResponse>> GetAllRegionsAsync(int? snakeSpeciesId = null, CancellationToken ct = default);
+        Task<List<GeographicRegionResponse>> GetAllRegionsAsync(CancellationToken ct = default);
 
         /// <summary>
         /// Get all region mappings for a specific snake species

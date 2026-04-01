@@ -2,7 +2,7 @@ namespace SnakeAid.Core.Responses.SnakeSpecies
 {
     /// <summary>
     /// Full region info including GeoJSON polygon for map rendering.
-    /// When snakeSpeciesId is provided, also includes mapping state for that snake.
+    /// This model is geometry-only and does not include snake mapping state.
     /// </summary>
     public class GeographicRegionResponse
     {
@@ -18,17 +18,6 @@ namespace SnakeAid.Core.Responses.SnakeSpecies
         /// [ [lng, lat], [lng, lat], ... ] (closed ring)
         /// </summary>
         public List<double[]> BoundaryCoordinates { get; set; } = new();
-
-        /// <summary>
-        /// Whether this region has an active mapping for the requested snake species.
-        /// Always false when snakeSpeciesId is not provided.
-        /// </summary>
-        public bool IsMapped { get; set; }
-
-        /// <summary>
-        /// Mapping metadata for the requested snake species, null if not mapped.
-        /// </summary>
-        public RegionSnakeMappingResponse? Mapping { get; set; }
     }
 
     /// <summary>

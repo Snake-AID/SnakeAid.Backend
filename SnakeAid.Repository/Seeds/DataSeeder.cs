@@ -2,9 +2,11 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 using NetTopologySuite.Geometries;
+using NetTopologySuite.IO;
 using SnakeAid.Core.Domains;
 using SnakeAid.Repository.Data;
 
@@ -31,6 +33,53 @@ namespace SnakeAid.Repository.Seeds
             public double Lat { get; set; }
             public double Lng { get; set; }
         }
+
+        private class GeographicRegionDto
+        {
+            public int Id { get; set; }
+            public string? Name { get; set; }
+            public string? Code { get; set; }
+            public string? Description { get; set; }
+            public string? Boundary { get; set; }
+            public int DisplayOrder { get; set; }
+            public bool IsActive { get; set; }
+        }
+
+        // Boundary column is geography(Polygon,4326), so MultiPolygon input is reduced
+        // to the largest polygon to preserve compatibility with the current schema.
+        private static Polygon ParsePolygonFromWkt(string wktString)
+        {
+            if (string.IsNullOrWhiteSpace(wktString))
+                throw new ArgumentException("WKT string cannot be null or empty");
+
+            var reader = new WKTReader(_geometryFactory);
+            var geometry = reader.Read(wktString.Trim());
+            geometry.SRID = 4326;
+
+            if (geometry is Polygon polygon)
+            {
+                return polygon;
+            }
+
+            if (geometry is MultiPolygon multiPolygon)
+            {
+                var largestPolygon = multiPolygon.Geometries
+                    .OfType<Polygon>()
+                    .OrderByDescending(p => p.Area)
+                    .FirstOrDefault();
+
+                if (largestPolygon == null)
+                {
+                    throw new FormatException("MULTIPOLYGON does not contain any polygon parts.");
+                }
+
+                largestPolygon.SRID = 4326;
+                return largestPolygon;
+            }
+
+            throw new FormatException($"Unsupported geometry type: {geometry.GeometryType}. Expected POLYGON or MULTIPOLYGON.");
+        }
+
         public static async Task SeedAsync(SnakeAidDbContext context)
         {
             // ==================================================================================
@@ -2317,166 +2366,46 @@ namespace SnakeAid.Repository.Seeds
             // ==================================================================================
             // SEED GEOGRAPHIC REGIONS
             // ==================================================================================
-            // No dependencies - seed first
+            // Load from JSON file: geographic_regions_simplified.json
             if (!context.GeographicRegions.Any())
             {
-                var regions = new List<GeographicRegion>
+                try
                 {
-                    // 1. Đông Bắc Bộ (Hà Giang, Cao Bằng, Lạng Sơn, Bắc Kạn, Thái Nguyên, Quảng Ninh)
-                    new GeographicRegion
-                    {
-                        Id = 1,
-                        Name = "Đông Bắc Bộ",
-                        Code = "DBB",
-                        Description = "Vùng núi phía Đông Bắc Bộ, bao gồm các tỉnh: Hà Giang, Cao Bằng, Lạng Sơn, Bắc Kạn, Thái Nguyên, Quảng Ninh",
-                        Boundary = _geometryFactory.CreatePolygon(new[]
-                        {
-                            new Coordinate(104.5, 23.5),
-                            new Coordinate(108.5, 23.5),
-                            new Coordinate(108.5, 20.5),
-                            new Coordinate(104.5, 20.5),
-                            new Coordinate(104.5, 23.5)
-                        }),
-                        DisplayOrder = 1,
-                        IsActive = true
-                    },
+                    var baseDirectory = AppContext.BaseDirectory;
+                    var jsonPath = Path.Combine(baseDirectory, "Seeds", "geographic_regions_simplified.json");
 
-                    // 2. Tây Bắc Bộ (Điện Biên, Lai Châu, Sơn La, Hòa Bình, Yên Bái, Lào Cai)
-                    new GeographicRegion
+                    if (!File.Exists(jsonPath))
                     {
-                        Id = 2,
-                        Name = "Tây Bắc Bộ",
-                        Code = "TBB",
-                        Description = "Vùng núi phía Tây Bắc Bộ, bao gồm các tỉnh: Điện Biên, Lai Châu, Sơn La, Hòa Bình, Yên Bái, Lào Cai",
-                        Boundary = _geometryFactory.CreatePolygon(new[]
-                        {
-                            new Coordinate(102.0, 23.5),
-                            new Coordinate(104.5, 23.5),
-                            new Coordinate(104.5, 20.0),
-                            new Coordinate(102.0, 20.0),
-                            new Coordinate(102.0, 23.5)
-                        }),
-                        DisplayOrder = 2,
-                        IsActive = true
-                    },
-
-                    // 3. Đồng bằng sông Hồng (Hà Nội, Hải Phòng, Vĩnh Phúc, Bắc Ninh, Hải Dương, Hưng Yên, Thái Bình, Hà Nam, Nam Định, Ninh Bình)
-                    new GeographicRegion
-                    {
-                        Id = 3,
-                        Name = "Đồng bằng sông Hồng",
-                        Code = "DBSH",
-                        Description = "Vùng đồng bằng sông Hồng, bao gồm các tỉnh thành: Hà Nội, Hải Phòng, Vĩnh Phúc, Bắc Ninh, Hải Dương, Hưng Yên, Thái Bình, Hà Nam, Nam Định, Ninh Bình",
-                        Boundary = _geometryFactory.CreatePolygon(new[]
-                        {
-                            new Coordinate(105.0, 21.5),
-                            new Coordinate(107.5, 21.5),
-                            new Coordinate(107.5, 19.5),
-                            new Coordinate(105.0, 19.5),
-                            new Coordinate(105.0, 21.5)
-                        }),
-                        DisplayOrder = 3,
-                        IsActive = true
-                    },
-
-                    // 4. Bắc Trung Bộ (Thanh Hóa, Nghệ An, Hà Tĩnh, Quảng Bình, Quảng Trị, Thừa Thiên Huế)
-                    new GeographicRegion
-                    {
-                        Id = 4,
-                        Name = "Bắc Trung Bộ",
-                        Code = "BTB",
-                        Description = "Vùng Bắc Trung Bộ, bao gồm các tỉnh: Thanh Hóa, Nghệ An, Hà Tĩnh, Quảng Bình, Quảng Trị, Thừa Thiên Huế",
-                        Boundary = _geometryFactory.CreatePolygon(new[]
-                        {
-                            new Coordinate(104.5, 20.5),
-                            new Coordinate(108.0, 20.5),
-                            new Coordinate(108.0, 16.0),
-                            new Coordinate(104.5, 16.0),
-                            new Coordinate(104.5, 20.5)
-                        }),
-                        DisplayOrder = 4,
-                        IsActive = true
-                    },
-
-                    // 5. Duyên hải Nam Trung Bộ (Đà Nẵng, Quảng Nam, Quảng Ngãi, Bình Định, Phú Yên, Khánh Hòa, Ninh Thuận, Bình Thuận)
-                    new GeographicRegion
-                    {
-                        Id = 5,
-                        Name = "Duyên hải Nam Trung Bộ",
-                        Code = "DHNTB",
-                        Description = "Vùng duyên hải Nam Trung Bộ, bao gồm các tỉnh thành: Đà Nẵng, Quảng Nam, Quảng Ngãi, Bình Định, Phú Yên, Khánh Hòa, Ninh Thuận, Bình Thuận",
-                        Boundary = _geometryFactory.CreatePolygon(new[]
-                        {
-                            new Coordinate(107.0, 16.5),
-                            new Coordinate(109.5, 16.5),
-                            new Coordinate(109.5, 10.5),
-                            new Coordinate(107.0, 10.5),
-                            new Coordinate(107.0, 16.5)
-                        }),
-                        DisplayOrder = 5,
-                        IsActive = true
-                    },
-
-                    // 6. Tây Nguyên (Kon Tum, Gia Lai, Đắk Lắk, Đắk Nông, Lâm Đồng)
-                    new GeographicRegion
-                    {
-                        Id = 6,
-                        Name = "Tây Nguyên",
-                        Code = "TN",
-                        Description = "Vùng Tây Nguyên, bao gồm các tỉnh: Kon Tum, Gia Lai, Đắk Lắk, Đắk Nông, Lâm Đồng",
-                        Boundary = _geometryFactory.CreatePolygon(new[]
-                        {
-                            new Coordinate(106.5, 16.0),
-                            new Coordinate(108.5, 16.0),
-                            new Coordinate(108.5, 11.0),
-                            new Coordinate(106.5, 11.0),
-                            new Coordinate(106.5, 16.0)
-                        }),
-                        DisplayOrder = 6,
-                        IsActive = true
-                    },
-
-                    // 7. Đông Nam Bộ (TP.HCM, Bình Dương, Đồng Nai, Bà Rịa - Vũng Tàu, Bình Phước, Tây Ninh)
-                    new GeographicRegion
-                    {
-                        Id = 7,
-                        Name = "Đông Nam Bộ",
-                        Code = "DNB",
-                        Description = "Vùng Đông Nam Bộ, bao gồm các tỉnh thành: TP.HCM, Bình Dương, Đồng Nai, Bà Rịa - Vũng Tàu, Bình Phước, Tây Ninh",
-                        Boundary = _geometryFactory.CreatePolygon(new[]
-                        {
-                            new Coordinate(106.0, 12.5),
-                            new Coordinate(108.0, 12.5),
-                            new Coordinate(108.0, 10.0),
-                            new Coordinate(106.0, 10.0),
-                            new Coordinate(106.0, 12.5)
-                        }),
-                        DisplayOrder = 7,
-                        IsActive = true
-                    },
-
-                    // 8. Tây Nam Bộ (Long An, Tiền Giang, Bến Tre, Trà Vinh, Vĩnh Long, Đồng Tháp, An Giang, Kiên Giang, Cần Thơ, Hậu Giang, Sóc Trăng, Bạc Liêu, Cà Mau)
-                    new GeographicRegion
-                    {
-                        Id = 8,
-                        Name = "Tây Nam Bộ",
-                        Code = "TNB",
-                        Description = "Vùng Tây Nam Bộ (Đồng bằng sông Cửu Long), bao gồm các tỉnh thành: Long An, Tiền Giang, Bến Tre, Trà Vinh, Vĩnh Long, Đồng Tháp, An Giang, Kiên Giang, Cần Thơ, Hậu Giang, Sóc Trăng, Bạc Liêu, Cà Mau",
-                        Boundary = _geometryFactory.CreatePolygon(new[]
-                        {
-                            new Coordinate(104.5, 11.0),
-                            new Coordinate(106.5, 11.0),
-                            new Coordinate(106.5, 8.5),
-                            new Coordinate(104.5, 8.5),
-                            new Coordinate(104.5, 11.0)
-                        }),
-                        DisplayOrder = 8,
-                        IsActive = true
+                        throw new FileNotFoundException($"Geographic regions JSON file not found at: {jsonPath}");
                     }
-                };
 
-                context.GeographicRegions.AddRange(regions);
-                await context.SaveChangesAsync();
+                    // Read and deserialize JSON
+                    var jsonContent = await File.ReadAllTextAsync(jsonPath);
+                    var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+                    var regionDtos = JsonSerializer.Deserialize<List<GeographicRegionDto>>(jsonContent, options)
+                        ?? new List<GeographicRegionDto>();
+
+                    // Map DTO to Entity
+                    var regions = regionDtos
+                        .Select(dto => new GeographicRegion
+                        {
+                            Id = dto.Id,
+                            Name = dto.Name ?? throw new InvalidOperationException($"Missing Name in geographic region Id={dto.Id}"),
+                            Code = dto.Code ?? throw new InvalidOperationException($"Missing Code in geographic region Id={dto.Id}"),
+                            Description = dto.Description,
+                            Boundary = ParsePolygonFromWkt(dto.Boundary ?? throw new InvalidOperationException($"Missing Boundary in geographic region Id={dto.Id}")),
+                            DisplayOrder = dto.DisplayOrder,
+                            IsActive = dto.IsActive
+                        })
+                        .ToList();
+
+                    context.GeographicRegions.AddRange(regions);
+                    await context.SaveChangesAsync();
+                }
+                catch (Exception ex)
+                {
+                    throw new InvalidOperationException("Error seeding geographic regions from JSON", ex);
+                }
             }
 
             // ==================================================================================
@@ -2792,6 +2721,29 @@ namespace SnakeAid.Repository.Seeds
                 };
 
                 context.SystemSettings.AddRange(systemSettings);
+                await context.SaveChangesAsync();
+            }
+
+            if (!context.TreatmentFacilities.Any())
+            {
+                var assemblyPath = System.Reflection.Assembly.GetExecutingAssembly().Location;
+                var assemblyDirectory = Path.GetDirectoryName(assemblyPath);
+                var projectRoot = Path.GetFullPath(Path.Combine(assemblyDirectory, "..", "..", "..", ".."));
+                var jsonPath = Path.Combine(projectRoot, "SnakeAid.Repository", "Seeds", "hcm_hospital_master_data.json");
+                var hospitalsJson = await File.ReadAllTextAsync(jsonPath);
+                var hospitals = JsonSerializer.Deserialize<List<HospitalDto>>(hospitalsJson);
+
+                var treatmentFacilities = hospitals.Select(h => new TreatmentFacility
+                {
+                    Id = h.Id,
+                    Name = h.Name,
+                    Address = h.Address,
+                    ContactNumber = h.ContactNumber,
+                    Location = _geometryFactory.CreatePoint(new Coordinate(h.Coordinates.Lng, h.Coordinates.Lat)),
+                    IsActive = h.IsActive
+                }).ToList();
+
+                context.TreatmentFacilities.AddRange(treatmentFacilities);
                 await context.SaveChangesAsync();
             }
         }
