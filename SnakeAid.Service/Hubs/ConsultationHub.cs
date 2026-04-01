@@ -8,7 +8,7 @@ using SnakeAid.Repository.Interfaces;
 using System.Collections.Concurrent;
 using System.Security.Claims;
 
-namespace SnakeAid.Api.Hubs
+namespace SnakeAid.Service.Hubs
 {
     [Authorize]
     public class ConsultationHub : Hub

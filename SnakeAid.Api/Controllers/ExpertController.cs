@@ -3,6 +3,8 @@ using Microsoft.AspNetCore.Mvc;
 using SnakeAid.Core.Exceptions;
 using SnakeAid.Core.Meta;
 using SnakeAid.Core.Requests.Expert;
+using SnakeAid.Core.Requests.Consultation;
+using SnakeAid.Core.Responses.Consultation;
 using SnakeAid.Core.Responses.Expert;
 using SnakeAid.Core.Responses.UserFeedback;
 using SnakeAid.Service.Interfaces;
@@ -18,10 +20,12 @@ namespace SnakeAid.Api.Controllers
     public class ExpertController : ControllerBase
     {
         private readonly IExpertService _expertService;
+        private readonly IConsultationService _consultationService;
 
-        public ExpertController(IExpertService expertService)
+        public ExpertController(IExpertService expertService, IConsultationService consultationService)
         {
             _expertService = expertService;
+            _consultationService = consultationService;
         }
 
         /// <summary>
@@ -50,6 +54,21 @@ namespace SnakeAid.Api.Controllers
 
             await _expertService.CreateBulkTimeSlotsAsync(expertId, request);
             return Ok(ApiResponseBuilder.BuildSuccessResponse("Time slots generated successfully"));
+        }
+
+        /// <summary>
+        /// Get expert's consultation history (both Scheduled and Emergency).
+        /// </summary>
+        [HttpGet("me/consultations")]
+        [Authorize(Roles = "Expert")]
+        public async Task<ActionResult<ApiResponse<PagingResponse<ExpertConsultationResponse>>>> GetMyConsultations(
+            [FromQuery] MyConsultationsQueryRequest query)
+        {
+            var userIdStr = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (!Guid.TryParse(userIdStr, out var expertId)) throw new UnauthorizedException("User ID not found in token.");
+
+            var result = await _consultationService.GetExpertConsultationsAsync(expertId, query);
+            return Ok(ApiResponseBuilder.BuildSuccessResponse(result));
         }
 
         /// <summary>
