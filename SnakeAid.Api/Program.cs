@@ -310,11 +310,11 @@ namespace SnakeAid.Api
                     }
 
                     // Seed data (mở ra nếu seed lại dữ liệu)
-                    using (var scope = app.Services.CreateScope())
-                    {
-                        var context = scope.ServiceProvider.GetRequiredService<SnakeAidDbContext>();
-                        await DataSeeder.SeedAsync(context);
-                    }
+                    // using (var scope = app.Services.CreateScope())
+                    // {
+                    //     var context = scope.ServiceProvider.GetRequiredService<SnakeAidDbContext>();
+                    //     await DataSeeder.SeedAsync(context);
+                    // }
                 }
                 app.UseSwagger();
                 app.UseSwaggerUI(c =>

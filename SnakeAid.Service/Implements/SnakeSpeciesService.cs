@@ -1433,15 +1433,15 @@ SELECT setval(
                 // Step 2: Get snakes in this region with metadata
                 var snakesInRegion = await _unitOfWork.GetRepository<SnakeSpecies>()
                     .CreateBaseQuery(asNoTracking: true)
-                    .Where(s => s.IsActive && 
-                                s.RegionSnakeMappings.Any(m => 
-                                    m.GeographicRegionId == region.Id && 
+                    .Where(s => s.IsActive &&
+                                s.RegionSnakeMappings.Any(m =>
+                                    m.GeographicRegionId == region.Id &&
                                     m.IsActive))
                     .Select(s => new
                     {
                         Snake = s,
-                        Mapping = s.RegionSnakeMappings.First(m => 
-                            m.GeographicRegionId == region.Id && 
+                        Mapping = s.RegionSnakeMappings.First(m =>
+                            m.GeographicRegionId == region.Id &&
                             m.IsActive)
                     })
                     .OrderByDescending(x => x.Mapping.Priority)
@@ -1473,7 +1473,7 @@ SELECT setval(
                         PrimaryVenomType = x.Snake.PrimaryVenomType,
                         RiskLevel = x.Snake.RiskLevel,
                         IsVenomous = x.Snake.IsVenomous,
-                        
+
                         // Region-specific metadata
                         CommonLevel = x.Mapping.CommonLevel.ToString(),
                         Priority = x.Mapping.Priority,
@@ -1537,7 +1537,7 @@ SELECT setval(
 
         // ── Geographic Region & Distribution ─────────────────────────────────
 
-        public async Task<List<GeographicRegionResponse>> GetAllRegionsAsync(int? snakeSpeciesId = null, CancellationToken ct = default)
+        public async Task<List<GeographicRegionResponse>> GetAllRegionsAsync(CancellationToken ct = default)
         {
             var regions = await _unitOfWork.GetRepository<GeographicRegion>()
                 .GetListAsync(
@@ -1545,39 +1545,7 @@ SELECT setval(
                     orderBy: q => q.OrderBy(r => r.DisplayOrder),
                     cancellationToken: ct);
 
-            // If snakeSpeciesId provided, load all mappings for that snake in one query
-            Dictionary<int, RegionSnakeMapping> mappingsByRegion = new();
-            if (snakeSpeciesId.HasValue)
-            {
-                var mappings = await _unitOfWork.GetRepository<RegionSnakeMapping>()
-                    .GetListAsync(
-                        predicate: m => m.SnakeSpeciesId == snakeSpeciesId.Value && m.IsActive,
-                        cancellationToken: ct);
-
-                mappingsByRegion = mappings.ToDictionary(m => m.GeographicRegionId);
-            }
-
-            return regions.Select(r =>
-            {
-                var response = MapRegionToResponse(r);
-                if (snakeSpeciesId.HasValue && mappingsByRegion.TryGetValue(r.Id, out var mapping))
-                {
-                    response.IsMapped = true;
-                    response.Mapping = new RegionSnakeMappingResponse
-                    {
-                        Id = mapping.Id,
-                        GeographicRegionId = mapping.GeographicRegionId,
-                        RegionName = r.Name,
-                        RegionCode = r.Code,
-                        CommonLevel = mapping.CommonLevel.ToString(),
-                        CommonLevelValue = (int)mapping.CommonLevel,
-                        Priority = mapping.Priority,
-                        DistributionNotes = mapping.DistributionNotes,
-                        IsActive = mapping.IsActive
-                    };
-                }
-                return response;
-            }).ToList();
+            return regions.Select(MapRegionToResponse).ToList();
         }
 
         public async Task<List<RegionSnakeMappingResponse>> GetRegionMappingsBySnakeAsync(int snakeSpeciesId, CancellationToken ct = default)

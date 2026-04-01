@@ -18,16 +18,28 @@ Trang detail rắn cho admin gồm 2 phần chính chạy song song khi load:
 - Nếu `CommonName` trống khi tạo từ Excel, fallback sang `ScientificName`
 - Alternative names cũng tự generate slug, không cần truyền lên
 
+### Response model cho map đã tách theo trách nhiệm
+
+- `GeographicRegionResponse` chỉ còn dữ liệu nền để vẽ map: `id`, `name`, `code`, `description`, `displayOrder`, `isActive`, `boundaryCoordinates`
+- Đã bỏ khỏi `GeographicRegionResponse`: `isMapped`, `mapping`
+- Trạng thái phân bố theo loài rắn lấy riêng từ `RegionSnakeMappingResponse` qua endpoint `GET /api/snake-species/{id}/region-mappings`
+- FE cần join theo khóa: `region.id == mapping.geographicRegionId`
+
 ---
 
 ## API Calls khi load trang
 
-Gọi song song 2 request:
+Gọi song song 3 request:
 
 ```
 GET /api/snake-species/{id}
-GET /api/geographic-regions?snakeSpeciesId={id}
+GET /api/geographic-regions
+GET /api/snake-species/{id}/region-mappings
 ```
+
+- `GET /api/geographic-regions`: tải polygon một lần để khởi tạo map và lưu cache/registry ở FE.
+- `GET /api/snake-species/{id}/region-mappings`: tải trạng thái phân bố theo loài rắn hiện tại.
+- FE highlight bằng cách so sánh `region.id` với `mapping.geographicRegionId`.
 
 ---
 
@@ -93,9 +105,9 @@ GET /api/geographic-regions?snakeSpeciesId={id}
 
 ## 2. Bản đồ phân bố
 
-### `GET /api/geographic-regions?snakeSpeciesId={id}`
+### `GET /api/geographic-regions`
 
-Trả về **tất cả regions** kèm polygon và trạng thái mapping cho con rắn được chỉ định.
+Trả về **tất cả regions** kèm polygon boundary. Endpoint này chỉ dùng để render map và cache ở FE.
 
 **Response: `List<GeographicRegionResponse>`**
 
@@ -113,9 +125,7 @@ Trả về **tất cả regions** kèm polygon và trạng thái mapping cho con
       [107.3, 10.5],
       [107.8, 11.1],
       [106.1, 10.2]
-    ],
-    "isMapped": false,
-    "mapping": null
+    ]
   },
   {
     "id": 2,
@@ -129,31 +139,44 @@ Trả về **tất cả regions** kèm polygon và trạng thái mapping cho con
       [106.2, 9.3],
       [106.5, 10.1],
       [104.8, 9.1]
-    ],
-    "isMapped": true,
-    "mapping": {
-      "id": 15,
-      "geographicRegionId": 2,
-      "regionName": "Tây Nam Bộ",
-      "regionCode": "TNB",
-      "commonLevel": "VeryCommon",
-      "commonLevelValue": 4,
-      "priority": 10,
-      "distributionNotes": "Thường gặp ở vùng ven sông, mùa mưa xuất hiện nhiều hơn",
-      "isActive": true
-    }
+    ]
   }
 ]
 ```
 
 **`boundaryCoordinates`**: mảng `[lng, lat]` theo chuẩn GeoJSON, dùng trực tiếp với Leaflet/MapLibre/Google Maps.
 
-**Logic render map:**
+### `GET /api/snake-species/{id}/region-mappings`
 
-- `isMapped: true` → highlight polygon (màu xanh/cam tùy design)
-- `isMapped: false` → polygon xám mờ, clickable để thêm mới
-- Click vào polygon `isMapped: true` → mở form edit, pre-fill từ `mapping`
-- Click vào polygon `isMapped: false` → mở form thêm mới
+Trả về danh sách vùng đã mapping cho loài rắn hiện tại, **không chứa lat/lng**.
+
+```json
+[
+  {
+    "id": 15,
+    "geographicRegionId": 2,
+    "regionName": "Tây Nam Bộ",
+    "regionCode": "TNB",
+    "commonLevel": "VeryCommon",
+    "commonLevelValue": 4,
+    "priority": 10,
+    "distributionNotes": "Thường gặp ở vùng ven sông",
+    "isActive": true
+  }
+]
+```
+
+### Cách FE so sánh để visualize
+
+1. Lưu `regionsRegistry` từ `GET /api/geographic-regions` (key: `region.id`).
+2. Lưu `mappings` từ `GET /api/snake-species/{id}/region-mappings`.
+3. Tạo `mappingByRegionId` (key: `geographicRegionId`).
+4. Khi render từng polygon:
+   - Có mapping: `mappingByRegionId[region.id]` tồn tại thì tô đậm theo `commonLevelValue`.
+   - Không mapping: tô xám mờ.
+5. Click polygon:
+   - Có mapping: mở modal edit với dữ liệu từ `mappingByRegionId[region.id]`.
+   - Không mapping: mở modal thêm mới với `geographicRegionId = region.id`.
 
 ---
 
@@ -193,7 +216,7 @@ Trả về **tất cả regions** kèm polygon và trạng thái mapping cho con
 
 **`PATCH /api/snake-species/{id}/region-mappings/{mappingId}`**
 
-> `mappingId` lấy từ `mapping.id` trong response của `GET /api/geographic-regions?snakeSpeciesId={id}`
+> `mappingId` lấy từ `id` trong response của `GET /api/snake-species/{id}/region-mappings`
 
 Tất cả field optional:
 
@@ -277,29 +300,30 @@ Dùng cho sidebar list hoặc table tóm tắt, không cần cho map render.
 
 ```
 [Load trang]
-    ├── GET /api/snake-species/{id}          → render form thông tin rắn
-    └── GET /api/geographic-regions?snakeSpeciesId={id}  → render map
+  ├── GET /api/snake-species/{id}                    → render form thông tin rắn
+  ├── GET /api/geographic-regions                    → init registry polygon
+  └── GET /api/snake-species/{id}/region-mappings    → mapping của snake hiện tại
 
 [Map render]
-    ├── isMapped: true  → polygon highlight + tooltip tên vùng + commonLevel
-    └── isMapped: false → polygon xám
+  ├── Có mapping (match theo region.id)  → polygon highlight + tooltip
+  └── Không mapping                      → polygon xám
 
-[Click polygon isMapped: false]
+[Click polygon chưa mapping]
     └── Mở modal "Thêm phân bố"
         ├── Dropdown CommonLevel (Rare → Abundant)
         ├── Input Priority (0-100)
         ├── Textarea DistributionNotes
         └── [Lưu] → POST /api/snake-species/{id}/region-mappings
-                   → refresh map data
+           → re-fetch /api/snake-species/{id}/region-mappings
 
-[Click polygon isMapped: true]
+[Click polygon đã mapping]
     └── Mở modal "Chỉnh sửa phân bố" (pre-fill từ mapping)
         ├── Dropdown CommonLevel
         ├── Input Priority
         ├── Textarea DistributionNotes
-        ├── [Lưu] → PATCH /api/snake-species/{id}/region-mappings/{mapping.id}
-        └── [Xóa] → DELETE /api/snake-species/{id}/region-mappings/{mapping.id}
-                   → refresh map data
+    ├── [Lưu] → PATCH /api/snake-species/{id}/region-mappings/{mappingId}
+    └── [Xóa] → DELETE /api/snake-species/{id}/region-mappings/{mappingId}
+           → re-fetch /api/snake-species/{id}/region-mappings
 
 [Batch mode - chọn nhiều vùng]
     └── [Save tất cả] → PUT /api/snake-species/{id}/region-mappings
@@ -411,13 +435,18 @@ Với polygon chưa mapping:
 [Load trang]
     ├── GET /api/snake-species/{id}
     │       → render form thông tin rắn
-    └── GET /api/geographic-regions?snakeSpeciesId={id}
-            → render map với tất cả polygons
-            → isMapped: true  → polygon màu xanh, opacity theo commonLevelValue
-            → isMapped: false → polygon xám nhạt
+  ├── GET /api/geographic-regions
+  │       → build regionsRegistry: Map<regionId, regionGeometry>
+  └── GET /api/snake-species/{id}/region-mappings
+      → build mappingByRegionId: Map<regionId, mapping>
+      → render map:
+        - mapped: opacity theo commonLevelValue
+        - unmapped: màu xám nhạt
 
 [Hover polygon]
-    └── Hiện tooltip với thông tin mapping hoặc "Chưa có dữ liệu"
+  └── Lookup mappingByRegionId[region.id]
+    ├── Có mapping: hiện commonLevel, priority, distributionNotes
+    └── Không mapping: hiện "Chưa có dữ liệu"
 
 [Click polygon - chưa mapping]
     └── Mở modal "Thêm phân bố"
@@ -427,21 +456,22 @@ Với polygon chưa mapping:
         └── [Lưu]
             → POST /api/snake-species/{id}/region-mappings
               body: { geographicRegionId, commonLevel, priority, distributionNotes }
-            → Re-fetch GET /api/geographic-regions?snakeSpeciesId={id}
-            → Map tự cập nhật polygon màu
+      → Re-fetch GET /api/snake-species/{id}/region-mappings
+      → Re-render map bằng registry có sẵn
 
 [Click polygon - đã mapping]
-    └── Mở modal "Chỉnh sửa phân bố" (pre-fill từ region.mapping)
+  └── Mở modal "Chỉnh sửa phân bố" (pre-fill từ mappingByRegionId[region.id])
         ├── CommonLevel dropdown
         ├── Priority input
         ├── DistributionNotes textarea
         ├── [Lưu]
-        │   → PATCH /api/snake-species/{id}/region-mappings/{region.mapping.id}
+    │   → PATCH /api/snake-species/{id}/region-mappings/{mappingId}
         │     body: chỉ gửi field thay đổi
-        │   → Re-fetch map
+    │   → Re-fetch GET /api/snake-species/{id}/region-mappings
         └── [Xóa]
-            → DELETE /api/snake-species/{id}/region-mappings/{region.mapping.id}
-            → Re-fetch map → polygon trở về xám
+      → DELETE /api/snake-species/{id}/region-mappings/{mappingId}
+      → Re-fetch GET /api/snake-species/{id}/region-mappings
+      → polygon trở về xám
 
 [Sidebar danh sách - optional]
     └── Hiển thị GET /api/snake-species/{id}/region-mappings
@@ -457,5 +487,6 @@ Với polygon chưa mapping:
 - `boundaryCoordinates` là `[[lng, lat], ...]` - **lng trước, lat sau** (chuẩn GeoJSON)
 - Leaflet dùng `[lat, lng]` → cần swap khi dùng với Leaflet: `coords.map(c => [c[1], c[0]])`
 - MapLibre/Mapbox dùng `[lng, lat]` → dùng thẳng không cần swap
-- Sau mỗi thao tác POST/PATCH/DELETE, re-fetch `GET /api/geographic-regions?snakeSpeciesId={id}` để sync lại toàn bộ map state
-- `region.mapping.id` là `mappingId` dùng cho PATCH/DELETE, không phải `region.id`
+- Lưu cache `regionsRegistry` sau lần gọi đầu `GET /api/geographic-regions`, chỉ refresh khi có thay đổi boundary dữ liệu nền
+- Sau mỗi thao tác POST/PATCH/DELETE, chỉ re-fetch `GET /api/snake-species/{id}/region-mappings`
+- `mappingId` lấy từ `RegionSnakeMappingResponse.id`; `region.id` chỉ dùng để map polygon
