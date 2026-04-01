@@ -83,39 +83,47 @@ public class SnakebiteIncidentPaymentService : ISnakebiteIncidentPaymentService
             throw new ValidationException($"Payment amount must equal completed mission amount ({expectedAmount}).");
         }
 
-        var orderCode = GenerateOrderCode();
-        var description = BuildDescription(orderCode, request.Description ?? string.Empty);
+        var pendingTransaction = await PreparePendingPayOsTransactionAsync(
+            currentUserId,
+            request.SnakebiteIncidentId,
+            request.Amount,
+            request.Description ?? string.Empty,
+            cancellationToken);
 
         var paymentLink = await _paymentGateway.CreatePaymentLinkAsync(new PayOsCreatePaymentRequest
         {
-            OrderCode = orderCode,
+            OrderCode = pendingTransaction.OrderCode,
             Amount = request.Amount,
-            Description = description,
+            Description = BuildDescription(pendingTransaction.OrderCode, request.Description ?? string.Empty),
             ItemName = "Snakebite Incident Payment",
             Quantity = 1
         }, cancellationToken);
 
         if (!paymentLink.Success)
         {
+            var txToDelete = await FindIncidentTransactionByOrderCodeAsync(pendingTransaction.OrderCode, false, cancellationToken);
+            if (txToDelete != null && string.IsNullOrWhiteSpace(txToDelete.ExternalTransactionId))
+            {
+                _unitOfWork.GetRepository<Transaction>().Delete(txToDelete);
+                await _unitOfWork.CommitAsync();
+            }
+
             throw new ValidationException("Payment link creation failed: " + (paymentLink.ErrorMessage ?? "Unknown error"));
         }
-
-        incident.PayOsOrderCode = orderCode;
-        _unitOfWork.GetRepository<SnakebiteIncident>().Update(incident);
-        await _unitOfWork.CommitAsync();
 
         return new SnakebiteIncidentPaymentResponse
         {
             SnakebiteIncidentId = request.SnakebiteIncidentId,
-            TransactionId = null,
+            TransactionId = pendingTransaction.TransactionId,
             OrderCode = paymentLink.OrderCode,
             Amount = request.Amount,
             Currency = "VND",
-            Status = PaymentStatus.Pending,
+            Status = "Pending",
             Provider = "PayOS",
             CheckoutUrl = paymentLink.CheckoutUrl,
-            PaymentLinkId = paymentLink.PaymentLinkId,  // Still return to client, just don't store in DB
-            ExpiresAt = null
+            PaymentLinkId = paymentLink.PaymentLinkId,
+            ExpiresAt = null,
+            UserWalletBalanceAfter = null
         };
     }
 
@@ -167,50 +175,14 @@ public class SnakebiteIncidentPaymentService : ISnakebiteIncidentPaymentService
             throw new ValidationException($"Payment amount must equal completed mission amount ({expectedAmount}).");
         }
 
-        var userWallet = await GetRequiredWalletAsync(currentUserId, cancellationToken);
-        if (userWallet.Balance < request.Amount)
-        {
-            throw new ConflictException($"Insufficient wallet balance. Available: {userWallet.Balance}, required: {request.Amount}.");
-        }
-
-        var systemWallet = await GetOrCreateWalletAsync(Guid.Parse(SystemWalletUserId), cancellationToken);
-
-        userWallet.Balance -= request.Amount;
-        systemWallet.Balance += request.Amount;
-
-        _unitOfWork.GetRepository<Wallet>().Update(userWallet);
-        _unitOfWork.GetRepository<Wallet>().Update(systemWallet);
-
-        var paymentTransaction = new Transaction
-        {
-            Id = Guid.NewGuid(),
-            UserId = currentUserId,
-            ReferenceId = request.SnakebiteIncidentId,
-            Amount = request.Amount,
-            Currency = "VND",
-            TransactionType = TransactionType.SnakebiteIncidentPayment,
-            Description = $"Snakebite incident wallet payment: {request.SnakebiteIncidentId}",
-            PaymentMethod = "Wallet",
-            ExternalTransactionId = $"WALLET-{Guid.NewGuid():N}",
-            CreatedAt = DateTime.UtcNow
-        };
-
-        var systemCreditTransaction = new Transaction
-        {
-            Id = Guid.NewGuid(),
-            UserId = Guid.Parse(SystemWalletUserId),
-            ReferenceId = request.SnakebiteIncidentId,
-            Amount = request.Amount,
-            Currency = "VND",
-            TransactionType = TransactionType.WalletTopup,
-            Description = $"Escrowed wallet payment for snakebite incident {request.SnakebiteIncidentId}",
-            PaymentMethod = "Wallet",
-            ExternalTransactionId = $"WALLET-{Guid.NewGuid():N}",
-            CreatedAt = DateTime.UtcNow
-        };
-
-        await _unitOfWork.GetRepository<Transaction>().InsertAsync(paymentTransaction);
-        await _unitOfWork.GetRepository<Transaction>().InsertAsync(systemCreditTransaction);
+        var transfer = await MoveMoneyToEscrowAsync(
+            currentUserId,
+            request.SnakebiteIncidentId,
+            request.Amount,
+            "Snakebite incident wallet payment",
+            "Wallet",
+            $"WALLET-{Guid.NewGuid():N}",
+            cancellationToken);
 
         incident.Status = SnakebiteIncidentStatus.Completed;
         _unitOfWork.GetRepository<SnakebiteIncident>().Update(incident);
@@ -220,17 +192,19 @@ public class SnakebiteIncidentPaymentService : ISnakebiteIncidentPaymentService
         return new SnakebiteIncidentPaymentResponse
         {
             SnakebiteIncidentId = request.SnakebiteIncidentId,
-            TransactionId = paymentTransaction.Id,
+            TransactionId = transfer.TransactionId,
             OrderCode = null,
             Amount = request.Amount,
             Currency = "VND",
-            Status = PaymentStatus.Paid,
+            Status = "Escrowed",
             Provider = "Wallet",
             CheckoutUrl = null,
             PaymentLinkId = null,
             ExpiresAt = null,
-            ExternalTransactionId = paymentTransaction.ExternalTransactionId,
-            PaidAt = paymentTransaction.CreatedAt
+            UserWalletBalanceAfter = transfer.UserWalletBalanceAfter,
+            SystemWalletBalanceAfter = transfer.SystemWalletBalanceAfter,
+            ExternalTransactionId = transfer.ExternalTransactionId,
+            PaidAt = transfer.ProcessedAtUtc
         };
     }
 
@@ -239,6 +213,8 @@ public class SnakebiteIncidentPaymentService : ISnakebiteIncidentPaymentService
         CancelPaymentLinkRequest request,
         CancellationToken cancellationToken)
     {
+        var pendingTransaction = await FindIncidentTransactionByOrderCodeAsync(orderCode, false, cancellationToken);
+
         var gatewayResult = await _paymentGateway.CancelPaymentLinkAsync(orderCode, request.CancellationReason, cancellationToken);
 
         if (!gatewayResult.Success)
@@ -246,26 +222,16 @@ public class SnakebiteIncidentPaymentService : ISnakebiteIncidentPaymentService
             throw new InvalidOperationException($"Failed to cancel payment link: {gatewayResult.ErrorMessage}");
         }
 
-        var paymentTransaction = await _unitOfWork.GetRepository<Transaction>().FirstOrDefaultAsync(
-            predicate: t => !string.IsNullOrWhiteSpace(t.Description) && t.Description.StartsWith($"INCIDENT-{orderCode}"),
-            asNoTracking: false,
-            cancellationToken: cancellationToken);
-
-        if (paymentTransaction != null)
+        if (pendingTransaction != null && string.IsNullOrWhiteSpace(pendingTransaction.ExternalTransactionId))
         {
-            _unitOfWork.GetRepository<Transaction>().Delete(paymentTransaction);
+            _unitOfWork.GetRepository<Transaction>().Delete(pendingTransaction);
             await _unitOfWork.CommitAsync();
         }
-
-        var incident = await _unitOfWork.GetRepository<SnakebiteIncident>().FirstOrDefaultAsync(
-            predicate: i => i.PayOsOrderCode == orderCode,
-            asNoTracking: true,
-            cancellationToken: cancellationToken);
 
         return new CancelPaymentLinkResponse
         {
             Success = true,
-            ReferenceId = incident?.Id ?? Guid.Empty,
+            ReferenceId = pendingTransaction?.ReferenceId ?? Guid.Empty,
             OrderCode = gatewayResult.OrderCode,
             Status = PaymentStatus.Cancelled,
             Amount = gatewayResult.Amount,
@@ -286,67 +252,20 @@ public class SnakebiteIncidentPaymentService : ISnakebiteIncidentPaymentService
 
         var webhook = _paymentGateway.VerifyWebhook(rawPayload);
 
-        var incident = await _unitOfWork.GetRepository<SnakebiteIncident>().FirstOrDefaultAsync(
-            predicate: i => i.PayOsOrderCode == webhook.OrderCode,
-            asNoTracking: false,
-            cancellationToken: cancellationToken);
-
-        if (incident == null)
+        if (!webhook.Success)
         {
-            throw new NotFoundException("Snakebite incident not found for webhook orderCode.");
+            return new PayOsWebhookResponse
+            {
+                Success = false,
+                Message = $"{webhook.Code}: {webhook.Description}",
+                OrderCode = webhook.OrderCode,
+                Amount = webhook.Amount,
+                TransactionReference = webhook.TransactionReference,
+                TransactionDateTime = webhook.TransactionDateTime
+            };
         }
 
-        Transaction? confirmedTransaction = null;
-
-        if (webhook.Success)
-        {
-            confirmedTransaction = await _unitOfWork.GetRepository<Transaction>().FirstOrDefaultAsync(
-                predicate: t => t.ReferenceId == incident.Id && t.TransactionType == TransactionType.SnakebiteIncidentPayment,
-                asNoTracking: true,
-                cancellationToken: cancellationToken);
-
-            if (confirmedTransaction == null)
-            {
-                confirmedTransaction = new Transaction
-                {
-                    Id = Guid.NewGuid(),
-                    UserId = incident.UserId,
-                    ReferenceId = incident.Id,
-                    Amount = webhook.Amount,
-                    Currency = "VND",
-                    TransactionType = TransactionType.SnakebiteIncidentPayment,
-                    Description = $"INCIDENT-{webhook.OrderCode}",
-                    PaymentMethod = "PayOS",
-                    ExternalTransactionId = webhook.TransactionReference,
-                    CreatedAt = webhook.TransactionDateTime ?? DateTime.UtcNow
-                };
-
-                await _unitOfWork.GetRepository<Transaction>().InsertAsync(confirmedTransaction);
-            }
-            else
-            {
-                confirmedTransaction.ExternalTransactionId = webhook.TransactionReference;
-                _unitOfWork.GetRepository<Transaction>().Update(confirmedTransaction);
-            }
-
-            incident.Status = SnakebiteIncidentStatus.Completed;
-            _unitOfWork.GetRepository<SnakebiteIncident>().Update(incident);
-
-            await _unitOfWork.CommitAsync();
-        }
-
-        return new PayOsWebhookResponse
-        {
-            Success = webhook.Success,
-            Message = webhook.Success ? "Payment processed successfully" : "Payment failed",
-            SnakebiteIncidentId = incident.Id,
-            TransactionId = confirmedTransaction?.Id,
-            OrderCode = webhook.OrderCode,
-            Amount = webhook.Amount,
-            Status = webhook.Success ? PaymentStatus.Paid : PaymentStatus.Failed,
-            TransactionReference = webhook.TransactionReference,
-            TransactionDateTime = webhook.TransactionDateTime
-        };
+        return await ProcessConfirmedPayOsPaymentAsync(webhook, cancellationToken);
     }
 
     public async Task<PayOsWebhookResponse> ConfirmSnakebiteIncidentPaymentAsync(
@@ -363,47 +282,71 @@ public class SnakebiteIncidentPaymentService : ISnakebiteIncidentPaymentService
             throw new NotFoundException("Transaction not found.");
         }
 
-        var incident = await _unitOfWork.GetRepository<SnakebiteIncident>().FirstOrDefaultAsync(
-            predicate: i => i.Id == transaction.ReferenceId,
-            asNoTracking: true,
-            cancellationToken: cancellationToken);
-
-        return new PayOsWebhookResponse
+        // Idempotent: already confirmed
+        if (!string.IsNullOrWhiteSpace(transaction.ExternalTransactionId))
         {
-            Success = true,
-            Message = "Transaction exists and is confirmed.",
-            SnakebiteIncidentId = incident?.Id ?? Guid.Empty,
-            TransactionId = transaction.Id,
-            OrderCode = ExtractOrderCodeFromDescription(transaction.Description),
-            Amount = transaction.Amount,
-            Status = PaymentStatus.Paid,
-            TransactionReference = transaction.ExternalTransactionId ?? string.Empty,
-            TransactionDateTime = transaction.CreatedAt
-        };
+            var incident = await _unitOfWork.GetRepository<SnakebiteIncident>().FirstOrDefaultAsync(
+                predicate: i => i.Id == transaction.ReferenceId,
+                asNoTracking: true,
+                cancellationToken: cancellationToken);
+
+            return new PayOsWebhookResponse
+            {
+                Success = true,
+                Message = "Transaction exists and is confirmed.",
+                SnakebiteIncidentId = incident?.Id ?? Guid.Empty,
+                TransactionId = transaction.Id,
+                OrderCode = ExtractOrderCodeFromDescription(transaction.Description),
+                Amount = transaction.Amount,
+                Status = PaymentStatus.Paid,
+                TransactionReference = transaction.ExternalTransactionId,
+                TransactionDateTime = transaction.CreatedAt
+            };
+        }
+
+        // ExternalTransactionId is null → verify on PayOS
+        var orderCode = ExtractOrderCodeFromDescription(transaction.Description);
+        if (orderCode == 0)
+        {
+            throw new ConflictException("Incident payment order code is missing.");
+        }
+
+        var linkInfo = await _paymentGateway.GetPaymentLinkInformationAsync(orderCode, cancellationToken);
+        if (linkInfo == null)
+        {
+            throw new ConflictException($"Unable to retrieve PayOS payment information for order code {orderCode}.");
+        }
+
+        if (!IsPaymentLinkPaid(linkInfo))
+        {
+            throw new ConflictException($"PayOS reports status '{linkInfo.Status}'. Payment cannot be confirmed.");
+        }
+
+        // PayOS says PAID → process confirmed payment
+        return await ProcessConfirmedPayOsPaymentAsync(
+            new PayOsWebhookData
+            {
+                Success = true,
+                Code = "00",
+                Description = "Manual confirmation",
+                OrderCode = orderCode,
+                Amount = linkInfo.Amount,
+                PaymentLinkId = linkInfo.Id,
+                TransactionReference = $"INCIDENT-MANUAL-{transactionId:N}",
+                TransactionDateTime = DateTime.UtcNow
+            },
+            cancellationToken);
     }
 
     public async Task<PayOsWebhookResponse> ConfirmSnakebiteIncidentPaymentByOrderCodeAsync(
         long orderCode,
         CancellationToken cancellationToken)
     {
-        var incident = await _unitOfWork.GetRepository<SnakebiteIncident>().FirstOrDefaultAsync(
-            predicate: i => i.PayOsOrderCode == orderCode,
-            asNoTracking: true,
-            cancellationToken: cancellationToken);
-
-        if (incident == null)
-        {
-            throw new NotFoundException("Snakebite incident not found for given order code.");
-        }
-
-        var transaction = await _unitOfWork.GetRepository<Transaction>().FirstOrDefaultAsync(
-            predicate: t => t.ReferenceId == incident.Id && t.TransactionType == TransactionType.SnakebiteIncidentPayment,
-            asNoTracking: true,
-            cancellationToken: cancellationToken);
+        var transaction = await FindIncidentTransactionByOrderCodeAsync(orderCode, true, cancellationToken);
 
         if (transaction == null)
         {
-            throw new NotFoundException("Transaction not found for given order code.");
+            throw new NotFoundException("Incident transaction not found for given order code.");
         }
 
         return await ConfirmSnakebiteIncidentPaymentAsync(transaction.Id, cancellationToken);
@@ -426,6 +369,11 @@ public class SnakebiteIncidentPaymentService : ISnakebiteIncidentPaymentService
         if (existingTransaction == null)
         {
             throw new NotFoundException("Original payment transaction not found.");
+        }
+
+        if (request.Amount > existingTransaction.Amount)
+        {
+            throw new ValidationException("Refund amount cannot exceed original payment amount.");
         }
 
         var systemWallet = await GetRequiredWalletAsync(Guid.Parse(SystemWalletUserId), cancellationToken);
@@ -453,7 +401,7 @@ public class SnakebiteIncidentPaymentService : ISnakebiteIncidentPaymentService
             Amount = request.Amount,
             Currency = "VND",
             TransactionType = TransactionType.WalletWithdraw,
-            Description = request.Description,
+            Description = $"Escrow refund source for incident reference {request.ReferenceId}",
             PaymentMethod = "Wallet",
             ExternalTransactionId = $"REFUND-SOURCE-{Guid.NewGuid():N}",
             CreatedAt = DateTime.UtcNow
@@ -564,5 +512,276 @@ public class SnakebiteIncidentPaymentService : ISnakebiteIncidentPaymentService
         }
 
         return 0;
+    }
+
+    private static bool IsPaymentLinkPaid(PayOsLinkInformation linkInfo)
+    {
+        return linkInfo.Status.Equals("PAID", StringComparison.OrdinalIgnoreCase)
+               || (linkInfo.AmountPaid > 0 && linkInfo.AmountPaid >= linkInfo.Amount);
+    }
+
+    /// <summary>
+    /// Tìm incident transaction theo orderCode (description prefix INCIDENT-{orderCode}).
+    /// Mirror pattern từ ConsultationPaymentService.FindConsultationTransactionByOrderCodeAsync.
+    /// </summary>
+    private async Task<Transaction?> FindIncidentTransactionByOrderCodeAsync(
+        long orderCode,
+        bool asNoTracking,
+        CancellationToken cancellationToken)
+    {
+        var descriptionPrefix = $"INCIDENT-{orderCode}";
+        return await _unitOfWork.GetRepository<Transaction>().FirstOrDefaultAsync(
+            predicate: t => t.TransactionType == TransactionType.SnakebiteIncidentPayment
+                         && t.Description != null
+                         && t.Description.StartsWith(descriptionPrefix)
+                         && t.PaymentMethod == "PayOS",
+            asNoTracking: asNoTracking,
+            cancellationToken: cancellationToken);
+    }
+
+    /// <summary>
+    /// Tạo pending transaction trước khi gọi PayOS, xóa pending cũ nếu có.
+    /// Mirror pattern từ ConsultationPaymentService.PreparePendingPayOsTransactionAsync.
+    /// </summary>
+    private async Task<PendingPayOsTransactionContext> PreparePendingPayOsTransactionAsync(
+        Guid userId,
+        Guid incidentId,
+        decimal amount,
+        string description,
+        CancellationToken cancellationToken)
+    {
+        var existingTransaction = await _unitOfWork.GetRepository<Transaction>().FirstOrDefaultAsync(
+            predicate: t => t.ReferenceId == incidentId
+                         && t.TransactionType == TransactionType.SnakebiteIncidentPayment
+                         && t.PaymentMethod == "PayOS",
+            asNoTracking: false,
+            cancellationToken: cancellationToken);
+
+        if (existingTransaction != null)
+        {
+            if (!string.IsNullOrWhiteSpace(existingTransaction.ExternalTransactionId))
+            {
+                throw new ConflictException("This incident has already been paid.");
+            }
+
+            var oldOrderCode = ExtractOrderCodeFromDescription(existingTransaction.Description);
+            if (oldOrderCode > 0)
+            {
+                try
+                {
+                    await _paymentGateway.CancelPaymentLinkAsync(oldOrderCode, "Replacing old incident payment link.", cancellationToken);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to cancel old PayOS payment link for incident {IncidentId}", incidentId);
+                }
+            }
+
+            _unitOfWork.GetRepository<Transaction>().Delete(existingTransaction);
+            await _unitOfWork.CommitAsync();
+        }
+
+        var orderCode = GenerateOrderCode();
+        var transaction = new Transaction
+        {
+            Id = Guid.NewGuid(),
+            UserId = userId,
+            ReferenceId = incidentId,
+            Amount = amount,
+            Currency = "VND",
+            TransactionType = TransactionType.SnakebiteIncidentPayment,
+            Description = BuildDescription(orderCode, description),
+            PaymentMethod = "PayOS",
+            ExternalTransactionId = null,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        await _unitOfWork.GetRepository<Transaction>().InsertAsync(transaction);
+        await _unitOfWork.CommitAsync();
+
+        return new PendingPayOsTransactionContext
+        {
+            TransactionId = transaction.Id,
+            OrderCode = orderCode
+        };
+    }
+
+    /// <summary>
+    /// Di chuyển tiền vào escrow (System_Wallet).
+    /// Mirror pattern từ ConsultationPaymentService.MoveMoneyToEscrowAsync.
+    /// Cho cả Wallet payment (debit user) và PayOS payment (chỉ credit system).
+    /// </summary>
+    private async Task<(Guid TransactionId, decimal UserWalletBalanceAfter, decimal SystemWalletBalanceAfter, DateTime ProcessedAtUtc, string ExternalTransactionId)> MoveMoneyToEscrowAsync(
+        Guid userId,
+        Guid incidentId,
+        decimal amount,
+        string description,
+        string paymentMethod,
+        string externalTransactionId,
+        CancellationToken cancellationToken,
+        bool skipExistingPaymentInsert = false)
+    {
+        decimal userWalletBalanceAfter;
+        var systemWallet = await GetOrCreateWalletAsync(Guid.Parse(SystemWalletUserId), cancellationToken);
+        var now = DateTime.UtcNow;
+
+        if (string.Equals(paymentMethod, "Wallet", StringComparison.OrdinalIgnoreCase))
+        {
+            var userWallet = await GetRequiredWalletAsync(userId, cancellationToken);
+            if (userWallet.Balance < amount)
+            {
+                throw new ConflictException($"Insufficient wallet balance. Available: {userWallet.Balance}, required: {amount}.");
+            }
+
+            userWallet.Balance -= amount;
+            userWalletBalanceAfter = userWallet.Balance;
+            _unitOfWork.GetRepository<Wallet>().Update(userWallet);
+        }
+        else
+        {
+            var userWallet = await _unitOfWork.GetRepository<Wallet>().FirstOrDefaultAsync(
+                predicate: w => w.UserId == userId,
+                asNoTracking: false,
+                cancellationToken: cancellationToken);
+            userWalletBalanceAfter = userWallet?.Balance ?? 0m;
+        }
+
+        systemWallet.Balance += amount;
+        _unitOfWork.GetRepository<Wallet>().Update(systemWallet);
+
+        Transaction paymentTx;
+        if (skipExistingPaymentInsert)
+        {
+            paymentTx = await _unitOfWork.GetRepository<Transaction>().FirstOrDefaultAsync(
+                predicate: t => t.ReferenceId == incidentId && t.TransactionType == TransactionType.SnakebiteIncidentPayment,
+                asNoTracking: false,
+                cancellationToken: cancellationToken)
+                ?? throw new ConflictException("Incident payment transaction was not found.");
+        }
+        else
+        {
+            paymentTx = new Transaction
+            {
+                Id = Guid.NewGuid(),
+                UserId = userId,
+                ReferenceId = incidentId,
+                Amount = amount,
+                Currency = "VND",
+                TransactionType = TransactionType.SnakebiteIncidentPayment,
+                Description = description,
+                PaymentMethod = paymentMethod,
+                ExternalTransactionId = externalTransactionId,
+                CreatedAt = now
+            };
+
+            await _unitOfWork.GetRepository<Transaction>().InsertAsync(paymentTx);
+        }
+
+        var systemCreditTx = new Transaction
+        {
+            Id = Guid.NewGuid(),
+            UserId = Guid.Parse(SystemWalletUserId),
+            ReferenceId = incidentId,
+            Amount = amount,
+            Currency = "VND",
+            TransactionType = TransactionType.WalletTopup,
+            Description = $"Escrow received for incident reference {incidentId}",
+            PaymentMethod = paymentMethod,
+            ExternalTransactionId = externalTransactionId,
+            CreatedAt = now
+        };
+
+        await _unitOfWork.GetRepository<Transaction>().InsertAsync(systemCreditTx);
+
+        return (paymentTx.Id, userWalletBalanceAfter, systemWallet.Balance, now, externalTransactionId);
+    }
+
+    /// <summary>
+    /// Xử lý PayOS payment đã confirmed (từ webhook hoặc manual confirm).
+    /// Mirror pattern từ ConsultationPaymentService.ProcessConfirmedPayOsPaymentAsync.
+    /// Simplified: không có booking/ping logic, chỉ update incident status.
+    /// </summary>
+    private async Task<PayOsWebhookResponse> ProcessConfirmedPayOsPaymentAsync(
+        PayOsWebhookData webhook,
+        CancellationToken cancellationToken)
+    {
+        var transaction = await FindIncidentTransactionByOrderCodeAsync(webhook.OrderCode, false, cancellationToken);
+        if (transaction == null)
+        {
+            throw new InvalidOperationException($"Incident payment transaction with orderCode {webhook.OrderCode} was not found.");
+        }
+
+        // Idempotent check: if ExternalTransactionId already set, return existing result
+        if (!string.IsNullOrWhiteSpace(transaction.ExternalTransactionId))
+        {
+            var incident = await _unitOfWork.GetRepository<SnakebiteIncident>().FirstOrDefaultAsync(
+                predicate: i => i.Id == transaction.ReferenceId,
+                asNoTracking: true,
+                cancellationToken: cancellationToken);
+
+            return new PayOsWebhookResponse
+            {
+                Success = true,
+                Message = "Payment already processed",
+                SnakebiteIncidentId = incident?.Id ?? Guid.Empty,
+                TransactionId = transaction.Id,
+                OrderCode = webhook.OrderCode,
+                Amount = transaction.Amount,
+                Status = PaymentStatus.Paid,
+                TransactionReference = transaction.ExternalTransactionId,
+                TransactionDateTime = transaction.CreatedAt
+            };
+        }
+
+        // Set ExternalTransactionId on the pending transaction
+        transaction.ExternalTransactionId = string.IsNullOrWhiteSpace(webhook.TransactionReference)
+            ? $"INCIDENT-WEBHOOK-{transaction.Id:N}"
+            : webhook.TransactionReference;
+        transaction.CreatedAt = webhook.TransactionDateTime ?? DateTime.UtcNow;
+        _unitOfWork.GetRepository<Transaction>().Update(transaction);
+
+        // Move money to escrow (credit System_Wallet + create WalletTopup)
+        var escrowTransfer = await MoveMoneyToEscrowAsync(
+            transaction.UserId,
+            transaction.ReferenceId,
+            transaction.Amount,
+            "Incident payment via PayOS",
+            "PayOS",
+            transaction.ExternalTransactionId,
+            cancellationToken,
+            skipExistingPaymentInsert: true);
+
+        // Update incident status to Completed
+        var incidentToUpdate = await _unitOfWork.GetRepository<SnakebiteIncident>().FirstOrDefaultAsync(
+            predicate: i => i.Id == transaction.ReferenceId,
+            asNoTracking: false,
+            cancellationToken: cancellationToken);
+
+        if (incidentToUpdate != null)
+        {
+            incidentToUpdate.Status = SnakebiteIncidentStatus.Completed;
+            _unitOfWork.GetRepository<SnakebiteIncident>().Update(incidentToUpdate);
+        }
+
+        await _unitOfWork.CommitAsync();
+
+        return new PayOsWebhookResponse
+        {
+            Success = true,
+            Message = "Payment processed successfully",
+            SnakebiteIncidentId = transaction.ReferenceId,
+            TransactionId = transaction.Id,
+            OrderCode = webhook.OrderCode,
+            Amount = transaction.Amount,
+            Status = PaymentStatus.Paid,
+            TransactionReference = transaction.ExternalTransactionId,
+            TransactionDateTime = transaction.CreatedAt
+        };
+    }
+
+    private sealed class PendingPayOsTransactionContext
+    {
+        public Guid TransactionId { get; init; }
+        public long OrderCode { get; init; }
     }
 }
