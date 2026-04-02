@@ -2,6 +2,7 @@ using Mapster;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
+using SnakeAid.Core.Meta;
 using SnakeAid.Core.Requests.Wallet;
 using SnakeAid.Core.Responses.Wallet;
 using SnakeAid.Service.Interfaces;
@@ -28,6 +29,7 @@ namespace SnakeAid.Api.Controllers
         }
 
         [HttpPost("create")]
+        [ProducesResponseType(typeof(ApiResponse<WithdrawalResponse>), StatusCodes.Status200OK)]
         public async Task<IActionResult> CreateWithdrawal([FromBody] CreateWithdrawalRequest request)
         {
             var userId = GetCurrentUserId();
@@ -38,10 +40,11 @@ namespace SnakeAid.Api.Controllers
             // Mask bank account for security
             response.BankAccount = MaskBankAccount(response.BankAccount);
 
-            return Ok(response);
+            return Ok(ApiResponseBuilder.BuildSuccessResponse(response));
         }
 
         [HttpGet("me")]
+        [ProducesResponseType(typeof(ApiResponse<IEnumerable<WithdrawalResponse>>), StatusCodes.Status200OK)]
         public async Task<IActionResult> GetMyWithdrawals()
         {
             var userId = GetCurrentUserId();
@@ -54,16 +57,18 @@ namespace SnakeAid.Api.Controllers
                 return response;
             });
 
-            return Ok(responses);
+            return Ok(ApiResponseBuilder.BuildSuccessResponse(responses));
         }
 
         [HttpGet("{id}")]
+        [ProducesResponseType(typeof(ApiResponse<WithdrawalResponse>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
         public async Task<IActionResult> GetWithdrawalById(Guid id)
         {
             var withdrawal = await _walletWithdrawService.GetWithdrawalByIdAsync(id);
             if (withdrawal == null)
             {
-                return NotFound();
+                return NotFound(ApiResponseBuilder.BuildNotFoundResponse("Withdrawal not found"));
             }
 
             // Check if user owns this withdrawal
@@ -76,10 +81,11 @@ namespace SnakeAid.Api.Controllers
             var response = withdrawal.Adapt<WithdrawalResponse>();
             response.BankAccount = MaskBankAccount(response.BankAccount);
 
-            return Ok(response);
+            return Ok(ApiResponseBuilder.BuildSuccessResponse(response));
         }
 
         [HttpPost("{id}/cancel")]
+        [ProducesResponseType(typeof(ApiResponse<WithdrawalResponse>), StatusCodes.Status200OK)]
         public async Task<IActionResult> CancelWithdrawal(Guid id)
         {
             var userId = GetCurrentUserId();
@@ -88,7 +94,7 @@ namespace SnakeAid.Api.Controllers
             var response = withdrawal.Adapt<WithdrawalResponse>();
             response.BankAccount = MaskBankAccount(response.BankAccount);
 
-            return Ok(response);
+            return Ok(ApiResponseBuilder.BuildSuccessResponse(response));
         }
 
         private string MaskBankAccount(string account)

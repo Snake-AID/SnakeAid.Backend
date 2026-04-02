@@ -31,7 +31,7 @@ echo "Testing getting user's withdrawal history..."
 GET "/api/withdrawals/me"
 
 # Get the first withdrawal ID from the list for further testing
-WITHDRAWAL_ID=$(GET_RAW "/api/withdrawals/me" | jq -r '.[0].id // empty')
+WITHDRAWAL_ID=$(GET_RAW "/api/withdrawals/me" | jq -r '.data[0].id // empty')
 
 if [ -n "$WITHDRAWAL_ID" ]; then
     echo ""

@@ -21,7 +21,7 @@ CREATE_RESPONSE=$(POST_RAW "/api/withdrawals/create" '{
 echo "Create response:"
 echo "$CREATE_RESPONSE" | jq '.'
 
-WITHDRAWAL_ID=$(echo "$CREATE_RESPONSE" | jq -r '.id')
+WITHDRAWAL_ID=$(echo "$CREATE_RESPONSE" | jq -r '.data.id')
 echo "Withdrawal ID: $WITHDRAWAL_ID"
 
 if [ -z "$WITHDRAWAL_ID" ] || [ "$WITHDRAWAL_ID" = "null" ]; then
@@ -55,8 +55,8 @@ DETAIL_RESPONSE=$(GET_RAW "/api/admin/withdrawals/$WITHDRAWAL_ID")
 echo "Withdrawal details after approval:"
 echo "$DETAIL_RESPONSE" | jq '.'
 
-QR_PAYLOAD=$(echo "$DETAIL_RESPONSE" | jq -r '.vietQrPayload')
-QR_IMAGE=$(echo "$DETAIL_RESPONSE" | jq -r '.vietQrImageBase64')
+QR_PAYLOAD=$(echo "$DETAIL_RESPONSE" | jq -r '.data.vietQrPayload')
+QR_IMAGE=$(echo "$DETAIL_RESPONSE" | jq -r '.data.vietQrImageBase64')
 
 if [ -n "$QR_PAYLOAD" ] && [ "$QR_PAYLOAD" != "null" ]; then
     echo "✅ QR payload generated successfully"
@@ -84,7 +84,7 @@ FINAL_DETAIL=$(GET_RAW "/api/admin/withdrawals/$WITHDRAWAL_ID")
 echo "Final withdrawal details:"
 echo "$FINAL_DETAIL" | jq '.'
 
-FINAL_STATUS=$(echo "$FINAL_DETAIL" | jq -r '.status')
+FINAL_STATUS=$(echo "$FINAL_DETAIL" | jq -r '.data.status')
 if [ "$FINAL_STATUS" = "Completed" ]; then
     echo "✅ Withdrawal flow completed successfully!"
 else

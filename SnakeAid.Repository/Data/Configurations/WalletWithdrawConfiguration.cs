@@ -38,6 +38,11 @@ namespace SnakeAid.Repository.Data.Configurations
                 .HasDatabaseName("IX_WalletWithdraws_WalletId");
 
             // PostgreSQL-specific column types
+            builder.Property(w => w.BankBin)
+                .HasColumnType("character varying(6)")
+                .HasMaxLength(6)
+                .IsRequired(false);
+
             builder.Property(w => w.VietQrPayload)
                 .HasColumnType("character varying(500)")
                 .IsRequired(false);

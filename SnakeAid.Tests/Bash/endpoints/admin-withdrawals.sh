@@ -20,7 +20,7 @@ echo "Testing getting pending withdrawals..."
 GET "/api/admin/withdrawals/pending"
 
 # Get a pending withdrawal ID for testing
-PENDING_WITHDRAWAL_ID=$(GET_RAW "/api/admin/withdrawals/pending" | jq -r '.[0].id // empty')
+PENDING_WITHDRAWAL_ID=$(GET_RAW "/api/admin/withdrawals/pending" | jq -r '.data[0].id // empty')
 
 if [ -n "$PENDING_WITHDRAWAL_ID" ]; then
     echo ""
@@ -46,7 +46,7 @@ else
 fi
 
 # Test rejection with another withdrawal
-PENDING_WITHDRAWAL_ID2=$(GET_RAW "/api/admin/withdrawals/pending" | jq -r '.[0].id // empty')
+PENDING_WITHDRAWAL_ID2=$(GET_RAW "/api/admin/withdrawals/pending" | jq -r '.data[0].id // empty')
 
 if [ -n "$PENDING_WITHDRAWAL_ID2" ]; then
     echo ""

@@ -33,6 +33,9 @@ namespace SnakeAid.Core.Domains
         [MaxLength(100)]
         public string BankName { get; set; }  // Tên ngân hàng
 
+        [MaxLength(6)]
+        public string? BankBin { get; set; }  // Mã BIN ngân hàng
+
         [Required]
         public WalletWithdrawStatus Status { get; set; } = WalletWithdrawStatus.Pending;
 

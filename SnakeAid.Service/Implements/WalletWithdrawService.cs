@@ -48,6 +48,7 @@ namespace SnakeAid.Service.Implements
                 Amount = amount,
                 BankAccount = bankAccount,
                 BankName = bankName,
+                BankBin = bankBin,
                 Status = WalletWithdrawStatus.Pending,
                 CreatedAt = DateTime.UtcNow
             };
@@ -117,9 +118,14 @@ namespace SnakeAid.Service.Implements
                 throw new InvalidOperationException("Can only approve pending withdrawals");
             }
 
+            if (string.IsNullOrWhiteSpace(withdrawal.BankBin))
+            {
+                throw new InvalidOperationException("Withdrawal bank BIN is missing and QR cannot be generated");
+            }
+
             // Generate QR code
             var (payload, imageBase64) = _vietQrAdapter.GenerateQr(
-                "970400", // Default bank bin, should be from bank directory
+                withdrawal.BankBin,
                 withdrawal.BankAccount,
                 withdrawal.BankName,
                 withdrawal.Amount,
