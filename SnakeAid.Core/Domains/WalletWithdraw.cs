@@ -41,6 +41,12 @@ namespace SnakeAid.Core.Domains
         [MaxLength(500)]
         public string? RejectionReason { get; set; }
 
+        // QR Code fields for VietQR integration
+        [MaxLength(500)]
+        public string? VietQrPayload { get; set; }
+
+        [MaxLength(10000)] // Base64 encoded QR image
+        public string? VietQrImageBase64 { get; set; }
 
         // Navigation properties
         public Account User { get; set; }
@@ -52,5 +58,7 @@ namespace SnakeAid.Core.Domains
         Pending = 0,
         Approved = 1,
         Rejected = 2,
+        Completed = 3,
+        Failed = 4,
     }
 }
