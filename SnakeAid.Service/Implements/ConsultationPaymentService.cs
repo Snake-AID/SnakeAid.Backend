@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging;
 using SnakeAid.Core.Domains;
 using SnakeAid.Core.Enums;
 using SnakeAid.Core.Exceptions;
+using SnakeAid.Core.Messages.Notifications;
 using SnakeAid.Core.Requests.Consultation;
 using SnakeAid.Core.Responses.Consultation;
 using SnakeAid.Core.Responses.PayOs;
@@ -23,6 +24,7 @@ public class ConsultationPaymentService : IConsultationPaymentService
 
     private readonly IUnitOfWork<SnakeAidDbContext> _unitOfWork;
     private readonly IExpertEmergencyNotificationService _notificationService;
+    private readonly INotificationQueueService? _notificationQueueService;
     private readonly IPaymentGateway _paymentGateway;
     private readonly ILogger<ConsultationPaymentService> _logger;
 
@@ -30,12 +32,14 @@ public class ConsultationPaymentService : IConsultationPaymentService
         IUnitOfWork<SnakeAidDbContext> unitOfWork,
         IExpertEmergencyNotificationService notificationService,
         IPaymentGateway paymentGateway,
-        ILogger<ConsultationPaymentService> logger)
+        ILogger<ConsultationPaymentService> logger,
+        INotificationQueueService? notificationQueueService = null)
     {
         _unitOfWork = unitOfWork;
         _notificationService = notificationService;
         _paymentGateway = paymentGateway;
         _logger = logger;
+        _notificationQueueService = notificationQueueService;
     }
 
     public async Task<ConsultationPaymentResponse> PayScheduledBookingAsync(
@@ -232,6 +236,22 @@ public class ConsultationPaymentService : IConsultationPaymentService
                     consultationId = ping.ConsultationId,
                     roomId = (string?)null
                 });
+
+            if (_notificationQueueService != null)
+            {
+                await _notificationQueueService.PublishAsync(new NotificationMessage
+                {
+                    UserId = ping.RescuerId,
+                    Title = "Yeu cau tu van het han",
+                    Body = "Yeu cau tu van khan cap cua ban da het han va duoc hoan tien.",
+                    Type = "EmergencyRequestExpired",
+                    Data = new Dictionary<string, string>
+                    {
+                        ["requestId"] = ping.Id.ToString(),
+                        ["consultationId"] = ping.ConsultationId.ToString()
+                    }
+                }, cancellationToken);
+            }
 
             expiredCount++;
         }

@@ -11,6 +11,8 @@
     <PackageReference Include="Carter" />
     <PackageReference Include="Doppler.Extensions.Configuration" />
     <PackageReference Include="FirebaseAdmin" />
+    <PackageReference Include="MassTransit" />
+    <PackageReference Include="MassTransit.RabbitMQ" />
     <PackageReference Include="Microsoft.AspNetCore.SignalR" />
     <PackageReference Include="Serilog.AspNetCore" />
     <PackageReference Include="Serilog.Enrichers.Environment" />
