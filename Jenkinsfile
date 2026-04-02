@@ -194,5 +194,14 @@ pipeline {
                 }
             }
         }
+
+        stage('Cleanup') {
+            steps {
+                script {
+                    // Clean dangling images from previous builds (focus: thekhiem7/snakeaid-api:<none>)
+                    sh 'docker images --filter "dangling=true" --filter "reference=${IMAGE}" -q | xargs -r docker rmi || true'
+                }
+            }
+        }
     }
 }

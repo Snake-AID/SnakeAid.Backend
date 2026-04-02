@@ -1,0 +1,41 @@
+{
+    "recommendations": [
+        "EditorConfig.EditorConfig",
+        "doggy8088.netcore-editorconfiggenerator",
+
+        "alekangelov.alek-kai-theme",
+        "PKief.material-icon-theme",
+        "usernamehw.errorlens",
+        "pflannery.vscode-versionlens",
+        "bpruitt-goddard.mermaid-markdown-syntax-highlighting",
+        "jebbs.plantuml",
+        "ms-vscode.powershell",
+        "esbenp.prettier-vscode",
+        "mechatroner.rainbow-csv",
+        
+
+        "ms-azuretools.vscode-containers",
+        "ms-vscode-remote.remote-containers",
+        
+        "ms-azuretools.vscode-docker",
+        "docker.docker",
+        "formulahendry.docker-explorer",
+
+        "dbcode.dbcode",
+        "qwtel.sqlite-viewer",
+
+        "github.vscode-github-actions",
+        "GitHub.remotehub",
+        "GitHub.codespaces",
+
+        "eamodio.gitlens",
+
+        "shd101wyy.markdown-preview-enhanced",
+
+        "ms-dotnettools.csharp",
+        "ms-dotnettools.csdevkit",
+        "patcx.vscode-nuget-gallery",
+        "codezombiech.gitignore",
+        "adrianwilczynski.toggle-hidden",
+    ]
+}
