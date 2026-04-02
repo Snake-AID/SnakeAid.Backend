@@ -34,7 +34,7 @@ namespace SnakeAid.Api.Controllers
         {
             var userId = GetCurrentUserId();
             var withdrawal = await _walletWithdrawService.CreateWithdrawalRequestAsync(
-                userId, request.Amount, request.BankAccount, request.BankName, request.BankBin);
+                userId, request.Amount, request.BankAccount, request.BankName, request.AccountHolderName, request.BankBin);
 
             var response = withdrawal.Adapt<WithdrawalResponse>();
             // Mask bank account for security
