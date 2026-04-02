@@ -35,6 +35,7 @@ namespace SnakeAid.Service.Implements
                     {
                         Id = t.Id,
                         UserName = t.User.UserName,
+                        FullName = t.User.FullName,
                         ReferenceId = t.ReferenceId,
                         Amount = t.Amount,
                         Currency = t.Currency,
@@ -68,6 +69,7 @@ namespace SnakeAid.Service.Implements
                     {
                         Id = t.Id,
                         UserName = t.User.UserName,
+                        FullName = t.User.FullName,
                         ReferenceId = t.ReferenceId,
                         Amount = t.Amount,
                         Currency = t.Currency,
