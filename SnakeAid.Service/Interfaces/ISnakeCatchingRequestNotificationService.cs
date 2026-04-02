@@ -41,5 +41,36 @@ namespace SnakeAid.Service.Interfaces
             RequestStatus status,
             string? cancellationReason,
             Guid? assignedRescuerId);
+
+        Task NotifyMissionEnRouteAsync(
+            Guid requestId,
+            Guid missionId,
+            Guid memberUserId,
+            Guid rescuerUserId,
+            string? rescuerName,
+            int? estimatedMinutes = null);
+
+        Task NotifyMissionArrivedAsync(
+            Guid requestId,
+            Guid missionId,
+            Guid memberUserId,
+            Guid rescuerUserId,
+            string? rescuerName);
+
+        Task NotifyMissionCompletedAsync(
+            Guid requestId,
+            Guid missionId,
+            Guid memberUserId,
+            Guid rescuerUserId,
+            string? rescuerName,
+            decimal? actualCost);
+
+        Task NotifyMissionAbortedAsync(
+            Guid requestId,
+            Guid missionId,
+            Guid memberUserId,
+            Guid rescuerUserId,
+            string? rescuerName,
+            string? reason);
     }
 }

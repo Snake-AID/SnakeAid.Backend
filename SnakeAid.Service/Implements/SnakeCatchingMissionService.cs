@@ -25,6 +25,7 @@ namespace SnakeAid.Service.Implements
         private readonly ILogger<SnakeCatchingMissionService> _logger;
         private readonly ISnakeCatchingPaymentService _snakeCatchingPaymentService;
         private readonly IRescuerOnlineStatusService _rescuerOnlineStatusService;
+        private readonly ISnakeCatchingRequestNotificationService _snakeCatchingRequestNotificationService;
 
         private const decimal BasePrice = 500000;
         private const decimal AdditionalSnakePrice = 100000;
@@ -33,12 +34,14 @@ namespace SnakeAid.Service.Implements
             IUnitOfWork<SnakeAidDbContext> unitOfWork,
             ILogger<SnakeCatchingMissionService> logger,
             ISnakeCatchingPaymentService snakeCatchingPaymentService,
-            IRescuerOnlineStatusService rescuerOnlineStatusService)
+            IRescuerOnlineStatusService rescuerOnlineStatusService,
+            ISnakeCatchingRequestNotificationService snakeCatchingRequestNotificationService)
         {
             _unitOfWork = unitOfWork;
             _logger = logger;
             _snakeCatchingPaymentService = snakeCatchingPaymentService;
             _rescuerOnlineStatusService = rescuerOnlineStatusService;
+            _snakeCatchingRequestNotificationService = snakeCatchingRequestNotificationService;
         }
 
         public async Task<SnakeCatchingMissionDetailResponse> StartMissionAsync(
@@ -83,6 +86,24 @@ namespace SnakeAid.Service.Implements
                     _logger.LogInformation(
                         "Mission started successfully. MissionId: {MissionId}, RescuerId: {RescuerId}",
                         missionId, rescuerId);
+
+                    var requestInfo = await _unitOfWork.GetRepository<SnakeCatchingRequest>()
+                        .FirstOrDefaultAsync(
+                            selector: r => new { r.Id, r.UserId },
+                            predicate: r => r.Id == mission.SnakeCatchingRequestId);
+
+                    var rescuerName = await _unitOfWork.GetRepository<Account>()
+                        .FirstOrDefaultAsync(selector: a => a.FullName, predicate: a => a.Id == rescuerId);
+
+                    if (requestInfo != null)
+                    {
+                        await _snakeCatchingRequestNotificationService.NotifyMissionEnRouteAsync(
+                            requestInfo.Id,
+                            mission.Id,
+                            requestInfo.UserId,
+                            rescuerId,
+                            rescuerName);
+                    }
 
                     await mission.AttachReportMediaAsync(_unitOfWork, MediaReferenceType.SnakeCatchingMission);
                     var response = mission.Adapt<SnakeCatchingMissionDetailResponse>();
@@ -134,6 +155,24 @@ namespace SnakeAid.Service.Implements
                     _logger.LogInformation(
                         "Mission marked as arrived. MissionId: {MissionId}, RescuerId: {RescuerId}",
                         missionId, rescuerId);
+
+                    var requestInfo = await _unitOfWork.GetRepository<SnakeCatchingRequest>()
+                        .FirstOrDefaultAsync(
+                            selector: r => new { r.Id, r.UserId },
+                            predicate: r => r.Id == mission.SnakeCatchingRequestId);
+
+                    var rescuerName = await _unitOfWork.GetRepository<Account>()
+                        .FirstOrDefaultAsync(selector: a => a.FullName, predicate: a => a.Id == rescuerId);
+
+                    if (requestInfo != null)
+                    {
+                        await _snakeCatchingRequestNotificationService.NotifyMissionArrivedAsync(
+                            requestInfo.Id,
+                            mission.Id,
+                            requestInfo.UserId,
+                            rescuerId,
+                            rescuerName);
+                    }
 
                     await mission.AttachReportMediaAsync(_unitOfWork, MediaReferenceType.SnakeCatchingMission);
                     var response = mission.Adapt<SnakeCatchingMissionDetailResponse>();
@@ -249,6 +288,25 @@ namespace SnakeAid.Service.Implements
                         "Mission completed successfully. MissionId: {MissionId}, RescuerId: {RescuerId}, RequestId: {RequestId}",
                         missionId, rescuerId, mission.SnakeCatchingRequestId);
 
+                    var requestInfo = await _unitOfWork.GetRepository<SnakeCatchingRequest>()
+                        .FirstOrDefaultAsync(
+                            selector: r => new { r.Id, r.UserId },
+                            predicate: r => r.Id == mission.SnakeCatchingRequestId);
+
+                    var rescuerName = await _unitOfWork.GetRepository<Account>()
+                        .FirstOrDefaultAsync(selector: a => a.FullName, predicate: a => a.Id == rescuerId);
+
+                    if (requestInfo != null)
+                    {
+                        await _snakeCatchingRequestNotificationService.NotifyMissionCompletedAsync(
+                            requestInfo.Id,
+                            mission.Id,
+                            requestInfo.UserId,
+                            rescuerId,
+                            rescuerName,
+                            mission.ActualCost);
+                    }
+
                     await mission.AttachReportMediaAsync(_unitOfWork, MediaReferenceType.SnakeCatchingMission);
                     // Map to response with mission details
                     var response = mission.Adapt<SnakeCatchingMissionDetailResponse>();
@@ -336,6 +394,25 @@ namespace SnakeAid.Service.Implements
                     _logger.LogInformation(
                         "Mission aborted successfully. MissionId: {MissionId}, RescuerId: {RescuerId}, RequestId: {RequestId}, Reason: {Reason}",
                         missionId, rescuerId, mission.SnakeCatchingRequestId, request.Reason);
+
+                    var requestInfo = await _unitOfWork.GetRepository<SnakeCatchingRequest>()
+                        .FirstOrDefaultAsync(
+                            selector: r => new { r.Id, r.UserId },
+                            predicate: r => r.Id == mission.SnakeCatchingRequestId);
+
+                    var rescuerName = await _unitOfWork.GetRepository<Account>()
+                        .FirstOrDefaultAsync(selector: a => a.FullName, predicate: a => a.Id == rescuerId);
+
+                    if (requestInfo != null)
+                    {
+                        await _snakeCatchingRequestNotificationService.NotifyMissionAbortedAsync(
+                            requestInfo.Id,
+                            mission.Id,
+                            requestInfo.UserId,
+                            rescuerId,
+                            rescuerName,
+                            request.Reason);
+                    }
 
                     // Check for paid transactions and process refund (OUTSIDE the transaction)
                     var paidTransactions = await _unitOfWork.GetRepository<Transaction>().GetListAsync(
