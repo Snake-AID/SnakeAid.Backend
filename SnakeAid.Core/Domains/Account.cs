@@ -16,6 +16,9 @@ namespace SnakeAid.Core.Domains
         [MaxLength(1000)]
         public string? AvatarUrl { get; set; }
 
+        [MaxLength(512)]
+        public string? FcmToken { get; set; }
+
         [Required]
         public AccountRole Role { get; set; } = AccountRole.User;
 
