@@ -1,5 +1,8 @@
 using Mapster;
 using MapsterMapper;
+using MassTransit;
+using FirebaseAdmin;
+using Google.Apis.Auth.OAuth2;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -14,6 +17,7 @@ using SnakeAid.Core.Middlewares;
 using SnakeAid.Api.DI;
 using SnakeAid.Api.Hubs;
 using SnakeAid.Service.Hubs;
+using SnakeAid.Service.Consumers;
 using SnakeAid.Repository.Data;
 using SnakeAid.Repository.Seeds;
 using SQLitePCL;
@@ -144,6 +148,35 @@ namespace SnakeAid.Api
                 builder.Services.AddScoped<SnakeAid.Service.Implements.Email.Providers.EmailProviderService>();
                 builder.Services.AddScoped<SnakeAid.Service.Implements.Email.EmailTemplateService>();
 
+                builder.Services.AddMassTransit(x =>
+                {
+                    x.SetKebabCaseEndpointNameFormatter();
+                    x.AddConsumer<NotificationConsumer>();
+
+                    x.UsingRabbitMq((context, cfg) =>
+                    {
+                        var rabbitSection = builder.Configuration.GetSection("RabbitMq");
+                        var host = rabbitSection["Host"] ?? "rabbitmq";
+                        var virtualHost = rabbitSection["VirtualHost"] ?? "/";
+                        var username = rabbitSection["Username"] ?? "admin";
+                        var password = rabbitSection["Password"] ?? "password";
+                        var queueName = rabbitSection["NotificationQueueName"] ?? "notification-queue";
+
+                        cfg.Host(host, virtualHost, h =>
+                        {
+                            h.Username(username);
+                            h.Password(password);
+                        });
+
+                        cfg.ReceiveEndpoint(queueName, e =>
+                        {
+                            e.PrefetchCount = 16;
+                            e.UseMessageRetry(r => r.Interval(3, TimeSpan.FromSeconds(5)));
+                            e.ConfigureConsumer<NotificationConsumer>(context);
+                        });
+                    });
+                });
+
                 builder.Services.AddServices(builder.Configuration);
 
                 // Register services using Scrutor (excluding background services)
@@ -254,25 +287,31 @@ namespace SnakeAid.Api
 
                 builder.Services.Configure<ApiBehaviorOptions>(options => { options.SuppressModelStateInvalidFilter = true; });
 
-                // // Firebase
-                // try
-                // {
-                //     // Use fixed path for Firebase credentials - works for both development and production
-                //     var credentialsPath = File.Exists("/app/firebase-service-account.json")
-                //         ? "/app/firebase-service-account.json"
-                //         : "firebase-service-account.json";
+                var firebaseCredentialPath =
+                    builder.Configuration["Firebase:CredentialPath"]
+                    ?? builder.Configuration["Firebase:ServiceAccountKeyPath"]
+                    ?? Environment.GetEnvironmentVariable("FIREBASE_CREDENTIAL_PATH");
 
-                //     var firebaseApp = FirebaseApp.Create(new AppOptions
-                //     {
-                //         Credential = GoogleCredential.FromFile(credentialsPath)
-                //     });
+                if (!string.IsNullOrWhiteSpace(firebaseCredentialPath) && FirebaseApp.DefaultInstance == null)
+                {
+                    var resolvedFirebasePath = Path.IsPathRooted(firebaseCredentialPath)
+                        ? firebaseCredentialPath
+                        : Path.Combine(builder.Environment.ContentRootPath, firebaseCredentialPath);
 
-                //     builder.Services.AddSingleton(firebaseApp);
-                // }
-                // catch (Exception ex)
-                // {
-                //     throw new FileNotFoundException("Failed to initialize Firebase", ex);
-                // }
+                    if (File.Exists(resolvedFirebasePath))
+                    {
+                        FirebaseApp.Create(new AppOptions
+                        {
+                            Credential = GoogleCredential.FromFile(resolvedFirebasePath)
+                        });
+
+                        Log.Information("Firebase initialized at startup using credentials: {CredentialPath}", resolvedFirebasePath);
+                    }
+                    else
+                    {
+                        Log.Warning("Firebase credential file not found at startup: {CredentialPath}", resolvedFirebasePath);
+                    }
+                }
 
                 builder.Services.Configure<RouteOptions>(options =>
                 {
