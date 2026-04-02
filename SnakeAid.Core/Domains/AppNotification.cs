@@ -22,6 +22,16 @@ namespace SnakeAid.Core.Domains
         [Required]
         public string Message { get; set; }
 
+        [Required]
+        [MaxLength(100)]
+        public string NotificationType { get; set; } = string.Empty;
+
+        [MaxLength(500)]
+        public string? DeepLink { get; set; }
+
+        [MaxLength(4000)]
+        public string? PayloadJson { get; set; }
+
         public bool IsRead { get; set; } = false;
 
         // Navigation property
