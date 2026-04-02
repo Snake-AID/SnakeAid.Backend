@@ -48,7 +48,7 @@ namespace SnakeAid.Service.Implements
                 Category = request.Category,
                 Tags = request.Tags.ToList(),
                 ReadingTime = request.ReadingTime,
-                Status = BlogStatus.Draft,
+                Status = request.Status,
                 RejectionReason = null
             };
 

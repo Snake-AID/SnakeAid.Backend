@@ -16,6 +16,8 @@ namespace SnakeAid.Core.Requests.Blog
         [StringLength(500)]
         public string ThumbnailUrl { get; set; } = string.Empty;
 
+        public BlogStatus Status { get; set; }
+
         [Required]
         public BlogCategory Category { get; set; }
 
