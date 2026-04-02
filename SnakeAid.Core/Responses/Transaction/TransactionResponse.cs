@@ -13,7 +13,7 @@ namespace SnakeAid.Core.Responses.Transaction
     {
         public Guid Id { get; set; }
 
-        public Guid UserId { get; set; }
+        public string? UserName { get; set; }
 
         [Required]
         public Guid ReferenceId { get; set; }  
