@@ -25,6 +25,7 @@ using Swashbuckle.AspNetCore.SwaggerUI;
 using System.Text.Json.Serialization;
 using Doppler.Extensions.Configuration;
 using SnakeAid.Service.Interfaces;
+using SnakeAid.Core.Services;
 
 namespace SnakeAid.Api
 {
@@ -115,6 +116,11 @@ namespace SnakeAid.Api
                 // Also register base IUnitOfWork interface for services that don't need generic version
                 builder.Services.AddScoped<SnakeAid.Repository.Interfaces.IUnitOfWork>(provider =>
                     provider.GetRequiredService<SnakeAid.Repository.Interfaces.IUnitOfWork<SnakeAidDbContext>>());
+
+                // Dynamic system settings cache and service
+                builder.Services.AddSingleton<ISystemSettingCacheProvider, SnakeAid.Service.Implements.SystemSettingCacheProvider>();
+                builder.Services.AddScoped<ISystemSettingService, SnakeAid.Service.Implements.SystemSettingService>();
+                builder.Services.AddHostedService<SnakeAid.Api.Services.SystemSettingWarmupInitializer>();
 
                 // Register Mapster
                 var config = TypeAdapterConfig.GlobalSettings;

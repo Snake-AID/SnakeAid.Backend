@@ -51,4 +51,27 @@ public class AdminNotificationController : BaseController<AdminNotificationContr
             queuedAtUtc = notification.CreatedAtUtc
         }, "Notification queued successfully"));
     }
+
+    [HttpPost("broadcast")]
+    [SwaggerOperation(
+        Summary = "Broadcast push notification",
+        Description = "Admin queues push notifications to all active users and stores in-app notifications in DB")]
+    public async Task<IActionResult> BroadcastNotification(
+        [FromBody] AdminBroadcastNotificationRequest request,
+        CancellationToken cancellationToken)
+    {
+        var recipientCount = await _notificationQueueService.BroadcastAsync(request, cancellationToken);
+
+        if (recipientCount == 0)
+        {
+            return NotFound(ApiResponseBuilder.BuildErrorResponse("No active users found for broadcast."));
+        }
+
+        return Ok(ApiResponseBuilder.BuildSuccessResponse(new
+        {
+            recipients = recipientCount,
+            queuedAtUtc = DateTime.UtcNow
+        }, "Broadcast notification queued successfully"));
+    }
 }
+
