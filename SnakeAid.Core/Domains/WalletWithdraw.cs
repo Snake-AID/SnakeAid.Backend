@@ -33,6 +33,10 @@ namespace SnakeAid.Core.Domains
         [MaxLength(100)]
         public string BankName { get; set; }  // Tên ngân hàng
 
+        [Required]
+        [MaxLength(150)]
+        public string AccountHolderName { get; set; }  // Tên chủ tài khoản
+
         [MaxLength(6)]
         public string? BankBin { get; set; }  // Mã BIN ngân hàng
 
@@ -41,8 +45,13 @@ namespace SnakeAid.Core.Domains
 
         public DateTime? ProcessedAt { get; set; }
 
+        public Guid? ProcessedByAdminId { get; set; }
+
         [MaxLength(500)]
         public string? RejectionReason { get; set; }
+
+        [MaxLength(1000)]
+        public string? AdminNotes { get; set; }
 
         // QR Code fields for VietQR integration
         [MaxLength(500)]
@@ -54,6 +63,7 @@ namespace SnakeAid.Core.Domains
         // Navigation properties
         public Account User { get; set; }
         public Wallet Wallet { get; set; }
+        public Account? ProcessedByAdmin { get; set; }
     }
 
     public enum WalletWithdrawStatus

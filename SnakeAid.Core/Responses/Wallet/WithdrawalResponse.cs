@@ -9,6 +9,7 @@ namespace SnakeAid.Core.Responses.Wallet
         public decimal Amount { get; set; }
         public string BankAccount { get; set; } // Masked for security
         public string BankName { get; set; }
+        public string AccountHolderName { get; set; }
         public string? BankBin { get; set; }
         public WalletWithdrawStatus Status { get; set; }
         public DateTime? ProcessedAt { get; set; }
