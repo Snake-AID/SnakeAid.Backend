@@ -13,6 +13,10 @@ namespace SnakeAid.Service.Implements
 {
     public class WalletWithdrawService : IWalletWithdrawService
     {
+        private const decimal MinWithdrawalAmount = 50000m;
+        private const decimal MaxWithdrawalAmount = 5000000m;
+        private const decimal DailyWithdrawalLimit = 10000000m;
+
         private readonly IUnitOfWork<SnakeAidDbContext> _unitOfWork;
         private readonly IWalletService _walletService;
         private readonly VietQrAdapter _vietQrAdapter;
@@ -30,13 +34,23 @@ namespace SnakeAid.Service.Implements
             _logger = logger;
         }
 
-        public async Task<WalletWithdraw> CreateWithdrawalRequestAsync(Guid userId, decimal amount, string bankAccount, string bankName, string bankBin)
+        public async Task<WalletWithdraw> CreateWithdrawalRequestAsync(Guid userId, decimal amount, string bankAccount, string bankName, string accountHolderName, string bankBin)
         {
+            ValidateWithdrawalAmount(amount);
+
             // Validate user wallet
             var wallet = await _walletService.GetWalletByUserIdAsync(userId);
-            if (wallet.Balance < amount)
+            var pendingAmount = await GetPendingWithdrawalAmountAsync(userId);
+            var availableBalance = wallet.Balance - pendingAmount;
+            if (availableBalance < amount)
             {
                 throw new InvalidOperationException("Insufficient wallet balance");
+            }
+
+            var todayTotal = await GetTodayWithdrawalAmountAsync(userId);
+            if (todayTotal + amount > DailyWithdrawalLimit)
+            {
+                throw new InvalidOperationException($"Daily withdrawal limit is {DailyWithdrawalLimit:N0} VND");
             }
 
             // Create withdrawal request
@@ -48,6 +62,7 @@ namespace SnakeAid.Service.Implements
                 Amount = amount,
                 BankAccount = bankAccount,
                 BankName = bankName,
+                AccountHolderName = accountHolderName,
                 BankBin = bankBin,
                 Status = WalletWithdrawStatus.Pending,
                 CreatedAt = DateTime.UtcNow
@@ -100,7 +115,7 @@ namespace SnakeAid.Service.Implements
             return withdrawal;
         }
 
-        public async Task<WalletWithdraw> ApproveWithdrawalAsync(Guid withdrawalId, string adminUserId)
+        public async Task<WalletWithdraw> ApproveWithdrawalAsync(Guid withdrawalId, Guid adminUserId, string? adminNotes)
         {
             var withdrawal = await _unitOfWork.GetRepository<WalletWithdraw>()
                 .FirstOrDefaultAsync(
@@ -123,19 +138,28 @@ namespace SnakeAid.Service.Implements
                 throw new InvalidOperationException("Withdrawal bank BIN is missing and QR cannot be generated");
             }
 
+            if (withdrawal.Wallet.Balance < withdrawal.Amount)
+            {
+                throw new InvalidOperationException("Insufficient wallet balance to approve withdrawal");
+            }
+
             // Generate QR code
             var (payload, imageBase64) = _vietQrAdapter.GenerateQr(
                 withdrawal.BankBin,
                 withdrawal.BankAccount,
-                withdrawal.BankName,
+                withdrawal.AccountHolderName,
                 withdrawal.Amount,
                 $"Withdrawal {withdrawal.Id}");
 
+            withdrawal.Wallet.Balance -= withdrawal.Amount;
             withdrawal.Status = WalletWithdrawStatus.Approved;
+            withdrawal.ProcessedByAdminId = adminUserId;
+            withdrawal.AdminNotes = NormalizeText(adminNotes);
             withdrawal.VietQrPayload = payload;
             withdrawal.VietQrImageBase64 = imageBase64;
             withdrawal.ProcessedAt = DateTime.UtcNow;
 
+            await _unitOfWork.GetRepository<Transaction>().InsertAsync(CreateWithdrawalTransaction(withdrawal));
             await _unitOfWork.CommitAsync();
 
             _logger.LogInformation("Approved withdrawal {WithdrawalId} by admin {AdminUserId}", withdrawalId, adminUserId);
@@ -143,9 +167,13 @@ namespace SnakeAid.Service.Implements
             return withdrawal;
         }
 
-        public async Task<WalletWithdraw> RejectWithdrawalAsync(Guid withdrawalId, string adminUserId, string reason)
+        public async Task<WalletWithdraw> RejectWithdrawalAsync(Guid withdrawalId, Guid adminUserId, string reason, string? adminNotes)
         {
-            var withdrawal = await GetWithdrawalByIdAsync(withdrawalId);
+            var withdrawal = await _unitOfWork.GetRepository<WalletWithdraw>()
+                .FirstOrDefaultAsync(
+                    predicate: w => w.Id == withdrawalId,
+                    include: q => q.Include(w => w.Wallet)
+                );
             if (withdrawal == null)
             {
                 throw new InvalidOperationException("Withdrawal not found");
@@ -156,8 +184,19 @@ namespace SnakeAid.Service.Implements
                 throw new InvalidOperationException("Can only reject pending or approved withdrawals");
             }
 
+            if (withdrawal.Status == WalletWithdrawStatus.Approved)
+            {
+                withdrawal.Wallet.Balance += withdrawal.Amount;
+                await _unitOfWork.GetRepository<Transaction>().InsertAsync(
+                    CreateWithdrawalRefundTransaction(withdrawal, "Withdrawal rejected after approval"));
+            }
+
             withdrawal.Status = WalletWithdrawStatus.Rejected;
+            withdrawal.ProcessedByAdminId = adminUserId;
             withdrawal.RejectionReason = reason;
+            withdrawal.AdminNotes = NormalizeText(adminNotes);
+            withdrawal.VietQrPayload = null;
+            withdrawal.VietQrImageBase64 = null;
             withdrawal.ProcessedAt = DateTime.UtcNow;
 
             await _unitOfWork.CommitAsync();
@@ -167,7 +206,7 @@ namespace SnakeAid.Service.Implements
             return withdrawal;
         }
 
-        public async Task<WalletWithdraw> CompleteWithdrawalAsync(Guid withdrawalId, string adminUserId)
+        public async Task<WalletWithdraw> CompleteWithdrawalAsync(Guid withdrawalId, Guid adminUserId, string? adminNotes)
         {
             var withdrawal = await _unitOfWork.GetRepository<WalletWithdraw>()
                 .FirstOrDefaultAsync(
@@ -185,25 +224,11 @@ namespace SnakeAid.Service.Implements
                 throw new InvalidOperationException("Can only complete approved withdrawals");
             }
 
-            // Deduct from wallet balance
-            withdrawal.Wallet.Balance -= withdrawal.Amount;
-
-            // Create transaction record
-            var transaction = new Transaction
-            {
-                Id = Guid.NewGuid(),
-                UserId = withdrawal.UserId,
-                ReferenceId = withdrawal.Id,
-                Amount = -withdrawal.Amount,
-                TransactionType = TransactionType.WalletWithdraw,
-                Description = $"Wallet withdrawal to {withdrawal.BankName} - {withdrawal.BankAccount}",
-                CreatedAt = DateTime.UtcNow
-            };
-
             withdrawal.Status = WalletWithdrawStatus.Completed;
+            withdrawal.ProcessedByAdminId = adminUserId;
+            withdrawal.AdminNotes = NormalizeText(adminNotes) ?? withdrawal.AdminNotes;
             withdrawal.ProcessedAt = DateTime.UtcNow;
 
-            await _unitOfWork.GetRepository<Transaction>().InsertAsync(transaction);
             await _unitOfWork.CommitAsync();
 
             _logger.LogInformation("Completed withdrawal {WithdrawalId} by admin {AdminUserId}", withdrawalId, adminUserId);
@@ -211,9 +236,13 @@ namespace SnakeAid.Service.Implements
             return withdrawal;
         }
 
-        public async Task<WalletWithdraw> FailWithdrawalAsync(Guid withdrawalId, string adminUserId, string reason)
+        public async Task<WalletWithdraw> FailWithdrawalAsync(Guid withdrawalId, Guid adminUserId, string reason, string? adminNotes)
         {
-            var withdrawal = await GetWithdrawalByIdAsync(withdrawalId);
+            var withdrawal = await _unitOfWork.GetRepository<WalletWithdraw>()
+                .FirstOrDefaultAsync(
+                    predicate: w => w.Id == withdrawalId,
+                    include: q => q.Include(w => w.Wallet)
+                );
             if (withdrawal == null)
             {
                 throw new InvalidOperationException("Withdrawal not found");
@@ -224,10 +253,17 @@ namespace SnakeAid.Service.Implements
                 throw new InvalidOperationException("Can only fail approved withdrawals");
             }
 
+            withdrawal.Wallet.Balance += withdrawal.Amount;
             withdrawal.Status = WalletWithdrawStatus.Failed;
+            withdrawal.ProcessedByAdminId = adminUserId;
             withdrawal.RejectionReason = reason;
+            withdrawal.AdminNotes = NormalizeText(adminNotes);
+            withdrawal.VietQrPayload = null;
+            withdrawal.VietQrImageBase64 = null;
             withdrawal.ProcessedAt = DateTime.UtcNow;
 
+            await _unitOfWork.GetRepository<Transaction>().InsertAsync(
+                CreateWithdrawalRefundTransaction(withdrawal, "Withdrawal failed after approval"));
             await _unitOfWork.CommitAsync();
 
             _logger.LogInformation("Failed withdrawal {WithdrawalId} by admin {AdminUserId}: {Reason}", withdrawalId, adminUserId, reason);
@@ -248,6 +284,72 @@ namespace SnakeAid.Service.Implements
         {
             return await _unitOfWork.GetRepository<WalletWithdraw>()
                 .GetListAsync(orderBy: q => q.OrderByDescending(w => w.CreatedAt));
+        }
+
+        private static void ValidateWithdrawalAmount(decimal amount)
+        {
+            if (amount < MinWithdrawalAmount || amount > MaxWithdrawalAmount)
+            {
+                throw new InvalidOperationException(
+                    $"Withdrawal amount must be between {MinWithdrawalAmount:N0} and {MaxWithdrawalAmount:N0} VND");
+            }
+        }
+
+        private async Task<decimal> GetPendingWithdrawalAmountAsync(Guid userId)
+        {
+            var pendingWithdrawals = await _unitOfWork.GetRepository<WalletWithdraw>()
+                .GetListAsync(predicate: w => w.UserId == userId && w.Status == WalletWithdrawStatus.Pending);
+
+            return pendingWithdrawals.Sum(w => w.Amount);
+        }
+
+        private async Task<decimal> GetTodayWithdrawalAmountAsync(Guid userId)
+        {
+            var startOfTodayUtc = DateTime.UtcNow.Date;
+            var endOfTodayUtc = startOfTodayUtc.AddDays(1);
+
+            var withdrawals = await _unitOfWork.GetRepository<WalletWithdraw>()
+                .GetListAsync(predicate: w =>
+                    w.UserId == userId &&
+                    w.CreatedAt >= startOfTodayUtc &&
+                    w.CreatedAt < endOfTodayUtc &&
+                    w.Status != WalletWithdrawStatus.Rejected &&
+                    w.Status != WalletWithdrawStatus.Failed);
+
+            return withdrawals.Sum(w => w.Amount);
+        }
+
+        private static string? NormalizeText(string? value)
+        {
+            return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+        }
+
+        private static Transaction CreateWithdrawalTransaction(WalletWithdraw withdrawal)
+        {
+            return new Transaction
+            {
+                Id = Guid.NewGuid(),
+                UserId = withdrawal.UserId,
+                ReferenceId = withdrawal.Id,
+                Amount = -withdrawal.Amount,
+                TransactionType = TransactionType.WalletWithdraw,
+                Description = $"Wallet withdrawal approved to {withdrawal.BankName} - {withdrawal.BankAccount}",
+                CreatedAt = DateTime.UtcNow
+            };
+        }
+
+        private static Transaction CreateWithdrawalRefundTransaction(WalletWithdraw withdrawal, string description)
+        {
+            return new Transaction
+            {
+                Id = Guid.NewGuid(),
+                UserId = withdrawal.UserId,
+                ReferenceId = withdrawal.Id,
+                Amount = withdrawal.Amount,
+                TransactionType = TransactionType.AdminAdjustment,
+                Description = description,
+                CreatedAt = DateTime.UtcNow
+            };
         }
     }
 }
