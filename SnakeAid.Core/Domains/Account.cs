@@ -16,6 +16,9 @@ namespace SnakeAid.Core.Domains
         [MaxLength(1000)]
         public string? AvatarUrl { get; set; }
 
+        [MaxLength(512)]
+        public string? FcmToken { get; set; }
+
         [Required]
         public AccountRole Role { get; set; } = AccountRole.User;
 
@@ -43,6 +46,9 @@ namespace SnakeAid.Core.Domains
         public ExpertProfile? ExpertProfile { get; set; }
         public RescuerProfile? RescuerProfile { get; set; }
         public ICollection<Otp> Otps { get; set; } = new List<Otp>();
+
+        // Notification history for the user (in-app notifications table)
+        public ICollection<AppNotification> AppNotifications { get; set; } = new List<AppNotification>();
     }
 
     public enum AccountRole

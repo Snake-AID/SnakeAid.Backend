@@ -12,7 +12,7 @@ namespace SnakeAid.Repository.Data.Configurations
 
             // Relationship: AppNotification -> Account (User)
             builder.HasOne(n => n.User)
-                .WithMany()
+                .WithMany(u => u.AppNotifications)
                 .HasForeignKey(n => n.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
 

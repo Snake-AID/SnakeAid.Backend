@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using NetTopologySuite.Geometries;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
@@ -13,9 +14,11 @@ using SnakeAid.Repository.Data;
 namespace SnakeAid.Repository.Migrations
 {
     [DbContext(typeof(SnakeAidDbContext))]
-    partial class SnakeAidDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260401135156_AddAccountDeviceToken")]
+    partial class AddAccountDeviceToken
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -331,25 +334,12 @@ namespace SnakeAid.Repository.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<string>("DeepLink")
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)");
-
                     b.Property<bool>("IsRead")
                         .HasColumnType("boolean");
 
                     b.Property<string>("Message")
                         .IsRequired()
                         .HasColumnType("text");
-
-                    b.Property<string>("NotificationType")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
-
-                    b.Property<string>("PayloadJson")
-                        .HasMaxLength(4000)
-                        .HasColumnType("character varying(4000)");
 
                     b.Property<string>("Title")
                         .IsRequired()
@@ -3146,7 +3136,7 @@ namespace SnakeAid.Repository.Migrations
             modelBuilder.Entity("SnakeAid.Core.Domains.AppNotification", b =>
                 {
                     b.HasOne("SnakeAid.Core.Domains.Account", "User")
-                        .WithMany("AppNotifications")
+                        .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
@@ -3888,8 +3878,6 @@ namespace SnakeAid.Repository.Migrations
 
             modelBuilder.Entity("SnakeAid.Core.Domains.Account", b =>
                 {
-                    b.Navigation("AppNotifications");
-
                     b.Navigation("ExpertProfile");
 
                     b.Navigation("MemberProfile");

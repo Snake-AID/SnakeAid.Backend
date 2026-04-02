@@ -11,4 +11,31 @@ services:
     environment:
       - DOPPLER_TOKEN=
       - DOPPLER_CONFIG=snake-aid/dev
+      - RabbitMq__Host=rabbitmq
     restart: unless-stopped
+    depends_on:
+      - rabbitmq
+    networks:
+      - snakeaid-network
+
+  rabbitmq:
+    container_name: rabbitmq
+    image: rabbitmq:management
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: admin
+      RABBITMQ_DEFAULT_PASS: password
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    restart: unless-stopped
+    networks:
+      - snakeaid-network
+
+volumes:
+  rabbitmq_data:
+
+networks:
+  snakeaid-network:
+    driver: bridge
