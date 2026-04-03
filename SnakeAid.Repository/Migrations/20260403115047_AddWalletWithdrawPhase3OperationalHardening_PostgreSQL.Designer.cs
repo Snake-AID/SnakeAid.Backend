@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using NetTopologySuite.Geometries;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
@@ -13,9 +14,11 @@ using SnakeAid.Repository.Data;
 namespace SnakeAid.Repository.Migrations
 {
     [DbContext(typeof(SnakeAidDbContext))]
-    partial class SnakeAidDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260403115047_AddWalletWithdrawPhase3OperationalHardening_PostgreSQL")]
+    partial class AddWalletWithdrawPhase3OperationalHardening_PostgreSQL
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

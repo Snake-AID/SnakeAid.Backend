@@ -64,6 +64,7 @@ namespace SnakeAid.Core.Domains
         public Account User { get; set; }
         public Wallet Wallet { get; set; }
         public Account? ProcessedByAdmin { get; set; }
+        public ICollection<WalletWithdrawAudit> Audits { get; set; } = new List<WalletWithdrawAudit>();
     }
 
     public enum WalletWithdrawStatus
