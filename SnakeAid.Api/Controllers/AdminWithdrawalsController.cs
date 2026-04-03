@@ -2,6 +2,7 @@ using Mapster;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
+using SnakeAid.Core.Constants;
 using SnakeAid.Core.Meta;
 using SnakeAid.Core.Requests.Wallet;
 using SnakeAid.Core.Responses.Wallet;
@@ -54,7 +55,10 @@ namespace SnakeAid.Api.Controllers
             var withdrawal = await _walletWithdrawService.GetWithdrawalByIdAsync(id);
             if (withdrawal == null)
             {
-                return NotFound(ApiResponseBuilder.BuildNotFoundResponse("Withdrawal not found"));
+                return NotFound(ApiResponseBuilder.BuildErrorResponse(
+                    "Withdrawal not found",
+                    WithdrawalErrorCodes.WithdrawalNotFound,
+                    statusCode: System.Net.HttpStatusCode.NotFound));
             }
 
             var response = withdrawal.Adapt<AdminWithdrawalResponse>();

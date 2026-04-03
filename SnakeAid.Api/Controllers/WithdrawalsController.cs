@@ -2,6 +2,7 @@ using Mapster;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
+using SnakeAid.Core.Constants;
 using SnakeAid.Core.Meta;
 using SnakeAid.Core.Requests.Wallet;
 using SnakeAid.Core.Responses.Wallet;
@@ -68,14 +69,20 @@ namespace SnakeAid.Api.Controllers
             var withdrawal = await _walletWithdrawService.GetWithdrawalByIdAsync(id);
             if (withdrawal == null)
             {
-                return NotFound(ApiResponseBuilder.BuildNotFoundResponse("Withdrawal not found"));
+                return NotFound(ApiResponseBuilder.BuildErrorResponse(
+                    "Withdrawal not found",
+                    WithdrawalErrorCodes.WithdrawalNotFound,
+                    statusCode: System.Net.HttpStatusCode.NotFound));
             }
 
             // Check if user owns this withdrawal
             var userId = GetCurrentUserId();
             if (withdrawal.UserId != userId)
             {
-                return Forbid();
+                return StatusCode(StatusCodes.Status403Forbidden, ApiResponseBuilder.BuildErrorResponse(
+                    "You are not allowed to access this withdrawal",
+                    WithdrawalErrorCodes.WithdrawalForbidden,
+                    statusCode: System.Net.HttpStatusCode.Forbidden));
             }
 
             var response = withdrawal.Adapt<WithdrawalResponse>();
