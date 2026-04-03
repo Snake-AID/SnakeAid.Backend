@@ -14,6 +14,7 @@ namespace SnakeAid.Service.Implements;
 
 public class NotificationQueueService : INotificationQueueService
 {
+    private static readonly TimeSpan WithdrawalPublishTimeout = TimeSpan.FromSeconds(3);
     private readonly IPublishEndpoint _publishEndpoint;
     private readonly ILogger<NotificationQueueService> _logger;
     private readonly IUnitOfWork<SnakeAidDbContext> _unitOfWork;
@@ -53,7 +54,7 @@ public class NotificationQueueService : INotificationQueueService
 
         message.DeepLink = deepLink;
 
-        await _publishEndpoint.Publish(message, cancellationToken);
+        await PublishToBrokerAsync(message, cancellationToken);
 
         _logger.LogInformation(
             "Queued notification {NotificationId} for user {UserId} with type {Type}",
@@ -88,7 +89,7 @@ public class NotificationQueueService : INotificationQueueService
         for (var index = 0; index < messageList.Count; index += publishBatchSize)
         {
             var batch = messageList.Skip(index).Take(publishBatchSize).ToList();
-            await Task.WhenAll(batch.Select(message => _publishEndpoint.Publish(message, cancellationToken)));
+            await Task.WhenAll(batch.Select(message => PublishToBrokerAsync(message, cancellationToken)));
         }
 
         _logger.LogInformation(
@@ -227,5 +228,59 @@ public class NotificationQueueService : INotificationQueueService
                 : "/wallet/withdrawals",
             _ => data.TryGetValue("deepLink", out var explicitDeepLink) ? explicitDeepLink : null
         };
+    }
+
+    private async Task PublishToBrokerAsync(NotificationMessage message, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var publishTask = _publishEndpoint.Publish(message, cancellationToken);
+            if (IsWithdrawalNotificationType(message.Type))
+            {
+                await publishTask.WaitAsync(WithdrawalPublishTimeout, cancellationToken);
+            }
+            else
+            {
+                await publishTask;
+            }
+        }
+        catch (Exception ex) when (IsWithdrawalNotificationType(message.Type) && IsBrokerDeliveryFailure(ex))
+        {
+            _logger.LogWarning(
+                ex,
+                "Skipping broker publish for withdrawal notification {NotificationType} and user {UserId}. App notification was already stored.",
+                message.Type,
+                message.UserId);
+        }
+    }
+
+    private static bool IsWithdrawalNotificationType(string? notificationType)
+    {
+        return !string.IsNullOrWhiteSpace(notificationType)
+            && notificationType.StartsWith("WITHDRAWAL_", StringComparison.Ordinal);
+    }
+
+    private static bool IsBrokerDeliveryFailure(Exception exception)
+    {
+        return exception is TimeoutException
+            || FindExceptionByTypeName(exception, "RabbitMQ.Client.Exceptions.BrokerUnreachableException") != null
+            || FindExceptionByTypeName(exception, "RabbitMQ.Client.Exceptions.ConnectFailureException") != null
+            || FindExceptionByTypeName(exception, "MassTransit.RabbitMqTransport.RabbitMqConnectionException") != null;
+    }
+
+    private static Exception? FindExceptionByTypeName(Exception exception, string fullTypeName)
+    {
+        Exception? current = exception;
+        while (current != null)
+        {
+            if (string.Equals(current.GetType().FullName, fullTypeName, StringComparison.Ordinal))
+            {
+                return current;
+            }
+
+            current = current.InnerException;
+        }
+
+        return null;
     }
 }
