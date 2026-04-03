@@ -1,26 +1,24 @@
 using QRCoder;
-using SnakeAid.Core.Domains;
-using System;
-using System.Drawing;
-using System.Drawing.Imaging;
-using System.IO;
+using System.Globalization;
+using VietQRHelper;
 
 namespace SnakeAid.Service.Implements
 {
     public class VietQrAdapter
     {
+        private const string VietQrServiceCode = "QRIBFTTA";
+
         public (string Payload, string? ImageBase64) GenerateQr(
             string bankBin,
             string bankAccount,
-            string bankName,
+            string accountName,
             decimal amount,
             string message = "")
         {
+            var payload = BuildVietQrPayload(bankBin, bankAccount, amount, message);
+
             try
             {
-                // Build VietQR payload manually (VietQR standard)
-                var payload = BuildVietQrPayload(bankBin, bankAccount, amount, message);
-
                 // Generate QR code image using QRCoder
                 using var qrGenerator = new QRCodeGenerator();
                 using var qrCodeData = qrGenerator.CreateQrCode(payload, QRCodeGenerator.ECCLevel.Q);
@@ -32,27 +30,29 @@ namespace SnakeAid.Service.Implements
 
                 return (payload, base64Image);
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                // Fallback: return payload without image if QR generation fails
-                try
-                {
-                    var fallbackPayload = BuildVietQrPayload(bankBin, bankAccount, amount, message);
-                    return (fallbackPayload, null);
-                }
-                catch
-                {
-                    // If even payload building fails, throw original exception
-                    throw new InvalidOperationException("Failed to generate VietQR payload", ex);
-                }
+                // Preserve the verified EMV payload even if image rendering fails.
+                return (payload, null);
             }
         }
 
         private string BuildVietQrPayload(string bankBin, string bankAccount, decimal amount, string message)
         {
-            // Basic VietQR payload format
-            // This is a simplified implementation - in production, use VietQRHelper library properly
-            return $"00020101021138550010A000000727012500069704560113{bankBin}5802VN{bankAccount}5406{amount:F2}5802VN6304XXXX";
+            if (string.IsNullOrWhiteSpace(bankBin))
+            {
+                throw new ArgumentException("Bank BIN is required.", nameof(bankBin));
+            }
+
+            if (string.IsNullOrWhiteSpace(bankAccount))
+            {
+                throw new ArgumentException("Bank account is required.", nameof(bankAccount));
+            }
+
+            var amountText = amount.ToString("0.##", CultureInfo.InvariantCulture);
+            var purpose = message?.Trim() ?? string.Empty;
+            var qrPay = QRPay.InitVietQR(bankBin.Trim(), bankAccount.Trim(), amountText, purpose, VietQrServiceCode);
+            return qrPay.Build();
         }
     }
 }
