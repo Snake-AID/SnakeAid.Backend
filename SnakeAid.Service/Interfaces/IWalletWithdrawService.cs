@@ -6,7 +6,7 @@ namespace SnakeAid.Service.Interfaces
     public interface IWalletWithdrawService
     {
         Task<WalletWithdraw> CreateWithdrawalRequestAsync(Guid userId, decimal amount, string bankAccount, string bankName, string accountHolderName, string bankBin);
-        Task<WalletWithdraw> GetWithdrawalByIdAsync(Guid withdrawalId);
+        Task<WalletWithdraw?> GetWithdrawalByIdAsync(Guid withdrawalId);
         Task<IEnumerable<WalletWithdraw>> GetUserWithdrawalsAsync(Guid userId);
         Task<WalletWithdraw> CancelWithdrawalAsync(Guid withdrawalId, Guid userId);
         Task<WalletWithdraw> ApproveWithdrawalAsync(Guid withdrawalId, Guid adminUserId, string? adminNotes);

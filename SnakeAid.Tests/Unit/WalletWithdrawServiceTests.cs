@@ -50,6 +50,33 @@ public class WalletWithdrawServiceTests
     }
 
     [Fact]
+    public async Task CreateWithdrawalRequestAsync_ShouldSucceed_WhenAdminBroadcastFails()
+    {
+        var userId = Guid.NewGuid();
+
+        await using var db = CreateDbContext();
+        await SeedAccountAsync(db, userId, AccountRole.User);
+        await SeedWalletAsync(db, userId, 500_000m);
+
+        var notifications = new RecordingNotificationQueueService
+        {
+            ThrowOnBroadcast = true
+        };
+        var service = CreateService(db, notifications);
+
+        var withdrawal = await service.CreateWithdrawalRequestAsync(
+            userId,
+            100_000m,
+            "123456789",
+            "Vietcombank",
+            "Nguyen Van A",
+            "970436");
+
+        Assert.Equal(WalletWithdrawStatus.Pending, withdrawal.Status);
+        Assert.Equal(1, await db.WalletWithdraws.CountAsync(w => w.UserId == userId));
+    }
+
+    [Fact]
     public async Task CreateWithdrawalRequestAsync_ShouldThrowValidationException_WhenAmountOutOfRange()
     {
         var userId = Guid.NewGuid();
@@ -292,9 +319,16 @@ public class WalletWithdrawServiceTests
     {
         public List<NotificationMessage> PublishedMessages { get; } = [];
         public List<AdminBroadcastNotificationRequest> BroadcastRequests { get; } = [];
+        public bool ThrowOnPublish { get; set; }
+        public bool ThrowOnBroadcast { get; set; }
 
         public Task PublishAsync(NotificationMessage message, CancellationToken cancellationToken = default)
         {
+            if (ThrowOnPublish)
+            {
+                throw new InvalidOperationException("Publish failed");
+            }
+
             PublishedMessages.Add(message);
             return Task.CompletedTask;
         }
@@ -310,6 +344,11 @@ public class WalletWithdrawServiceTests
 
         public Task<int> BroadcastAsync(AdminBroadcastNotificationRequest request, CancellationToken cancellationToken = default)
         {
+            if (ThrowOnBroadcast)
+            {
+                throw new InvalidOperationException("Broadcast failed");
+            }
+
             BroadcastRequests.Add(request);
             return Task.FromResult(0);
         }

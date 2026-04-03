@@ -10,6 +10,7 @@ using SnakeAid.Repository.Interfaces;
 using SnakeAid.Service.Interfaces;
 using System;
 using System.Collections.Generic;
+using System.Data;
 using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
@@ -46,47 +47,87 @@ namespace SnakeAid.Service.Implements
         {
             ValidateWithdrawalAmount(amount);
 
-            // Validate user wallet
-            var wallet = await _walletService.GetWalletByUserIdAsync(userId);
-            var pendingAmount = await GetPendingWithdrawalAmountAsync(userId);
-            var availableBalance = wallet.Balance - pendingAmount;
-            if (availableBalance < amount)
+            WalletWithdraw? withdrawal = null;
+            var executionStrategy = _unitOfWork.Context.Database.CreateExecutionStrategy();
+            await executionStrategy.ExecuteAsync(async () =>
             {
-                throw new ConflictException(
-                    "Insufficient wallet balance",
-                    WithdrawalErrorCodes.WithdrawalInsufficientBalance);
+                await using var transaction = await _unitOfWork.Context.Database.BeginTransactionAsync(IsolationLevel.Serializable);
+                try
+                {
+                    var wallet = await _unitOfWork.Context.Set<Wallet>()
+                        .SingleOrDefaultAsync(w => w.UserId == userId);
+
+                    if (wallet == null)
+                    {
+                        throw new NotFoundException($"Wallet not found for user with ID: {userId}");
+                    }
+
+                    var pendingAmounts = await _unitOfWork.Context.Set<WalletWithdraw>()
+                        .Where(w => w.UserId == userId && w.Status == WalletWithdrawStatus.Pending)
+                        .Select(w => w.Amount)
+                        .ToListAsync();
+                    var pendingAmount = pendingAmounts.Sum();
+
+                    var availableBalance = wallet.Balance - pendingAmount;
+                    if (availableBalance < amount)
+                    {
+                        throw new ConflictException(
+                            "Insufficient wallet balance",
+                            WithdrawalErrorCodes.WithdrawalInsufficientBalance);
+                    }
+
+                    var startOfTodayUtc = DateTime.UtcNow.Date;
+                    var endOfTodayUtc = startOfTodayUtc.AddDays(1);
+                    var todayAmounts = await _unitOfWork.Context.Set<WalletWithdraw>()
+                        .Where(w =>
+                            w.UserId == userId &&
+                            w.CreatedAt >= startOfTodayUtc &&
+                            w.CreatedAt < endOfTodayUtc &&
+                            w.Status != WalletWithdrawStatus.Rejected &&
+                            w.Status != WalletWithdrawStatus.Failed)
+                        .Select(w => w.Amount)
+                        .ToListAsync();
+                    var todayTotal = todayAmounts.Sum();
+
+                    if (todayTotal + amount > DailyWithdrawalLimit)
+                    {
+                        throw new ConflictException(
+                            $"Daily withdrawal limit is {DailyWithdrawalLimit:N0} VND",
+                            WithdrawalErrorCodes.WithdrawalDailyLimitExceeded);
+                    }
+
+                    withdrawal = new WalletWithdraw
+                    {
+                        Id = Guid.NewGuid(),
+                        UserId = userId,
+                        WalletId = wallet.Id,
+                        Amount = amount,
+                        BankAccount = bankAccount,
+                        BankName = bankName,
+                        AccountHolderName = accountHolderName,
+                        BankBin = bankBin,
+                        Status = WalletWithdrawStatus.Pending,
+                        CreatedAt = DateTime.UtcNow
+                    };
+
+                    await _unitOfWork.GetRepository<WalletWithdraw>().InsertAsync(withdrawal);
+                    await _unitOfWork.CommitAsync();
+                    await transaction.CommitAsync();
+                }
+                catch
+                {
+                    await transaction.RollbackAsync();
+                    await _unitOfWork.RollbackAsync();
+                    throw;
+                }
+            });
+
+            if (withdrawal == null)
+            {
+                throw new InvalidOperationException("Withdrawal creation did not complete.");
             }
 
-            var todayTotal = await GetTodayWithdrawalAmountAsync(userId);
-            if (todayTotal + amount > DailyWithdrawalLimit)
-            {
-                throw new ConflictException(
-                    $"Daily withdrawal limit is {DailyWithdrawalLimit:N0} VND",
-                    WithdrawalErrorCodes.WithdrawalDailyLimitExceeded);
-            }
-
-            // Create withdrawal request
-            var withdrawal = new WalletWithdraw
-            {
-                Id = Guid.NewGuid(),
-                UserId = userId,
-                WalletId = wallet.Id,
-                Amount = amount,
-                BankAccount = bankAccount,
-                BankName = bankName,
-                AccountHolderName = accountHolderName,
-                BankBin = bankBin,
-                Status = WalletWithdrawStatus.Pending,
-                CreatedAt = DateTime.UtcNow
-            };
-
-            // Generate QR code for approved withdrawals
-            // Note: QR is generated when approved, not when created
-
-            await _unitOfWork.GetRepository<WalletWithdraw>().InsertAsync(withdrawal);
-            await _unitOfWork.CommitAsync();
-
-            await _notificationQueueService.BroadcastAsync(new AdminBroadcastNotificationRequest
+            await TryBroadcastAdminNotificationAsync(new AdminBroadcastNotificationRequest
             {
                 Title = "New withdrawal request",
                 Body = $"A user submitted a withdrawal request of {withdrawal.Amount:N0} VND.",
@@ -100,10 +141,10 @@ namespace SnakeAid.Service.Implements
             return withdrawal;
         }
 
-        public async Task<WalletWithdraw> GetWithdrawalByIdAsync(Guid withdrawalId)
+        public async Task<WalletWithdraw?> GetWithdrawalByIdAsync(Guid withdrawalId)
         {
             return await _unitOfWork.GetRepository<WalletWithdraw>()
-                .GetByIdAsync(withdrawalId) ?? null!;
+                .GetByIdAsync(withdrawalId);
         }
 
         public async Task<IEnumerable<WalletWithdraw>> GetUserWithdrawalsAsync(Guid userId)
@@ -142,7 +183,7 @@ namespace SnakeAid.Service.Implements
 
             await _unitOfWork.CommitAsync();
 
-            await _notificationQueueService.BroadcastAsync(new AdminBroadcastNotificationRequest
+            await TryBroadcastAdminNotificationAsync(new AdminBroadcastNotificationRequest
             {
                 Title = "Withdrawal cancelled",
                 Body = $"User cancelled withdrawal request {withdrawal.Id}.",
@@ -212,7 +253,7 @@ namespace SnakeAid.Service.Implements
             await _unitOfWork.GetRepository<Transaction>().InsertAsync(CreateWithdrawalTransaction(withdrawal));
             await _unitOfWork.CommitAsync();
 
-            await PublishUserNotificationAsync(
+            await TryPublishUserNotificationAsync(
                 withdrawal.UserId,
                 "Withdrawal approved",
                 $"Your withdrawal request of {withdrawal.Amount:N0} VND has been approved.",
@@ -263,7 +304,7 @@ namespace SnakeAid.Service.Implements
 
             await _unitOfWork.CommitAsync();
 
-            await PublishUserNotificationAsync(
+            await TryPublishUserNotificationAsync(
                 withdrawal.UserId,
                 "Withdrawal rejected",
                 $"Your withdrawal request of {withdrawal.Amount:N0} VND was rejected.",
@@ -305,7 +346,7 @@ namespace SnakeAid.Service.Implements
 
             await _unitOfWork.CommitAsync();
 
-            await PublishUserNotificationAsync(
+            await TryPublishUserNotificationAsync(
                 withdrawal.UserId,
                 "Withdrawal completed",
                 $"Your withdrawal request of {withdrawal.Amount:N0} VND has been completed.",
@@ -352,7 +393,7 @@ namespace SnakeAid.Service.Implements
                 CreateWithdrawalRefundTransaction(withdrawal, "Withdrawal failed after approval"));
             await _unitOfWork.CommitAsync();
 
-            await PublishUserNotificationAsync(
+            await TryPublishUserNotificationAsync(
                 withdrawal.UserId,
                 "Withdrawal failed",
                 $"Your withdrawal request of {withdrawal.Amount:N0} VND failed during processing.",
@@ -425,21 +466,40 @@ namespace SnakeAid.Service.Implements
             return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
         }
 
-        private async Task PublishUserNotificationAsync(
+        private async Task TryPublishUserNotificationAsync(
             Guid userId,
             string title,
             string body,
             string type,
             Dictionary<string, string> data)
         {
-            await _notificationQueueService.PublishAsync(new NotificationMessage
+            try
             {
-                UserId = userId,
-                Title = title,
-                Body = body,
-                Type = type,
-                Data = data
-            });
+                await _notificationQueueService.PublishAsync(new NotificationMessage
+                {
+                    UserId = userId,
+                    Title = title,
+                    Body = body,
+                    Type = type,
+                    Data = data
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to publish user notification {NotificationType} for user {UserId}", type, userId);
+            }
+        }
+
+        private async Task TryBroadcastAdminNotificationAsync(AdminBroadcastNotificationRequest request)
+        {
+            try
+            {
+                await _notificationQueueService.BroadcastAsync(request);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to broadcast admin notification {NotificationType}", request.Type);
+            }
         }
 
         private static Dictionary<string, string> BuildNotificationData(
