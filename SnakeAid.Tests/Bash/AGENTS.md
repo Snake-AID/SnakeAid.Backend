@@ -54,7 +54,7 @@ Scripts source helpers từ `helpers/`:
 
 ```bash
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-source "$SCRIPT_DIR/../helpers/auth.sh" member   # hoặc expert, rescuer, all
+source "$SCRIPT_DIR/../helpers/auth.sh" member   # hoặc expert, rescuer, admin, all
 source "$SCRIPT_DIR/../helpers/http.sh"
 ```
 
@@ -64,10 +64,12 @@ source "$SCRIPT_DIR/../helpers/http.sh"
 | `GET_PUBLIC /path` | GET không auth + jq |
 | `POST /path '{"body"}'` | POST + auth + JSON + jq |
 | `POST_ACTION /path` | POST + auth, không body |
+| `POST_RAW /path '{"body"}'` | POST + auth + JSON, raw JSON |
+| `POST_ACTION_RAW /path` | POST + auth, không body, raw JSON |
 | `GET_RAW /path` | GET + auth, raw JSON (cho pipe) |
 | `GET_PUBLIC_RAW /path` | GET không auth, raw JSON |
 
-Token: `$TOKEN` (member mặc định), `$MEMBER_TOKEN`, `$EXPERT_TOKEN`, `$RESCUER_TOKEN`.
+Token: `$TOKEN` (member mặc định), `$MEMBER_TOKEN`, `$EXPERT_TOKEN`, `$RESCUER_TOKEN`, `$ADMIN_TOKEN`.
 
 ## Thêm script mới
 

@@ -15,6 +15,7 @@ CREATE_RESPONSE=$(POST_RAW "/api/withdrawals/create" '{
   "amount": 100000,
   "bankAccount": "1234567890",
   "bankName": "Ngân hàng TMCP Sài Gòn Thương Tín (Sacombank)",
+  "accountHolderName": "NGUYEN VAN DUY KHIEM",
   "bankBin": "970400"
 }')
 

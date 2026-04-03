@@ -146,6 +146,8 @@ namespace SnakeAid.Api
 
                 // Register Wallet Topup Service
                 builder.Services.AddScoped<SnakeAid.Service.Interfaces.IWalletTopupService, SnakeAid.Service.Implements.WalletTopupService>();
+                builder.Services.AddScoped<SnakeAid.Service.Implements.VietQrAdapter>();
+                builder.Services.AddScoped<SnakeAid.Service.Implements.BankDirectoryService>();
 
                 // Register Email services
                 builder.Services.AddHttpClient(); // For ResendEmailSender

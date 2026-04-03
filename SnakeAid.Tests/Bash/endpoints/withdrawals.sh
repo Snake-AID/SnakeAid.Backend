@@ -11,9 +11,10 @@ echo "=== POST /api/withdrawals/create ==="
 echo "Testing withdrawal creation with valid data..."
 POST "/api/withdrawals/create" '{
   "amount": 50000,
-  "bankAccount": "1234567890",
-  "bankName": "Ngân hàng TMCP Sài Gòn Thương Tín (Sacombank)",
-  "bankBin": "970400"
+  "bankAccount": "1020951024",
+  "bankName": "Ngân hàng TMCP Ngoại Thương Việt Nam",
+  "accountHolderName": "NGUYEN VAN DUY KHIEM",
+  "bankBin": "970436"
 }'
 
 echo ""
@@ -22,6 +23,7 @@ POST "/api/withdrawals/create" '{
   "amount": 999999999,
   "bankAccount": "1234567890",
   "bankName": "Ngân hàng TMCP Sài Gòn Thương Tín (Sacombank)",
+  "accountHolderName": "NGUYEN VAN DUY KHIEM",
   "bankBin": "970400"
 }'
 
@@ -53,6 +55,7 @@ POST "/api/withdrawals/create" '{
   "amount": 100000,
   "bankAccount": "123",
   "bankName": "Ngân hàng TMCP Sài Gòn Thương Tín (Sacombank)",
+  "accountHolderName": "NGUYEN VAN DUY KHIEM",
   "bankBin": "970400"
 }'
 
@@ -62,6 +65,7 @@ POST "/api/withdrawals/create" '{
   "amount": 10000,
   "bankAccount": "1234567890",
   "bankName": "Ngân hàng TMCP Sài Gòn Thương Tín (Sacombank)",
+  "accountHolderName": "NGUYEN VAN DUY KHIEM",
   "bankBin": "970400"
 }'
 
