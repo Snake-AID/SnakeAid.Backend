@@ -155,33 +155,40 @@ namespace SnakeAid.Service.Implements
 
         public async Task<WalletWithdraw> CancelWithdrawalAsync(Guid withdrawalId, Guid userId)
         {
-            var withdrawal = await GetWithdrawalByIdAsync(withdrawalId);
-            if (withdrawal == null)
+            var withdrawal = await ExecuteWithdrawalMutationAsync(async () =>
             {
-                throw new NotFoundException(
-                    "Withdrawal not found",
-                    WithdrawalErrorCodes.WithdrawalNotFound);
-            }
+                var trackedWithdrawal = await _unitOfWork.GetRepository<WalletWithdraw>()
+                    .FirstOrDefaultAsync(
+                        predicate: w => w.Id == withdrawalId,
+                        asNoTracking: false);
 
-            if (withdrawal.UserId != userId)
-            {
-                throw new ForbiddenException(
-                    "You are not allowed to access this withdrawal",
-                    WithdrawalErrorCodes.WithdrawalForbidden);
-            }
+                if (trackedWithdrawal == null)
+                {
+                    throw new NotFoundException(
+                        "Withdrawal not found",
+                        WithdrawalErrorCodes.WithdrawalNotFound);
+                }
 
-            if (withdrawal.Status != WalletWithdrawStatus.Pending)
-            {
-                throw new ConflictException(
-                    "Can only cancel pending withdrawals",
-                    WithdrawalErrorCodes.WithdrawalInvalidStatus);
-            }
+                if (trackedWithdrawal.UserId != userId)
+                {
+                    throw new ForbiddenException(
+                        "You are not allowed to access this withdrawal",
+                        WithdrawalErrorCodes.WithdrawalForbidden);
+                }
 
-            withdrawal.Status = WalletWithdrawStatus.Rejected;
-            withdrawal.RejectionReason = "Cancelled by user";
-            withdrawal.ProcessedAt = DateTime.UtcNow;
+                if (trackedWithdrawal.Status != WalletWithdrawStatus.Pending)
+                {
+                    throw new ConflictException(
+                        "Can only cancel pending withdrawals",
+                        WithdrawalErrorCodes.WithdrawalInvalidStatus);
+                }
 
-            await _unitOfWork.CommitAsync();
+                trackedWithdrawal.Status = WalletWithdrawStatus.Rejected;
+                trackedWithdrawal.RejectionReason = "Cancelled by user";
+                trackedWithdrawal.ProcessedAt = DateTime.UtcNow;
+
+                return trackedWithdrawal;
+            });
 
             await TryBroadcastAdminNotificationAsync(new AdminBroadcastNotificationRequest
             {
@@ -199,59 +206,61 @@ namespace SnakeAid.Service.Implements
 
         public async Task<WalletWithdraw> ApproveWithdrawalAsync(Guid withdrawalId, Guid adminUserId, string? adminNotes)
         {
-            var withdrawal = await _unitOfWork.GetRepository<WalletWithdraw>()
-                .FirstOrDefaultAsync(
-                    predicate: w => w.Id == withdrawalId,
-                    include: q => q.Include(w => w.Wallet),
-                    asNoTracking: false
-                );
-
-            if (withdrawal == null)
+            var withdrawal = await ExecuteWithdrawalMutationAsync(async () =>
             {
-                throw new NotFoundException(
-                    "Withdrawal not found",
-                    WithdrawalErrorCodes.WithdrawalNotFound);
-            }
+                var trackedWithdrawal = await _unitOfWork.GetRepository<WalletWithdraw>()
+                    .FirstOrDefaultAsync(
+                        predicate: w => w.Id == withdrawalId,
+                        include: q => q.Include(w => w.Wallet),
+                        asNoTracking: false
+                    );
 
-            if (withdrawal.Status != WalletWithdrawStatus.Pending)
-            {
-                throw new ConflictException(
-                    "Can only approve pending withdrawals",
-                    WithdrawalErrorCodes.WithdrawalInvalidStatus);
-            }
+                if (trackedWithdrawal == null)
+                {
+                    throw new NotFoundException(
+                        "Withdrawal not found",
+                        WithdrawalErrorCodes.WithdrawalNotFound);
+                }
 
-            if (string.IsNullOrWhiteSpace(withdrawal.BankBin))
-            {
-                throw new ConflictException(
-                    "Withdrawal bank BIN is missing and QR cannot be generated",
-                    WithdrawalErrorCodes.WithdrawalBankBinMissing);
-            }
+                if (trackedWithdrawal.Status != WalletWithdrawStatus.Pending)
+                {
+                    throw new ConflictException(
+                        "Can only approve pending withdrawals",
+                        WithdrawalErrorCodes.WithdrawalInvalidStatus);
+                }
 
-            if (withdrawal.Wallet.Balance < withdrawal.Amount)
-            {
-                throw new ConflictException(
-                    "Insufficient wallet balance to approve withdrawal",
-                    WithdrawalErrorCodes.WithdrawalInsufficientBalance);
-            }
+                if (string.IsNullOrWhiteSpace(trackedWithdrawal.BankBin))
+                {
+                    throw new ConflictException(
+                        "Withdrawal bank BIN is missing and QR cannot be generated",
+                        WithdrawalErrorCodes.WithdrawalBankBinMissing);
+                }
 
-            // Generate QR code
-            var (payload, imageBase64) = _vietQrAdapter.GenerateQr(
-                withdrawal.BankBin,
-                withdrawal.BankAccount,
-                withdrawal.AccountHolderName,
-                withdrawal.Amount,
-                $"Withdrawal {withdrawal.Id}");
+                if (trackedWithdrawal.Wallet.Balance < trackedWithdrawal.Amount)
+                {
+                    throw new ConflictException(
+                        "Insufficient wallet balance to approve withdrawal",
+                        WithdrawalErrorCodes.WithdrawalInsufficientBalance);
+                }
 
-            withdrawal.Wallet.Balance -= withdrawal.Amount;
-            withdrawal.Status = WalletWithdrawStatus.Approved;
-            withdrawal.ProcessedByAdminId = adminUserId;
-            withdrawal.AdminNotes = NormalizeText(adminNotes);
-            withdrawal.VietQrPayload = payload;
-            withdrawal.VietQrImageBase64 = imageBase64;
-            withdrawal.ProcessedAt = DateTime.UtcNow;
+                var (payload, imageBase64) = _vietQrAdapter.GenerateQr(
+                    trackedWithdrawal.BankBin,
+                    trackedWithdrawal.BankAccount,
+                    trackedWithdrawal.AccountHolderName,
+                    trackedWithdrawal.Amount,
+                    $"Withdrawal {trackedWithdrawal.Id}");
 
-            await _unitOfWork.GetRepository<Transaction>().InsertAsync(CreateWithdrawalTransaction(withdrawal));
-            await _unitOfWork.CommitAsync();
+                trackedWithdrawal.Wallet.Balance -= trackedWithdrawal.Amount;
+                trackedWithdrawal.Status = WalletWithdrawStatus.Approved;
+                trackedWithdrawal.ProcessedByAdminId = adminUserId;
+                trackedWithdrawal.AdminNotes = NormalizeText(adminNotes);
+                trackedWithdrawal.VietQrPayload = payload;
+                trackedWithdrawal.VietQrImageBase64 = imageBase64;
+                trackedWithdrawal.ProcessedAt = DateTime.UtcNow;
+
+                await _unitOfWork.GetRepository<Transaction>().InsertAsync(CreateWithdrawalTransaction(trackedWithdrawal));
+                return trackedWithdrawal;
+            });
 
             await TryPublishUserNotificationAsync(
                 withdrawal.UserId,
@@ -267,42 +276,45 @@ namespace SnakeAid.Service.Implements
 
         public async Task<WalletWithdraw> RejectWithdrawalAsync(Guid withdrawalId, Guid adminUserId, string reason, string? adminNotes)
         {
-            var withdrawal = await _unitOfWork.GetRepository<WalletWithdraw>()
-                .FirstOrDefaultAsync(
-                    predicate: w => w.Id == withdrawalId,
-                    include: q => q.Include(w => w.Wallet),
-                    asNoTracking: false
-                );
-            if (withdrawal == null)
+            var withdrawal = await ExecuteWithdrawalMutationAsync(async () =>
             {
-                throw new NotFoundException(
-                    "Withdrawal not found",
-                    WithdrawalErrorCodes.WithdrawalNotFound);
-            }
+                var trackedWithdrawal = await _unitOfWork.GetRepository<WalletWithdraw>()
+                    .FirstOrDefaultAsync(
+                        predicate: w => w.Id == withdrawalId,
+                        include: q => q.Include(w => w.Wallet),
+                        asNoTracking: false
+                    );
+                if (trackedWithdrawal == null)
+                {
+                    throw new NotFoundException(
+                        "Withdrawal not found",
+                        WithdrawalErrorCodes.WithdrawalNotFound);
+                }
 
-            if (withdrawal.Status != WalletWithdrawStatus.Pending && withdrawal.Status != WalletWithdrawStatus.Approved)
-            {
-                throw new ConflictException(
-                    "Can only reject pending or approved withdrawals",
-                    WithdrawalErrorCodes.WithdrawalInvalidStatus);
-            }
+                if (trackedWithdrawal.Status != WalletWithdrawStatus.Pending && trackedWithdrawal.Status != WalletWithdrawStatus.Approved)
+                {
+                    throw new ConflictException(
+                        "Can only reject pending or approved withdrawals",
+                        WithdrawalErrorCodes.WithdrawalInvalidStatus);
+                }
 
-            if (withdrawal.Status == WalletWithdrawStatus.Approved)
-            {
-                withdrawal.Wallet.Balance += withdrawal.Amount;
-                await _unitOfWork.GetRepository<Transaction>().InsertAsync(
-                    CreateWithdrawalRefundTransaction(withdrawal, "Withdrawal rejected after approval"));
-            }
+                if (trackedWithdrawal.Status == WalletWithdrawStatus.Approved)
+                {
+                    trackedWithdrawal.Wallet.Balance += trackedWithdrawal.Amount;
+                    await _unitOfWork.GetRepository<Transaction>().InsertAsync(
+                        CreateWithdrawalRefundTransaction(trackedWithdrawal, "Withdrawal rejected after approval"));
+                }
 
-            withdrawal.Status = WalletWithdrawStatus.Rejected;
-            withdrawal.ProcessedByAdminId = adminUserId;
-            withdrawal.RejectionReason = reason;
-            withdrawal.AdminNotes = NormalizeText(adminNotes);
-            withdrawal.VietQrPayload = null;
-            withdrawal.VietQrImageBase64 = null;
-            withdrawal.ProcessedAt = DateTime.UtcNow;
+                trackedWithdrawal.Status = WalletWithdrawStatus.Rejected;
+                trackedWithdrawal.ProcessedByAdminId = adminUserId;
+                trackedWithdrawal.RejectionReason = reason;
+                trackedWithdrawal.AdminNotes = NormalizeText(adminNotes);
+                trackedWithdrawal.VietQrPayload = null;
+                trackedWithdrawal.VietQrImageBase64 = null;
+                trackedWithdrawal.ProcessedAt = DateTime.UtcNow;
 
-            await _unitOfWork.CommitAsync();
+                return trackedWithdrawal;
+            });
 
             await TryPublishUserNotificationAsync(
                 withdrawal.UserId,
@@ -318,33 +330,36 @@ namespace SnakeAid.Service.Implements
 
         public async Task<WalletWithdraw> CompleteWithdrawalAsync(Guid withdrawalId, Guid adminUserId, string? adminNotes)
         {
-            var withdrawal = await _unitOfWork.GetRepository<WalletWithdraw>()
-                .FirstOrDefaultAsync(
-                    predicate: w => w.Id == withdrawalId,
-                    include: q => q.Include(w => w.Wallet),
-                    asNoTracking: false
-                );
-
-            if (withdrawal == null)
+            var withdrawal = await ExecuteWithdrawalMutationAsync(async () =>
             {
-                throw new NotFoundException(
-                    "Withdrawal not found",
-                    WithdrawalErrorCodes.WithdrawalNotFound);
-            }
+                var trackedWithdrawal = await _unitOfWork.GetRepository<WalletWithdraw>()
+                    .FirstOrDefaultAsync(
+                        predicate: w => w.Id == withdrawalId,
+                        include: q => q.Include(w => w.Wallet),
+                        asNoTracking: false
+                    );
 
-            if (withdrawal.Status != WalletWithdrawStatus.Approved)
-            {
-                throw new ConflictException(
-                    "Can only complete approved withdrawals",
-                    WithdrawalErrorCodes.WithdrawalInvalidStatus);
-            }
+                if (trackedWithdrawal == null)
+                {
+                    throw new NotFoundException(
+                        "Withdrawal not found",
+                        WithdrawalErrorCodes.WithdrawalNotFound);
+                }
 
-            withdrawal.Status = WalletWithdrawStatus.Completed;
-            withdrawal.ProcessedByAdminId = adminUserId;
-            withdrawal.AdminNotes = NormalizeText(adminNotes) ?? withdrawal.AdminNotes;
-            withdrawal.ProcessedAt = DateTime.UtcNow;
+                if (trackedWithdrawal.Status != WalletWithdrawStatus.Approved)
+                {
+                    throw new ConflictException(
+                        "Can only complete approved withdrawals",
+                        WithdrawalErrorCodes.WithdrawalInvalidStatus);
+                }
 
-            await _unitOfWork.CommitAsync();
+                trackedWithdrawal.Status = WalletWithdrawStatus.Completed;
+                trackedWithdrawal.ProcessedByAdminId = adminUserId;
+                trackedWithdrawal.AdminNotes = NormalizeText(adminNotes) ?? trackedWithdrawal.AdminNotes;
+                trackedWithdrawal.ProcessedAt = DateTime.UtcNow;
+
+                return trackedWithdrawal;
+            });
 
             await TryPublishUserNotificationAsync(
                 withdrawal.UserId,
@@ -360,38 +375,41 @@ namespace SnakeAid.Service.Implements
 
         public async Task<WalletWithdraw> FailWithdrawalAsync(Guid withdrawalId, Guid adminUserId, string reason, string? adminNotes)
         {
-            var withdrawal = await _unitOfWork.GetRepository<WalletWithdraw>()
-                .FirstOrDefaultAsync(
-                    predicate: w => w.Id == withdrawalId,
-                    include: q => q.Include(w => w.Wallet),
-                    asNoTracking: false
-                );
-            if (withdrawal == null)
+            var withdrawal = await ExecuteWithdrawalMutationAsync(async () =>
             {
-                throw new NotFoundException(
-                    "Withdrawal not found",
-                    WithdrawalErrorCodes.WithdrawalNotFound);
-            }
+                var trackedWithdrawal = await _unitOfWork.GetRepository<WalletWithdraw>()
+                    .FirstOrDefaultAsync(
+                        predicate: w => w.Id == withdrawalId,
+                        include: q => q.Include(w => w.Wallet),
+                        asNoTracking: false
+                    );
+                if (trackedWithdrawal == null)
+                {
+                    throw new NotFoundException(
+                        "Withdrawal not found",
+                        WithdrawalErrorCodes.WithdrawalNotFound);
+                }
 
-            if (withdrawal.Status != WalletWithdrawStatus.Approved)
-            {
-                throw new ConflictException(
-                    "Can only fail approved withdrawals",
-                    WithdrawalErrorCodes.WithdrawalInvalidStatus);
-            }
+                if (trackedWithdrawal.Status != WalletWithdrawStatus.Approved)
+                {
+                    throw new ConflictException(
+                        "Can only fail approved withdrawals",
+                        WithdrawalErrorCodes.WithdrawalInvalidStatus);
+                }
 
-            withdrawal.Wallet.Balance += withdrawal.Amount;
-            withdrawal.Status = WalletWithdrawStatus.Failed;
-            withdrawal.ProcessedByAdminId = adminUserId;
-            withdrawal.RejectionReason = reason;
-            withdrawal.AdminNotes = NormalizeText(adminNotes);
-            withdrawal.VietQrPayload = null;
-            withdrawal.VietQrImageBase64 = null;
-            withdrawal.ProcessedAt = DateTime.UtcNow;
+                trackedWithdrawal.Wallet.Balance += trackedWithdrawal.Amount;
+                trackedWithdrawal.Status = WalletWithdrawStatus.Failed;
+                trackedWithdrawal.ProcessedByAdminId = adminUserId;
+                trackedWithdrawal.RejectionReason = reason;
+                trackedWithdrawal.AdminNotes = NormalizeText(adminNotes);
+                trackedWithdrawal.VietQrPayload = null;
+                trackedWithdrawal.VietQrImageBase64 = null;
+                trackedWithdrawal.ProcessedAt = DateTime.UtcNow;
 
-            await _unitOfWork.GetRepository<Transaction>().InsertAsync(
-                CreateWithdrawalRefundTransaction(withdrawal, "Withdrawal failed after approval"));
-            await _unitOfWork.CommitAsync();
+                await _unitOfWork.GetRepository<Transaction>().InsertAsync(
+                    CreateWithdrawalRefundTransaction(trackedWithdrawal, "Withdrawal failed after approval"));
+                return trackedWithdrawal;
+            });
 
             await TryPublishUserNotificationAsync(
                 withdrawal.UserId,
@@ -464,6 +482,73 @@ namespace SnakeAid.Service.Implements
         private static string? NormalizeText(string? value)
         {
             return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+        }
+
+        private async Task<T> ExecuteWithdrawalMutationAsync<T>(Func<Task<T>> operation)
+        {
+            var executionStrategy = _unitOfWork.Context.Database.CreateExecutionStrategy();
+            try
+            {
+                return await executionStrategy.ExecuteAsync(async () =>
+                {
+                    await using var transaction = await _unitOfWork.Context.Database.BeginTransactionAsync(IsolationLevel.Serializable);
+                    try
+                    {
+                        var result = await operation();
+                        await _unitOfWork.CommitAsync();
+                        await transaction.CommitAsync();
+                        return result;
+                    }
+                    catch
+                    {
+                        await transaction.RollbackAsync();
+                        await _unitOfWork.RollbackAsync();
+                        throw;
+                    }
+                });
+            }
+            catch (Exception ex) when (IsWithdrawalConcurrencyConflict(ex))
+            {
+                throw new ConflictException(
+                    "Withdrawal was updated by another operation. Please reload and try again.",
+                    WithdrawalErrorCodes.WithdrawalInvalidStatus);
+            }
+        }
+
+        private static bool IsWithdrawalConcurrencyConflict(Exception exception)
+        {
+            if (exception is DbUpdateConcurrencyException)
+            {
+                return true;
+            }
+
+            var postgresException = FindExceptionByTypeName(exception, "Npgsql.PostgresException");
+            if (postgresException != null)
+            {
+                var sqlState = postgresException.GetType().GetProperty("SqlState")?.GetValue(postgresException)?.ToString();
+                if (sqlState is "40001" or "40P01")
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static Exception? FindExceptionByTypeName(Exception exception, string fullTypeName)
+        {
+            Exception? current = exception;
+            while (current != null)
+            {
+                if (string.Equals(current.GetType().FullName, fullTypeName, StringComparison.Ordinal))
+                {
+                    return current;
+                }
+
+                current = current.InnerException;
+            }
+
+            return null;
         }
 
         private async Task TryPublishUserNotificationAsync(
