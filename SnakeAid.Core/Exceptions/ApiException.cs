@@ -6,43 +6,48 @@ public class ApiException : Exception
 {
     public HttpStatusCode StatusCode { get; }
     public string Reason { get; }
+    public string? ErrorCode { get; }
 
-    public ApiException(string reason, HttpStatusCode statusCode = HttpStatusCode.InternalServerError)
+    public ApiException(
+        string reason,
+        HttpStatusCode statusCode = HttpStatusCode.InternalServerError,
+        string? errorCode = null)
         : base(reason)
     {
         StatusCode = statusCode;
         Reason = reason;
+        ErrorCode = errorCode;
     }
 }
 
 public class NotFoundException : ApiException
 {
-    public NotFoundException(string reason)
-        : base(reason, HttpStatusCode.NotFound)
+    public NotFoundException(string reason, string? errorCode = null)
+        : base(reason, HttpStatusCode.NotFound, errorCode)
     {
     }
 }
 
 public class BadRequestException : ApiException
 {
-    public BadRequestException(string reason)
-        : base(reason, HttpStatusCode.BadRequest)
+    public BadRequestException(string reason, string? errorCode = null)
+        : base(reason, HttpStatusCode.BadRequest, errorCode)
     {
     }
 }
 
 public class UnauthorizedException : ApiException
 {
-    public UnauthorizedException(string reason)
-        : base(reason, HttpStatusCode.Unauthorized)
+    public UnauthorizedException(string reason, string? errorCode = null)
+        : base(reason, HttpStatusCode.Unauthorized, errorCode)
     {
     }
 }
 
 public class BusinessException : ApiException
 {
-    public BusinessException(string reason)
-        : base(reason, HttpStatusCode.BadRequest)
+    public BusinessException(string reason, string? errorCode = null)
+        : base(reason, HttpStatusCode.BadRequest, errorCode)
     {
     }
 }
@@ -76,22 +81,26 @@ public class ValidationException : ApiException
     public List<string> Errors { get; }
     public Dictionary<string, string[]> ValidationErrors { get; }
 
-    public ValidationException(string reason, List<string>? errors = null)
-        : base(reason, HttpStatusCode.UnprocessableEntity)
+    public ValidationException(string reason, List<string>? errors = null, string? errorCode = null)
+        : base(reason, HttpStatusCode.UnprocessableEntity, errorCode)
     {
         Errors = errors ?? new List<string>();
         ValidationErrors = new Dictionary<string, string[]>();
     }
 
-    public ValidationException(string reason, Dictionary<string, string[]> validationErrors)
-        : base(reason, HttpStatusCode.UnprocessableEntity)
+    public ValidationException(string reason, Dictionary<string, string[]> validationErrors, string? errorCode = null)
+        : base(reason, HttpStatusCode.UnprocessableEntity, errorCode)
     {
         ValidationErrors = validationErrors ?? new Dictionary<string, string[]>();
         Errors = validationErrors?.SelectMany(x => x.Value).ToList() ?? new List<string>();
     }
 
-    public ValidationException(string reason, List<string>? errors, Dictionary<string, string[]>? validationErrors)
-        : base(reason, HttpStatusCode.UnprocessableEntity)
+    public ValidationException(
+        string reason,
+        List<string>? errors,
+        Dictionary<string, string[]>? validationErrors,
+        string? errorCode = null)
+        : base(reason, HttpStatusCode.UnprocessableEntity, errorCode)
     {
         Errors = errors ?? new List<string>();
         ValidationErrors = validationErrors ?? new Dictionary<string, string[]>();
@@ -100,16 +109,16 @@ public class ValidationException : ApiException
 
 public class ForbiddenException : ApiException
 {
-    public ForbiddenException(string reason)
-        : base(reason, HttpStatusCode.Forbidden)
+    public ForbiddenException(string reason, string? errorCode = null)
+        : base(reason, HttpStatusCode.Forbidden, errorCode)
     {
     }
 }
 
 public class ConflictException : ApiException
 {
-    public ConflictException(string reason)
-        : base(reason, HttpStatusCode.Conflict)
+    public ConflictException(string reason, string? errorCode = null)
+        : base(reason, HttpStatusCode.Conflict, errorCode)
     {
     }
 }
