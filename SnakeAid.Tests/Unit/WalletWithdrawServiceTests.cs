@@ -2,6 +2,7 @@ using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using SnakeAid.Core.Domains;
+using SnakeAid.Core.Exceptions;
 using SnakeAid.Core.Messages.Notifications;
 using SnakeAid.Core.Requests.Notification;
 using SnakeAid.Core.Responses.Wallet;
@@ -46,6 +47,29 @@ public class WalletWithdrawServiceTests
         Assert.Equal("WITHDRAWAL_REQUEST_CREATED", broadcast.Type);
         Assert.Contains(AccountRole.Admin, broadcast.TargetRoles ?? []);
         Assert.Equal(withdrawal.Id.ToString(), broadcast.Data?["withdrawalId"]);
+    }
+
+    [Fact]
+    public async Task CreateWithdrawalRequestAsync_ShouldThrowValidationException_WhenAmountOutOfRange()
+    {
+        var userId = Guid.NewGuid();
+
+        await using var db = CreateDbContext();
+        await SeedAccountAsync(db, userId, AccountRole.User);
+        await SeedWalletAsync(db, userId, 500_000m);
+
+        var service = CreateService(db, new RecordingNotificationQueueService());
+
+        var exception = await Assert.ThrowsAsync<ValidationException>(() => service.CreateWithdrawalRequestAsync(
+            userId,
+            10_000m,
+            "123456789",
+            "Vietcombank",
+            "Nguyen Van A",
+            "970436"));
+
+        Assert.Equal("VALIDATION_ERROR", exception.ErrorCode);
+        Assert.Contains("amount", exception.ValidationErrors.Keys);
     }
 
     [Fact]

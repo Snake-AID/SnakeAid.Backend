@@ -383,8 +383,16 @@ namespace SnakeAid.Service.Implements
         {
             if (amount < MinWithdrawalAmount || amount > MaxWithdrawalAmount)
             {
-                throw new InvalidOperationException(
-                    $"Withdrawal amount must be between {MinWithdrawalAmount:N0} and {MaxWithdrawalAmount:N0} VND");
+                throw new ValidationException(
+                    "Validation failed",
+                    new Dictionary<string, string[]>
+                    {
+                        ["amount"] =
+                        [
+                            $"The field Amount must be between {MinWithdrawalAmount:N0} and {MaxWithdrawalAmount:N0}."
+                        ]
+                    },
+                    "VALIDATION_ERROR");
             }
         }
 

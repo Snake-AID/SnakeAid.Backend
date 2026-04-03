@@ -79,10 +79,10 @@ namespace SnakeAid.Api.Controllers
             var userId = GetCurrentUserId();
             if (withdrawal.UserId != userId)
             {
-                return StatusCode(StatusCodes.Status403Forbidden, ApiResponseBuilder.BuildErrorResponse(
-                    "You are not allowed to access this withdrawal",
-                    WithdrawalErrorCodes.WithdrawalForbidden,
-                    statusCode: System.Net.HttpStatusCode.Forbidden));
+                return NotFound(ApiResponseBuilder.BuildErrorResponse(
+                    "Withdrawal not found",
+                    WithdrawalErrorCodes.WithdrawalNotFound,
+                    statusCode: System.Net.HttpStatusCode.NotFound));
             }
 
             var response = withdrawal.Adapt<WithdrawalResponse>();

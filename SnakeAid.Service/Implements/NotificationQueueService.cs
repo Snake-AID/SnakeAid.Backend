@@ -211,8 +211,8 @@ public class NotificationQueueService : INotificationQueueService
                 ? $"/admin/withdrawals/{createdWithdrawalId}"
                 : "/admin/withdrawals",
             "WITHDRAWAL_CANCELLED" => data.TryGetValue("withdrawalId", out var cancelledWithdrawalId)
-                ? $"/wallet/withdrawals/{cancelledWithdrawalId}"
-                : "/wallet/withdrawals",
+                ? $"/admin/withdrawals/{cancelledWithdrawalId}"
+                : "/admin/withdrawals",
             "WITHDRAWAL_APPROVED" => data.TryGetValue("withdrawalId", out var approvedWithdrawalId)
                 ? $"/wallet/withdrawals/{approvedWithdrawalId}"
                 : "/wallet/withdrawals",
