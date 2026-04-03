@@ -1,5 +1,5 @@
 #!/bin/bash
-# Shared auth helper — source this from other scripts: source ./auth.sh [member|expert|rescuer|all]
+# Shared auth helper — source this from other scripts: source ./auth.sh [member|expert|rescuer|admin|all]
 # Tokens are cached in /tmp/snakeaid-token-* and reused across scripts.
 # To force re-login: rm /tmp/snakeaid-token-* then run again.
 
@@ -58,4 +58,8 @@ fi
 
 if [ "$AUTH_SCOPE" = "rescuer" ] || [ "$AUTH_SCOPE" = "all" ]; then
   RESCUER_TOKEN=$(_login "khiemnguyen120216@gmail.com" "120216" "rescuer")
+fi
+
+if [ "$AUTH_SCOPE" = "admin" ] || [ "$AUTH_SCOPE" = "all" ]; then
+  ADMIN_TOKEN=$(_login "demo.admin@snakeaid.test" "Demo@123" "admin")
 fi

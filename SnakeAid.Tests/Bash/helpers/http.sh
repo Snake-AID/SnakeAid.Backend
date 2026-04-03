@@ -29,6 +29,20 @@ POST_ACTION() {
     -H "Authorization: Bearer $TOKEN" | jq .
 }
 
+# POST với auth + JSON body, trả raw JSON
+POST_RAW() {
+  curl --globoff -s -X POST "${BASE_URL}$1" \
+    -H "Authorization: Bearer $TOKEN" \
+    -H "Content-Type: application/json" \
+    -d "$2"
+}
+
+# POST với auth, không body, trả raw JSON
+POST_ACTION_RAW() {
+  curl --globoff -s -X POST "${BASE_URL}$1" \
+    -H "Authorization: Bearer $TOKEN"
+}
+
 # GET với auth, trả raw JSON (cho pipe/parse tiếp)
 GET_RAW() {
   curl --globoff -s -X GET "${BASE_URL}$1" \

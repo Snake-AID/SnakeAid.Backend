@@ -370,3 +370,6 @@ appsettings.*.json
 # Docker compose override
 SnakeAid.dockercompose.yml
 firebase-service-account.json
+.kiro
+.kilo
+skills-lock.json
