@@ -55,18 +55,12 @@ public class WalletWithdrawalFlowIntegrationTests
             .ToListAsync();
         Assert.Single(withdrawTransactions);
 
-        var audits = await db.WalletWithdrawAudits
-            .Where(a => a.WithdrawalId == created.Id)
-            .OrderBy(a => a.CreatedAt)
-            .ToListAsync();
-        Assert.Equal(["CREATE", "APPROVE", "COMPLETE"], audits.Select(a => a.Action).ToArray());
-
         Assert.Single(notifications.BroadcastRequests);
         Assert.Equal(2, notifications.PublishedMessages.Count);
     }
 
     [Fact]
-    public async Task CreateApproveFailAsync_ShouldRefundBalance_ClearQr_AndPersistAuditTrail()
+    public async Task CreateApproveFailAsync_ShouldRefundBalance_ClearQr_AndPersistFinalState()
     {
         var userId = Guid.NewGuid();
         var adminUserId = Guid.NewGuid();
@@ -104,12 +98,6 @@ public class WalletWithdrawalFlowIntegrationTests
             t.ReferenceId == created.Id &&
             t.TransactionType == TransactionType.AdminAdjustment);
         Assert.Equal(100_000m, adjustment.Amount);
-
-        var audits = await db.WalletWithdrawAudits
-            .Where(a => a.WithdrawalId == created.Id)
-            .OrderBy(a => a.CreatedAt)
-            .ToListAsync();
-        Assert.Equal(["CREATE", "APPROVE", "FAIL"], audits.Select(a => a.Action).ToArray());
 
         Assert.Single(notifications.BroadcastRequests);
         Assert.Equal(2, notifications.PublishedMessages.Count);
@@ -225,7 +213,6 @@ public class WalletWithdrawalFlowIntegrationTests
                 typeof(Account),
                 typeof(Wallet),
                 typeof(WalletWithdraw),
-                typeof(WalletWithdrawAudit),
                 typeof(Transaction)
             };
 
@@ -269,15 +256,6 @@ public class WalletWithdrawalFlowIntegrationTests
                     .WithMany()
                     .HasForeignKey(w => w.ProcessedByAdminId)
                     .OnDelete(DeleteBehavior.Restrict);
-            });
-
-            modelBuilder.Entity<WalletWithdrawAudit>(entity =>
-            {
-                entity.HasKey(a => a.Id);
-                entity.HasOne(a => a.Withdrawal)
-                    .WithMany(w => w.Audits)
-                    .HasForeignKey(a => a.WithdrawalId)
-                    .OnDelete(DeleteBehavior.Cascade);
             });
 
             modelBuilder.Entity<Transaction>(entity =>

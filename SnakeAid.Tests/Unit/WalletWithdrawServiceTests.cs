@@ -16,7 +16,7 @@ namespace SnakeAid.Tests.Unit;
 public class WalletWithdrawServiceTests
 {
     [Fact]
-    public async Task CreateWithdrawalRequestAsync_ShouldCreatePendingWithdrawal_Audit_AndAdminBroadcast()
+    public async Task CreateWithdrawalRequestAsync_ShouldCreatePendingWithdrawal_AndAdminBroadcast()
     {
         var userId = Guid.NewGuid();
 
@@ -42,12 +42,6 @@ public class WalletWithdrawServiceTests
         var wallet = await db.Wallets.FirstAsync(w => w.UserId == userId);
         Assert.Equal(500_000m, wallet.Balance);
 
-        var audit = await db.WalletWithdrawAudits.SingleAsync(a => a.WithdrawalId == withdrawal.Id);
-        Assert.Equal("CREATE", audit.Action);
-        Assert.Null(audit.FromStatus);
-        Assert.Equal(WalletWithdrawStatus.Pending, audit.ToStatus);
-        Assert.Equal("User", audit.ActorRole);
-
         var broadcast = Assert.Single(notifications.BroadcastRequests);
         Assert.Equal("WITHDRAWAL_REQUEST_CREATED", broadcast.Type);
         Assert.Contains(AccountRole.Admin, broadcast.TargetRoles ?? []);
@@ -55,7 +49,7 @@ public class WalletWithdrawServiceTests
     }
 
     [Fact]
-    public async Task CancelWithdrawalAsync_ShouldRejectPendingWithdrawal_Audit_AndAdminBroadcast()
+    public async Task CancelWithdrawalAsync_ShouldRejectPendingWithdrawal_AndAdminBroadcast()
     {
         var userId = Guid.NewGuid();
         var withdrawalId = Guid.NewGuid();
@@ -84,18 +78,13 @@ public class WalletWithdrawServiceTests
         Assert.Equal(WalletWithdrawStatus.Rejected, result.Status);
         Assert.Equal("Cancelled by user", result.RejectionReason);
 
-        var audit = await db.WalletWithdrawAudits.SingleAsync(a => a.WithdrawalId == withdrawalId);
-        Assert.Equal("CANCEL", audit.Action);
-        Assert.Equal(WalletWithdrawStatus.Pending, audit.FromStatus);
-        Assert.Equal(WalletWithdrawStatus.Rejected, audit.ToStatus);
-
         var broadcast = Assert.Single(notifications.BroadcastRequests);
         Assert.Equal("WITHDRAWAL_CANCELLED", broadcast.Type);
         Assert.Equal(withdrawalId.ToString(), broadcast.Data?["withdrawalId"]);
     }
 
     [Fact]
-    public async Task ApproveWithdrawalAsync_ShouldDeductWallet_CreateTransaction_Audit_AndUserNotification()
+    public async Task ApproveWithdrawalAsync_ShouldDeductWallet_CreateTransaction_AndUserNotification()
     {
         var userId = Guid.NewGuid();
         var adminUserId = Guid.NewGuid();
@@ -136,12 +125,6 @@ public class WalletWithdrawServiceTests
             t.TransactionType == TransactionType.WalletWithdraw);
         Assert.Equal(100_000m, transaction.Amount);
 
-        var audit = await db.WalletWithdrawAudits.SingleAsync(a => a.WithdrawalId == withdrawalId);
-        Assert.Equal("APPROVE", audit.Action);
-        Assert.Equal(WalletWithdrawStatus.Pending, audit.FromStatus);
-        Assert.Equal(WalletWithdrawStatus.Approved, audit.ToStatus);
-        Assert.Equal("Admin", audit.ActorRole);
-
         var notification = Assert.Single(notifications.PublishedMessages);
         Assert.Equal(userId, notification.UserId);
         Assert.Equal("WITHDRAWAL_APPROVED", notification.Type);
@@ -149,7 +132,7 @@ public class WalletWithdrawServiceTests
     }
 
     [Fact]
-    public async Task FailWithdrawalAsync_ShouldRefundWallet_ClearQr_CreateAdjustment_Audit_AndUserNotification()
+    public async Task FailWithdrawalAsync_ShouldRefundWallet_ClearQr_CreateAdjustment_AndUserNotification()
     {
         var userId = Guid.NewGuid();
         var adminUserId = Guid.NewGuid();
@@ -192,11 +175,6 @@ public class WalletWithdrawServiceTests
             t.ReferenceId == withdrawalId &&
             t.TransactionType == TransactionType.AdminAdjustment);
         Assert.Equal(100_000m, transaction.Amount);
-
-        var audit = await db.WalletWithdrawAudits.SingleAsync(a => a.WithdrawalId == withdrawalId);
-        Assert.Equal("FAIL", audit.Action);
-        Assert.Equal(WalletWithdrawStatus.Approved, audit.FromStatus);
-        Assert.Equal(WalletWithdrawStatus.Failed, audit.ToStatus);
 
         var notification = Assert.Single(notifications.PublishedMessages);
         Assert.Equal("WITHDRAWAL_FAILED", notification.Type);
@@ -327,7 +305,6 @@ public class WalletWithdrawServiceTests
                 typeof(Account),
                 typeof(Wallet),
                 typeof(WalletWithdraw),
-                typeof(WalletWithdrawAudit),
                 typeof(Transaction)
             };
 
@@ -371,15 +348,6 @@ public class WalletWithdrawServiceTests
                     .WithMany()
                     .HasForeignKey(w => w.ProcessedByAdminId)
                     .OnDelete(DeleteBehavior.Restrict);
-            });
-
-            modelBuilder.Entity<WalletWithdrawAudit>(entity =>
-            {
-                entity.HasKey(a => a.Id);
-                entity.HasOne(a => a.Withdrawal)
-                    .WithMany(w => w.Audits)
-                    .HasForeignKey(a => a.WithdrawalId)
-                    .OnDelete(DeleteBehavior.Cascade);
             });
 
             modelBuilder.Entity<Transaction>(entity =>

@@ -84,18 +84,6 @@ namespace SnakeAid.Service.Implements
             // Note: QR is generated when approved, not when created
 
             await _unitOfWork.GetRepository<WalletWithdraw>().InsertAsync(withdrawal);
-            await _unitOfWork.GetRepository<WalletWithdrawAudit>().InsertAsync(CreateAudit(
-                withdrawal.Id,
-                null,
-                WalletWithdrawStatus.Pending,
-                "CREATE",
-                userId,
-                "User",
-                new Dictionary<string, object?>
-                {
-                    ["amount"] = withdrawal.Amount,
-                    ["bankBin"] = withdrawal.BankBin
-                }));
             await _unitOfWork.CommitAsync();
 
             await _notificationQueueService.BroadcastAsync(new AdminBroadcastNotificationRequest
@@ -148,19 +136,10 @@ namespace SnakeAid.Service.Implements
                     WithdrawalErrorCodes.WithdrawalInvalidStatus);
             }
 
-            var previousStatus = withdrawal.Status;
             withdrawal.Status = WalletWithdrawStatus.Rejected;
             withdrawal.RejectionReason = "Cancelled by user";
             withdrawal.ProcessedAt = DateTime.UtcNow;
 
-            await _unitOfWork.GetRepository<WalletWithdrawAudit>().InsertAsync(CreateAudit(
-                withdrawal.Id,
-                previousStatus,
-                withdrawal.Status,
-                "CANCEL",
-                userId,
-                "User",
-                new Dictionary<string, object?> { ["reason"] = withdrawal.RejectionReason }));
             await _unitOfWork.CommitAsync();
 
             await _notificationQueueService.BroadcastAsync(new AdminBroadcastNotificationRequest
@@ -222,7 +201,6 @@ namespace SnakeAid.Service.Implements
                 withdrawal.Amount,
                 $"Withdrawal {withdrawal.Id}");
 
-            var previousStatus = withdrawal.Status;
             withdrawal.Wallet.Balance -= withdrawal.Amount;
             withdrawal.Status = WalletWithdrawStatus.Approved;
             withdrawal.ProcessedByAdminId = adminUserId;
@@ -232,18 +210,6 @@ namespace SnakeAid.Service.Implements
             withdrawal.ProcessedAt = DateTime.UtcNow;
 
             await _unitOfWork.GetRepository<Transaction>().InsertAsync(CreateWithdrawalTransaction(withdrawal));
-            await _unitOfWork.GetRepository<WalletWithdrawAudit>().InsertAsync(CreateAudit(
-                withdrawal.Id,
-                previousStatus,
-                withdrawal.Status,
-                "APPROVE",
-                adminUserId,
-                "Admin",
-                new Dictionary<string, object?>
-                {
-                    ["adminNotes"] = withdrawal.AdminNotes,
-                    ["hasQrImage"] = !string.IsNullOrWhiteSpace(withdrawal.VietQrImageBase64)
-                }));
             await _unitOfWork.CommitAsync();
 
             await PublishUserNotificationAsync(
@@ -280,7 +246,6 @@ namespace SnakeAid.Service.Implements
                     WithdrawalErrorCodes.WithdrawalInvalidStatus);
             }
 
-            var previousStatus = withdrawal.Status;
             if (withdrawal.Status == WalletWithdrawStatus.Approved)
             {
                 withdrawal.Wallet.Balance += withdrawal.Amount;
@@ -296,18 +261,6 @@ namespace SnakeAid.Service.Implements
             withdrawal.VietQrImageBase64 = null;
             withdrawal.ProcessedAt = DateTime.UtcNow;
 
-            await _unitOfWork.GetRepository<WalletWithdrawAudit>().InsertAsync(CreateAudit(
-                withdrawal.Id,
-                previousStatus,
-                withdrawal.Status,
-                "REJECT",
-                adminUserId,
-                "Admin",
-                new Dictionary<string, object?>
-                {
-                    ["reason"] = reason,
-                    ["adminNotes"] = withdrawal.AdminNotes
-                }));
             await _unitOfWork.CommitAsync();
 
             await PublishUserNotificationAsync(
@@ -345,20 +298,11 @@ namespace SnakeAid.Service.Implements
                     WithdrawalErrorCodes.WithdrawalInvalidStatus);
             }
 
-            var previousStatus = withdrawal.Status;
             withdrawal.Status = WalletWithdrawStatus.Completed;
             withdrawal.ProcessedByAdminId = adminUserId;
             withdrawal.AdminNotes = NormalizeText(adminNotes) ?? withdrawal.AdminNotes;
             withdrawal.ProcessedAt = DateTime.UtcNow;
 
-            await _unitOfWork.GetRepository<WalletWithdrawAudit>().InsertAsync(CreateAudit(
-                withdrawal.Id,
-                previousStatus,
-                withdrawal.Status,
-                "COMPLETE",
-                adminUserId,
-                "Admin",
-                new Dictionary<string, object?> { ["adminNotes"] = withdrawal.AdminNotes }));
             await _unitOfWork.CommitAsync();
 
             await PublishUserNotificationAsync(
@@ -395,7 +339,6 @@ namespace SnakeAid.Service.Implements
                     WithdrawalErrorCodes.WithdrawalInvalidStatus);
             }
 
-            var previousStatus = withdrawal.Status;
             withdrawal.Wallet.Balance += withdrawal.Amount;
             withdrawal.Status = WalletWithdrawStatus.Failed;
             withdrawal.ProcessedByAdminId = adminUserId;
@@ -407,18 +350,6 @@ namespace SnakeAid.Service.Implements
 
             await _unitOfWork.GetRepository<Transaction>().InsertAsync(
                 CreateWithdrawalRefundTransaction(withdrawal, "Withdrawal failed after approval"));
-            await _unitOfWork.GetRepository<WalletWithdrawAudit>().InsertAsync(CreateAudit(
-                withdrawal.Id,
-                previousStatus,
-                withdrawal.Status,
-                "FAIL",
-                adminUserId,
-                "Admin",
-                new Dictionary<string, object?>
-                {
-                    ["reason"] = reason,
-                    ["adminNotes"] = withdrawal.AdminNotes
-                }));
             await _unitOfWork.CommitAsync();
 
             await PublishUserNotificationAsync(
@@ -522,28 +453,6 @@ namespace SnakeAid.Service.Implements
             }
 
             return data;
-        }
-
-        private static WalletWithdrawAudit CreateAudit(
-            Guid withdrawalId,
-            WalletWithdrawStatus? fromStatus,
-            WalletWithdrawStatus toStatus,
-            string action,
-            Guid? actorUserId,
-            string actorRole,
-            Dictionary<string, object?>? details = null)
-        {
-            return new WalletWithdrawAudit
-            {
-                Id = Guid.NewGuid(),
-                WithdrawalId = withdrawalId,
-                FromStatus = fromStatus,
-                ToStatus = toStatus,
-                Action = action,
-                ActorUserId = actorUserId,
-                ActorRole = actorRole,
-                DetailsJson = details == null ? null : JsonSerializer.Serialize(details)
-            };
         }
 
         private static Transaction CreateWithdrawalTransaction(WalletWithdraw withdrawal)
