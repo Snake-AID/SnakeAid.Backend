@@ -97,6 +97,11 @@ This directory contains comprehensive bash-based integration tests for the walle
 - VIB (970405) - Transfer supported
 - BIDV (970418) - Transfer supported
 
+### Windows Git Bash note
+- On Windows Git Bash, JSON bodies containing Vietnamese Unicode text can bind unreliably for this endpoint.
+- The bash withdrawal scripts intentionally use ASCII-safe bank labels such as `VCB` and `Sacombank`.
+- This is a test harness constraint, not a backend API contract limitation. Direct API calls with UTF-8 JSON still work.
+
 ### Withdrawal Limits
 - Minimum: 50,000 VND
 - Maximum: 5,000,000 VND per request
