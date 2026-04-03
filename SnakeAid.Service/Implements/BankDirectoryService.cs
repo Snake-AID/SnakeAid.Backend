@@ -1,5 +1,7 @@
 using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Logging;
 using SnakeAid.Core.Responses.Wallet;
+using VietQRHelper;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -10,12 +12,14 @@ namespace SnakeAid.Service.Implements
     public class BankDirectoryService
     {
         private readonly IMemoryCache _cache;
+        private readonly ILogger<BankDirectoryService> _logger;
         private const string BankCacheKey = "vietqr_banks";
         private readonly TimeSpan CacheDuration = TimeSpan.FromHours(24);
 
-        public BankDirectoryService(IMemoryCache cache)
+        public BankDirectoryService(IMemoryCache cache, ILogger<BankDirectoryService> logger)
         {
             _cache = cache;
+            _logger = logger;
         }
 
         public async Task<List<BankDirectoryResponse>> GetBanksAsync()
@@ -23,25 +27,47 @@ namespace SnakeAid.Service.Implements
             return await _cache.GetOrCreateAsync(BankCacheKey, async entry =>
             {
                 entry.AbsoluteExpirationRelativeToNow = CacheDuration;
+                await Task.CompletedTask;
 
-                // In production, this would use VietQRHelper.BankApp.BanksObject
-                // For now, return mock data
-                var banks = new List<BankDirectoryResponse>
+                try
                 {
-                    new BankDirectoryResponse { Bin = "970400", Name = "Ngân hàng TMCP Sài Gòn Thương Tín (Sacombank)", VietQrStatus = VietQrStatus.TransferSupported },
-                    new BankDirectoryResponse { Bin = "970405", Name = "Ngân hàng TMCP Quốc Tế (VIB)", VietQrStatus = VietQrStatus.TransferSupported },
-                    new BankDirectoryResponse { Bin = "970418", Name = "Ngân hàng TMCP Đầu tư và Phát triển Việt Nam (BIDV)", VietQrStatus = VietQrStatus.TransferSupported },
-                    // Add more banks as needed
-                };
-
-                return banks;
-            });
+                    return BankApp.BanksObject.Values
+                        .Select(b => new BankDirectoryResponse
+                        {
+                            Key = b.key,
+                            Code = b.code,
+                            ShortName = b.shortName ?? b.name,
+                            Name = b.name ?? string.Empty,
+                            Bin = b.bin ?? string.Empty,
+                            VietQrStatus = MapStatus(b.vietQRStatus),
+                            LookupSupported = b.lookupSupported > 0,
+                            SwiftCode = string.IsNullOrWhiteSpace(b.swiftCode) ? null : b.swiftCode
+                        })
+                        .OrderBy(b => b.ShortName ?? b.Name)
+                        .ToList();
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to load bank directory from VietQRHelper.");
+                    return new List<BankDirectoryResponse>();
+                }
+            }) ?? new List<BankDirectoryResponse>();
         }
 
-        public async Task<BankDirectoryResponse> GetBankByBinAsync(string bin)
+        public async Task<BankDirectoryResponse?> GetBankByBinAsync(string bin)
         {
             var banks = await GetBanksAsync();
             return banks.FirstOrDefault(b => b.Bin == bin);
+        }
+
+        private static VietQrStatus MapStatus(int status)
+        {
+            return status switch
+            {
+                (int)VietQRStatus.TRANSFER_SUPPORTED => VietQrStatus.TransferSupported,
+                (int)VietQRStatus.RECEIVE_ONLY => VietQrStatus.ReceiveOnly,
+                _ => VietQrStatus.ReceiveOnly
+            };
         }
     }
 }
