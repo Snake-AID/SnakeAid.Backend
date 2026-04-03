@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace SnakeAid.Repository.Migrations
 {
     /// <inheritdoc />
-    public partial class FinalizeWalletWithdrawPhase2_PostgreSQL : Migration
+    public partial class SnakeaidWalletWithdraw : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -28,11 +28,35 @@ namespace SnakeAid.Repository.Migrations
                 maxLength: 1000,
                 nullable: true);
 
+            migrationBuilder.AddColumn<string>(
+                name: "BankBin",
+                schema: "SnakeAid",
+                table: "WalletWithdraws",
+                type: "character varying(6)",
+                maxLength: 6,
+                nullable: true);
+
             migrationBuilder.AddColumn<Guid>(
                 name: "ProcessedByAdminId",
                 schema: "SnakeAid",
                 table: "WalletWithdraws",
                 type: "uuid",
+                nullable: true);
+
+            migrationBuilder.AddColumn<string>(
+                name: "VietQrImageBase64",
+                schema: "SnakeAid",
+                table: "WalletWithdraws",
+                type: "text",
+                maxLength: 10000,
+                nullable: true);
+
+            migrationBuilder.AddColumn<string>(
+                name: "VietQrPayload",
+                schema: "SnakeAid",
+                table: "WalletWithdraws",
+                type: "character varying(500)",
+                maxLength: 500,
                 nullable: true);
 
             migrationBuilder.CreateIndex(
@@ -76,7 +100,22 @@ namespace SnakeAid.Repository.Migrations
                 table: "WalletWithdraws");
 
             migrationBuilder.DropColumn(
+                name: "BankBin",
+                schema: "SnakeAid",
+                table: "WalletWithdraws");
+
+            migrationBuilder.DropColumn(
                 name: "ProcessedByAdminId",
+                schema: "SnakeAid",
+                table: "WalletWithdraws");
+
+            migrationBuilder.DropColumn(
+                name: "VietQrImageBase64",
+                schema: "SnakeAid",
+                table: "WalletWithdraws");
+
+            migrationBuilder.DropColumn(
+                name: "VietQrPayload",
                 schema: "SnakeAid",
                 table: "WalletWithdraws");
         }

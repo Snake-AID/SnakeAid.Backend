@@ -14,8 +14,8 @@ using SnakeAid.Repository.Data;
 namespace SnakeAid.Repository.Migrations
 {
     [DbContext(typeof(SnakeAidDbContext))]
-    [Migration("20260403133000_FinalizeWalletWithdrawPhase2_PostgreSQL")]
-    partial class FinalizeWalletWithdrawPhase2_PostgreSQL
+    [Migration("20260403200823_SnakeaidWalletWithdraw")]
+    partial class SnakeaidWalletWithdraw
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
