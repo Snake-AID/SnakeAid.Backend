@@ -75,7 +75,6 @@ namespace SnakeAid.Repository.Data
         public DbSet<VenomType> VenomTypes { get; set; }
         public DbSet<Wallet> Wallets { get; set; }
         public DbSet<WalletWithdraw> WalletWithdraws { get; set; }
-        public DbSet<WalletWithdrawAudit> WalletWithdrawAudits { get; set; }
         public DbSet<WorkShift> WorkShifts { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)

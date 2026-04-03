@@ -3077,55 +3077,6 @@ namespace SnakeAid.Repository.Migrations
                     b.ToTable("WalletWithdraws", "SnakeAid");
                 });
 
-            modelBuilder.Entity("SnakeAid.Core.Domains.WalletWithdrawAudit", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("Action")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
-
-                    b.Property<string>("ActorRole")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)");
-
-                    b.Property<Guid?>("ActorUserId")
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("DetailsJson")
-                        .HasMaxLength(4000)
-                        .HasColumnType("character varying(4000)");
-
-                    b.Property<int?>("FromStatus")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("ToStatus")
-                        .HasColumnType("integer");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<Guid>("WithdrawalId")
-                        .HasColumnType("uuid");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("Action")
-                        .HasDatabaseName("IX_WalletWithdrawAudits_Action");
-
-                    b.HasIndex("WithdrawalId")
-                        .HasDatabaseName("IX_WalletWithdrawAudits_WithdrawalId");
-
-                    b.ToTable("WalletWithdrawAudits", "SnakeAid");
-                });
-
             modelBuilder.Entity("SnakeAid.Core.Domains.WorkShift", b =>
                 {
                     b.Property<Guid>("Id")
@@ -3962,17 +3913,6 @@ namespace SnakeAid.Repository.Migrations
                     b.Navigation("Wallet");
                 });
 
-            modelBuilder.Entity("SnakeAid.Core.Domains.WalletWithdrawAudit", b =>
-                {
-                    b.HasOne("SnakeAid.Core.Domains.WalletWithdraw", "Withdrawal")
-                        .WithMany("Audits")
-                        .HasForeignKey("WithdrawalId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Withdrawal");
-                });
-
             modelBuilder.Entity("SnakeAid.Core.Domains.AIModel", b =>
                 {
                     b.Navigation("ClassMappings");
@@ -4102,11 +4042,6 @@ namespace SnakeAid.Repository.Migrations
                     b.Navigation("SpeciesVenoms");
 
                     b.Navigation("SymptomConfigs");
-                });
-
-            modelBuilder.Entity("SnakeAid.Core.Domains.WalletWithdraw", b =>
-                {
-                    b.Navigation("Audits");
                 });
 
             modelBuilder.Entity("SnakeAid.Core.Domains.WorkShift", b =>
