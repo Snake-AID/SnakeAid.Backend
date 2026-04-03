@@ -207,6 +207,24 @@ public class NotificationQueueService : INotificationQueueService
             "SNAKE_CATCHING_REASSIGN_NEEDED" => data.TryGetValue("requestId", out var requestIdReassign)
                 ? $"/operator/requests/{requestIdReassign}"
                 : null,
+            "WITHDRAWAL_REQUEST_CREATED" => data.TryGetValue("withdrawalId", out var createdWithdrawalId)
+                ? $"/admin/withdrawals/{createdWithdrawalId}"
+                : "/admin/withdrawals",
+            "WITHDRAWAL_CANCELLED" => data.TryGetValue("withdrawalId", out var cancelledWithdrawalId)
+                ? $"/wallet/withdrawals/{cancelledWithdrawalId}"
+                : "/wallet/withdrawals",
+            "WITHDRAWAL_APPROVED" => data.TryGetValue("withdrawalId", out var approvedWithdrawalId)
+                ? $"/wallet/withdrawals/{approvedWithdrawalId}"
+                : "/wallet/withdrawals",
+            "WITHDRAWAL_REJECTED" => data.TryGetValue("withdrawalId", out var rejectedWithdrawalId)
+                ? $"/wallet/withdrawals/{rejectedWithdrawalId}"
+                : "/wallet/withdrawals",
+            "WITHDRAWAL_COMPLETED" => data.TryGetValue("withdrawalId", out var completedWithdrawalId)
+                ? $"/wallet/withdrawals/{completedWithdrawalId}"
+                : "/wallet/withdrawals",
+            "WITHDRAWAL_FAILED" => data.TryGetValue("withdrawalId", out var failedWithdrawalId)
+                ? $"/wallet/withdrawals/{failedWithdrawalId}"
+                : "/wallet/withdrawals",
             _ => data.TryGetValue("deepLink", out var explicitDeepLink) ? explicitDeepLink : null
         };
     }
