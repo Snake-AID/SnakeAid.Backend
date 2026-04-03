@@ -9,7 +9,7 @@ namespace SnakeAid.Service.Implements
 {
     public class VietQrAdapter
     {
-        public (string Payload, string ImageBase64) GenerateQr(
+        public (string Payload, string? ImageBase64) GenerateQr(
             string bankBin,
             string bankAccount,
             string bankName,
