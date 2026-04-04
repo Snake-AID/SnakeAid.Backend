@@ -5,6 +5,9 @@ using Microsoft.Extensions.Logging;
 using SnakeAid.Repository.Data;
 using SnakeAid.Repository.Interfaces;
 using SnakeAid.Service.Interfaces;
+using System.ComponentModel;
+using System.Globalization;
+using System.Text.Json;
 
 namespace SnakeAid.Service.Implements;
 
@@ -52,16 +55,44 @@ public class SystemSettingService : ISystemSettingService
 
         if (!_cacheProvider.TryGet(key, out var setting) || setting == null)
         {
+            _logger.LogWarning("System setting '{Key}' not found.", key);
             return default;
         }
 
-        return SettingConverter.CastValue<T>(setting.Value, setting.ValueType);
+        if (!TryConvertSettingValue(setting.Value, setting.ValueType, out T? parsedValue))
+        {
+            _logger.LogWarning(
+                "System setting '{Key}' has invalid value '{Value}' for type '{ValueType}'.",
+                key,
+                setting.Value,
+                setting.ValueType);
+            return default;
+        }
+
+        return parsedValue;
     }
 
     public T GetSetting<T>(string key, T defaultValue)
     {
-        var value = GetSetting<T>(key);
-        return value == null ? defaultValue : value;
+        EnsureLoaded();
+
+        if (!_cacheProvider.TryGet(key, out var setting) || setting == null)
+        {
+            _logger.LogWarning("System setting '{Key}' not found. Using default value.", key);
+            return defaultValue;
+        }
+
+        if (!TryConvertSettingValue(setting.Value, setting.ValueType, out T? parsedValue) || parsedValue == null)
+        {
+            _logger.LogWarning(
+                "System setting '{Key}' has invalid value '{Value}' for type '{ValueType}'. Using default value.",
+                key,
+                setting.Value,
+                setting.ValueType);
+            return defaultValue;
+        }
+
+        return parsedValue;
     }
 
     public async Task<SystemSetting?> GetByKeyAsync(string key)
@@ -106,6 +137,11 @@ public class SystemSettingService : ISystemSettingService
         if (string.IsNullOrWhiteSpace(value))
         {
             throw new ArgumentException("Setting value is required.", nameof(value));
+        }
+
+        if (!IsValidValueForType(value, valueType))
+        {
+            throw new ArgumentException($"Setting value '{value}' is invalid for type '{valueType}'.", nameof(value));
         }
 
         var repository = _unitOfWork.GetRepository<SystemSetting>();
@@ -184,5 +220,91 @@ public class SystemSettingService : ISystemSettingService
         }
 
         await LoadSettingsAsync();
+    }
+
+    private static bool IsValidValueForType(string value, SettingValueType valueType)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return false;
+        }
+
+        return valueType switch
+        {
+            SettingValueType.String => true,
+            SettingValueType.Int => int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out _),
+            SettingValueType.Decimal => decimal.TryParse(value, NumberStyles.Number, CultureInfo.InvariantCulture, out _),
+            SettingValueType.Boolean => bool.TryParse(value, out _),
+            SettingValueType.Json => IsValidJson(value),
+            _ => false
+        };
+    }
+
+    private static bool IsValidJson(string value)
+    {
+        try
+        {
+            using var _ = JsonDocument.Parse(value);
+            return true;
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
+    }
+
+    private static bool TryConvertSettingValue<T>(string rawValue, SettingValueType valueType, out T? parsedValue)
+    {
+        parsedValue = default;
+
+        if (!IsValidValueForType(rawValue, valueType))
+        {
+            return false;
+        }
+
+        try
+        {
+            object converted = valueType switch
+            {
+                SettingValueType.String => rawValue,
+                SettingValueType.Int => int.Parse(rawValue, NumberStyles.Integer, CultureInfo.InvariantCulture),
+                SettingValueType.Decimal => decimal.Parse(rawValue, NumberStyles.Number, CultureInfo.InvariantCulture),
+                SettingValueType.Boolean => bool.Parse(rawValue),
+                SettingValueType.Json => JsonSerializer.Deserialize<T>(rawValue)!,
+                _ => throw new NotSupportedException($"Unsupported setting value type: {valueType}")
+            };
+
+            if (valueType == SettingValueType.Json)
+            {
+                parsedValue = (T?)converted;
+                return parsedValue != null;
+            }
+
+            var targetType = Nullable.GetUnderlyingType(typeof(T)) ?? typeof(T);
+            if (converted.GetType() == targetType)
+            {
+                parsedValue = (T)converted;
+                return true;
+            }
+
+            var converter = TypeDescriptor.GetConverter(targetType);
+            if (converter.CanConvertFrom(converted.GetType()))
+            {
+                var result = converter.ConvertFrom(null, CultureInfo.InvariantCulture, converted);
+                if (result != null)
+                {
+                    parsedValue = (T)result;
+                    return true;
+                }
+            }
+
+            parsedValue = SettingConverter.CastValue<T>(rawValue, valueType);
+            return parsedValue != null;
+        }
+        catch
+        {
+            parsedValue = default;
+            return false;
+        }
     }
 }

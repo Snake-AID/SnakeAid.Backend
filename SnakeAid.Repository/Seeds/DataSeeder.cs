@@ -2710,14 +2710,19 @@ namespace SnakeAid.Repository.Seeds
             {
                 var systemSettings = new List<SystemSetting>
                 {
-                    // Rescue request session defaults (RescueRequestSessionService.cs)
-                    new SystemSetting { SettingKey = "Rescue:MaxSessions", Value = "3" },
-                    new SystemSetting { SettingKey = "Rescue:RequestTimeoutSeconds", Value = "60" },
-                    new SystemSetting { SettingKey = "Rescue:BackgroundTimeoutBufferSeconds", Value = "5" },
-                    new SystemSetting { SettingKey = "Rescue:DefaultPrice", Value = "500000" },
-                    new SystemSetting { SettingKey = "Rescue:PricePerKmDefault", Value = "5000" },
-                    new SystemSetting { SettingKey = "Rescue:RadiusProgressionKm", Value = "10,20,30" },
+                    // Dynamic pricing and location settings used by services
+                    new SystemSetting { SettingKey = "Rescue:DefaultPrice", Value = "5000", ValueType = SettingValueType.Decimal, Description = "Base rescue price (VND)" },
+                    new SystemSetting { SettingKey = "Rescue:PricePerKmDefault", Value = "1000", ValueType = SettingValueType.Decimal, Description = "Rescue transport price per kilometer (VND)" },
 
+                    new SystemSetting { SettingKey = "Center:Latitude", Value = "10.8391267", ValueType = SettingValueType.Decimal, Description = "Center latitude used for route pricing" },
+                    new SystemSetting { SettingKey = "Center:Longitude", Value = "106.8413534", ValueType = SettingValueType.Decimal, Description = "Center longitude used for route pricing" },
+
+                    new SystemSetting { SettingKey = "Catching:BasePrice", Value = "500000", ValueType = SettingValueType.Decimal, Description = "Base price for snake catching mission (VND)" },
+                    new SystemSetting { SettingKey = "Catching:AdditionalSnakePrice", Value = "100000", ValueType = SettingValueType.Decimal, Description = "Additional fee per extra snake (VND)" },
+                    new SystemSetting { SettingKey = "Catching:FallbackEstimatedPrice", Value = "50000", ValueType = SettingValueType.Decimal, Description = "Fallback estimated price when distance service fails (VND)" },
+                    new SystemSetting { SettingKey = "LocationIq:PricePerKilometer", Value = "150000", ValueType = SettingValueType.Decimal, Description = "Price per kilometer used by distance pricing service (VND)" },
+
+                    new SystemSetting { SettingKey = "TreatmentFacility:SearchRadiusMeters", Value = "30000", ValueType = SettingValueType.Decimal, Description = "Max search radius for nearest treatment facilities (meters)" },
                 };
 
                 context.SystemSettings.AddRange(systemSettings);

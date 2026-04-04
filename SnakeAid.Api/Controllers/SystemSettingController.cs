@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using SnakeAid.Core.Meta;
 using SnakeAid.Core.Requests.SystemSetting;
 using SnakeAid.Core.Services;
+using SnakeAid.Core.Validators;
 using Swashbuckle.AspNetCore.Annotations;
 
 namespace SnakeAid.Api.Controllers;
@@ -47,6 +48,7 @@ public class SystemSettingController : BaseController<SystemSettingController>
 
     [HttpPut("{key}")]
     [SwaggerOperation(Summary = "Create or update a system setting and refresh cache key")]
+    [ValidateModel]
     public async Task<IActionResult> Upsert([FromRoute] string key, [FromBody] UpsertSystemSettingRequest request)
     {
         var result = await _systemSettingService.UpsertAsync(key, request.Value, request.ValueType, request.Description);
