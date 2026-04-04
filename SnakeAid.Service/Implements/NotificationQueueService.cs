@@ -36,7 +36,6 @@ public class NotificationQueueService : INotificationQueueService
         }
 
         var payloadJson = message.Data == null ? null : JsonSerializer.Serialize(message.Data);
-        var deepLink = message.DeepLink ?? BuildDeepLink(message.Type, message.Data);
 
         await _unitOfWork.GetRepository<AppNotification>().InsertAsync(new AppNotification
         {
@@ -45,13 +44,11 @@ public class NotificationQueueService : INotificationQueueService
             Title = message.Title,
             Message = message.Body,
             NotificationType = message.Type,
-            DeepLink = deepLink,
+            DeepLink = null,
             PayloadJson = payloadJson,
             IsRead = false
         }, cancellationToken);
         await _unitOfWork.CommitAsync();
-
-        message.DeepLink = deepLink;
 
         await _publishEndpoint.Publish(message, cancellationToken);
 
@@ -126,6 +123,7 @@ public class NotificationQueueService : INotificationQueueService
         }
 
         var notificationId = Guid.NewGuid();
+
         var appNotifications = recipientIds.Select(userId => new AppNotification
         {
             Id = Guid.NewGuid(),
@@ -133,12 +131,11 @@ public class NotificationQueueService : INotificationQueueService
             Title = request.Title,
             Message = request.Body,
             NotificationType = request.Type,
-            DeepLink = BuildDeepLink(request.Type, request.Data),
+            DeepLink = null,
             PayloadJson = request.Data == null ? null : JsonSerializer.Serialize(request.Data),
             IsRead = false
         }).ToList();
 
-        var deepLink = BuildDeepLink(request.Type, request.Data);
         var messages = recipientIds.Select(userId => new NotificationMessage
         {
             NotificationId = notificationId,
@@ -146,7 +143,7 @@ public class NotificationQueueService : INotificationQueueService
             Title = request.Title,
             Body = request.Body,
             Type = request.Type,
-            DeepLink = deepLink,
+            DeepLink = null,
             Data = request.Data
         }).ToList();
 
@@ -154,60 +151,5 @@ public class NotificationQueueService : INotificationQueueService
 
         return recipientIds.Count;
     }
-
-    private static string? BuildDeepLink(string notificationType, IReadOnlyDictionary<string, string>? data)
-    {
-        if (string.IsNullOrWhiteSpace(notificationType) || data == null)
-        {
-            return null;
-        }
-
-        return notificationType switch
-        {
-            "SNAKE_CATCHING_REQUEST_CREATED" => data.TryGetValue("requestId", out var requestIdCreated)
-                ? $"/operator/requests/{requestIdCreated}"
-                : null,
-            "SNAKE_CATCHING_DEPOSIT_SUCCESS" => data.TryGetValue("requestId", out var requestIdDeposit)
-                ? $"/snake-catching/detail/{requestIdDeposit}"
-                : null,
-            "SNAKE_CATCHING_REQUEST_EXPIRED" => "/snake-catching/history",
-            "SNAKE_CATCHING_REQUEST_CONFIRMED" => data.TryGetValue("requestId", out var requestIdConfirmed)
-                ? $"/snake-catching/detail/{requestIdConfirmed}"
-                : null,
-            "SNAKE_CATCHING_RESCUER_ASSIGNED" => data.TryGetValue("requestId", out var requestIdAssigned)
-                ? $"/snake-catching/tracking/{requestIdAssigned}"
-                : null,
-            "SNAKE_CATCHING_MISSION_ASSIGNED" => data.TryGetValue("missionId", out var missionIdAssigned)
-                ? $"/rescuer/mission/{missionIdAssigned}"
-                : null,
-            "SNAKE_CATCHING_RESCUER_EN_ROUTE" => data.TryGetValue("requestId", out var requestIdEnRoute)
-                ? $"/snake-catching/tracking/{requestIdEnRoute}"
-                : null,
-            "SNAKE_CATCHING_RESCUER_ARRIVED" => data.TryGetValue("requestId", out var requestIdArrived)
-                ? $"/snake-catching/tracking/{requestIdArrived}"
-                : null,
-            "SNAKE_CATCHING_MISSION_COMPLETED" => data.TryGetValue("requestId", out var requestIdCompleted)
-                ? $"/snake-catching/payment/{requestIdCompleted}"
-                : null,
-            "SNAKE_CATCHING_PAYMENT_SUCCESS" => data.TryGetValue("requestId", out var requestIdPaymentSuccess)
-                ? $"/snake-catching/detail/{requestIdPaymentSuccess}"
-                : null,
-            "SNAKE_CATCHING_PAYMENT_CONFIRMED" => data.TryGetValue("missionId", out var missionIdPaymentConfirmed)
-                ? $"/rescuer/history/{missionIdPaymentConfirmed}"
-                : null,
-            "SNAKE_CATCHING_PAYMENT_FAILED" => data.TryGetValue("requestId", out var requestIdPaymentFailed)
-                ? $"/snake-catching/payment/{requestIdPaymentFailed}"
-                : null,
-            "SNAKE_CATCHING_REQUEST_CANCELLED_BY_MEMBER" => data.TryGetValue("missionId", out var missionIdCancelled)
-                ? $"/rescuer/history/{missionIdCancelled}"
-                : null,
-            "SNAKE_CATCHING_MISSION_ABORTED" => data.TryGetValue("requestId", out var requestIdAborted)
-                ? $"/snake-catching/detail/{requestIdAborted}"
-                : null,
-            "SNAKE_CATCHING_REASSIGN_NEEDED" => data.TryGetValue("requestId", out var requestIdReassign)
-                ? $"/operator/requests/{requestIdReassign}"
-                : null,
-            _ => data.TryGetValue("deepLink", out var explicitDeepLink) ? explicitDeepLink : null
-        };
-    }
 }
+

@@ -3,14 +3,16 @@ using System.Collections.Generic;
 using System.Linq;
 using Mapster;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using SnakeAid.Core.Constants;
 using SnakeAid.Core.Domains;
 using SnakeAid.Core.Exceptions;
+using SnakeAid.Core.Requests.Notification;
 using SnakeAid.Core.Requests.RescueMission;
 using SnakeAid.Core.Responses.Media;
 using SnakeAid.Core.Responses.RescueMission;
 using SnakeAid.Core.Responses.SnakeSpecies;
+using SnakeAid.Core.Services;
 using SnakeAid.Repository.Data;
 using SnakeAid.Repository.Interfaces;
 using SnakeAid.Service.Extensions;
@@ -22,14 +24,13 @@ namespace SnakeAid.Service.Implements
     {
         private readonly IUnitOfWork<SnakeAidDbContext> _unitOfWork;
         private readonly ILogger<SnakeRescueMissionService> _logger;
-        private readonly IConfiguration _configuration;
+        private readonly ISystemSettingService _systemSettingService;
 
         // Default price for rescue mission (có thể lấy từ SystemSetting sau)
-        private const decimal DEFAULT_RESCUE_PRICE = 5000m;
-        private const decimal PRICE_PER_KM_DEFAULT = 1000m; // VND per km (fallback if config missing)
-
-        private const string RESCUE_CENTER_LAT_KEY = "Pricing:RescueCenterLatitude";
-        private const string RESCUE_CENTER_LNG_KEY = "Pricing:RescueCenterLongitude";
+        private const decimal DEFAULT_RESCUE_PRICE = 500000m;
+        private const decimal PRICE_PER_KM_DEFAULT = 5000m; // VND per km (fallback if setting missing)
+        private const double DEFAULT_CENTER_LATITUDE = 10.8391267;
+        private const double DEFAULT_CENTER_LONGITUDE = 106.8413534;
 
         private readonly ILocationIqService _locationIqService;
         private readonly IMissionNotificationService _notificationService;
@@ -38,14 +39,14 @@ namespace SnakeAid.Service.Implements
         public SnakeRescueMissionService(
             IUnitOfWork<SnakeAidDbContext> unitOfWork,
             ILogger<SnakeRescueMissionService> logger,
-            IConfiguration configuration,
+            ISystemSettingService systemSettingService,
             ILocationIqService locationIqService,
             IMissionNotificationService notificationService,
             IOperatorRealtimeNotificationService operatorRealtimeNotificationService)
         {
             _unitOfWork = unitOfWork;
             _logger = logger;
-            _configuration = configuration;
+            _systemSettingService = systemSettingService;
             _locationIqService = locationIqService;
             _notificationService = notificationService;
             _operatorRealtimeNotificationService = operatorRealtimeNotificationService;
@@ -101,7 +102,8 @@ namespace SnakeAid.Service.Implements
                     }
 
                     // Pricing from rescue center to incident by default when price isn't explicitly provided
-                    decimal missionPrice = DEFAULT_RESCUE_PRICE;
+                    var defaultPrice = _systemSettingService.GetSetting(SystemSettingKeys.RescueDefaultPrice, DEFAULT_RESCUE_PRICE);
+                    decimal missionPrice = defaultPrice;
                     decimal? distanceFromCenterKm = null;
                     decimal? costFromCenter = null;
 
@@ -114,8 +116,7 @@ namespace SnakeAid.Service.Implements
                     {
                         var (distanceKm, priceVnd) = await CalculatePriceFromCenterAsync(
                             incident.LocationCoordinates.Y,
-                            incident.LocationCoordinates.X,
-                            PRICE_PER_KM_DEFAULT);
+                            incident.LocationCoordinates.X);
 
                         distanceFromCenterKm = Math.Round((decimal)distanceKm, 2);
                         costFromCenter = priceVnd;
@@ -123,8 +124,8 @@ namespace SnakeAid.Service.Implements
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogWarning(ex, "Could not calculate mission price from center location, fallback to default price: {DefaultPrice}", DEFAULT_RESCUE_PRICE);
-                        missionPrice = DEFAULT_RESCUE_PRICE;
+                        _logger.LogWarning(ex, "Could not calculate mission price from center location, fallback to default price: {DefaultPrice}", defaultPrice);
+                        missionPrice = defaultPrice;
                     }
 
                     // Create new mission
@@ -134,7 +135,7 @@ namespace SnakeAid.Service.Implements
                         IncidentId = incidentId,
                         RescuerId = rescuerId,
                         Status = RescueMissionStatus.Preparing,
-                        Price = DEFAULT_RESCUE_PRICE, // the price that the service cost (not including cost fee from center)
+                        Price = defaultPrice, // the price that the service cost (not including cost fee from center)
                         DistanceFromCenterKm = distanceFromCenterKm,
                         CostFromCenter = costFromCenter,
                         CreatedAt = DateTime.UtcNow,
@@ -221,14 +222,29 @@ namespace SnakeAid.Service.Implements
                     return missionEntity;
                 });
 
+                var missionSnapshot = await GetMissionByIdAsync(missionId);
+
                 // Step 2: Send notifications AFTER transaction committed
                 if (status == RescueMissionStatus.RescuerArrived)
                 {
-                    await _notificationService.NotifyRescuerArrivedAsync(mission.IncidentId);
+                    await _notificationService.NotifyRescuerArrivedAsync(
+                        mission.IncidentId,
+                        missionSnapshot.Incident.UserId,
+                        missionSnapshot.RescuerId,
+                        missionSnapshot.Rescuer?.Account?.FullName);
                 }
                 else if (status == RescueMissionStatus.EnRoute)
                 {
-                    await _notificationService.NotifyMissionStartedAsync(mission.IncidentId, new { status = status.ToString() });
+                    await _notificationService.NotifyMissionStartedAsync(
+                        mission.IncidentId,
+                        missionSnapshot.Incident.UserId,
+                        missionSnapshot.RescuerId,
+                        new MissionStartedNotificationPayload
+                        {
+                            Status = status.ToString(),
+                            RescuerName = missionSnapshot.Rescuer?.Account?.FullName,
+                            EstimatedMinutes = null
+                        });
                 }
             }
             catch (Exception ex)
@@ -322,8 +338,19 @@ namespace SnakeAid.Service.Implements
                     return missionEntity;
                 });
 
+                var missionSnapshot = await GetMissionByIdAsync(missionId);
+
                 // Step 2: Send notification AFTER transaction committed
-                await _notificationService.NotifyMissionCompletedAsync(mission.IncidentId, new { missionId = missionId });
+                await _notificationService.NotifyMissionCompletedAsync(
+                    mission.IncidentId,
+                    missionSnapshot.Incident.UserId,
+                    missionSnapshot.RescuerId,
+                    new MissionCompletedNotificationPayload
+                    {
+                        MissionId = missionId,
+                        ActualCost = missionSnapshot.ActualCost,
+                        RescuerName = missionSnapshot.Rescuer?.Account?.FullName
+                    });
 
                 // Notify operator that incident is completed (update map and incident list)
                 await _operatorRealtimeNotificationService.NotifyIncidentCompletedAsync(mission.IncidentId, mission.RescuerId);
@@ -394,7 +421,7 @@ namespace SnakeAid.Service.Implements
                 });
 
                 // Step 2: Send notification AFTER transaction committed
-                await _notificationService.NotifyMissionCancelledAsync(mission.IncidentId, reason);
+                await _notificationService.NotifyMissionCancelledAsync(mission.IncidentId, mission.RescuerId, reason);
             }
             catch (Exception ex)
             {
@@ -473,8 +500,15 @@ namespace SnakeAid.Service.Implements
                 _logger.LogInformation("Transaction committed and change tracker cleared for incident {IncidentId}. Tracked entities after clear: {TrackedCount}",
                     incidentId, _unitOfWork.Context.ChangeTracker.Entries().Count());
 
+                var missionSnapshot = await GetMissionByIdAsync(missionId);
+
                 // PUSH NOTIFICATION: Notify Member about rescuer abort AFTER transaction committed
-                await _notificationService.NotifyMissionAbortedAsync(incidentId, reason);
+                await _notificationService.NotifyMissionAbortedAsync(
+                    incidentId,
+                    missionSnapshot.Incident.UserId,
+                    missionSnapshot.RescuerId,
+                    missionSnapshot.Rescuer?.Account?.FullName,
+                    reason);
 
                 // Notify the operator who is handling this incident that the rescuer aborted and the incident is ready for re-dispatch
                 // (If no operator is currently handling it, fallback to broadcasting to all operators)
@@ -540,7 +574,12 @@ namespace SnakeAid.Service.Implements
                 var repo = _unitOfWork.GetRepository<RescueMission>();
                 var mission = await repo.FirstOrDefaultAsync(
                     predicate: m => m.Id == missionId,
-                    include: q => q.Include(mission => mission.Incident)
+                    include: q => q
+                        .Include(mission => mission.Incident)
+                            .ThenInclude(incident => incident.User)
+                                .ThenInclude(user => user.Account)
+                        .Include(mission => mission.Rescuer)
+                            .ThenInclude(rescuer => rescuer.Account)
                 ) ?? throw new NotFoundException($"Mission {missionId} not found.");
                 return mission;
             }
@@ -687,29 +726,19 @@ namespace SnakeAid.Service.Implements
             return degrees * Math.PI / 180.0;
         }
 
-        private (double lat, double lng)? GetRescueCenterCoordinates()
+        private (double lat, double lng) GetRescueCenterCoordinates()
         {
-            var lat = _configuration.GetValue<double?>(RESCUE_CENTER_LAT_KEY);
-            var lng = _configuration.GetValue<double?>(RESCUE_CENTER_LNG_KEY);
+            var lat = _systemSettingService.GetSetting(SystemSettingKeys.PricingCenterLatitude, DEFAULT_CENTER_LATITUDE);
+            var lng = _systemSettingService.GetSetting(SystemSettingKeys.PricingCenterLongitude, DEFAULT_CENTER_LONGITUDE);
 
-            if (!lat.HasValue || !lng.HasValue)
-            {
-                return null;
-            }
-
-            return (lat.Value, lng.Value);
+            return (lat, lng);
         }
 
-        private async Task<(double distanceKm, decimal priceVnd)> CalculatePriceFromCenterAsync(double incidentLat, double incidentLng, decimal pricePerKm = PRICE_PER_KM_DEFAULT)
+        private async Task<(double distanceKm, decimal priceVnd)> CalculatePriceFromCenterAsync(double incidentLat, double incidentLng)
         {
             var centerCoordinates = GetRescueCenterCoordinates();
-            if (!centerCoordinates.HasValue)
-            {
-                throw new InvalidOperationException("Rescue center coordinates are not configured.");
-            }
-
-            var center = centerCoordinates.Value;
-            return await _locationIqService.CalculateDistanceAndPriceAsync(center.lng, center.lat, incidentLng, incidentLat, pricePerKm);
+            var pricePerKm = _systemSettingService.GetSetting(SystemSettingKeys.RescuePricePerKmDefault, PRICE_PER_KM_DEFAULT);
+            return await _locationIqService.CalculateDistanceAndPriceAsync(centerCoordinates.lng, centerCoordinates.lat, incidentLng, incidentLat, pricePerKm);
         }
 
         public async Task<HospitalTransferPricingResponse> ReportHospitalTransferAsync(

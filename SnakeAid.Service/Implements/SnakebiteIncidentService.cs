@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging;
 using SnakeAid.Core.Domains;
 using SnakeAid.Core.Exceptions;
 using SnakeAid.Core.Requests;
+using SnakeAid.Core.Requests.Notification;
 using SnakeAid.Core.Requests.SnakebiteIncident;
 using SnakeAid.Core.Responses.SnakebiteIncident;
 using SnakeAid.Core.Utils;
@@ -329,7 +330,7 @@ namespace SnakeAid.Service.Implements
                     return incident.Adapt<CreateIncidentResponse>();
                 });
 
-                await _rescueNotificationService.NotifyDispatchRequestedAsync(rescuerId.ToString(), new
+                await _rescueNotificationService.NotifyDispatchRequestedAsync(rescuerId.ToString(), new DispatchRequestNotificationPayload
                 {
                     RequestId = dispatchRequestId,
                     IncidentId = incidentId,
@@ -411,6 +412,9 @@ namespace SnakeAid.Service.Implements
 
                     // Notify the rescuer that they have accepted the dispatch
                     await _rescueNotificationService.NotifyRescuerAcceptedAsync(rescuerId.ToString(), response);
+
+                    // Notify mission/member channel that rescuer accepted so member also receives push.
+                    await _missionNotificationService.NotifyRescuerAcceptedAsync(incident.Id, incident.UserId, response);
 
                     // Notify operators that the rescuer has been dispatched.
                     await _operatorRealtimeNotificationService.NotifyRescuerDispatchedAsync(incident.Id, rescuerId);
@@ -584,6 +588,7 @@ namespace SnakeAid.Service.Implements
             var cancelReason = request.Reason ?? "No reason provided";
             List<(string RescuerId, Guid RequestId)> pendingNotifies = new();
             Guid? affectedMissionId = null;
+            Guid? affectedMissionRescuerId = null;
 
             try
             {
@@ -634,6 +639,7 @@ namespace SnakeAid.Service.Implements
                     if (activeMission != null)
                     {
                         affectedMissionId = activeMission.Id;
+                        affectedMissionRescuerId = activeMission.RescuerId;
 
                         activeMission.Status = RescueMissionStatus.Cancelled;
                         activeMission.CancellationReason = cancelReason;
@@ -692,9 +698,12 @@ namespace SnakeAid.Service.Implements
                 }
 
                 // If there was an active mission, notify via mission hub as well
-                if (affectedMissionId.HasValue)
+                if (affectedMissionId.HasValue && affectedMissionRescuerId.HasValue)
                 {
-                    await _missionNotificationService.NotifyMissionCancelledAsync(incidentId, cancelReason);
+                    await _missionNotificationService.NotifyMissionCancelledAsync(
+                        incidentId,
+                        affectedMissionRescuerId.Value,
+                        cancelReason);
                 }
 
                 return response;
@@ -1169,9 +1178,9 @@ namespace SnakeAid.Service.Implements
 
                     _logger.LogInformation(
                         "Snake identified for incident {IncidentId}: Species {SpeciesId} via filter questions with {MatchScore}/{TotalAnswers} matches ({MatchPercentage}%)",
-                        incidentId, 
-                        request.SelectedSnakeSpeciesId, 
-                        request.MatchScore, 
+                        incidentId,
+                        request.SelectedSnakeSpeciesId,
+                        request.MatchScore,
                         request.SelectedOptionIds.Count,
                         request.MatchPercentage
                     );

@@ -1,6 +1,7 @@
 using Mapster;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using SnakeAid.Core.Constants;
 using SnakeAid.Core.Domains;
 using SnakeAid.Core.Exceptions;
 using SnakeAid.Core.Requests.PayOs;
@@ -8,6 +9,7 @@ using SnakeAid.Core.Requests.SnakeCatchingMission;
 using SnakeAid.Core.Responses.CatchingEnvironment;
 using SnakeAid.Core.Responses.Media;
 using SnakeAid.Core.Responses.SnakeCatchingMission;
+using SnakeAid.Core.Services;
 using SnakeAid.Repository.Data;
 using SnakeAid.Repository.Interfaces;
 using SnakeAid.Service.Extensions;
@@ -23,22 +25,25 @@ namespace SnakeAid.Service.Implements
     {
         private readonly IUnitOfWork<SnakeAidDbContext> _unitOfWork;
         private readonly ILogger<SnakeCatchingMissionService> _logger;
+        private readonly ISystemSettingService _systemSettingService;
         private readonly ISnakeCatchingPaymentService _snakeCatchingPaymentService;
         private readonly IRescuerOnlineStatusService _rescuerOnlineStatusService;
         private readonly ISnakeCatchingRequestNotificationService _snakeCatchingRequestNotificationService;
 
-        private const decimal BasePrice = 500000;
-        private const decimal AdditionalSnakePrice = 100000;
+        private const decimal CATCHING_BASE_PRICE = 500000;
+        private const decimal ADDITIONAL_SNAKE_PRICE = 100000;
 
         public SnakeCatchingMissionService(
             IUnitOfWork<SnakeAidDbContext> unitOfWork,
             ILogger<SnakeCatchingMissionService> logger,
+            ISystemSettingService systemSettingService,
             ISnakeCatchingPaymentService snakeCatchingPaymentService,
             IRescuerOnlineStatusService rescuerOnlineStatusService,
             ISnakeCatchingRequestNotificationService snakeCatchingRequestNotificationService)
         {
             _unitOfWork = unitOfWork;
             _logger = logger;
+            _systemSettingService = systemSettingService;
             _snakeCatchingPaymentService = snakeCatchingPaymentService;
             _rescuerOnlineStatusService = rescuerOnlineStatusService;
             _snakeCatchingRequestNotificationService = snakeCatchingRequestNotificationService;
@@ -193,6 +198,9 @@ namespace SnakeAid.Service.Implements
         {
             try
             {
+                var basePrice = _systemSettingService.GetSetting(SystemSettingKeys.CatchingBasePrice, CATCHING_BASE_PRICE);
+                var additionalSnakePrice = _systemSettingService.GetSetting(SystemSettingKeys.CatchingAdditionalSnakePrice, ADDITIONAL_SNAKE_PRICE);
+
                 return await _unitOfWork.ExecuteInTransactionAsync(async () =>
                 {
                     // Get mission with related data
@@ -249,15 +257,15 @@ namespace SnakeAid.Service.Implements
                     var snakeQuantity = mission.MissionDetails?.Sum(d => d.Quantity);
                     if (snakeQuantity > 0)
                     {
-                        decimal additionalCosts = snakeQuantity.Value * AdditionalSnakePrice;
-                        mission.ActualCost = BasePrice + additionalCosts + envCost;
+                        decimal additionalCosts = snakeQuantity.Value * additionalSnakePrice;
+                        mission.ActualCost = basePrice + additionalCosts + envCost;
                     }
                     else
                     {
                         mission.ActualCost = 0;
                     }
 
-                    mission.Price = BasePrice;
+                    mission.Price = basePrice;
 
                     // Update mission to MissionCompleted
                     mission.Status = CatchingMissionStatus.MissionCompleted;
@@ -327,7 +335,7 @@ namespace SnakeAid.Service.Implements
                             SnakeSpeciesId = d.SnakeSpeciesId,
                             SnakeSpeciesName = d.SnakeSpecies?.CommonName,
                             Quantity = d.Quantity,
-                            Price = d.Quantity * AdditionalSnakePrice,
+                            Price = d.Quantity * additionalSnakePrice,
                             CreatedAt = d.CreatedAt,
                             UpdatedAt = d.UpdatedAt
                         }).ToList();
