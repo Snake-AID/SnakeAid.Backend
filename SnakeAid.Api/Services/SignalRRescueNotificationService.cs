@@ -1,11 +1,15 @@
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.Logging;
 using SnakeAid.Api.Hubs;
-using SnakeAid.Service.Interfaces;
 using SnakeAid.Core.Exceptions;
+using SnakeAid.Core.Messages.Notifications;
+using SnakeAid.Core.Requests.Notification;
+using SnakeAid.Core.Responses.SnakebiteIncident;
+using SnakeAid.Service.Interfaces;
 
 namespace SnakeAid.Api.Services
 {
@@ -16,6 +20,7 @@ namespace SnakeAid.Api.Services
     public class SignalRRescueNotificationService : IRescueNotificationService
     {
         private readonly IHubContext<RescuerHub> _hubContext;
+        private readonly INotificationQueueService _notificationQueueService;
         private readonly ILogger<SignalRRescueNotificationService> _logger;
 
         // Static dictionary để track connected rescuers: userId -> connectionId
@@ -23,9 +28,11 @@ namespace SnakeAid.Api.Services
 
         public SignalRRescueNotificationService(
             IHubContext<RescuerHub> hubContext,
+            INotificationQueueService notificationQueueService,
             ILogger<SignalRRescueNotificationService> logger)
         {
             _hubContext = hubContext;
+            _notificationQueueService = notificationQueueService;
             _logger = logger;
         }
 
@@ -34,50 +41,72 @@ namespace SnakeAid.Api.Services
             return ConnectedRescuers.ContainsKey(rescuerId);
         }
 
-        public async Task SendNewRequestAsync(string rescuerId, object requestData)
+        public async Task NotifyDispatchRequestedAsync(string rescuerId, DispatchRequestNotificationPayload requestData)
         {
-            // Business logic: only notify monitors if request is actually sent to a connected rescuer
-            if (ConnectedRescuers.TryGetValue(rescuerId, out var connectionId))
-                await SafeExecuteAsync(async () =>
-                {
-                    await _hubContext.Clients.Client(connectionId).SendAsync("NewRescueRequest", requestData);
-                    await _hubContext.Clients.Group("Monitors").SendAsync("NewRescueRequest", new { RescuerId = rescuerId, Data = requestData });
-                }, "SendNewRequest", rescuerId);
-            else
-                _logger.LogWarning("Rescuer {RescuerId} not connected, cannot send request", rescuerId);
-        }
-
-        public async Task NotifyDispatchRequestedAsync(string rescuerId, object requestData)
-        {
-            if (ConnectedRescuers.TryGetValue(rescuerId, out var connectionId))
-                await SafeExecuteAsync(async () =>
+            await SafeExecuteAsync(async () =>
+            {
+                if (ConnectedRescuers.TryGetValue(rescuerId, out var connectionId))
                 {
                     await _hubContext.Clients.Client(connectionId).SendAsync("DispatchRequested", requestData);
-                    await _hubContext.Clients.Group("Monitors").SendAsync("DispatchRequested", new { RescuerId = rescuerId, Data = requestData });
-                }, "NotifyDispatchRequested", rescuerId);
-            else
-                _logger.LogWarning("Rescuer {RescuerId} not connected, cannot send dispatch request", rescuerId);
+                }
+
+                await _hubContext.Clients.Group("Monitors").SendAsync("DispatchRequested", new { RescuerId = rescuerId, Data = requestData });
+
+                await _notificationQueueService.PublishAsync(new NotificationMessage
+                {
+                    UserId = Guid.Parse(rescuerId),
+                    Title = "Điều phối viên gửi yêu cầu hỗ trợ khẩn cấp cho bạn",
+                    Body = BuildRequestSummary(requestData) ?? "Điều phối viên vừa gửi yêu cầu cho bạn.",
+                    Type = "SNAKE_RESCUE_DISPATCH_REQUESTED"
+                });
+            }, "NotifyDispatchRequested", rescuerId);
         }
 
-        public async Task NotifyRescuerAcceptedAsync(string rescuerId, object acceptedData)
+        public async Task NotifyRescuerAcceptedAsync(string rescuerId, AcceptRescueResponse acceptedData)
             => await NotifyRescuerAndMonitorsAsync(rescuerId, "RequestAccepted",
                 connId => _hubContext.Clients.Client(connId).SendAsync("RequestAccepted", acceptedData),
                 new { RescuerId = rescuerId, Data = acceptedData });
 
-        public async Task NotifyRescuerDeclinedAsync(string rescuerId, object declinedData)
+        public async Task NotifyRescuerDeclinedAsync(string rescuerId, RejectRescueResponse declinedData)
             => await NotifyRescuerAndMonitorsAsync(rescuerId, "RequestDeclined",
                 connId => _hubContext.Clients.Client(connId).SendAsync("RequestDeclined", declinedData),
                 new { RescuerId = rescuerId, Data = declinedData });
 
         public async Task NotifyRequestCancelledAsync(string rescuerId, Guid requestId)
-            => await NotifyRescuerAndMonitorsAsync(rescuerId, "RequestCancelled",
-                connId => _hubContext.Clients.Client(connId).SendAsync("RequestCancelled", new { RequestId = requestId, Message = "This request has been cancelled by the user." }),
-                new { RequestId = requestId, TargetRescuerId = rescuerId });
+            => await SafeExecuteAsync(async () =>
+            {
+                if (ConnectedRescuers.TryGetValue(rescuerId, out var connectionId))
+                {
+                    await _hubContext.Clients.Client(connectionId).SendAsync("RequestCancelled", new { RequestId = requestId, Message = "Yêu cầu đã bị hủy bởi người dùng." });
+                }
+
+                var payload = new RescuerRequestNotificationPayload
+                {
+                    RequestId = requestId,
+                    RescuerId = Guid.Parse(rescuerId),
+                    Message = "Yêu cầu đã bị hủy bởi người dùng."
+                };
+                await _hubContext.Clients.Group("Monitors").SendAsync("RequestCancelled", payload);
+                await PublishRescuerNotificationAsync(rescuerId, "RequestCancelled", payload);
+            }, "RequestCancelled", rescuerId);
 
         public async Task NotifyRequestExpiredAsync(string rescuerId, Guid requestId)
-            => await NotifyRescuerAndMonitorsAsync(rescuerId, "RequestExpired",
-                connId => _hubContext.Clients.Client(connId).SendAsync("RequestExpired", new { RequestId = requestId, Message = "This request has expired." }),
-                new { RequestId = requestId, TargetRescuerId = rescuerId });
+            => await SafeExecuteAsync(async () =>
+            {
+                if (ConnectedRescuers.TryGetValue(rescuerId, out var connectionId))
+                {
+                    await _hubContext.Clients.Client(connectionId).SendAsync("RequestExpired", new { RequestId = requestId, Message = "Yêu cầu đã hết hạn." });
+                }
+
+                var payload = new RescuerRequestNotificationPayload
+                {
+                    RequestId = requestId,
+                    RescuerId = Guid.Parse(rescuerId),
+                    Message = "Yêu cầu đã hết hạn."
+                };
+                await _hubContext.Clients.Group("Monitors").SendAsync("RequestExpired", payload);
+                await PublishRescuerNotificationAsync(rescuerId, "RequestExpired", payload);
+            }, "RequestExpired", rescuerId);
 
         /// <summary>
         /// Force disconnect a rescuer from RescuerHub.
@@ -122,7 +151,12 @@ namespace SnakeAid.Api.Services
         {
             // Always try notify Rescuer if online
             if (ConnectedRescuers.TryGetValue(rescuerId, out var connectionId))
-                await SafeExecuteAsync(() => rescuerAction(connectionId), actionName, rescuerId);
+            {
+                await SafeExecuteAsync(async () =>
+                {
+                    await rescuerAction(connectionId);
+                }, actionName, rescuerId);
+            }
             else
                 _logger.LogWarning("Rescuer {RescuerId} not connected for {Action}", rescuerId, actionName);
 
@@ -147,6 +181,52 @@ namespace SnakeAid.Api.Services
                     "SignalR_Notification_Error");
             }
         }
+
+        private async Task PublishRescuerNotificationAsync(string rescuerId, string actionName, object payload)
+        {
+            if (!Guid.TryParse(rescuerId, out var userId))
+            {
+                return;
+            }
+
+            var title = actionName switch
+            {
+                "RequestCancelled" => "Nhiệm vụ bị hủy",
+                "RequestExpired" => "Yêu cầu đã hết hạn",
+                "NotifyDispatchRequested" => "Điều phối viên đang gửi yêu cầu",
+                _ => "Thông báo mới"
+            };
+
+            await _notificationQueueService.PublishAsync(new NotificationMessage
+            {
+                UserId = userId,
+                Title = title,
+                Body = BuildRequestSummary(payload) ?? "Mở app để xem chi tiết.",
+                Type = GetNotificationType(actionName)
+            });
+        }
+
+        private static string GetNotificationType(string actionName)
+            => actionName switch
+            {
+                "RequestCancelled" => "SNAKE_RESCUE_REQUEST_CANCELLED_BY_MEMBER",
+                "RequestExpired" => "SNAKE_RESCUE_REQUEST_EXPIRED",
+                "NotifyDispatchRequested" => "SNAKE_RESCUE_DISPATCH_REQUESTED",
+                _ => actionName
+            };
+
+        private static string? BuildRequestSummary(object payload)
+            => payload switch
+            {
+                DispatchRequestNotificationPayload p => !string.IsNullOrWhiteSpace(p.Message)
+                    ? p.Message
+                    : $"Yêu cầu #{p.RequestId}.",
+                RescuerRequestNotificationPayload p => p.Message,
+                AcceptRescueResponse p => p.Message,
+                RejectRescueResponse p => p.Message,
+                _ => null
+            };
+
         #endregion
 
         #region Static methods for Hub to manage connections
