@@ -3,13 +3,14 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using SnakeAid.Core.Constants;
 using SnakeAid.Core.Domains;
 using SnakeAid.Core.Exceptions;
 using SnakeAid.Core.Meta;
 using SnakeAid.Core.Requests.TreatmentFacility;
 using SnakeAid.Core.Responses.TreatmentFacility;
+using SnakeAid.Core.Services;
 using SnakeAid.Repository.Data;
 using SnakeAid.Repository.Interfaces;
 using SnakeAid.Service.Interfaces;
@@ -21,35 +22,35 @@ namespace SnakeAid.Service.Implements
     {
         private readonly IUnitOfWork<SnakeAidDbContext> _unitOfWork;
         private readonly ILogger<TreatmentFacilityService> _logger;
-        private readonly IConfiguration _configuration;
+        private readonly ISystemSettingService _systemSettingService;
 
         public TreatmentFacilityService(
             IUnitOfWork<SnakeAidDbContext> unitOfWork,
             ILogger<TreatmentFacilityService> logger,
-            IConfiguration configuration)
+            ISystemSettingService systemSettingService)
         {
             _unitOfWork = unitOfWork;
             _logger = logger;
-            _configuration = configuration;
+            _systemSettingService = systemSettingService;
         }
 
 
         // Default search distance in meters (30 km)
-        private const decimal DEFAUT_SEARCH_DISTANCE = 30000; // 30 km
+        private const double DEFAULT_SEARCH_DISTANCE = 30000d; // 30 km
 
         public async Task<IEnumerable<TreatmentFacilityResponse>> GetNearestActiveTreatmentFacilityAsync(double latitude, double longitude)
         {
             // Create a Point for the user's location (SRID 4326 for WGS84)
             var userPoint = new Point(longitude, latitude) { SRID = 4326 };
 
-            const double MaxDistanceMeters = 30000; // 30km in meters
+            var maxDistanceMeters = _systemSettingService.GetSetting(SystemSettingKeys.TreatmentFacilitySearchRadiusMeters, DEFAULT_SEARCH_DISTANCE);
 
             // Query with spatial ordering and optional distance filter
             var nearbyHospitals = await _unitOfWork
                 .GetRepository<TreatmentFacility>()
                 .GetListAsync<TreatmentFacilityResponse>(
                     predicate: h => h.IsActive &&
-                        EF.Functions.IsWithinDistance(h.Location, userPoint, MaxDistanceMeters, true),
+                        EF.Functions.IsWithinDistance(h.Location, userPoint, maxDistanceMeters, true),
                     include: q => q.Include(h => h.AntivenomStocks),
                     orderBy: q => q.OrderBy(h => h.Location.Distance(userPoint)),
                     selector: h => new TreatmentFacilityResponse

@@ -56,16 +56,6 @@ public class FirebaseNotificationService : IFirebaseNotificationService
             return;
         }
 
-        var dataPayload = new Dictionary<string, string>(message.Data ?? new Dictionary<string, string>())
-        {
-            ["notificationType"] = message.Type
-        };
-
-        if (!string.IsNullOrWhiteSpace(message.DeepLink))
-        {
-            dataPayload["deepLink"] = message.DeepLink;
-        }
-
         var pushMessage = new MulticastMessage
         {
             Tokens = new List<string> { storedToken },
@@ -73,8 +63,7 @@ public class FirebaseNotificationService : IFirebaseNotificationService
             {
                 Title = message.Title,
                 Body = message.Body
-            },
-            Data = dataPayload
+            }
         };
 
         var response = await FirebaseMessaging.DefaultInstance.SendEachForMulticastAsync(pushMessage, cancellationToken);

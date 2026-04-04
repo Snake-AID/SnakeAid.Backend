@@ -1,5 +1,7 @@
 using System;
 using System.Threading.Tasks;
+using SnakeAid.Core.Requests.Notification;
+using SnakeAid.Core.Responses.SnakebiteIncident;
 
 namespace SnakeAid.Service.Interfaces
 {
@@ -8,13 +10,11 @@ namespace SnakeAid.Service.Interfaces
 
         bool IsRescuerConnected(string rescuerId);
 
-        Task SendNewRequestAsync(string rescuerId, object requestData);
+        Task NotifyDispatchRequestedAsync(string rescuerId, DispatchRequestNotificationPayload requestData);
 
-        Task NotifyDispatchRequestedAsync(string rescuerId, object requestData);
+        Task NotifyRescuerAcceptedAsync(string rescuerId, AcceptRescueResponse acceptedData);
 
-        Task NotifyRescuerAcceptedAsync(string rescuerId, object acceptedData);
-
-        Task NotifyRescuerDeclinedAsync(string rescuerId, object declinedData);
+        Task NotifyRescuerDeclinedAsync(string rescuerId, RejectRescueResponse declinedData);
 
         Task NotifyRequestCancelledAsync(string rescuerId, Guid requestId);
 

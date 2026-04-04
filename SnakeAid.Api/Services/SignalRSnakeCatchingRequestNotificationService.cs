@@ -68,15 +68,10 @@ namespace SnakeAid.Api.Services
 
                 await _notificationQueueService.BroadcastAsync(new AdminBroadcastNotificationRequest
                 {
-                    Title = "Don bat ran moi",
-                    Body = $"Co yeu cau bat ran moi tu {userName ?? "thanh vien"} - {address ?? "chua ro dia chi"}.",
+                    Title = "Có đơn bắt rắn mới",
+                    Body = $"Có yêu cầu bắt rắn mới từ {userName ?? "thành viên"} - {address ?? "chưa rõ địa chỉ"}.",
                     Type = "SNAKE_CATCHING_REQUEST_CREATED",
-                    TargetRoles = new List<AccountRole> { AccountRole.Operator },
-                    Data = new Dictionary<string, string>
-                    {
-                        ["notificationType"] = "SNAKE_CATCHING_REQUEST_CREATED",
-                        ["requestId"] = requestId.ToString()
-                    }
+                    TargetRoles = new List<AccountRole> { AccountRole.Operator }
                 });
             }, "SnakeCatchingRequestCreated", requestId);
 
@@ -104,14 +99,9 @@ namespace SnakeAid.Api.Services
                 await _notificationQueueService.PublishAsync(new NotificationMessage
                 {
                     UserId = userId,
-                    Title = "Yeu cau da duoc xac nhan",
-                    Body = $"Yeu cau #{requestId} da duoc xac nhan.",
-                    Type = "SNAKE_CATCHING_REQUEST_CONFIRMED",
-                    Data = new Dictionary<string, string>
-                    {
-                        ["notificationType"] = "SNAKE_CATCHING_REQUEST_CONFIRMED",
-                        ["requestId"] = requestId.ToString()
-                    }
+                    Title = "Yêu cầu đã được xác nhận",
+                    Body = $"Yêu cầu #{requestId} đã được xác nhận.",
+                    Type = "SNAKE_CATCHING_REQUEST_CONFIRMED"
                 });
             }, "SnakeCatchingRequestAccepted", requestId);
 
@@ -141,14 +131,9 @@ namespace SnakeAid.Api.Services
                 await _notificationQueueService.PublishAsync(new NotificationMessage
                 {
                     UserId = userId,
-                    Title = "Cuu ho vien da duoc phan cong",
-                    Body = $"{assignedRescuerName ?? "Cuu ho vien"} se den ho tro ban.",
-                    Type = "SNAKE_CATCHING_RESCUER_ASSIGNED",
-                    Data = new Dictionary<string, string>
-                    {
-                        ["notificationType"] = "SNAKE_CATCHING_RESCUER_ASSIGNED",
-                        ["requestId"] = requestId.ToString()
-                    }
+                    Title = "Cứu hộ viên đang được phân công",
+                    Body = $"{assignedRescuerName ?? "Cứu hộ viên"} sẽ đến hỗ trợ bạn.",
+                    Type = "SNAKE_CATCHING_RESCUER_ASSIGNED"
                 });
 
                 if (assignedRescuerId.HasValue)
@@ -158,14 +143,9 @@ namespace SnakeAid.Api.Services
                     await _notificationQueueService.PublishAsync(new NotificationMessage
                     {
                         UserId = assignedRescuerId.Value,
-                        Title = "Ban duoc giao nhiem vu bat ran",
-                        Body = $"Nhiem vu moi cho don #{requestId}. Mo app de xem chi tiet.",
-                        Type = "SNAKE_CATCHING_MISSION_ASSIGNED",
-                        Data = new Dictionary<string, string>
-                        {
-                            ["notificationType"] = "SNAKE_CATCHING_MISSION_ASSIGNED",
-                            ["requestId"] = requestId.ToString()
-                        }
+                        Title = "Bạn được phân công nhiệm vụ bắt rắn mới",
+                        Body = $"Mã nhiệm vụ: #{requestId}. Mở app để xem chi tiết.",
+                        Type = "SNAKE_CATCHING_MISSION_ASSIGNED"
                     });
                 }
             }, "SnakeCatchingRequestAssigned", requestId);
@@ -196,14 +176,9 @@ namespace SnakeAid.Api.Services
                     await _notificationQueueService.PublishAsync(new NotificationMessage
                     {
                         UserId = assignedRescuerId.Value,
-                        Title = "Nhiem vu bi huy",
-                        Body = $"Khach hang da huy yeu cau #{requestId}.",
-                        Type = "SNAKE_CATCHING_REQUEST_CANCELLED_BY_MEMBER",
-                        Data = new Dictionary<string, string>
-                        {
-                            ["notificationType"] = "SNAKE_CATCHING_REQUEST_CANCELLED_BY_MEMBER",
-                            ["requestId"] = requestId.ToString()
-                        }
+                        Title = "Nhiệm vụ bị hủy",
+                        Body = $"Khách hàng đã hủy yêu cầu #{requestId}.",
+                        Type = "SNAKE_CATCHING_REQUEST_CANCELLED_BY_MEMBER"
                     });
                 }
             }, "SnakeCatchingRequestCancelled", requestId);
@@ -220,15 +195,9 @@ namespace SnakeAid.Api.Services
                 await _notificationQueueService.PublishAsync(new NotificationMessage
                 {
                     UserId = memberUserId,
-                    Title = "Cuu ho vien dang di chuyen",
-                    Body = $"{rescuerName ?? "Cuu ho vien"} dang tren duong den ban{(estimatedMinutes.HasValue ? $". Du kien {estimatedMinutes.Value} phut." : ".")}",
-                    Type = "SNAKE_CATCHING_RESCUER_EN_ROUTE",
-                    Data = new Dictionary<string, string>
-                    {
-                        ["notificationType"] = "SNAKE_CATCHING_RESCUER_EN_ROUTE",
-                        ["requestId"] = requestId.ToString(),
-                        ["missionId"] = missionId.ToString()
-                    }
+                    Title = "Cứu hộ viên đang di chuyển đến",
+                    Body = $"{rescuerName ?? "Cứu hộ viên"} đang di chuyển đến bạn{(estimatedMinutes.HasValue ? $". Dự kiến {estimatedMinutes.Value} phút." : ".")}",
+                    Type = "SNAKE_CATCHING_RESCUER_EN_ROUTE"
                 });
             }, "SnakeCatchingRescuerEnRoute", requestId);
 
@@ -243,15 +212,9 @@ namespace SnakeAid.Api.Services
                 await _notificationQueueService.PublishAsync(new NotificationMessage
                 {
                     UserId = memberUserId,
-                    Title = "Cuu ho vien da den",
-                    Body = $"{rescuerName ?? "Cuu ho vien"} da den noi va bat dau khao sat.",
-                    Type = "SNAKE_CATCHING_RESCUER_ARRIVED",
-                    Data = new Dictionary<string, string>
-                    {
-                        ["notificationType"] = "SNAKE_CATCHING_RESCUER_ARRIVED",
-                        ["requestId"] = requestId.ToString(),
-                        ["missionId"] = missionId.ToString()
-                    }
+                    Title = "Cứu hộ viên đã đến",
+                    Body = $"{rescuerName ?? "Cứu hộ viên"} đã đến nơi và bắt đầu khảo sát.",
+                    Type = "SNAKE_CATCHING_RESCUER_ARRIVED"
                 });
             }, "SnakeCatchingRescuerArrived", requestId);
 
@@ -267,17 +230,11 @@ namespace SnakeAid.Api.Services
                 await _notificationQueueService.PublishAsync(new NotificationMessage
                 {
                     UserId = memberUserId,
-                    Title = "Nhiem vu hoan thanh - Can thanh toan",
+                    Title = "Nhiệm vụ hoàn thành - Cần thanh toán",
                     Body = actualCost.HasValue
-                        ? $"{rescuerName ?? "Cuu ho vien"} da hoan thanh. Phi dich vu: {actualCost.Value:N0} VND."
-                        : $"{rescuerName ?? "Cuu ho vien"} da hoan thanh nhiem vu. Vui long thanh toan de ket thuc.",
-                    Type = "SNAKE_CATCHING_MISSION_COMPLETED",
-                    Data = new Dictionary<string, string>
-                    {
-                        ["notificationType"] = "SNAKE_CATCHING_MISSION_COMPLETED",
-                        ["requestId"] = requestId.ToString(),
-                        ["missionId"] = missionId.ToString()
-                    }
+                        ? $"{rescuerName ?? "Cứu hộ viên"} đã hoàn thành. Phí dịch vụ: {actualCost.Value:N0} VND."
+                        : $"{rescuerName ?? "Cứu hộ viên"} đã hoàn thành nhiệm vụ. Vui lòng thanh toán để kết thúc.",
+                    Type = "SNAKE_CATCHING_MISSION_COMPLETED"
                 });
             }, "SnakeCatchingMissionCompleted", requestId);
 
@@ -293,30 +250,17 @@ namespace SnakeAid.Api.Services
                 await _notificationQueueService.PublishAsync(new NotificationMessage
                 {
                     UserId = memberUserId,
-                    Title = "Cuu ho vien khong the thuc hien",
-                    Body = $"{rescuerName ?? "Cuu ho vien"} khong the tiep tuc nhiem vu. Doi SnakeAid dang tim nguoi thay the.",
-                    Type = "SNAKE_CATCHING_MISSION_ABORTED",
-                    Data = new Dictionary<string, string>
-                    {
-                        ["notificationType"] = "SNAKE_CATCHING_MISSION_ABORTED",
-                        ["requestId"] = requestId.ToString(),
-                        ["missionId"] = missionId.ToString()
-                    }
+                    Title = "Cứu hộ viên không thể thực hiện",
+                    Body = $"{rescuerName ?? "Cứu hộ viên"} không thể tiếp tục nhiệm vụ. Đợi SnakeAid đang tìm người thay thế.",
+                    Type = "SNAKE_CATCHING_MISSION_ABORTED"
                 });
 
                 await _notificationQueueService.BroadcastAsync(new AdminBroadcastNotificationRequest
                 {
-                    Title = "Can phan cong lai ngay",
-                    Body = $"Rescuer {rescuerName ?? rescuerUserId.ToString()} da huy nhiem vu cho don #{requestId}.",
+                    Title = "Cần phân công lại ngay",
+                    Body = $"Cứu hộ viên {rescuerName ?? rescuerUserId.ToString()} đã hủy nhiệm vụ cho đơn #{requestId}.",
                     Type = "SNAKE_CATCHING_REASSIGN_NEEDED",
-                    TargetRoles = new List<AccountRole> { AccountRole.Operator },
-                    Data = new Dictionary<string, string>
-                    {
-                        ["notificationType"] = "SNAKE_CATCHING_REASSIGN_NEEDED",
-                        ["requestId"] = requestId.ToString(),
-                        ["missionId"] = missionId.ToString(),
-                        ["reason"] = reason ?? string.Empty
-                    }
+                    TargetRoles = new List<AccountRole> { AccountRole.Operator }
                 });
             }, "SnakeCatchingMissionAborted", requestId);
 
