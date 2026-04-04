@@ -1,4 +1,4 @@
-using Mapster;
+using Microsoft.EntityFrameworkCore;
 using SnakeAid.Core.Domains;
 using SnakeAid.Core.Exceptions;
 using SnakeAid.Core.Meta;
@@ -31,30 +31,58 @@ namespace SnakeAid.Service.Implements
 
             var pagedData = await _unitOfWork.GetRepository<Transaction>()
                 .GetPagingListAsync(
+                    selector: t => new TransactionResponse
+                    {
+                        Id = t.Id,
+                        UserName = t.User.UserName,
+                        FullName = t.User.FullName,
+                        ReferenceId = t.ReferenceId,
+                        Amount = t.Amount,
+                        Currency = t.Currency,
+                        TransactionType = t.TransactionType,
+                        Description = t.Description,
+                        PaymentMethod = t.PaymentMethod,
+                        ExternalTransactionId = t.ExternalTransactionId,
+                        CreatedAt = t.CreatedAt
+                    },
                     predicate: t =>
                         (!request.UserId.HasValue || t.UserId == request.UserId.Value)
                         && (!hasTypeFilter || matchedTypes!.Contains(t.TransactionType)),
                     orderBy: q => q.OrderByDescending(t => t.CreatedAt),
+                    include: q => q.Include(t => t.User),
                     page: request.PageNumber,
                     size: request.PageSize,
                     cancellationToken: ct);
 
             return new PagedData<TransactionResponse>
             {
-                Items = pagedData.Items.Adapt<List<TransactionResponse>>(),
+                Items = pagedData.Items,
                 Meta = pagedData.Meta
             };
         }
 
         public async Task<TransactionResponse?> GetTransactionDetailAsync(Guid transactionId, CancellationToken ct = default)
         {
-            var transaction = await _unitOfWork.GetRepository<Transaction>()
+            return await _unitOfWork.GetRepository<Transaction>()
                 .FirstOrDefaultAsync(
+                    selector: t => new TransactionResponse
+                    {
+                        Id = t.Id,
+                        UserName = t.User.UserName,
+                        FullName = t.User.FullName,
+                        ReferenceId = t.ReferenceId,
+                        Amount = t.Amount,
+                        Currency = t.Currency,
+                        TransactionType = t.TransactionType,
+                        Description = t.Description,
+                        PaymentMethod = t.PaymentMethod,
+                        ExternalTransactionId = t.ExternalTransactionId,
+                        CreatedAt = t.CreatedAt
+                    },
                     predicate: t => t.Id == transactionId,
+                    include: q => q.Include(t => t.User),
                     asNoTracking: true,
                     cancellationToken: ct);
-
-            return transaction?.Adapt<TransactionResponse>();
         }
 
         private static bool TryMapGroupToTransactionTypes(string? transType, out TransactionType[]? mappedTypes)

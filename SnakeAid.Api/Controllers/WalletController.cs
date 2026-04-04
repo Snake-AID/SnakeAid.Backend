@@ -8,6 +8,7 @@ using SnakeAid.Core.Requests.Wallet;
 using SnakeAid.Core.Responses.PayOs;
 using SnakeAid.Core.Responses.Wallet;
 using SnakeAid.Service.Interfaces;
+using SnakeAid.Service.Implements;
 using Swashbuckle.AspNetCore.Annotations;
 
 namespace SnakeAid.Api.Controllers
@@ -20,6 +21,7 @@ namespace SnakeAid.Api.Controllers
         private readonly IWalletService _walletService;
         private readonly IWalletPaymentService _walletPaymentService;
         private readonly IWalletTopupService _walletTopupService;
+        private readonly BankDirectoryService _bankDirectoryService;
 
         public WalletController(
             ILogger<WalletController> logger,
@@ -27,12 +29,14 @@ namespace SnakeAid.Api.Controllers
             IMapper mapper,
             IWalletService walletService,
             IWalletPaymentService walletPaymentService,
-            IWalletTopupService walletTopupService)
+            IWalletTopupService walletTopupService,
+            BankDirectoryService bankDirectoryService)
             : base(logger, httpContextAccessor, mapper)
         {
             _walletService = walletService;
             _walletPaymentService = walletPaymentService;
             _walletTopupService = walletTopupService;
+            _bankDirectoryService = bankDirectoryService;
         }
 
         /// <summary>
@@ -123,6 +127,20 @@ namespace SnakeAid.Api.Controllers
             var userId = GetCurrentUserId();
             var result = await _walletTopupService.CreateWalletTopupAsync(request, userId, cancellationToken);
             return Ok(ApiResponseBuilder.BuildSuccessResponse(result, "Wallet top-up payment link created successfully"));
+        }
+
+        /// <summary>
+        /// Get bank directory for withdrawals
+        /// </summary>
+        [HttpGet("banks")]
+        [SwaggerOperation(
+            Summary = "Get Bank Directory",
+            Description = "Retrieve list of supported banks for withdrawal operations")]
+        [ProducesResponseType(typeof(ApiResponse<List<BankDirectoryResponse>>), StatusCodes.Status200OK)]
+        public async Task<IActionResult> GetBanks()
+        {
+            var banks = await _bankDirectoryService.GetBanksAsync();
+            return Ok(ApiResponseBuilder.BuildSuccessResponse(banks, "Bank directory retrieved successfully"));
         }
     }
 }

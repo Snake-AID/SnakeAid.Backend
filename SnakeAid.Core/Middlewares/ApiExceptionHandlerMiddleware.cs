@@ -143,32 +143,32 @@ public class ApiExceptionHandlerMiddleware
         {
             ValidationException validationEx => (
                 validationEx.Message,
-                "VALIDATION_ERROR",
+                validationEx.ErrorCode ?? "VALIDATION_ERROR",
                 validationEx.ValidationErrors.Any() ? validationEx.ValidationErrors : null
             ),
             NotFoundException notFoundEx => (
                 notFoundEx.Message,
-                "NOT_FOUND",
+                notFoundEx.ErrorCode ?? "NOT_FOUND",
                 null
             ),
             BusinessException businessEx => (
                 businessEx.Message,
-                "BUSINESS_ERROR",
+                businessEx.ErrorCode ?? "BUSINESS_ERROR",
                 null
             ),
             BadRequestException badRequestEx => (
                 badRequestEx.Message,
-                "BAD_REQUEST",
+                badRequestEx.ErrorCode ?? "BAD_REQUEST",
                 null
             ),
             ForbiddenException forbiddenEx => (
                 forbiddenEx.Message,
-                "FORBIDDEN",
+                forbiddenEx.ErrorCode ?? "FORBIDDEN",
                 null
             ),
             ConflictException conflictEx => (
                 conflictEx.Message,
-                "CONFLICT",
+                conflictEx.ErrorCode ?? "CONFLICT",
                 null
             ),
             TooManyRequestsException rateLimitEx => (

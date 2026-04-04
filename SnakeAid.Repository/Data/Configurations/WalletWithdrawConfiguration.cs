@@ -27,6 +27,12 @@ namespace SnakeAid.Repository.Data.Configurations
                 .HasForeignKey(w => w.WalletId)
                 .OnDelete(DeleteBehavior.Restrict);
 
+            // Relationship: WalletWithdraw -> Account (ProcessedByAdmin)
+            builder.HasOne(w => w.ProcessedByAdmin)
+                .WithMany()
+                .HasForeignKey(w => w.ProcessedByAdminId)
+                .OnDelete(DeleteBehavior.SetNull);
+
             // Indexes
             builder.HasIndex(w => w.Status)
                 .HasDatabaseName("IX_WalletWithdraws_Status");
@@ -36,6 +42,33 @@ namespace SnakeAid.Repository.Data.Configurations
 
             builder.HasIndex(w => w.WalletId)
                 .HasDatabaseName("IX_WalletWithdraws_WalletId");
+
+            builder.HasIndex(w => w.ProcessedByAdminId)
+                .HasDatabaseName("IX_WalletWithdraws_ProcessedByAdminId");
+
+            // PostgreSQL-specific column types
+            builder.Property(w => w.AccountHolderName)
+                .HasColumnType("character varying(150)")
+                .HasMaxLength(150)
+                .IsRequired();
+
+            builder.Property(w => w.BankBin)
+                .HasColumnType("character varying(6)")
+                .HasMaxLength(6)
+                .IsRequired(false);
+
+            builder.Property(w => w.AdminNotes)
+                .HasColumnType("character varying(1000)")
+                .HasMaxLength(1000)
+                .IsRequired(false);
+
+            builder.Property(w => w.VietQrPayload)
+                .HasColumnType("character varying(500)")
+                .IsRequired(false);
+
+            builder.Property(w => w.VietQrImageBase64)
+                .HasColumnType("text")
+                .IsRequired(false);
         }
     }
 }

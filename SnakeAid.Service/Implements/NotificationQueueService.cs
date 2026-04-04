@@ -14,6 +14,7 @@ namespace SnakeAid.Service.Implements;
 
 public class NotificationQueueService : INotificationQueueService
 {
+    private static readonly TimeSpan WithdrawalPublishTimeout = TimeSpan.FromSeconds(3);
     private readonly IPublishEndpoint _publishEndpoint;
     private readonly ILogger<NotificationQueueService> _logger;
     private readonly IUnitOfWork<SnakeAidDbContext> _unitOfWork;
@@ -85,7 +86,7 @@ public class NotificationQueueService : INotificationQueueService
         for (var index = 0; index < messageList.Count; index += publishBatchSize)
         {
             var batch = messageList.Skip(index).Take(publishBatchSize).ToList();
-            await Task.WhenAll(batch.Select(message => _publishEndpoint.Publish(message, cancellationToken)));
+            await Task.WhenAll(batch.Select(message => PublishToBrokerAsync(message, cancellationToken)));
         }
 
         _logger.LogInformation(
