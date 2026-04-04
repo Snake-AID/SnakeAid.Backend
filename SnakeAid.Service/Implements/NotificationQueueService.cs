@@ -51,7 +51,7 @@ public class NotificationQueueService : INotificationQueueService
         }, cancellationToken);
         await _unitOfWork.CommitAsync();
 
-        await _publishEndpoint.Publish(message, cancellationToken);
+        await PublishToBrokerAsync(message, cancellationToken);
 
         _logger.LogInformation(
             "Queued notification {NotificationId} for user {UserId} with type {Type}",
@@ -151,6 +151,59 @@ public class NotificationQueueService : INotificationQueueService
         await PublishBulkAsync(messages, appNotifications, cancellationToken);
 
         return recipientIds.Count;
+    }
+
+    private async Task PublishToBrokerAsync(NotificationMessage message, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var publishTask = _publishEndpoint.Publish(message, cancellationToken);
+            if (IsWithdrawalNotificationType(message.Type))
+            {
+                await publishTask.WaitAsync(WithdrawalPublishTimeout, cancellationToken);
+            }
+            else
+            {
+                await publishTask;
+            }
+        }
+        catch (Exception ex) when (IsWithdrawalNotificationType(message.Type) && IsBrokerDeliveryFailure(ex))
+        {
+            _logger.LogWarning(
+                ex,
+                "Skipping broker publish for withdrawal notification {NotificationType} and user {UserId}. App notification was already stored.",
+                message.Type,
+                message.UserId);
+        }
+    }
+
+    private static bool IsWithdrawalNotificationType(string? notificationType)
+    {
+        return !string.IsNullOrWhiteSpace(notificationType)
+            && notificationType.StartsWith("WITHDRAWAL_", StringComparison.Ordinal);
+    }
+
+    private static bool IsBrokerDeliveryFailure(Exception exception)
+    {
+        return exception is TimeoutException
+            || FindExceptionByTypeName(exception, "RabbitMQ.Client.Exceptions.BrokerUnreachableException") != null
+            || FindExceptionByTypeName(exception, "RabbitMQ.Client.Exceptions.ConnectFailureException") != null
+            || FindExceptionByTypeName(exception, "MassTransit.RabbitMqTransport.RabbitMqConnectionException") != null;
+    }
+    private static Exception? FindExceptionByTypeName(Exception exception, string fullTypeName)
+    {
+        Exception? current = exception;
+        while (current != null)
+        {
+            if (string.Equals(current.GetType().FullName, fullTypeName, StringComparison.Ordinal))
+            {
+                return current;
+            }
+
+            current = current.InnerException;
+        }
+
+        return null;
     }
 }
 
