@@ -21,6 +21,9 @@ namespace SnakeAid.Repository.Data.Configurations
                 .HasForeignKey(m => m.RescuerId)
                 .OnDelete(DeleteBehavior.Restrict);
 
+            // Ignore Media navigation - ReportMedia uses polymorphic pattern (ReferenceId/ReferenceType)
+            builder.Ignore(m => m.Media);
+
             // Indexes
             builder.HasIndex(m => m.Status)
                 .HasDatabaseName("IX_RescueMissions_Status");
