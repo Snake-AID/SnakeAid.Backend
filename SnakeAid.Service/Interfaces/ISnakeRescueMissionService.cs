@@ -1,4 +1,5 @@
 using SnakeAid.Core.Domains;
+using SnakeAid.Core.Meta;
 using SnakeAid.Core.Requests.RescueMission;
 using SnakeAid.Core.Responses.RescueMission;
 using System.Threading.Tasks;
@@ -37,5 +38,12 @@ namespace SnakeAid.Service.Interfaces
             Guid missionId,
             Guid rescuerId,
             ReportHospitalTransferRequest request);
+
+        Task<PagedData<AdminRescueMissionSummaryResponse>> GetAdminMissionListAsync(
+            IEnumerable<RescueMissionStatus>? statuses,
+            DateTimeOffset? since,
+            DateTimeOffset? until,
+            int page,
+            int pageSize);
     }
 }

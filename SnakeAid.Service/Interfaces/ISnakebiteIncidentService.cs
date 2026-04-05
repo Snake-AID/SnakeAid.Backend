@@ -48,5 +48,12 @@ namespace SnakeAid.Service.Interfaces
             DateTimeOffset? until,
             int page,
             int pageSize);
+
+        Task<PagedData<OperatorIncidentSummaryResponse>> GetAdminIncidentsAsync(
+            IEnumerable<SnakebiteIncidentStatus>? statuses,
+            DateTimeOffset? since,
+            DateTimeOffset? until,
+            int page,
+            int pageSize);
     }
 }
