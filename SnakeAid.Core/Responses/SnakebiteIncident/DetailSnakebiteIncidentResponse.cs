@@ -52,5 +52,17 @@ namespace SnakeAid.Core.Responses.SnakebiteIncident
         public int FailedAttemptsCount { get; set; }
 
         public List<SnakeAIDetectMediaResponse> Media { get; set; } = new List<SnakeAIDetectMediaResponse>();
+
+        /// Grouped media uploaded by each rescue mission for this incident.
+        public List<RescueMissionMediaGroupResponse> RescueMissionMedia { get; set; } = new List<RescueMissionMediaGroupResponse>();
+    }
+
+    public class RescueMissionMediaGroupResponse
+    {
+        public Guid MissionId { get; set; }
+
+        public RescueMissionStatus MissionStatus { get; set; }
+
+        public List<ReportMediaResponse> Media { get; set; } = new List<ReportMediaResponse>();
     }
 }

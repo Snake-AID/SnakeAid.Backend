@@ -39,6 +39,9 @@ namespace SnakeAid.Core.Responses.RescueMission
         /// Distance from rescuer to incident (calculated on demand)
         public double? DistanceKm { get; set; }
 
+        /// Media uploaded for this rescue mission (all purposes).
+        public List<ReportMediaResponse> MissionMedia { get; set; } = new List<ReportMediaResponse>();
+
         public BriefIncidentResponse Incident { get; set; } = null!;
 
         public BriefRescuerProfileResponse Rescuer { get; set; } = null!;

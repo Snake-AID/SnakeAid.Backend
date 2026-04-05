@@ -7,6 +7,7 @@ using SnakeAid.Core.Exceptions;
 using SnakeAid.Core.Requests;
 using SnakeAid.Core.Requests.Notification;
 using SnakeAid.Core.Requests.SnakebiteIncident;
+using SnakeAid.Core.Responses.Media;
 using SnakeAid.Core.Responses.SnakebiteIncident;
 using SnakeAid.Core.Utils;
 using SnakeAid.Repository.Data;
@@ -797,11 +798,22 @@ namespace SnakeAid.Service.Implements
                     }
 
                     await existingIncident.AttachReportMediaAsync(_unitOfWork, MediaReferenceType.SnakebiteIncident);
+                    await existingIncident.Missions.AttachReportMediaAsync(_unitOfWork, MediaReferenceType.RescueMission);
 
                     _logger.LogInformation("Loaded {MediaCount} media items for incident {IncidentId}",
                         existingIncident.Media?.Count ?? 0, incidentId);
 
                     var responseData = existingIncident.Adapt<DetailSnakebiteIncidentResponse>();
+
+                    responseData.RescueMissionMedia = existingIncident.Missions
+                        .OrderByDescending(m => m.CreatedAt)
+                        .Select(m => new RescueMissionMediaGroupResponse
+                        {
+                            MissionId = m.Id,
+                            MissionStatus = m.Status,
+                            Media = m.Media.Adapt<List<ReportMediaResponse>>()
+                        })
+                        .ToList();
 
                     // Map identified snake manually if available
                     if (existingIncident.IdentifiedSnakeSpecies != null)
@@ -1277,6 +1289,36 @@ namespace SnakeAid.Service.Implements
             catch (System.Exception ex)
             {
                 _logger.LogError(ex, "Error retrieving active incidents: {Message}", ex.Message);
+                throw;
+            }
+        }
+
+        public Task<PagedData<OperatorIncidentSummaryResponse>> GetAdminIncidentsAsync(
+            IEnumerable<SnakebiteIncidentStatus>? statuses,
+            DateTimeOffset? since,
+            DateTimeOffset? until,
+            int page,
+            int pageSize)
+        {
+            try
+            {
+                var hasStatusFilter = statuses != null && statuses.Any();
+                var repo = _unitOfWork.GetRepository<SnakebiteIncident>();
+
+                return repo.GetPagingListAsync<OperatorIncidentSummaryResponse>(
+                    predicate: i =>
+                        (!hasStatusFilter || statuses!.Contains(i.Status)) &&
+                        (!since.HasValue || i.CreatedAt >= since.Value.UtcDateTime) &&
+                        (!until.HasValue || i.CreatedAt <= until.Value.UtcDateTime),
+                    include: q => q.Include(i => i.Missions),
+                    orderBy: q => q.OrderByDescending(i => i.CreatedAt),
+                    page: page,
+                    size: pageSize,
+                    selector: i => i.Adapt<OperatorIncidentSummaryResponse>());
+            }
+            catch (System.Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving admin incidents: {Message}", ex.Message);
                 throw;
             }
         }
