@@ -51,7 +51,7 @@ public class NotificationQueueService : INotificationQueueService
         }, cancellationToken);
         await _unitOfWork.CommitAsync();
 
-        await PublishToBrokerAsync(message, cancellationToken);
+        await PublishToBrokerAsync(message, 1, cancellationToken);
 
         _logger.LogInformation(
             "Queued notification {NotificationId} for user {UserId} with type {Type}",
@@ -86,7 +86,7 @@ public class NotificationQueueService : INotificationQueueService
         for (var index = 0; index < messageList.Count; index += publishBatchSize)
         {
             var batch = messageList.Skip(index).Take(publishBatchSize).ToList();
-            await Task.WhenAll(batch.Select(message => PublishToBrokerAsync(message, cancellationToken)));
+            await Task.WhenAll(batch.Select(message => PublishToBrokerAsync(message, batch.Count, cancellationToken)));
         }
 
         _logger.LogInformation(
@@ -153,7 +153,10 @@ public class NotificationQueueService : INotificationQueueService
         return recipientIds.Count;
     }
 
-    private async Task PublishToBrokerAsync(NotificationMessage message, CancellationToken cancellationToken)
+    private async Task PublishToBrokerAsync(
+        NotificationMessage message,
+        int persistedNotificationCount,
+        CancellationToken cancellationToken)
     {
         try
         {
@@ -164,9 +167,10 @@ public class NotificationQueueService : INotificationQueueService
         {
             _logger.LogWarning(
                 ex,
-                "Skipping broker publish for notification {NotificationType} and user {UserId}. App notification was already stored.",
+                "Skipping broker publish for notification {NotificationType} and user {UserId}. App notification was already stored. PersistedNotificationCount={PersistedNotificationCount}",
                 message.Type,
-                message.UserId);
+                message.UserId,
+                persistedNotificationCount);
         }
     }
 
