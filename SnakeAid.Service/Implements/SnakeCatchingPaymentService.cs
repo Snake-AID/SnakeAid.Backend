@@ -21,7 +21,7 @@ public class SnakeCatchingPaymentService : ISnakeCatchingPaymentService
     private const string DefaultItemName = "Snake Catching Service";
     private const string LogPrefix = "[SnakeCatchingPaymentService]";
     private readonly string systemId = "57288b98-5f91-4de8-b827-866e3df69587";
-    private static readonly Regex OrderCodeRegex = new(@"^SNAKEAID-(\d+)", RegexOptions.Compiled);
+    private static readonly Regex OrderCodeRegex = new(@"^CATCHING-(\d+)", RegexOptions.Compiled);
     private readonly int commissionFee = 200000;
 
     public SnakeCatchingPaymentService(
@@ -62,6 +62,197 @@ public class SnakeCatchingPaymentService : ISnakeCatchingPaymentService
         };
     }
 
+    public async Task<SnakeCatchingPaymentResponse> CreateWalletPaymentAsync(
+        CreateSnakeCatchingPaymentRequest request,
+        Guid currentUserId,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            _logger.LogInformation("{Prefix} Creating wallet payment for ReferenceId {RequestId}, TransactionType {TransactionType}",
+                LogPrefix, request.SnakeCatchingRequestId, request.TransactionType);
+
+            var senderId = currentUserId;
+            var receiverId = Guid.Parse(systemId);
+
+            await ValidateSnakeCatchingRequestAsync(
+                request.SnakeCatchingRequestId,
+                request.TransactionType,
+                allowAssignedDeposit: false,
+                cancellationToken);
+
+            if (request.Amount <= 0)
+            {
+                throw new InvalidOperationException("Payment amount must be greater than 0");
+            }
+
+            var receiverExists = await _unitOfWork.GetRepository<Account>()
+                .ExistsAsync(a => a.Id == receiverId, cancellationToken);
+
+            if (!receiverExists)
+            {
+                throw new InvalidOperationException($"System receiver account {receiverId} not found");
+            }
+
+            var existingTransaction = await _unitOfWork.GetRepository<Transaction>()
+                .FirstOrDefaultAsync(
+                    predicate: t => t.ReferenceId == request.SnakeCatchingRequestId &&
+                                   t.TransactionType == request.TransactionType,
+                    asNoTracking: false,
+                    cancellationToken: cancellationToken);
+
+            if (existingTransaction != null)
+            {
+                throw new InvalidOperationException(
+                    $"Payment transaction already exists for request {request.SnakeCatchingRequestId}");
+            }
+
+            var userWallet = await _unitOfWork.GetRepository<Wallet>()
+                .FirstOrDefaultAsync(
+                    predicate: w => w.UserId == senderId,
+                    asNoTracking: false,
+                    cancellationToken: cancellationToken);
+
+            if (userWallet == null)
+            {
+                throw new InvalidOperationException($"User wallet not found for user {senderId}");
+            }
+
+            if (userWallet.Balance < request.Amount)
+            {
+                throw new InvalidOperationException(
+                    $"Insufficient wallet balance. Available: {userWallet.Balance} VND, Required: {request.Amount} VND");
+            }
+
+            var orderCode = GenerateOrderCode();
+            var description = BuildDescription(orderCode, request.Description);
+
+            var userPreviousBalance = userWallet.Balance;
+            userWallet.Balance -= request.Amount;
+            _unitOfWork.GetRepository<Wallet>().Update(userWallet);
+
+            _logger.LogInformation("{Prefix} User wallet debited. UserId={UserId}, Amount={Amount}, Balance: {PrevBalance} -> {NewBalance}",
+                LogPrefix, senderId, request.Amount, userPreviousBalance, userWallet.Balance);
+
+            var userTransaction = new Transaction
+            {
+                Id = Guid.NewGuid(),
+                UserId = senderId,
+                ReferenceId = request.SnakeCatchingRequestId,
+                Amount = request.Amount,
+                Currency = "VND",
+                TransactionType = request.TransactionType,
+                Description = $"{description} - Payment for {request.TransactionType}",
+                PaymentMethod = "Wallet",
+                ExternalTransactionId = $"WALLET-{orderCode}",
+                CreatedAt = DateTime.UtcNow
+            };
+
+            await _unitOfWork.GetRepository<Transaction>().InsertAsync(userTransaction);
+
+            var systemAccountId = Guid.Parse(systemId);
+            var systemWallet = await _unitOfWork.GetRepository<Wallet>()
+                .FirstOrDefaultAsync(
+                    predicate: w => w.UserId == systemAccountId,
+                    asNoTracking: false,
+                    cancellationToken: cancellationToken);
+
+            if (systemWallet == null)
+            {
+                systemWallet = new Wallet
+                {
+                    Id = Guid.NewGuid(),
+                    UserId = systemAccountId,
+                    Balance = 0
+                };
+                await _unitOfWork.GetRepository<Wallet>().InsertAsync(systemWallet);
+                _logger.LogInformation("{Prefix} Created system wallet for account {AccountId}",
+                    LogPrefix, systemAccountId);
+            }
+
+            var systemPreviousBalance = systemWallet.Balance;
+            systemWallet.Balance += request.Amount;
+            _unitOfWork.GetRepository<Wallet>().Update(systemWallet);
+
+            _logger.LogInformation("{Prefix} System wallet credited. Amount={Amount}, Balance: {PrevBalance} -> {NewBalance}",
+                LogPrefix, request.Amount, systemPreviousBalance, systemWallet.Balance);
+
+            var systemTransaction = new Transaction
+            {
+                Id = Guid.NewGuid(),
+                UserId = systemAccountId,
+                ReferenceId = request.SnakeCatchingRequestId,
+                Amount = request.Amount,
+                Currency = "VND",
+                TransactionType = TransactionType.WalletTopup,
+                Description = $"Received wallet payment for catching request {request.SnakeCatchingRequestId}",
+                PaymentMethod = "Wallet",
+                ExternalTransactionId = $"WALLET-{orderCode}",
+                CreatedAt = DateTime.UtcNow
+            };
+
+            await _unitOfWork.GetRepository<Transaction>().InsertAsync(systemTransaction);
+
+            if (request.TransactionType == TransactionType.CatchingDeposit)
+            {
+                var catchingRequest = await _unitOfWork.GetRepository<SnakeCatchingRequest>()
+                    .GetByIdAsync(request.SnakeCatchingRequestId);
+
+                if (catchingRequest != null)
+                {
+                    catchingRequest.PrePaidAt = DateTime.UtcNow;
+                    catchingRequest.IsPrePaid = true;
+                    _unitOfWork.GetRepository<SnakeCatchingRequest>().Update(catchingRequest);
+                }
+            }
+
+            if (request.TransactionType == TransactionType.CatchingPayment)
+            {
+                var catchingRequest = await _unitOfWork.GetRepository<SnakeCatchingRequest>()
+                    .GetByIdAsync(request.SnakeCatchingRequestId);
+
+                if (catchingRequest != null)
+                {
+                    catchingRequest.Status = RequestStatus.Completed;
+                    _unitOfWork.GetRepository<SnakeCatchingRequest>().Update(catchingRequest);
+                }
+            }
+
+            await _unitOfWork.CommitAsync();
+
+            _logger.LogInformation("{Prefix} Wallet payment completed successfully. UserTransactionId={UserTransactionId}, SystemTransactionId={SystemTransactionId}, OrderCode={OrderCode}",
+                LogPrefix, userTransaction.Id, systemTransaction.Id, orderCode);
+
+            return new SnakeCatchingPaymentResponse
+            {
+                TransactionId = userTransaction.Id,
+                SnakeCatchingRequestId = request.SnakeCatchingRequestId,
+                Amount = request.Amount,
+                Status = "Paid",
+                CheckoutUrl = null!,
+                OrderCode = orderCode,
+                PaymentLinkId = null!,
+                ExpiresAt = null,
+                Provider = "Wallet",
+                GatewayRawResponse = new
+                {
+                    OrderCode = orderCode,
+                    UserTransactionId = userTransaction.Id,
+                    SystemTransactionId = systemTransaction.Id,
+                    UserWalletBalance = userWallet.Balance,
+                    SystemWalletBalance = systemWallet.Balance,
+                    PaymentMethod = "Wallet"
+                }
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "{Prefix} Failed to create wallet payment for SnakeCatchingRequest {RequestId}",
+                LogPrefix, request.SnakeCatchingRequestId);
+            throw;
+        }
+    }
+
     public async Task<CancelPaymentLinkResponse> CancelSnakeCatchingPaymentLinkAsync(
         long orderCode,
         CancelPaymentLinkRequest request,
@@ -69,7 +260,7 @@ public class SnakeCatchingPaymentService : ISnakeCatchingPaymentService
     {
         _logger.LogInformation("{Prefix} Cancelling snake catching payment link for OrderCode {OrderCode}", LogPrefix, orderCode);
 
-        var descriptionPattern = $"SNAKEAID-{orderCode}";
+        var descriptionPattern = $"CATCHING-{orderCode}";
         var transaction = await _unitOfWork.GetRepository<Transaction>()
             .FirstOrDefaultAsync(
                 predicate: t => t.Description != null && t.Description.StartsWith(descriptionPattern),
@@ -146,7 +337,7 @@ public class SnakeCatchingPaymentService : ISnakeCatchingPaymentService
             TransactionId = transactionId,
             OrderCode = result.OrderCode,
             Amount = Convert.ToInt32(Math.Round(result.Amount, MidpointRounding.AwayFromZero)),
-            TransactionReference = result.OrderCode > 0 ? $"SNAKEAID-{result.OrderCode}" : string.Empty,
+            TransactionReference = result.OrderCode > 0 ? $"CATCHING-{result.OrderCode}" : string.Empty,
             TransactionDateTime = DateTime.UtcNow
         };
     }
@@ -155,7 +346,7 @@ public class SnakeCatchingPaymentService : ISnakeCatchingPaymentService
         long orderCode,
         CancellationToken cancellationToken)
     {
-        var descriptionPattern = $"SNAKEAID-{orderCode}";
+        var descriptionPattern = $"CATCHING-{orderCode}";
         var transaction = await _unitOfWork.GetRepository<Transaction>()
             .FirstOrDefaultAsync(
                 predicate: t => t.Description != null && t.Description.StartsWith(descriptionPattern),
@@ -168,6 +359,57 @@ public class SnakeCatchingPaymentService : ISnakeCatchingPaymentService
         }
 
         return await ConfirmSnakeCatchingPaymentAsync(transaction.Id, cancellationToken);
+    }
+
+    private async Task ValidateSnakeCatchingRequestAsync(
+        Guid requestId,
+        TransactionType transactionType,
+        bool allowAssignedDeposit,
+        CancellationToken cancellationToken)
+    {
+        var isSnakeCatchingTransaction = transactionType == TransactionType.CatchingPayment ||
+                                         transactionType == TransactionType.CatchingDeposit ||
+                                         transactionType == TransactionType.CatchingRefund ||
+                                         transactionType == TransactionType.CatcherPayout;
+
+        if (!isSnakeCatchingTransaction)
+        {
+            return;
+        }
+
+        var catchingRequest = await _unitOfWork.GetRepository<SnakeCatchingRequest>()
+            .GetByIdAsync(requestId);
+
+        if (catchingRequest == null)
+        {
+            throw new InvalidOperationException($"SnakeCatchingRequest {requestId} not found");
+        }
+
+        if (transactionType == TransactionType.CatchingDeposit)
+        {
+            var isAllowedStatus = catchingRequest.Status == RequestStatus.Pending ||
+                                  catchingRequest.Status == RequestStatus.Confirmed ||
+                                  (allowAssignedDeposit && catchingRequest.Status == RequestStatus.Assigned);
+
+            if (!isAllowedStatus)
+            {
+                var allowedStatuses = allowAssignedDeposit
+                    ? "Pending, Confirmed, or Assigned"
+                    : "Pending or Confirmed";
+
+                throw new InvalidOperationException(
+                    $"Cannot create deposit payment for request with status {catchingRequest.Status}. Request must be {allowedStatuses}.");
+            }
+
+            return;
+        }
+
+        if (catchingRequest.Status != RequestStatus.Assigned &&
+            catchingRequest.Status != RequestStatus.Finished)
+        {
+            throw new InvalidOperationException(
+                $"Cannot create payment for request with status {catchingRequest.Status}. Request must be Assigned or Finished.");
+        }
     }
 
     private async Task<SnakeCatchingPaymentOperationResult> CreateSnakeCatchingPaymentLinkInternalAsync(
@@ -189,48 +431,7 @@ public class SnakeCatchingPaymentService : ISnakeCatchingPaymentService
             // ReceiverId is always the system account
             var receiverId = Guid.Parse(systemId);
 
-            // Validate SnakeCatchingRequest only for snake catching related transaction types
-            var isSnakeCatchingTransaction = transactionType == TransactionType.CatchingPayment ||
-                                            transactionType == TransactionType.CatchingDeposit ||
-                                            transactionType == TransactionType.CatchingRefund ||
-                                            transactionType == TransactionType.CatcherPayout;
-
-            if (isSnakeCatchingTransaction)
-            {
-                // Validate SnakeCatchingRequest exists
-                var catchingRequest = await _unitOfWork.GetRepository<SnakeCatchingRequest>()
-                    .GetByIdAsync(requestId);
-
-                if (catchingRequest == null)
-                {
-                    throw new InvalidOperationException($"SnakeCatchingRequest {requestId} not found");
-                }
-
-                // Validate status based on transaction type
-                if (transactionType == TransactionType.CatchingDeposit)
-                {
-                    // Deposit (travel fee) can be paid at initial stages before assignment
-                    if (catchingRequest.Status != RequestStatus.Pending &&
-                        catchingRequest.Status != RequestStatus.Confirmed &&
-                        catchingRequest.Status != RequestStatus.Assigned)
-                    {
-                        throw new InvalidOperationException(
-                            $"Cannot create deposit payment for request with status {catchingRequest.Status}. " +
-                            "Request must be Pending, Confirmed, or Assigned.");
-                    }
-                }
-                else
-                {
-                    // Other snake catching payments should be made after assignment or completion
-                    if (catchingRequest.Status != RequestStatus.Assigned &&
-                        catchingRequest.Status != RequestStatus.Finished)
-                    {
-                        throw new InvalidOperationException(
-                            $"Cannot create payment for request with status {catchingRequest.Status}. " +
-                            "Request must be Assigned or Finished.");
-                    }
-                }
-            }
+            await ValidateSnakeCatchingRequestAsync(requestId, transactionType, allowAssignedDeposit: true, cancellationToken);
 
             // Validate amount
             if (amount <= 0)
@@ -810,7 +1011,7 @@ public class SnakeCatchingPaymentService : ISnakeCatchingPaymentService
         try
         {
             // Find transaction by orderCode in Description
-            var descriptionPattern = $"SNAKEAID-{webhook.OrderCode}";
+            var descriptionPattern = $"CATCHING-{webhook.OrderCode}";
             var transaction = await _unitOfWork.GetRepository<Transaction>()
                 .FirstOrDefaultAsync(
                     predicate: t => t.Description != null &&
@@ -1113,7 +1314,7 @@ public class SnakeCatchingPaymentService : ISnakeCatchingPaymentService
 
     private string BuildDescription(long orderCode, string? customDescription)
     {
-        var baseDescription = $"SNAKEAID-{orderCode}";
+        var baseDescription = $"CATCHING-{orderCode}";
         return string.IsNullOrEmpty(customDescription)
             ? baseDescription
             : $"{baseDescription} - {customDescription}";

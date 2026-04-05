@@ -33,7 +33,7 @@ public class PayOsDescriptionLookup
             .FirstOrDefaultAsync(
                 predicate: t => t.Description != null &&
                     (t.Description.StartsWith("TOPUP-" + orderCodeStr) ||
-                     t.Description.StartsWith("SNAKEAID-" + orderCodeStr) ||
+                     t.Description.StartsWith("CATCHING-" + orderCodeStr) ||
                      t.Description.StartsWith("INCIDENT-" + orderCodeStr) ||
                      t.Description.StartsWith("CONSULTPAY-" + orderCodeStr)),
                 asNoTracking: true,

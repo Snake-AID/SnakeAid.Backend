@@ -81,7 +81,7 @@ public class PayOsController : BaseController<PayOsController>
                 webhookResult = await _snakebiteIncidentPaymentService.ConfirmSnakebiteIncidentPaymentAsync(request.TransactionId, cancellationToken);
                 data = webhookResult;
             }
-            else if (description.StartsWith("SNAKEAID-", StringComparison.Ordinal))
+            else if (description.StartsWith("CATCHING-", StringComparison.Ordinal))
             {
                 webhookResult = await _snakeCatchingPaymentService.ConfirmSnakeCatchingPaymentAsync(request.TransactionId, cancellationToken);
                 data = webhookResult;
@@ -206,7 +206,7 @@ public class PayOsController : BaseController<PayOsController>
                 result = await _consultationPaymentService.ProcessConsultationWebhookAsync(rawPayload, cancellationToken);
             else if (description != null && description.StartsWith("INCIDENT-", StringComparison.Ordinal))
                 result = await _snakebiteIncidentPaymentService.ProcessSnakebiteIncidentWebhookAsync(rawPayload, cancellationToken);
-            else if (description != null && description.StartsWith("SNAKEAID-", StringComparison.Ordinal))
+            else if (description != null && description.StartsWith("CATCHING-", StringComparison.Ordinal))
                 result = await _snakeCatchingPaymentService.ProcessSnakeCatchingWebhookAsync(rawPayload, cancellationToken);
             else
             {
@@ -246,7 +246,7 @@ public class PayOsController : BaseController<PayOsController>
             await _consultationPaymentService.ConfirmConsultationPaymentByOrderCodeAsync(orderCode, ct);
         else if (description.StartsWith("INCIDENT-", StringComparison.Ordinal))
             await _snakebiteIncidentPaymentService.ConfirmSnakebiteIncidentPaymentByOrderCodeAsync(orderCode, ct);
-        else if (description.StartsWith("SNAKEAID-", StringComparison.Ordinal))
+        else if (description.StartsWith("CATCHING-", StringComparison.Ordinal))
             await _snakeCatchingPaymentService.ConfirmSnakeCatchingPaymentByOrderCodeAsync(orderCode, ct);
         else
             _logger.LogWarning("[PayOS] Unknown prefix in description for orderCode={OrderCode}", orderCode);
