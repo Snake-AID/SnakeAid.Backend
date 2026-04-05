@@ -28,6 +28,7 @@ namespace SnakeAid.Service.Implements
             }
 
             var hasTypeFilter = TryMapGroupToTransactionTypes(request.TransType, out var matchedTypes);
+            var hasReferenceFilter = Guid.TryParse(request.ReferenceId, out var referenceId);
 
             var pagedData = await _unitOfWork.GetRepository<Transaction>()
                 .GetPagingListAsync(
@@ -47,7 +48,8 @@ namespace SnakeAid.Service.Implements
                     },
                     predicate: t =>
                         (!request.UserId.HasValue || t.UserId == request.UserId.Value)
-                        && (!hasTypeFilter || matchedTypes!.Contains(t.TransactionType)),
+                        && (!hasTypeFilter || matchedTypes!.Contains(t.TransactionType))
+                        && (!hasReferenceFilter || t.ReferenceId == referenceId),
                     orderBy: q => q.OrderByDescending(t => t.CreatedAt),
                     include: q => q.Include(t => t.User),
                     page: request.PageNumber,
