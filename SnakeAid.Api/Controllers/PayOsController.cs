@@ -15,6 +15,7 @@ namespace SnakeAid.Api.Controllers;
 [Route("api/v1/[controller]")]
 public class PayOsController : BaseController<PayOsController>
 {
+    private readonly IWalletTopupService _walletTopupService;
     private readonly ISnakeCatchingPaymentService _snakeCatchingPaymentService;
     private readonly ISnakebiteIncidentPaymentService _snakebiteIncidentPaymentService;
     private readonly IConsultationPaymentService _consultationPaymentService;
@@ -25,6 +26,7 @@ public class PayOsController : BaseController<PayOsController>
         ILogger<PayOsController> logger,
         IHttpContextAccessor httpContextAccessor,
         IMapper mapper,
+        IWalletTopupService walletTopupService,
         ISnakeCatchingPaymentService snakeCatchingPaymentService,
         ISnakebiteIncidentPaymentService snakebiteIncidentPaymentService,
         IConsultationPaymentService consultationPaymentService,
@@ -32,6 +34,7 @@ public class PayOsController : BaseController<PayOsController>
         PayOsDescriptionLookup descriptionLookup)
         : base(logger, httpContextAccessor, mapper)
     {
+        _walletTopupService = walletTopupService;
         _snakeCatchingPaymentService = snakeCatchingPaymentService;
         _snakebiteIncidentPaymentService = snakebiteIncidentPaymentService;
         _consultationPaymentService = consultationPaymentService;
@@ -63,7 +66,12 @@ public class PayOsController : BaseController<PayOsController>
 
             PayOsWebhookResponse? webhookResult = null;
             object? data = null;
-            if (description.StartsWith("CONSULTPAY-", StringComparison.Ordinal))
+            if (description.StartsWith("TOPUP-", StringComparison.Ordinal))
+            {
+                webhookResult = await _walletTopupService.ConfirmWalletTopupAsync(request.TransactionId, cancellationToken);
+                data = webhookResult;
+            }
+            else if (description.StartsWith("CONSULTPAY-", StringComparison.Ordinal))
             {
                 var consultResult = await _consultationPaymentService.ConfirmConsultationPaymentAsync(request.TransactionId, cancellationToken);
                 data = consultResult;
@@ -192,7 +200,9 @@ public class PayOsController : BaseController<PayOsController>
             var description = webhookData.Description;
 
             PayOsWebhookResponse result;
-            if (description != null && description.StartsWith("CONSULTPAY-", StringComparison.Ordinal))
+            if (description != null && description.StartsWith("TOPUP-", StringComparison.Ordinal))
+                result = await _walletTopupService.ProcessWalletTopupWebhookAsync(rawPayload, cancellationToken);
+            else if (description != null && description.StartsWith("CONSULTPAY-", StringComparison.Ordinal))
                 result = await _consultationPaymentService.ProcessConsultationWebhookAsync(rawPayload, cancellationToken);
             else if (description != null && description.StartsWith("INCIDENT-", StringComparison.Ordinal))
                 result = await _snakebiteIncidentPaymentService.ProcessSnakebiteIncidentWebhookAsync(rawPayload, cancellationToken);
@@ -230,7 +240,9 @@ public class PayOsController : BaseController<PayOsController>
             return;
         }
 
-        if (description.StartsWith("CONSULTPAY-", StringComparison.Ordinal))
+        if (description.StartsWith("TOPUP-", StringComparison.Ordinal))
+            await _walletTopupService.ConfirmWalletTopupByOrderCodeAsync(orderCode, ct);
+        else if (description.StartsWith("CONSULTPAY-", StringComparison.Ordinal))
             await _consultationPaymentService.ConfirmConsultationPaymentByOrderCodeAsync(orderCode, ct);
         else if (description.StartsWith("INCIDENT-", StringComparison.Ordinal))
             await _snakebiteIncidentPaymentService.ConfirmSnakebiteIncidentPaymentByOrderCodeAsync(orderCode, ct);
