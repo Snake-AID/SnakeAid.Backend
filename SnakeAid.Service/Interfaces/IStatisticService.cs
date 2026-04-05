@@ -10,4 +10,6 @@ public interface IStatisticService
     Task<ProfitAnalyticsResponse> GetProfitAsync(ProfitAnalyticsQueryRequest request, CancellationToken cancellationToken = default);
     Task<UserAnalyticsResponse> GetUsersAsync(UserAnalyticsQueryRequest request, CancellationToken cancellationToken = default);
     Task<CaseAnalyticsResponse> GetCasesAsync(CaseAnalyticsQueryRequest request, CancellationToken cancellationToken = default);
+    Task<RescuerTodayStatisticsResponse> GetRescuerStatisticsAsync(Guid rescuerId, string period, CancellationToken cancellationToken = default);
+    Task<ExpertTodayStatisticsResponse> GetExpertStatisticsAsync(Guid expertId, string period, CancellationToken cancellationToken = default);
 }

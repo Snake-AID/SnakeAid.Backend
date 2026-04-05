@@ -272,6 +272,122 @@ public class StatisticService : IStatisticService
         };
     }
 
+    public async Task<RescuerTodayStatisticsResponse> GetRescuerStatisticsAsync(Guid rescuerId, string period, CancellationToken cancellationToken = default)
+    {
+        var rolePeriod = ParseRolePeriod(period);
+        var (startUtc, endUtc) = GetRolePeriodRangeUtc(rolePeriod);
+
+        var snakebiteRequests = await _unitOfWork
+            .GetRepository<SnakebiteIncident>()
+            .CountAsync(x => x.AssignedRescuerId == rescuerId
+                             && x.AssignedAt.HasValue
+                             && x.AssignedAt.Value >= startUtc
+                             && x.AssignedAt.Value < endUtc,
+                cancellationToken);
+
+        var snakeCatchingRequests = await _unitOfWork
+            .GetRepository<SnakeCatchingRequest>()
+            .CountAsync(x => x.AssignedRescuerId == rescuerId
+                             && x.AssignedAt.HasValue
+                             && x.AssignedAt.Value >= startUtc
+                             && x.AssignedAt.Value < endUtc,
+                cancellationToken);
+
+        var snakebiteCompleted = await _unitOfWork
+            .GetRepository<RescueMission>()
+            .CountAsync(x => x.RescuerId == rescuerId
+                             && x.Status == RescueMissionStatus.MissionCompleted
+                             && x.CompletedAt.HasValue
+                             && x.CompletedAt.Value >= startUtc
+                             && x.CompletedAt.Value < endUtc,
+                cancellationToken);
+
+        var snakeCatchingCompleted = await _unitOfWork
+            .GetRepository<SnakeCatchingMission>()
+            .CountAsync(x => x.RescuerId == rescuerId
+                             && x.Status == CatchingMissionStatus.MissionCompleted
+                             && x.CompletedAt.HasValue
+                             && x.CompletedAt.Value >= startUtc
+                             && x.CompletedAt.Value < endUtc,
+                cancellationToken);
+
+        var rescuerIncome = await _unitOfWork
+            .GetRepository<Transaction>()
+            .CreateBaseQuery(true)
+            .Where(x => x.UserId == rescuerId
+                        && x.CreatedAt.HasValue
+                        && x.CreatedAt.Value >= startUtc
+                        && x.CreatedAt.Value < endUtc
+                        && (x.TransactionType == TransactionType.CatcherPayout
+                            || x.TransactionType == TransactionType.RescuerReward))
+            .SumAsync(x => (decimal?)x.Amount, cancellationToken) ?? 0m;
+
+        return new RescuerTodayStatisticsResponse
+        {
+            Period = ToRolePeriodName(rolePeriod),
+            From = startUtc.ToString("yyyy-MM-dd"),
+            To = endUtc.AddDays(-1).ToString("yyyy-MM-dd"),
+            SnakebiteRequests = snakebiteRequests,
+            SnakeCatchingRequests = snakeCatchingRequests,
+            TotalRequests = snakebiteRequests + snakeCatchingRequests,
+            SnakebiteCompleted = snakebiteCompleted,
+            SnakeCatchingCompleted = snakeCatchingCompleted,
+            TotalCompleted = snakebiteCompleted + snakeCatchingCompleted,
+            TotalIncome = rescuerIncome,
+            Currency = "VND"
+        };
+    }
+
+    public async Task<ExpertTodayStatisticsResponse> GetExpertStatisticsAsync(Guid expertId, string period, CancellationToken cancellationToken = default)
+    {
+        var rolePeriod = ParseRolePeriod(period);
+        var (startUtc, endUtc) = GetRolePeriodRangeUtc(rolePeriod);
+
+        var scheduledRequests = await _unitOfWork
+            .GetRepository<ConsultationBooking>()
+            .CountAsync(x => x.ExpertId == expertId
+                             && x.CreatedAt >= startUtc
+                             && x.CreatedAt < endUtc,
+                cancellationToken);
+
+        var emergencyRequests = await _unitOfWork
+            .GetRepository<ConsultationPingRequest>()
+            .CountAsync(x => x.ExpertId == expertId
+                             && x.RequestedAt >= startUtc
+                             && x.RequestedAt < endUtc,
+                cancellationToken);
+
+        var completedConsultations = await _unitOfWork
+            .GetRepository<Consultation>()
+            .CountAsync(x => x.CalleeId == expertId
+                             && x.Status == ConsultationStatus.Completed
+                             && x.EndTime.HasValue
+                             && x.EndTime.Value >= startUtc
+                             && x.EndTime.Value < endUtc,
+                cancellationToken);
+
+        var expertIncome = await _unitOfWork
+            .GetRepository<Transaction>()
+            .CreateBaseQuery(true)
+            .Where(x => x.UserId == expertId
+                        && x.CreatedAt.HasValue
+                        && x.CreatedAt.Value >= startUtc
+                        && x.CreatedAt.Value < endUtc
+                        && x.TransactionType == TransactionType.ExpertPayout)
+            .SumAsync(x => (decimal?)x.Amount, cancellationToken) ?? 0m;
+
+        return new ExpertTodayStatisticsResponse
+        {
+            Period = ToRolePeriodName(rolePeriod),
+            From = startUtc.ToString("yyyy-MM-dd"),
+            To = endUtc.AddDays(-1).ToString("yyyy-MM-dd"),
+            ConsultationRequests = scheduledRequests + emergencyRequests,
+            CompletedConsultations = completedConsultations,
+            TotalIncome = expertIncome,
+            Currency = "VND"
+        };
+    }
+
     private async Task<List<TransactionLite>> GetTransactionsInRangeAsync(
         DateOnly from,
         DateOnly to,
@@ -404,6 +520,51 @@ public class StatisticService : IStatisticService
         return labels.ToDictionary(
             l => l,
             _ => new FlowBucket());
+    }
+
+    private static (DateTime startUtc, DateTime endUtc) GetRolePeriodRangeUtc(RolePeriod period)
+    {
+        var now = DateTime.UtcNow;
+
+        return period switch
+        {
+            RolePeriod.Today => (now.Date, now.Date.AddDays(1)),
+            RolePeriod.Month =>
+            (
+                new DateTime(now.Year, now.Month, 1, 0, 0, 0, DateTimeKind.Utc),
+                new DateTime(now.Year, now.Month, 1, 0, 0, 0, DateTimeKind.Utc).AddMonths(1)
+            ),
+            RolePeriod.Year =>
+            (
+                new DateTime(now.Year, 1, 1, 0, 0, 0, DateTimeKind.Utc),
+                new DateTime(now.Year + 1, 1, 1, 0, 0, 0, DateTimeKind.Utc)
+            ),
+            _ => throw new BadRequestException("Invalid period. Supported values: today, month, year.")
+        };
+    }
+
+    private static RolePeriod ParseRolePeriod(string? period)
+    {
+        var normalized = (period ?? string.Empty).Trim().ToLowerInvariant();
+
+        return normalized switch
+        {
+            "today" or "day" => RolePeriod.Today,
+            "month" => RolePeriod.Month,
+            "year" => RolePeriod.Year,
+            _ => throw new BadRequestException("Invalid period. Supported values: today, month, year.")
+        };
+    }
+
+    private static string ToRolePeriodName(RolePeriod period)
+    {
+        return period switch
+        {
+            RolePeriod.Today => "today",
+            RolePeriod.Month => "month",
+            RolePeriod.Year => "year",
+            _ => "today"
+        };
     }
 
     private static void IncrementCaseBuckets(
@@ -669,5 +830,12 @@ public class StatisticService : IStatisticService
     {
         Snakebite,
         Catching
+    }
+
+    private enum RolePeriod
+    {
+        Today,
+        Month,
+        Year
     }
 }
