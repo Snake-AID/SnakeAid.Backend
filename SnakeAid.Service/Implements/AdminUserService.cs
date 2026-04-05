@@ -11,6 +11,8 @@ using SnakeAid.Service.Interfaces;
 using System;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.EntityFrameworkCore;
+using SnakeAid.Repository.Interfaces;
 
 namespace SnakeAid.Service.Implements
 {
@@ -18,12 +20,12 @@ namespace SnakeAid.Service.Implements
     {
         private readonly ILogger<AdminUserService> _logger;
         private readonly UserManager<Account> _userManager;
-        private readonly UnitOfWork<SnakeAidDbContext> _unitOfWork;
+        private readonly IUnitOfWork<SnakeAidDbContext> _unitOfWork;
 
         public AdminUserService(
             ILogger<AdminUserService> logger,
             UserManager<Account> userManager,
-            UnitOfWork<SnakeAidDbContext> unitOfWork)
+            IUnitOfWork<SnakeAidDbContext> unitOfWork)
         {
             _logger = logger;
             _userManager = userManager;
@@ -45,6 +47,8 @@ namespace SnakeAid.Service.Implements
                 var hasRoleFilter = !string.IsNullOrEmpty(role);
                 var hasActiveFilter = isActive.HasValue;
                 var hasSearchTerm = !string.IsNullOrEmpty(searchTerm);
+                var activeFilterValue = isActive ?? false;
+                var searchTermLower = searchTerm?.ToLower() ?? string.Empty;
 
                 // Parse role if provided
                 AccountRole? roleEnum = null;
@@ -56,11 +60,11 @@ namespace SnakeAid.Service.Implements
                 return await repo.GetPagingListAsync<AdminUserSummaryResponse>(
                     predicate: u =>
                         (!hasRoleFilter || (roleEnum.HasValue && u.Role == roleEnum.Value)) &&
-                        (!hasActiveFilter || u.IsActive == isActive.Value) &&
+                        (!hasActiveFilter || u.IsActive == activeFilterValue) &&
                         (!hasSearchTerm ||
-                            u.UserName!.ToLower().Contains(searchTerm!.ToLower()) ||
-                            u.FullName!.ToLower().Contains(searchTerm!.ToLower()) ||
-                            u.Email!.ToLower().Contains(searchTerm!.ToLower())),
+                            (u.UserName ?? string.Empty).ToLower().Contains(searchTermLower) ||
+                            (u.FullName ?? string.Empty).ToLower().Contains(searchTermLower) ||
+                            (u.Email ?? string.Empty).ToLower().Contains(searchTermLower)),
                     orderBy: q => q.OrderByDescending(u => u.CreatedAt),
                     page: page,
                     size: pageSize,
@@ -77,14 +81,69 @@ namespace SnakeAid.Service.Implements
         {
             try
             {
-                var user = await _userManager.FindByIdAsync(userId.ToString());
+                var repo = _unitOfWork.GetRepository<Account>();
+                var user = await repo.FirstOrDefaultAsync(
+                    predicate: u => u.Id == userId,
+                    include: q => q
+                        .Include(u => u.MemberProfile)
+                        .Include(u => u.ExpertProfile)
+                        .Include(u => u.RescuerProfile));
 
                 if (user == null)
                 {
                     throw new NotFoundException($"User with ID {userId} not found.");
                 }
 
-                return user.Adapt<AdminUserDetailResponse>();
+                return new AdminUserDetailResponse
+                {
+                    Id = user.Id,
+                    UserName = user.UserName ?? string.Empty,
+                    FullName = user.FullName,
+                    Email = user.Email,
+                    PhoneNumber = user.PhoneNumber,
+                    Role = user.Role,
+                    CreatedAt = user.CreatedAt,
+                    UpdatedAt = user.UpdatedAt,
+                    IsActive = user.IsActive,
+                    ReputationPoints = user.ReputationPoints,
+                    ReputationStatus = user.ReputationStatus,
+                    SuspendedUntil = user.SuspendedUntil,
+                    SuspensionReason = user.SuspensionReason,
+                    AvatarUrl = user.AvatarUrl,
+                    MemberProfile = user.MemberProfile == null
+                        ? null
+                        : new AdminMemberProfileResponse
+                        {
+                            Rating = user.MemberProfile.Rating,
+                            RatingCount = user.MemberProfile.RatingCount,
+                            HasUnderlyingDisease = user.MemberProfile.HasUnderlyingDisease,
+                            EmergencyContacts = user.MemberProfile.EmergencyContacts ?? new List<string>()
+                        },
+                    ExpertProfile = user.ExpertProfile == null
+                        ? null
+                        : new AdminExpertProfileResponse
+                        {
+                            Biography = user.ExpertProfile.Biography,
+                            IsOnline = user.ExpertProfile.IsOnline,
+                            ConsultationFee = user.ExpertProfile.ConsultationFee,
+                            EmergencyConsultationFee = user.ExpertProfile.EmergencyConsultationFee,
+                            Rating = user.ExpertProfile.Rating,
+                            RatingCount = user.ExpertProfile.RatingCount
+                        },
+                    RescuerProfile = user.RescuerProfile == null
+                        ? null
+                        : new AdminRescuerProfileResponse
+                        {
+                            IsOnline = user.RescuerProfile.IsOnline,
+                            IsAvailable = user.RescuerProfile.IsAvailable,
+                            Type = user.RescuerProfile.Type,
+                            Rating = user.RescuerProfile.Rating,
+                            RatingCount = user.RescuerProfile.RatingCount,
+                            TotalMissions = user.RescuerProfile.TotalMissions,
+                            CompletedMissions = user.RescuerProfile.CompletedMissions,
+                            LastLocationUpdate = user.RescuerProfile.LastLocationUpdate
+                        }
+                };
             }
             catch (Exception ex)
             {

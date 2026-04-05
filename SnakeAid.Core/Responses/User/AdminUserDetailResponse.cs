@@ -35,18 +35,55 @@ namespace SnakeAid.Core.Responses.User
 
         public string? AvatarUrl { get; set; }
 
-        public string? FcmToken { get; set; }
+        public AdminMemberProfileResponse? MemberProfile { get; set; }
 
-        public bool EmailConfirmed { get; set; }
+        public AdminExpertProfileResponse? ExpertProfile { get; set; }
 
-        public bool PhoneNumberConfirmed { get; set; }
+        public AdminRescuerProfileResponse? RescuerProfile { get; set; }
+    }
 
-        public int? AccessFailedCount { get; set; }
+    public class AdminMemberProfileResponse
+    {
+        public float Rating { get; set; }
 
-        public DateTime? LockoutEnd { get; set; }
+        public int RatingCount { get; set; }
 
-        public bool LockoutEnabled { get; set; }
+        public bool HasUnderlyingDisease { get; set; }
 
-        public bool TwoFactorEnabled { get; set; }
+        public List<string> EmergencyContacts { get; set; } = new List<string>();
+    }
+
+    public class AdminExpertProfileResponse
+    {
+        public string Biography { get; set; } = string.Empty;
+
+        public bool IsOnline { get; set; }
+
+        public decimal ConsultationFee { get; set; }
+
+        public decimal? EmergencyConsultationFee { get; set; }
+
+        public decimal Rating { get; set; }
+
+        public int RatingCount { get; set; }
+    }
+
+    public class AdminRescuerProfileResponse
+    {
+        public bool IsOnline { get; set; }
+
+        public bool IsAvailable { get; set; }
+
+        public RescuerType Type { get; set; }
+
+        public decimal Rating { get; set; }
+
+        public int RatingCount { get; set; }
+
+        public int TotalMissions { get; set; }
+
+        public int CompletedMissions { get; set; }
+
+        public DateTime? LastLocationUpdate { get; set; }
     }
 }
