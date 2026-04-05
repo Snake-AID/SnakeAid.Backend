@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace SnakeAid.Core.Domains
 {
-    public class RescueMission : BaseEntity
+    public class RescueMission : BaseEntity, IHasReportMedia
     {
         [Key]
         public Guid Id { get; set; }
@@ -59,9 +59,10 @@ namespace SnakeAid.Core.Domains
         public int? HospitalId { get; set; }
 
         // Navigation properties
-        public SnakebiteIncident Incident { get; set; }
-        public RescuerProfile Rescuer { get; set; }
+        public SnakebiteIncident Incident { get; set; } = null!;
+        public RescuerProfile Rescuer { get; set; } = null!;
         public TreatmentFacility? Hospital { get; set; }
+        public ICollection<ReportMedia> Media { get; set; } = new List<ReportMedia>();
     }
 
     public enum RescueMissionStatus
