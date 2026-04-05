@@ -49,4 +49,20 @@ public class StatisticController : BaseController<StatisticController>
         var data = await _statisticService.GetProfitAsync(request, cancellationToken);
         return Ok(ApiResponseBuilder.BuildSuccessResponse(data));
     }
+
+    [HttpGet("users")]
+    [ProducesResponseType(typeof(ApiResponse<UserAnalyticsResponse>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetUsers([FromQuery] UserAnalyticsQueryRequest request, CancellationToken cancellationToken)
+    {
+        var data = await _statisticService.GetUsersAsync(request, cancellationToken);
+        return Ok(ApiResponseBuilder.BuildSuccessResponse(data));
+    }
+
+    [HttpGet("cases")]
+    [ProducesResponseType(typeof(ApiResponse<CaseAnalyticsResponse>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetCases([FromQuery] CaseAnalyticsQueryRequest request, CancellationToken cancellationToken)
+    {
+        var data = await _statisticService.GetCasesAsync(request, cancellationToken);
+        return Ok(ApiResponseBuilder.BuildSuccessResponse(data));
+    }
 }

@@ -173,6 +173,105 @@ public class StatisticService : IStatisticService
         };
     }
 
+    public async Task<UserAnalyticsResponse> GetUsersAsync(UserAnalyticsQueryRequest request, CancellationToken cancellationToken = default)
+    {
+        var period = ParsePeriod(request.Period);
+        ValidateDateRange(request.From, request.To);
+
+        var labels = BuildLabels(request.From, request.To, period);
+        var countsByLabel = labels.ToDictionary(x => x, _ => 0);
+
+        var fromDate = DateTime.SpecifyKind(request.From.ToDateTime(TimeOnly.MinValue), DateTimeKind.Utc);
+        var toExclusive = DateTime.SpecifyKind(request.To.ToDateTime(TimeOnly.MinValue), DateTimeKind.Utc).AddDays(1);
+
+        var users = await _unitOfWork
+            .GetRepository<Account>()
+            .CreateBaseQuery(true)
+            .Where(x => x.CreatedAt >= fromDate && x.CreatedAt < toExclusive)
+            .Select(x => x.CreatedAt)
+            .ToListAsync(cancellationToken);
+
+        foreach (var createdAt in users)
+        {
+            var label = GetLabel(createdAt, period);
+            if (countsByLabel.ContainsKey(label))
+            {
+                countsByLabel[label] += 1;
+            }
+        }
+
+        return new UserAnalyticsResponse
+        {
+            From = request.From.ToString("yyyy-MM-dd"),
+            To = request.To.ToString("yyyy-MM-dd"),
+            Period = request.Period.Trim().ToLowerInvariant(),
+            TotalUsers = countsByLabel.Values.Sum(),
+            Timeline = labels.Select(label => new UserTimelinePoint
+            {
+                Label = label,
+                TotalUsers = countsByLabel[label]
+            }).ToList()
+        };
+    }
+
+    public async Task<CaseAnalyticsResponse> GetCasesAsync(CaseAnalyticsQueryRequest request, CancellationToken cancellationToken = default)
+    {
+        var period = ParsePeriod(request.Period);
+        ValidateDateRange(request.From, request.To);
+
+        var labels = BuildLabels(request.From, request.To, period);
+        var timelineBuckets = labels.ToDictionary(x => x, _ => new CaseBucket());
+
+        var fromDate = DateTime.SpecifyKind(request.From.ToDateTime(TimeOnly.MinValue), DateTimeKind.Utc);
+        var toExclusive = DateTime.SpecifyKind(request.To.ToDateTime(TimeOnly.MinValue), DateTimeKind.Utc).AddDays(1);
+
+        var rescueCreatedAt = await _unitOfWork
+            .GetRepository<SnakebiteIncident>()
+            .CreateBaseQuery(true)
+            .Where(x => x.CreatedAt >= fromDate && x.CreatedAt < toExclusive)
+            .Select(x => x.CreatedAt)
+            .ToListAsync(cancellationToken);
+
+        var catchingCreatedAt = await _unitOfWork
+            .GetRepository<SnakeCatchingRequest>()
+            .CreateBaseQuery(true)
+            .Where(x => x.CreatedAt >= fromDate && x.CreatedAt < toExclusive)
+            .Select(x => x.CreatedAt)
+            .ToListAsync(cancellationToken);
+
+        IncrementCaseBuckets(timelineBuckets, rescueCreatedAt, period, CaseFlow.Snakebite);
+        IncrementCaseBuckets(timelineBuckets, catchingCreatedAt, period, CaseFlow.Catching);
+
+        var timeline = labels.Select(label =>
+        {
+            var bucket = timelineBuckets[label];
+            var snakebiteCases = bucket.Snakebite;
+            var snakeCatchingCases = bucket.Catching;
+
+            return new CaseTimelinePoint
+            {
+                Label = label,
+                TotalCases = snakebiteCases + snakeCatchingCases,
+                SnakebiteCases = snakebiteCases,
+                SnakeCatchingCases = snakeCatchingCases
+            };
+        }).ToList();
+
+        var snakebiteTotal = timeline.Sum(x => x.SnakebiteCases);
+        var snakeCatchingTotal = timeline.Sum(x => x.SnakeCatchingCases);
+
+        return new CaseAnalyticsResponse
+        {
+            From = request.From.ToString("yyyy-MM-dd"),
+            To = request.To.ToString("yyyy-MM-dd"),
+            Period = request.Period.Trim().ToLowerInvariant(),
+            TotalCases = snakebiteTotal + snakeCatchingTotal,
+            SnakebiteCases = snakebiteTotal,
+            SnakeCatchingCases = snakeCatchingTotal,
+            Timeline = timeline
+        };
+    }
+
     private async Task<List<TransactionLite>> GetTransactionsInRangeAsync(
         DateOnly from,
         DateOnly to,
@@ -305,6 +404,32 @@ public class StatisticService : IStatisticService
         return labels.ToDictionary(
             l => l,
             _ => new FlowBucket());
+    }
+
+    private static void IncrementCaseBuckets(
+        Dictionary<string, CaseBucket> timelineBuckets,
+        IEnumerable<DateTime> timestamps,
+        AnalyticsPeriod period,
+        CaseFlow flow)
+    {
+        foreach (var ts in timestamps)
+        {
+            var label = GetLabel(ts, period);
+            if (!timelineBuckets.TryGetValue(label, out var bucket))
+            {
+                continue;
+            }
+
+            switch (flow)
+            {
+                case CaseFlow.Snakebite:
+                    bucket.Snakebite += 1;
+                    break;
+                case CaseFlow.Catching:
+                    bucket.Catching += 1;
+                    break;
+            }
+        }
     }
 
     private static decimal GetProfitSignedAmount(TransactionLite tx)
@@ -453,6 +578,11 @@ public class StatisticService : IStatisticService
 
     private static void ValidateDateRange(DateOnly from, DateOnly to)
     {
+        if (from == default || to == default)
+        {
+            throw new BadRequestException("Invalid date format. Please use a valid date with format YYYY-MM-DD.");
+        }
+
         if (from > to)
         {
             throw new BadRequestException("Invalid date range. 'from' must be less than or equal to 'to'.");
@@ -527,5 +657,17 @@ public class StatisticService : IStatisticService
         Consultation,
         Catching,
         Snakebite
+    }
+
+    private sealed class CaseBucket
+    {
+        public int Snakebite { get; set; }
+        public int Catching { get; set; }
+    }
+
+    private enum CaseFlow
+    {
+        Snakebite,
+        Catching
     }
 }
