@@ -15,6 +15,75 @@ namespace SnakeAid.Tests.Unit;
 public class NotificationQueueServiceTests
 {
     [Fact]
+    public async Task PublishAsync_ShouldSwallowTimeout_ForNonWithdrawalNotifications_AndPersistAppNotification()
+    {
+        var userId = Guid.NewGuid();
+
+        await using var db = CreateDbContext();
+        await SeedAccountAsync(db, userId, AccountRole.User);
+
+        var publishEndpoint = new Mock<MassTransit.IPublishEndpoint>();
+        publishEndpoint
+            .Setup(endpoint => endpoint.Publish(It.IsAny<NotificationMessage>(), It.IsAny<CancellationToken>()))
+            .Returns(async () => await Task.Delay(TimeSpan.FromSeconds(10)));
+
+        var service = new NotificationQueueService(
+            publishEndpoint.Object,
+            NullLogger<NotificationQueueService>.Instance,
+            new UnitOfWork<SnakeAidDbContext>(db));
+
+        var startedAt = DateTime.UtcNow;
+        await service.PublishAsync(new NotificationMessage
+        {
+            UserId = userId,
+            Title = "Mission completed",
+            Body = "Completed",
+            Type = "SNAKE_RESCUE_MISSION_COMPLETED",
+            Data = new Dictionary<string, string> { ["missionId"] = Guid.NewGuid().ToString() }
+        });
+        var elapsed = DateTime.UtcNow - startedAt;
+
+        Assert.True(elapsed < TimeSpan.FromSeconds(5), $"Expected publish timeout to be swallowed quickly, but elapsed {elapsed}.");
+        Assert.Single(db.AppNotifications);
+    }
+
+    [Fact]
+    public async Task BroadcastAsync_ShouldSwallowTimeout_ForNonWithdrawalNotifications_AndPersistAppNotifications()
+    {
+        var admin1 = Guid.NewGuid();
+        var admin2 = Guid.NewGuid();
+
+        await using var db = CreateDbContext();
+        await SeedAccountAsync(db, admin1, AccountRole.Admin);
+        await SeedAccountAsync(db, admin2, AccountRole.Admin);
+
+        var publishEndpoint = new Mock<MassTransit.IPublishEndpoint>();
+        publishEndpoint
+            .Setup(endpoint => endpoint.Publish(It.IsAny<NotificationMessage>(), It.IsAny<CancellationToken>()))
+            .Returns(async () => await Task.Delay(TimeSpan.FromSeconds(10)));
+
+        var service = new NotificationQueueService(
+            publishEndpoint.Object,
+            NullLogger<NotificationQueueService>.Instance,
+            new UnitOfWork<SnakeAidDbContext>(db));
+
+        var startedAt = DateTime.UtcNow;
+        var recipientCount = await service.BroadcastAsync(new AdminBroadcastNotificationRequest
+        {
+            Title = "Urgent reassignment required",
+            Body = "A mission needs reassignment.",
+            Type = "SNAKE_CATCHING_REASSIGN_NEEDED",
+            TargetRoles = new List<AccountRole> { AccountRole.Admin },
+            Data = new Dictionary<string, string> { ["requestId"] = Guid.NewGuid().ToString() }
+        });
+        var elapsed = DateTime.UtcNow - startedAt;
+
+        Assert.Equal(2, recipientCount);
+        Assert.True(elapsed < TimeSpan.FromSeconds(5), $"Expected broadcast timeout to be swallowed quickly, but elapsed {elapsed}.");
+        Assert.Equal(2, await db.AppNotifications.CountAsync());
+    }
+
+    [Fact]
     public async Task PublishAsync_ShouldSwallowTimeout_ForWithdrawalNotifications_AndPersistAppNotification()
     {
         var userId = Guid.NewGuid();
@@ -81,6 +150,35 @@ public class NotificationQueueServiceTests
         Assert.Equal(2, recipientCount);
         Assert.True(elapsed < TimeSpan.FromSeconds(5), $"Expected broadcast timeout to be swallowed quickly, but elapsed {elapsed}.");
         Assert.Equal(2, await db.AppNotifications.CountAsync());
+    }
+
+    [Fact]
+    public async Task PublishAsync_ShouldThrow_ForNonBrokerExceptions()
+    {
+        var userId = Guid.NewGuid();
+
+        await using var db = CreateDbContext();
+        await SeedAccountAsync(db, userId, AccountRole.User);
+
+        var publishEndpoint = new Mock<MassTransit.IPublishEndpoint>();
+        publishEndpoint
+            .Setup(endpoint => endpoint.Publish(It.IsAny<NotificationMessage>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("Publish pipeline is misconfigured."));
+
+        var service = new NotificationQueueService(
+            publishEndpoint.Object,
+            NullLogger<NotificationQueueService>.Instance,
+            new UnitOfWork<SnakeAidDbContext>(db));
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => service.PublishAsync(new NotificationMessage
+        {
+            UserId = userId,
+            Title = "Mission completed",
+            Body = "Completed",
+            Type = "SNAKE_RESCUE_MISSION_COMPLETED"
+        }));
+
+        Assert.Single(db.AppNotifications);
     }
 
     private static SnakeAidDbContext CreateDbContext()
