@@ -69,7 +69,7 @@ namespace SnakeAid.Core.Domains
         SnakebiteIncidentRefund = 41,  // ReferenceId = SnakebiteIncidentId
 
         // System transactions
-        PlatformFee = 30,            // Platform commission
+        PlatformFee = 30,            // Platform commission -> ReferenceId = ConsultationId
         WalletTopup = 31,            // User nạp tiền
         WalletWithdraw = 32,         // User rút tiền
         AdminAdjustment = 33         // Admin điều chỉnh

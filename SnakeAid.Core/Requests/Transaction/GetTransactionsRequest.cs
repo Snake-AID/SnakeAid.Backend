@@ -7,4 +7,5 @@ public class GetTransactionsRequest : PaginationRequest
     public Guid? UserId { get; set; }
 
     public string? TransType { get; set; }
+    public string? ReferenceId { get; set; }
 }
