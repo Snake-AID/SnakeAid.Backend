@@ -368,7 +368,9 @@ namespace SnakeAid.Service.Implements
         {
             try
             {
-                return await _unitOfWork.ExecuteInTransactionAsync(async () =>
+                Guid memberUserId = Guid.Empty;
+
+                var response = await _unitOfWork.ExecuteInTransactionAsync(async () =>
                 {
                     var request = await _unitOfWork.GetRepository<RescuerRequest>().FirstOrDefaultAsync(
                         predicate: r => r.Id == requestId,
@@ -391,6 +393,8 @@ namespace SnakeAid.Service.Implements
                     if (incident.Status != SnakebiteIncidentStatus.Verified)
                         throw new BadRequestException($"Cannot accept dispatch when incident is in status: {incident.Status}");
 
+                    memberUserId = incident.UserId;
+
                     var mission = await _snakeRescueMissionService.CreateMissionAsync(incident.Id, rescuerId);
 
                     // Detach loaded navigation object to avoid EF track conflict (same Incident loaded in CreateMissionAsync)
@@ -411,17 +415,33 @@ namespace SnakeAid.Service.Implements
                         Message = "Dispatch accepted. Mission created."
                     };
 
+                    return response;
+                });
+
+                // Best-effort realtime/push notifications after transaction commit.
+                // Do not fail accepted dispatch response if notification pipeline has transient issues.
+                try
+                {
                     // Notify the rescuer that they have accepted the dispatch
                     await _rescueNotificationService.NotifyRescuerAcceptedAsync(rescuerId.ToString(), response);
 
                     // Notify mission/member channel that rescuer accepted so member also receives push.
-                    await _missionNotificationService.NotifyRescuerAcceptedAsync(incident.Id, incident.UserId, response);
+                    if (memberUserId != Guid.Empty)
+                    {
+                        await _missionNotificationService.NotifyRescuerAcceptedAsync(response.IncidentId, memberUserId, response);
+                    }
 
                     // Notify operators that the rescuer has been dispatched.
-                    await _operatorRealtimeNotificationService.NotifyRescuerDispatchedAsync(incident.Id, rescuerId);
+                    await _operatorRealtimeNotificationService.NotifyRescuerDispatchedAsync(response.IncidentId, rescuerId);
+                }
+                catch (Exception notifyEx)
+                {
+                    _logger.LogWarning(notifyEx,
+                        "AcceptDispatchRequest notifications failed after commit for request {RequestId}. Core transaction already committed.",
+                        requestId);
+                }
 
-                    return response;
-                });
+                return response;
             }
             catch (DbUpdateConcurrencyException ex)
             {

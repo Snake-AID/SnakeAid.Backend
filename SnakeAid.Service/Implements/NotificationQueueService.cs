@@ -14,7 +14,7 @@ namespace SnakeAid.Service.Implements;
 
 public class NotificationQueueService : INotificationQueueService
 {
-    private static readonly TimeSpan WithdrawalPublishTimeout = TimeSpan.FromSeconds(3);
+    private static readonly TimeSpan BrokerPublishTimeout = TimeSpan.FromSeconds(3);
     private readonly IPublishEndpoint _publishEndpoint;
     private readonly ILogger<NotificationQueueService> _logger;
     private readonly IUnitOfWork<SnakeAidDbContext> _unitOfWork;
@@ -158,29 +158,16 @@ public class NotificationQueueService : INotificationQueueService
         try
         {
             var publishTask = _publishEndpoint.Publish(message, cancellationToken);
-            if (IsWithdrawalNotificationType(message.Type))
-            {
-                await publishTask.WaitAsync(WithdrawalPublishTimeout, cancellationToken);
-            }
-            else
-            {
-                await publishTask;
-            }
+            await publishTask.WaitAsync(BrokerPublishTimeout, cancellationToken);
         }
-        catch (Exception ex) when (IsWithdrawalNotificationType(message.Type) && IsBrokerDeliveryFailure(ex))
+        catch (Exception ex) when (IsBrokerDeliveryFailure(ex))
         {
             _logger.LogWarning(
                 ex,
-                "Skipping broker publish for withdrawal notification {NotificationType} and user {UserId}. App notification was already stored.",
+                "Skipping broker publish for notification {NotificationType} and user {UserId}. App notification was already stored.",
                 message.Type,
                 message.UserId);
         }
-    }
-
-    private static bool IsWithdrawalNotificationType(string? notificationType)
-    {
-        return !string.IsNullOrWhiteSpace(notificationType)
-            && notificationType.StartsWith("WITHDRAWAL_", StringComparison.Ordinal);
     }
 
     private static bool IsBrokerDeliveryFailure(Exception exception)
