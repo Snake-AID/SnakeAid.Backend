@@ -99,6 +99,87 @@ public class MyProfileServiceTests
     }
 
     [Fact]
+    public async Task UpdateExpertProfileAsync_WithoutScheduledFee_ShouldThrowValidationExceptionAndPreserveFees()
+    {
+        var expertId = Guid.NewGuid();
+        await using var db = CreateDbContext();
+        await SeedAccountAsync(db, expertId, AccountRole.Expert);
+        db.ExpertProfiles.Add(new ExpertProfile
+        {
+            AccountId = expertId,
+            Biography = "Old bio",
+            ConsultationFee = 100_000m,
+            EmergencyConsultationFee = 150_000m
+        });
+        await db.SaveChangesAsync();
+
+        var service = CreateService(db);
+
+        await Assert.ThrowsAsync<ValidationException>(() => service.UpdateExpertProfileAsync(expertId, new UpdateExpertProfileRequest
+        {
+            FullName = "Expert Edited",
+            Biography = "Updated expert bio"
+        }));
+
+        var profile = await db.ExpertProfiles.SingleAsync(p => p.AccountId == expertId);
+        Assert.Equal(100_000m, profile.ConsultationFee);
+        Assert.Equal(150_000m, profile.EmergencyConsultationFee);
+    }
+
+    [Fact]
+    public async Task UpdateExpertProfileAsync_WithNullEmergencyFee_ShouldPersistScheduledFeeFallback()
+    {
+        var expertId = Guid.NewGuid();
+        await using var db = CreateDbContext();
+        await SeedAccountAsync(db, expertId, AccountRole.Expert);
+        db.ExpertProfiles.Add(new ExpertProfile
+        {
+            AccountId = expertId,
+            Biography = "Old bio",
+            ConsultationFee = 100_000m,
+            EmergencyConsultationFee = 150_000m
+        });
+        await db.SaveChangesAsync();
+
+        var service = CreateService(db);
+
+        var response = await service.UpdateExpertProfileAsync(expertId, new UpdateExpertProfileRequest
+        {
+            FullName = "Expert Edited",
+            Biography = "Updated expert bio",
+            ScheduledConsultationFee = 250_000m,
+            EmergencyConsultationFee = null
+        });
+
+        Assert.Equal(250_000m, response.ScheduledConsultationFee);
+        Assert.Equal(250_000m, response.EmergencyConsultationFee);
+
+        var profile = await db.ExpertProfiles.SingleAsync(p => p.AccountId == expertId);
+        Assert.Equal(250_000m, profile.ConsultationFee);
+        Assert.Equal(250_000m, profile.EmergencyConsultationFee);
+    }
+
+    [Fact]
+    public void UpdateExpertProfileRequest_WithoutScheduledFee_ShouldFailModelValidation()
+    {
+        var request = new UpdateExpertProfileRequest
+        {
+            FullName = "Expert Edited",
+            Biography = "Updated expert bio"
+        };
+        var validationResults = new List<System.ComponentModel.DataAnnotations.ValidationResult>();
+
+        var isValid = System.ComponentModel.DataAnnotations.Validator.TryValidateObject(
+            request,
+            new System.ComponentModel.DataAnnotations.ValidationContext(request),
+            validationResults,
+            validateAllProperties: true);
+
+        Assert.False(isValid);
+        Assert.Contains(validationResults, r => r.MemberNames.Contains(nameof(UpdateExpertProfileRequest.ScheduledConsultationFee)));
+    }
+
+    [Fact]
     public async Task UpdateRescuerProfileAsync_ShouldUpdateAccountFieldsButKeepOperationalFieldsReadOnly()
     {
         var rescuerId = Guid.NewGuid();

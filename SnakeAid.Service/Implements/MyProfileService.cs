@@ -74,8 +74,15 @@ public class MyProfileService : IMyProfileService
 
         UpdateAccountFields(account, request.FullName, request.PhoneNumber, request.AvatarUrl);
         profile.Biography = request.Biography;
-        profile.ConsultationFee = request.ScheduledConsultationFee;
-        profile.EmergencyConsultationFee = request.EmergencyConsultationFee ?? request.ScheduledConsultationFee;
+        if (!request.ScheduledConsultationFee.HasValue)
+        {
+            throw new ValidationException("ScheduledConsultationFee is required.");
+        }
+
+        var scheduledFee = request.ScheduledConsultationFee.Value;
+        profile.ConsultationFee = scheduledFee;
+        // Business rule: a null/omitted emergency fee uses the scheduled consultation fee.
+        profile.EmergencyConsultationFee = request.EmergencyConsultationFee ?? scheduledFee;
 
         await _unitOfWork.CommitAsync();
         _logger.LogInformation("Updated expert profile for account {AccountId}.", accountId);
