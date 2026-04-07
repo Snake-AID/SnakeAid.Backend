@@ -45,6 +45,7 @@ namespace SnakeAid.Core.Mappings
                 .Map(dest => dest.Media, src => src.Media);
 
             config.NewConfig<SnakebiteIncident, OperatorIncidentSummaryResponse>()
+                .Map(dest => dest.AssignedRescuerName, src => src.AssignedRescuer != null ? src.AssignedRescuer.Account.FullName : null)
                 .Map(dest => dest.ActiveMissionStatus, src =>
                     src.Missions
                         .Where(m => m.Status != RescueMissionStatus.MissionAborted && m.Status != RescueMissionStatus.Cancelled && m.Status != RescueMissionStatus.MissionCompleted && m.Status != RescueMissionStatus.MissionUncompleted)

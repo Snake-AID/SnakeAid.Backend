@@ -15,6 +15,8 @@ namespace SnakeAid.Core.Responses.SnakebiteIncident
 
         public Guid? AssignedRescuerId { get; set; }
 
+        public string? AssignedRescuerName { get; set; }
+
         public RescueMissionStatus? ActiveMissionStatus { get; set; }
 
         public bool NeedsRedispatch { get; set; }

@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using System.Text.Json;
 using SnakeAid.Core.Domains;
 using SnakeAid.Core.Exceptions;
 using SnakeAid.Core.Meta;
@@ -39,24 +40,20 @@ public class UserNotificationService : IUserNotificationService
             throw new BadRequestException("Page size must be greater than 0.");
         }
 
-        return await _unitOfWork.GetRepository<AppNotification>()
+        var pagedNotifications = await _unitOfWork.GetRepository<AppNotification>()
             .GetPagingListAsync(
-                selector: notification => new AppNotificationResponse
-                {
-                    Id = notification.Id,
-                    UserId = notification.UserId,
-                    Title = notification.Title,
-                    Message = notification.Message,
-                    NotificationType = notification.NotificationType,
-                    IsRead = notification.IsRead,
-                    CreatedAt = notification.CreatedAt,
-                    UpdatedAt = notification.UpdatedAt
-                },
+                selector: notification => notification,
                 predicate: notification => notification.UserId == userId,
                 orderBy: query => query.OrderByDescending(notification => notification.CreatedAt),
                 page: page,
                 size: pageSize,
                 cancellationToken: cancellationToken);
+
+        return new PagedData<AppNotificationResponse>
+        {
+            Items = pagedNotifications.Items.Select(ToResponse).ToList(),
+            Meta = pagedNotifications.Meta
+        };
     }
 
     public async Task<AppNotificationResponse> MarkAsReadAsync(
@@ -102,9 +99,28 @@ public class UserNotificationService : IUserNotificationService
             Title = notification.Title,
             Message = notification.Message,
             NotificationType = notification.NotificationType,
+            DeepLink = notification.DeepLink,
+            Data = ParsePayloadData(notification.PayloadJson),
             IsRead = notification.IsRead,
             CreatedAt = notification.CreatedAt,
             UpdatedAt = notification.UpdatedAt
         };
+    }
+
+    private static Dictionary<string, string>? ParsePayloadData(string? payloadJson)
+    {
+        if (string.IsNullOrWhiteSpace(payloadJson))
+        {
+            return null;
+        }
+
+        try
+        {
+            return JsonSerializer.Deserialize<Dictionary<string, string>>(payloadJson);
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
     }
 }

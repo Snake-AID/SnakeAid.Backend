@@ -242,9 +242,9 @@ public class ConsultationPaymentService : IConsultationPaymentService
                 await _notificationQueueService.PublishAsync(new NotificationMessage
                 {
                     UserId = ping.RescuerId,
-                    Title = "Yeu cau tu van het han",
-                    Body = "Yeu cau tu van khan cap cua ban da het han va duoc hoan tien.",
-                    Type = "EmergencyRequestExpired",
+                    Title = "Yêu cầu tư vấn khẩn cấp đã hết hạn",
+                    Body = "Yêu cầu tư vấn khẩn cấp của bạn đã hết hạn và được hoàn tiền.",
+                    Type = "EMERGENCY_CONSULTATION_EXPIRED",
                     Data = new Dictionary<string, string>
                     {
                         ["requestId"] = ping.Id.ToString(),

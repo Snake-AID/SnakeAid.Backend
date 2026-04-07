@@ -63,7 +63,8 @@ public class FirebaseNotificationService : IFirebaseNotificationService
             {
                 Title = message.Title,
                 Body = message.Body
-            }
+            },
+            Data = BuildPushData(message)
         };
 
         var response = await FirebaseMessaging.DefaultInstance.SendEachForMulticastAsync(pushMessage, cancellationToken);
@@ -179,5 +180,29 @@ public class FirebaseNotificationService : IFirebaseNotificationService
         }
 
         return $"{token[..6]}...{token[^4..]}";
+    }
+
+    private static Dictionary<string, string> BuildPushData(NotificationMessage message)
+    {
+        var data = message.Data != null
+            ? new Dictionary<string, string>(message.Data)
+            : new Dictionary<string, string>();
+
+        if (!data.ContainsKey("id"))
+        {
+            data["id"] = message.NotificationId.ToString();
+        }
+
+        if (!data.ContainsKey("type"))
+        {
+            data["type"] = message.Type;
+        }
+
+        if (!string.IsNullOrWhiteSpace(message.DeepLink) && !data.ContainsKey("deeplink"))
+        {
+            data["deeplink"] = message.DeepLink;
+        }
+
+        return data;
     }
 }

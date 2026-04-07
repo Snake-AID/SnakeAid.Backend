@@ -244,6 +244,20 @@ namespace SnakeAid.Api.Controllers
             return Ok(ApiResponseBuilder.BuildSuccessResponse(result, "Admin incident list retrieved."));
         }
 
+        /// <summary>
+        /// Get detailed incident information for admin, including full mission and dispatch request histories.
+        /// </summary>
+        [HttpGet("admin/{incidentId}")]
+        [Authorize(Roles = "Admin")]
+        [SwaggerOperation(Summary = "Get Admin Incident Detail", Description = "Retrieve full admin detail for an incident, including all rescue missions, dispatch requests, and media.")]
+        [SwaggerResponse(200, "Success", typeof(ApiResponse<AdminDetailSnakebiteIncidentResponse>))]
+        [SwaggerResponse(404, "Incident not found")]
+        public async Task<IActionResult> GetAdminIncidentDetail(Guid incidentId)
+        {
+            var result = await _incidentService.GetAdminDetailIncidentAsync(incidentId);
+            return Ok(ApiResponseBuilder.BuildSuccessResponse(result, "Admin incident detail retrieved."));
+        }
+
         private static IEnumerable<SnakebiteIncidentStatus>? ParseStatuses(string? csvStatuses)
         {
             if (string.IsNullOrWhiteSpace(csvStatuses))
