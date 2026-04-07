@@ -185,7 +185,7 @@ public class SnakeCatchingPaymentService : ISnakeCatchingPaymentService
                 ReferenceId = request.SnakeCatchingRequestId,
                 Amount = request.Amount,
                 Currency = "VND",
-                TransactionType = TransactionType.WalletTopup,
+                TransactionType = TransactionType.EscrowHold,
                 Description = $"Received wallet payment for catching request {request.SnakeCatchingRequestId}",
                 PaymentMethod = "Wallet",
                 ExternalTransactionId = $"WALLET-{orderCode}",
@@ -814,7 +814,7 @@ public class SnakeCatchingPaymentService : ISnakeCatchingPaymentService
                 ReferenceId = request.SnakeCatchingRequestId,
                 Amount = netAmountToRescuer,
                 Currency = "VND",
-                TransactionType = TransactionType.WalletWithdraw,
+                TransactionType = TransactionType.EscrowRelease,
                 Description = $"Transfer to rescuer {rescuerId} for request {request.SnakeCatchingRequestId}",
                 PaymentMethod = "Internal",
                 ExternalTransactionId = $"WITHDRAW-{Guid.NewGuid()}",
@@ -953,7 +953,7 @@ public class SnakeCatchingPaymentService : ISnakeCatchingPaymentService
                 ReferenceId = request.ReferenceId,
                 Amount = request.Amount,
                 Currency = "VND",
-                TransactionType = TransactionType.WalletWithdraw,
+                TransactionType = TransactionType.EscrowRelease,
                 Description = $"Refund to receiver {request.ReceiverId}: {request.Description}",
                 PaymentMethod = "Internal",
                 ExternalTransactionId = $"REFUND-{Guid.NewGuid()}",
@@ -1044,7 +1044,7 @@ public class SnakeCatchingPaymentService : ISnakeCatchingPaymentService
                 var existingTransaction = await _unitOfWork.GetRepository<Transaction>()
                     .FirstOrDefaultAsync(
                         predicate: t => t.ExternalTransactionId == webhook.TransactionReference
-                                     && t.TransactionType == TransactionType.WalletTopup,
+                                     && t.TransactionType == TransactionType.EscrowHold,
                         cancellationToken: cancellationToken);
 
                 if (existingTransaction != null)
@@ -1097,7 +1097,7 @@ public class SnakeCatchingPaymentService : ISnakeCatchingPaymentService
                     ReferenceId = transaction.ReferenceId, // Same SnakeCatchingRequestId
                     Amount = transaction.Amount,
                     Currency = transaction.Currency,
-                    TransactionType = TransactionType.WalletTopup,
+                    TransactionType = TransactionType.EscrowHold,
                     Description = $"Received payment for catching request {transaction.ReferenceId}",
                     PaymentMethod = "PayOS",
                     ExternalTransactionId = webhook.TransactionReference,
@@ -1129,10 +1129,6 @@ public class SnakeCatchingPaymentService : ISnakeCatchingPaymentService
                 if (transaction.TransactionType == TransactionType.CatchingPayment)
                 {
                     await HandleCatcherCommissionAsync(transaction, sourceTag, cancellationToken);
-                }
-                else if (transaction.TransactionType == TransactionType.WalletTopup)
-                {
-                    await HandleWalletTopupAsync(transaction, sourceTag, cancellationToken);
                 }
             }
             else
@@ -1261,49 +1257,6 @@ public class SnakeCatchingPaymentService : ISnakeCatchingPaymentService
             _logger.LogError(ex, "{Prefix}{SourceTag} Failed to process catcher commission for transaction {TransactionId}",
                 LogPrefix, sourceTag, transaction.Id);
             // Don't throw - commission failure shouldn't fail the payment
-        }
-    }
-
-    private async Task HandleWalletTopupAsync(Transaction transaction, string sourceTag, CancellationToken cancellationToken)
-    {
-        try
-        {
-            // For wallet top-up, we credit the user's wallet directly
-            var userId = transaction.UserId;
-            var topupAmount = transaction.Amount;
-
-            // Get or create user wallet
-            var userWallet = await _unitOfWork.GetRepository<Wallet>()
-                .FirstOrDefaultAsync(
-                    predicate: w => w.UserId == userId,
-                    asNoTracking: false,
-                    cancellationToken: cancellationToken);
-
-            if (userWallet == null)
-            {
-                userWallet = new Wallet
-                {
-                    Id = Guid.NewGuid(),
-                    UserId = userId,
-                    Balance = 0
-                };
-                await _unitOfWork.GetRepository<Wallet>().InsertAsync(userWallet);
-                _logger.LogInformation("{Prefix}{SourceTag} Created wallet for user {UserId}",
-                    LogPrefix, sourceTag, userId);
-            }
-
-            var previousBalance = userWallet.Balance;
-            userWallet.Balance += topupAmount;
-            _unitOfWork.GetRepository<Wallet>().Update(userWallet);
-
-            _logger.LogInformation("{Prefix}{SourceTag} Wallet top-up completed. UserId={UserId}, Amount={Amount}, Balance: {PrevBalance} -> {NewBalance}",
-                LogPrefix, sourceTag, userId, topupAmount, previousBalance, userWallet.Balance);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "{Prefix}{SourceTag} Failed to process wallet top-up for transaction {TransactionId}",
-                LogPrefix, sourceTag, transaction.Id);
-            // Don't throw - wallet top-up failure shouldn't fail the payment processing
         }
     }
 

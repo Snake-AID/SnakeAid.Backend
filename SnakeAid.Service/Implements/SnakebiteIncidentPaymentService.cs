@@ -401,7 +401,7 @@ public class SnakebiteIncidentPaymentService : ISnakebiteIncidentPaymentService
             ReferenceId = request.ReferenceId,
             Amount = request.Amount,
             Currency = "VND",
-            TransactionType = TransactionType.WalletWithdraw,
+            TransactionType = TransactionType.EscrowRelease,
             Description = $"Escrow refund source for incident reference {request.ReferenceId}",
             PaymentMethod = "Wallet",
             ExternalTransactionId = $"REFUND-SOURCE-{Guid.NewGuid():N}",
@@ -685,7 +685,7 @@ public class SnakebiteIncidentPaymentService : ISnakebiteIncidentPaymentService
             ReferenceId = incidentId,
             Amount = amount,
             Currency = "VND",
-            TransactionType = TransactionType.WalletTopup,
+            TransactionType = TransactionType.EscrowHold,
             Description = $"Escrow received for incident reference {incidentId}",
             PaymentMethod = paymentMethod,
             ExternalTransactionId = externalTransactionId,
@@ -741,7 +741,7 @@ public class SnakebiteIncidentPaymentService : ISnakebiteIncidentPaymentService
         transaction.CreatedAt = webhook.TransactionDateTime ?? DateTime.UtcNow;
         _unitOfWork.GetRepository<Transaction>().Update(transaction);
 
-        // Move money to escrow (credit System_Wallet + create WalletTopup)
+        // Move money to escrow (credit System_Wallet + create system escrow ledger)
         var escrowTransfer = await MoveMoneyToEscrowAsync(
             transaction.UserId,
             transaction.ReferenceId,

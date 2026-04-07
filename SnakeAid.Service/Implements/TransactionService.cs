@@ -120,7 +120,9 @@ namespace SnakeAid.Service.Implements
                     TransactionType.PlatformFee,
                     TransactionType.WalletTopup,
                     TransactionType.WalletWithdraw,
-                    TransactionType.AdminAdjustment
+                    TransactionType.AdminAdjustment,
+                    TransactionType.EscrowHold,
+                    TransactionType.EscrowRelease
                 ],
                 _ => throw new BadRequestException("Invalid transType. Supported values: consultation, snake catching, snakebite incident, system.")
             };

@@ -84,6 +84,16 @@ public class ConsultationPaymentIntegrationTests
 
         var paymentTx = await db.Set<Transaction>().FirstAsync(t => t.ReferenceId == bookingId && t.TransactionType == TransactionType.ConsultationPayment);
         Assert.Equal(150_000m, paymentTx.Amount);
+
+        var escrowCreditTx = await db.Set<Transaction>().FirstAsync(t =>
+            t.ReferenceId == bookingId &&
+            t.TransactionType == TransactionType.EscrowHold);
+        Assert.Equal(SystemUserId, escrowCreditTx.UserId);
+        Assert.Equal(150_000m, escrowCreditTx.Amount);
+        Assert.False(await db.Set<Transaction>().AnyAsync(t =>
+            t.ReferenceId == bookingId &&
+            t.UserId == SystemUserId &&
+            t.TransactionType == TransactionType.WalletTopup));
     }
 
     [Fact]
@@ -337,6 +347,11 @@ public class ConsultationPaymentIntegrationTests
         Assert.Equal(0m, systemWallet.Balance);
 
         Assert.NotNull(await db.Set<Transaction>().FirstOrDefaultAsync(t => t.ReferenceId == requestId && t.TransactionType == TransactionType.ConsultationRefund));
+        Assert.NotNull(await db.Set<Transaction>().FirstOrDefaultAsync(t => t.ReferenceId == requestId && t.TransactionType == TransactionType.EscrowRelease));
+        Assert.False(await db.Set<Transaction>().AnyAsync(t =>
+            t.ReferenceId == requestId &&
+            t.UserId == SystemUserId &&
+            t.TransactionType == TransactionType.WalletWithdraw));
     }
 
     [Fact]
@@ -415,6 +430,11 @@ public class ConsultationPaymentIntegrationTests
         Assert.Equal(0m, systemWallet.Balance);
         Assert.Equal(150_000m, expertWallet.Balance);
         Assert.Equal(1, await db.Set<Transaction>().CountAsync(t => t.ReferenceId == consultationId && t.TransactionType == TransactionType.ExpertPayout));
+        Assert.Equal(1, await db.Set<Transaction>().CountAsync(t => t.ReferenceId == consultationId && t.TransactionType == TransactionType.EscrowRelease));
+        Assert.Equal(0, await db.Set<Transaction>().CountAsync(t =>
+            t.ReferenceId == consultationId &&
+            t.UserId == SystemUserId &&
+            t.TransactionType == TransactionType.WalletWithdraw));
     }
 
     private static ConsultationPaymentService CreatePaymentService(
