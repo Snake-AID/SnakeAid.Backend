@@ -64,30 +64,32 @@ public class PayOsController : BaseController<PayOsController>
             if (description is null)
                 return BadRequest(new { success = false, message = "Transaction not found" });
 
+            if (!PayOsPaymentFlowPrefixes.TryResolve(description, out var flow))
+                return BadRequest(new { success = false, message = "Unknown payment flow for the given transaction" });
+
             PayOsWebhookResponse? webhookResult = null;
             object? data = null;
-            if (description.StartsWith("TOPUP-", StringComparison.Ordinal))
+            switch (flow)
             {
-                webhookResult = await _walletTopupService.ConfirmWalletTopupAsync(request.TransactionId, cancellationToken);
-                data = webhookResult;
+                case PayOsPaymentFlow.Topup:
+                    webhookResult = await _walletTopupService.ConfirmWalletTopupAsync(request.TransactionId, cancellationToken);
+                    data = webhookResult;
+                    break;
+                case PayOsPaymentFlow.Consultation:
+                    var consultResult = await _consultationPaymentService.ConfirmConsultationPaymentAsync(request.TransactionId, cancellationToken);
+                    data = consultResult;
+                    break;
+                case PayOsPaymentFlow.SnakebiteIncident:
+                    webhookResult = await _snakebiteIncidentPaymentService.ConfirmSnakebiteIncidentPaymentAsync(request.TransactionId, cancellationToken);
+                    data = webhookResult;
+                    break;
+                case PayOsPaymentFlow.SnakeCatching:
+                    webhookResult = await _snakeCatchingPaymentService.ConfirmSnakeCatchingPaymentAsync(request.TransactionId, cancellationToken);
+                    data = webhookResult;
+                    break;
+                default:
+                    return BadRequest(new { success = false, message = "Unknown payment flow for the given transaction" });
             }
-            else if (description.StartsWith("CONSULTPAY-", StringComparison.Ordinal))
-            {
-                var consultResult = await _consultationPaymentService.ConfirmConsultationPaymentAsync(request.TransactionId, cancellationToken);
-                data = consultResult;
-            }
-            else if (description.StartsWith("INCIDENT-", StringComparison.Ordinal))
-            {
-                webhookResult = await _snakebiteIncidentPaymentService.ConfirmSnakebiteIncidentPaymentAsync(request.TransactionId, cancellationToken);
-                data = webhookResult;
-            }
-            else if (description.StartsWith("CATCHING-", StringComparison.Ordinal))
-            {
-                webhookResult = await _snakeCatchingPaymentService.ConfirmSnakeCatchingPaymentAsync(request.TransactionId, cancellationToken);
-                data = webhookResult;
-            }
-            else
-                return BadRequest(new { success = false, message = "Unknown payment flow for the given transaction" });
 
             var success = webhookResult?.Success ?? true;
             var message = webhookResult?.Message ?? "Payment confirmed successfully";
@@ -199,20 +201,20 @@ public class PayOsController : BaseController<PayOsController>
             var webhookData = _paymentGateway.VerifyWebhook(rawPayload);
             var description = webhookData.Description;
 
-            PayOsWebhookResponse result;
-            if (description != null && description.StartsWith("TOPUP-", StringComparison.Ordinal))
-                result = await _walletTopupService.ProcessWalletTopupWebhookAsync(rawPayload, cancellationToken);
-            else if (description != null && description.StartsWith("CONSULTPAY-", StringComparison.Ordinal))
-                result = await _consultationPaymentService.ProcessConsultationWebhookAsync(rawPayload, cancellationToken);
-            else if (description != null && description.StartsWith("INCIDENT-", StringComparison.Ordinal))
-                result = await _snakebiteIncidentPaymentService.ProcessSnakebiteIncidentWebhookAsync(rawPayload, cancellationToken);
-            else if (description != null && description.StartsWith("CATCHING-", StringComparison.Ordinal))
-                result = await _snakeCatchingPaymentService.ProcessSnakeCatchingWebhookAsync(rawPayload, cancellationToken);
-            else
+            if (!PayOsPaymentFlowPrefixes.TryResolve(description, out var flow))
             {
                 _logger.LogWarning("No handler matched webhook description: {Description}", description);
                 return BadRequest(new { success = false, message = "Unknown payment flow" });
             }
+
+            var result = flow switch
+            {
+                PayOsPaymentFlow.Topup => await _walletTopupService.ProcessWalletTopupWebhookAsync(rawPayload, cancellationToken),
+                PayOsPaymentFlow.Consultation => await _consultationPaymentService.ProcessConsultationWebhookAsync(rawPayload, cancellationToken),
+                PayOsPaymentFlow.SnakebiteIncident => await _snakebiteIncidentPaymentService.ProcessSnakebiteIncidentWebhookAsync(rawPayload, cancellationToken),
+                PayOsPaymentFlow.SnakeCatching => await _snakeCatchingPaymentService.ProcessSnakeCatchingWebhookAsync(rawPayload, cancellationToken),
+                _ => throw new InvalidOperationException("Unknown PayOS payment flow.")
+            };
 
             _logger.LogInformation("Webhook processed. Success={Success} OrderCode={OrderCode}", result.Success, result.OrderCode);
             return Ok(new { success = result.Success, message = result.Message, data = result });
@@ -240,16 +242,30 @@ public class PayOsController : BaseController<PayOsController>
             return;
         }
 
-        if (description.StartsWith("TOPUP-", StringComparison.Ordinal))
-            await _walletTopupService.ConfirmWalletTopupByOrderCodeAsync(orderCode, ct);
-        else if (description.StartsWith("CONSULTPAY-", StringComparison.Ordinal))
-            await _consultationPaymentService.ConfirmConsultationPaymentByOrderCodeAsync(orderCode, ct);
-        else if (description.StartsWith("INCIDENT-", StringComparison.Ordinal))
-            await _snakebiteIncidentPaymentService.ConfirmSnakebiteIncidentPaymentByOrderCodeAsync(orderCode, ct);
-        else if (description.StartsWith("CATCHING-", StringComparison.Ordinal))
-            await _snakeCatchingPaymentService.ConfirmSnakeCatchingPaymentByOrderCodeAsync(orderCode, ct);
-        else
+        if (!PayOsPaymentFlowPrefixes.TryResolve(description, out var flow))
+        {
             _logger.LogWarning("[PayOS] Unknown prefix in description for orderCode={OrderCode}", orderCode);
+            return;
+        }
+
+        switch (flow)
+        {
+            case PayOsPaymentFlow.Topup:
+                await _walletTopupService.ConfirmWalletTopupByOrderCodeAsync(orderCode, ct);
+                break;
+            case PayOsPaymentFlow.Consultation:
+                await _consultationPaymentService.ConfirmConsultationPaymentByOrderCodeAsync(orderCode, ct);
+                break;
+            case PayOsPaymentFlow.SnakebiteIncident:
+                await _snakebiteIncidentPaymentService.ConfirmSnakebiteIncidentPaymentByOrderCodeAsync(orderCode, ct);
+                break;
+            case PayOsPaymentFlow.SnakeCatching:
+                await _snakeCatchingPaymentService.ConfirmSnakeCatchingPaymentByOrderCodeAsync(orderCode, ct);
+                break;
+            default:
+                _logger.LogWarning("[PayOS] Unknown prefix in description for orderCode={OrderCode}", orderCode);
+                break;
+        }
     }
 
     // ── HTML templates ──────────────────────────────────────────────────

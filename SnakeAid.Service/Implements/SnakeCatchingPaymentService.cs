@@ -9,6 +9,7 @@ using SnakeAid.Core.Settings;
 using SnakeAid.Repository.Data;
 using SnakeAid.Repository.Interfaces;
 using SnakeAid.Service.Interfaces;
+using SnakeAid.Service.Services.PayOs;
 using SnakeAid.Service.Services.PayOs.Models;
 
 namespace SnakeAid.Service.Implements;
@@ -21,7 +22,7 @@ public class SnakeCatchingPaymentService : ISnakeCatchingPaymentService
     private const string DefaultItemName = "Snake Catching Service";
     private const string LogPrefix = "[SnakeCatchingPaymentService]";
     private readonly string systemId = "57288b98-5f91-4de8-b827-866e3df69587";
-    private static readonly Regex OrderCodeRegex = new(@"^CATCHING-(\d+)", RegexOptions.Compiled);
+    private static readonly Regex OrderCodeRegex = new($@"^{PayOsPaymentFlowPrefixes.SnakeCatching}(\d+)", RegexOptions.Compiled);
     private readonly int commissionFee = 200000;
 
     public SnakeCatchingPaymentService(
@@ -260,7 +261,7 @@ public class SnakeCatchingPaymentService : ISnakeCatchingPaymentService
     {
         _logger.LogInformation("{Prefix} Cancelling snake catching payment link for OrderCode {OrderCode}", LogPrefix, orderCode);
 
-        var descriptionPattern = $"CATCHING-{orderCode}";
+        var descriptionPattern = PayOsPaymentFlowPrefixes.BuildOrderCodePrefix(PayOsPaymentFlow.SnakeCatching, orderCode);
         var transaction = await _unitOfWork.GetRepository<Transaction>()
             .FirstOrDefaultAsync(
                 predicate: t => t.Description != null && t.Description.StartsWith(descriptionPattern),
@@ -337,7 +338,9 @@ public class SnakeCatchingPaymentService : ISnakeCatchingPaymentService
             TransactionId = transactionId,
             OrderCode = result.OrderCode,
             Amount = Convert.ToInt32(Math.Round(result.Amount, MidpointRounding.AwayFromZero)),
-            TransactionReference = result.OrderCode > 0 ? $"CATCHING-{result.OrderCode}" : string.Empty,
+            TransactionReference = result.OrderCode > 0
+                ? PayOsPaymentFlowPrefixes.BuildOrderCodePrefix(PayOsPaymentFlow.SnakeCatching, result.OrderCode)
+                : string.Empty,
             TransactionDateTime = DateTime.UtcNow
         };
     }
@@ -346,7 +349,7 @@ public class SnakeCatchingPaymentService : ISnakeCatchingPaymentService
         long orderCode,
         CancellationToken cancellationToken)
     {
-        var descriptionPattern = $"CATCHING-{orderCode}";
+        var descriptionPattern = PayOsPaymentFlowPrefixes.BuildOrderCodePrefix(PayOsPaymentFlow.SnakeCatching, orderCode);
         var transaction = await _unitOfWork.GetRepository<Transaction>()
             .FirstOrDefaultAsync(
                 predicate: t => t.Description != null && t.Description.StartsWith(descriptionPattern),
@@ -1011,7 +1014,7 @@ public class SnakeCatchingPaymentService : ISnakeCatchingPaymentService
         try
         {
             // Find transaction by orderCode in Description
-            var descriptionPattern = $"CATCHING-{webhook.OrderCode}";
+            var descriptionPattern = PayOsPaymentFlowPrefixes.BuildOrderCodePrefix(PayOsPaymentFlow.SnakeCatching, webhook.OrderCode);
             var transaction = await _unitOfWork.GetRepository<Transaction>()
                 .FirstOrDefaultAsync(
                     predicate: t => t.Description != null &&
@@ -1314,7 +1317,7 @@ public class SnakeCatchingPaymentService : ISnakeCatchingPaymentService
 
     private string BuildDescription(long orderCode, string? customDescription)
     {
-        var baseDescription = $"CATCHING-{orderCode}";
+        var baseDescription = PayOsPaymentFlowPrefixes.BuildOrderCodePrefix(PayOsPaymentFlow.SnakeCatching, orderCode);
         return string.IsNullOrEmpty(customDescription)
             ? baseDescription
             : $"{baseDescription} - {customDescription}";

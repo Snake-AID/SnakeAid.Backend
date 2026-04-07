@@ -14,6 +14,7 @@ using SnakeAid.Core.Responses.PayOS;
 using SnakeAid.Repository.Data;
 using SnakeAid.Repository.Interfaces;
 using SnakeAid.Service.Interfaces;
+using SnakeAid.Service.Services.PayOs;
 using SnakeAid.Service.Services.PayOs.Models;
 
 namespace SnakeAid.Service.Implements;
@@ -332,7 +333,7 @@ public class SnakebiteIncidentPaymentService : ISnakebiteIncidentPaymentService
                 OrderCode = orderCode,
                 Amount = linkInfo.Amount,
                 PaymentLinkId = linkInfo.Id,
-                TransactionReference = $"INCIDENT-MANUAL-{transactionId:N}",
+                TransactionReference = $"{PayOsPaymentFlowPrefixes.SnakebiteIncident}MANUAL-{transactionId:N}",
                 TransactionDateTime = DateTime.UtcNow
             },
             cancellationToken);
@@ -489,7 +490,7 @@ public class SnakebiteIncidentPaymentService : ISnakebiteIncidentPaymentService
     private string BuildDescription(long orderCode, string additionalInfo)
     {
         const int maxLength = 25;
-        var baseDescription = $"INCIDENT-{orderCode}".Trim();
+        var baseDescription = PayOsPaymentFlowPrefixes.BuildOrderCodePrefix(PayOsPaymentFlow.SnakebiteIncident, orderCode).Trim();
         return baseDescription.Length <= maxLength ? baseDescription : baseDescription.Substring(0, maxLength);
     }
 
@@ -501,12 +502,12 @@ public class SnakebiteIncidentPaymentService : ISnakebiteIncidentPaymentService
         }
 
         var parts = description.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-        if (parts.Length == 0 || !parts[0].StartsWith("INCIDENT-"))
+        if (parts.Length == 0 || !parts[0].StartsWith(PayOsPaymentFlowPrefixes.SnakebiteIncident))
         {
             return 0;
         }
 
-        if (long.TryParse(parts[0].Replace("INCIDENT-", ""), out var orderCode))
+        if (long.TryParse(parts[0].Replace(PayOsPaymentFlowPrefixes.SnakebiteIncident, ""), out var orderCode))
         {
             return orderCode;
         }
@@ -529,7 +530,7 @@ public class SnakebiteIncidentPaymentService : ISnakebiteIncidentPaymentService
         bool asNoTracking,
         CancellationToken cancellationToken)
     {
-        var descriptionPrefix = $"INCIDENT-{orderCode}";
+        var descriptionPrefix = PayOsPaymentFlowPrefixes.BuildOrderCodePrefix(PayOsPaymentFlow.SnakebiteIncident, orderCode);
         return await _unitOfWork.GetRepository<Transaction>().FirstOrDefaultAsync(
             predicate: t => t.TransactionType == TransactionType.SnakebiteIncidentPayment
                          && t.Description != null
@@ -735,7 +736,7 @@ public class SnakebiteIncidentPaymentService : ISnakebiteIncidentPaymentService
 
         // Set ExternalTransactionId on the pending transaction
         transaction.ExternalTransactionId = string.IsNullOrWhiteSpace(webhook.TransactionReference)
-            ? $"INCIDENT-WEBHOOK-{transaction.Id:N}"
+            ? $"{PayOsPaymentFlowPrefixes.SnakebiteIncident}WEBHOOK-{transaction.Id:N}"
             : webhook.TransactionReference;
         transaction.CreatedAt = webhook.TransactionDateTime ?? DateTime.UtcNow;
         _unitOfWork.GetRepository<Transaction>().Update(transaction);

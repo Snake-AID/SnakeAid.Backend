@@ -10,6 +10,7 @@ using Moq;
 using SnakeAid.Api.Controllers;
 using SnakeAid.Core.Domains;
 using SnakeAid.Core.Requests.PayOs;
+using SnakeAid.Core.Responses.Consultation;
 using SnakeAid.Core.Responses.PayOs;
 using SnakeAid.Repository.Data;
 using SnakeAid.Repository.Implements;
@@ -62,6 +63,48 @@ public class PayOsTopupRoutingTests
         topupService.Verify(s => s.ConfirmWalletTopupAsync(transactionId, It.IsAny<CancellationToken>()), Times.Once);
     }
 
+    [Theory]
+    [InlineData(PayOsPaymentFlow.Topup, "TOPUP-123456")]
+    [InlineData(PayOsPaymentFlow.SnakeCatching, "CATCHING-123456")]
+    [InlineData(PayOsPaymentFlow.SnakebiteIncident, "INCIDENT-123456")]
+    [InlineData(PayOsPaymentFlow.Consultation, "CONSULTPAY-123456")]
+    public async Task ConfirmPayment_RoutesEachPrefixToExpectedOwner(
+        PayOsPaymentFlow flow,
+        string description)
+    {
+        var transactionId = Guid.NewGuid();
+        var topupService = new Mock<IWalletTopupService>();
+        var snakeCatchingService = new Mock<ISnakeCatchingPaymentService>();
+        var incidentService = new Mock<ISnakebiteIncidentPaymentService>();
+        var consultationService = new Mock<IConsultationPaymentService>();
+
+        topupService.Setup(s => s.ConfirmWalletTopupAsync(transactionId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new PayOsWebhookResponse { Success = true });
+        snakeCatchingService.Setup(s => s.ConfirmSnakeCatchingPaymentAsync(transactionId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new PayOsWebhookResponse { Success = true });
+        incidentService.Setup(s => s.ConfirmSnakebiteIncidentPaymentAsync(transactionId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new PayOsWebhookResponse { Success = true });
+        consultationService.Setup(s => s.ConfirmConsultationPaymentAsync(transactionId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new ConsultationPaymentResponse { TransactionId = transactionId });
+
+        await using var db = CreateDbContext();
+        await SeedTransactionAsync(db, transactionId, description);
+
+        var controller = CreateController(
+            topupService.Object,
+            new PayOsDescriptionLookup(new UnitOfWork<SnakeAidDbContext>(db)),
+            snakeCatchingPaymentService: snakeCatchingService.Object,
+            snakebiteIncidentPaymentService: incidentService.Object,
+            consultationPaymentService: consultationService.Object);
+
+        var result = await controller.ConfirmPayment(
+            new ConfirmPaymentRequest { TransactionId = transactionId },
+            CancellationToken.None);
+
+        Assert.IsType<OkObjectResult>(result);
+        VerifyConfirmPaymentOwner(flow, transactionId, topupService, snakeCatchingService, incidentService, consultationService);
+    }
+
     [Fact]
     public async Task Webhook_WithTopupPrefix_RoutesToWalletTopupService()
     {
@@ -108,6 +151,65 @@ public class PayOsTopupRoutingTests
         topupService.Verify(s => s.ProcessWalletTopupWebhookAsync(rawPayload, It.IsAny<CancellationToken>()), Times.Once);
     }
 
+    [Theory]
+    [InlineData(PayOsPaymentFlow.Topup, "TOPUP-123456")]
+    [InlineData(PayOsPaymentFlow.SnakeCatching, "CATCHING-123456")]
+    [InlineData(PayOsPaymentFlow.SnakebiteIncident, "INCIDENT-123456")]
+    [InlineData(PayOsPaymentFlow.Consultation, "CONSULTPAY-123456")]
+    public async Task Webhook_RoutesEachPrefixToExpectedOwner(
+        PayOsPaymentFlow flow,
+        string description)
+    {
+        var rawPayload = "{\"data\":{}}";
+        var topupService = new Mock<IWalletTopupService>();
+        var snakeCatchingService = new Mock<ISnakeCatchingPaymentService>();
+        var incidentService = new Mock<ISnakebiteIncidentPaymentService>();
+        var consultationService = new Mock<IConsultationPaymentService>();
+
+        topupService.Setup(s => s.ProcessWalletTopupWebhookAsync(rawPayload, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new PayOsWebhookResponse { Success = true });
+        snakeCatchingService.Setup(s => s.ProcessSnakeCatchingWebhookAsync(rawPayload, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new PayOsWebhookResponse { Success = true });
+        incidentService.Setup(s => s.ProcessSnakebiteIncidentWebhookAsync(rawPayload, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new PayOsWebhookResponse { Success = true });
+        consultationService.Setup(s => s.ProcessConsultationWebhookAsync(rawPayload, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new PayOsWebhookResponse { Success = true });
+
+        var paymentGateway = new Mock<IPaymentGateway>();
+        paymentGateway.Setup(g => g.VerifyWebhook(rawPayload))
+            .Returns(new PayOsWebhookData
+            {
+                Success = true,
+                Description = description,
+                OrderCode = 123456
+            });
+
+        await using var db = CreateDbContext();
+        var controller = CreateController(
+            topupService.Object,
+            new PayOsDescriptionLookup(new UnitOfWork<SnakeAidDbContext>(db)),
+            paymentGateway.Object,
+            snakeCatchingService.Object,
+            incidentService.Object,
+            consultationService.Object);
+
+        controller.ControllerContext = new ControllerContext
+        {
+            HttpContext = new DefaultHttpContext
+            {
+                Request =
+                {
+                    Body = new MemoryStream(Encoding.UTF8.GetBytes(rawPayload))
+                }
+            }
+        };
+
+        var result = await controller.Webhook(CancellationToken.None);
+
+        Assert.IsType<OkObjectResult>(result);
+        VerifyWebhookOwner(flow, rawPayload, topupService, snakeCatchingService, incidentService, consultationService);
+    }
+
     [Fact]
     public async Task ConfirmByOrderCode_WithTopupPrefix_RoutesToWalletTopupService()
     {
@@ -129,6 +231,49 @@ public class PayOsTopupRoutingTests
         await task;
 
         topupService.Verify(s => s.ConfirmWalletTopupByOrderCodeAsync(123456, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Theory]
+    [InlineData(PayOsPaymentFlow.Topup, "TOPUP-123456")]
+    [InlineData(PayOsPaymentFlow.SnakeCatching, "CATCHING-123456")]
+    [InlineData(PayOsPaymentFlow.SnakebiteIncident, "INCIDENT-123456")]
+    [InlineData(PayOsPaymentFlow.Consultation, "CONSULTPAY-123456")]
+    public async Task ConfirmByOrderCode_RoutesEachPrefixToExpectedOwner(
+        PayOsPaymentFlow flow,
+        string description)
+    {
+        const long orderCode = 123456;
+        var topupService = new Mock<IWalletTopupService>();
+        var snakeCatchingService = new Mock<ISnakeCatchingPaymentService>();
+        var incidentService = new Mock<ISnakebiteIncidentPaymentService>();
+        var consultationService = new Mock<IConsultationPaymentService>();
+
+        topupService.Setup(s => s.ConfirmWalletTopupByOrderCodeAsync(orderCode, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new PayOsWebhookResponse { Success = true });
+        snakeCatchingService.Setup(s => s.ConfirmSnakeCatchingPaymentByOrderCodeAsync(orderCode, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new PayOsWebhookResponse { Success = true });
+        incidentService.Setup(s => s.ConfirmSnakebiteIncidentPaymentByOrderCodeAsync(orderCode, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new PayOsWebhookResponse { Success = true });
+        consultationService.Setup(s => s.ConfirmConsultationPaymentByOrderCodeAsync(orderCode, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new PayOsWebhookResponse { Success = true });
+
+        await using var db = CreateDbContext();
+        await SeedTransactionAsync(db, Guid.NewGuid(), description);
+
+        var controller = CreateController(
+            topupService.Object,
+            new PayOsDescriptionLookup(new UnitOfWork<SnakeAidDbContext>(db)),
+            snakeCatchingPaymentService: snakeCatchingService.Object,
+            snakebiteIncidentPaymentService: incidentService.Object,
+            consultationPaymentService: consultationService.Object);
+        var method = typeof(PayOsController).GetMethod("ConfirmByOrderCodeAsync", BindingFlags.NonPublic | BindingFlags.Instance);
+
+        Assert.NotNull(method);
+
+        var task = (Task)method!.Invoke(controller, new object[] { orderCode, CancellationToken.None })!;
+        await task;
+
+        VerifyConfirmByOrderCodeOwner(flow, orderCode, topupService, snakeCatchingService, incidentService, consultationService);
     }
 
     private static SnakeAidDbContext CreateDbContext()
@@ -178,18 +323,63 @@ public class PayOsTopupRoutingTests
     private static PayOsController CreateController(
         IWalletTopupService walletTopupService,
         PayOsDescriptionLookup descriptionLookup,
-        IPaymentGateway? paymentGateway = null)
+        IPaymentGateway? paymentGateway = null,
+        ISnakeCatchingPaymentService? snakeCatchingPaymentService = null,
+        ISnakebiteIncidentPaymentService? snakebiteIncidentPaymentService = null,
+        IConsultationPaymentService? consultationPaymentService = null)
     {
         return new PayOsController(
             Mock.Of<ILogger<PayOsController>>(),
             new HttpContextAccessor(),
             Mock.Of<IMapper>(),
             walletTopupService,
-            Mock.Of<ISnakeCatchingPaymentService>(),
-            Mock.Of<ISnakebiteIncidentPaymentService>(),
-            Mock.Of<IConsultationPaymentService>(),
+            snakeCatchingPaymentService ?? Mock.Of<ISnakeCatchingPaymentService>(),
+            snakebiteIncidentPaymentService ?? Mock.Of<ISnakebiteIncidentPaymentService>(),
+            consultationPaymentService ?? Mock.Of<IConsultationPaymentService>(),
             paymentGateway ?? Mock.Of<IPaymentGateway>(),
             descriptionLookup);
+    }
+
+    private static void VerifyConfirmPaymentOwner(
+        PayOsPaymentFlow flow,
+        Guid transactionId,
+        Mock<IWalletTopupService> topupService,
+        Mock<ISnakeCatchingPaymentService> snakeCatchingService,
+        Mock<ISnakebiteIncidentPaymentService> incidentService,
+        Mock<IConsultationPaymentService> consultationService)
+    {
+        topupService.Verify(s => s.ConfirmWalletTopupAsync(transactionId, It.IsAny<CancellationToken>()), flow == PayOsPaymentFlow.Topup ? Times.Once : Times.Never);
+        snakeCatchingService.Verify(s => s.ConfirmSnakeCatchingPaymentAsync(transactionId, It.IsAny<CancellationToken>()), flow == PayOsPaymentFlow.SnakeCatching ? Times.Once : Times.Never);
+        incidentService.Verify(s => s.ConfirmSnakebiteIncidentPaymentAsync(transactionId, It.IsAny<CancellationToken>()), flow == PayOsPaymentFlow.SnakebiteIncident ? Times.Once : Times.Never);
+        consultationService.Verify(s => s.ConfirmConsultationPaymentAsync(transactionId, It.IsAny<CancellationToken>()), flow == PayOsPaymentFlow.Consultation ? Times.Once : Times.Never);
+    }
+
+    private static void VerifyWebhookOwner(
+        PayOsPaymentFlow flow,
+        string rawPayload,
+        Mock<IWalletTopupService> topupService,
+        Mock<ISnakeCatchingPaymentService> snakeCatchingService,
+        Mock<ISnakebiteIncidentPaymentService> incidentService,
+        Mock<IConsultationPaymentService> consultationService)
+    {
+        topupService.Verify(s => s.ProcessWalletTopupWebhookAsync(rawPayload, It.IsAny<CancellationToken>()), flow == PayOsPaymentFlow.Topup ? Times.Once : Times.Never);
+        snakeCatchingService.Verify(s => s.ProcessSnakeCatchingWebhookAsync(rawPayload, It.IsAny<CancellationToken>()), flow == PayOsPaymentFlow.SnakeCatching ? Times.Once : Times.Never);
+        incidentService.Verify(s => s.ProcessSnakebiteIncidentWebhookAsync(rawPayload, It.IsAny<CancellationToken>()), flow == PayOsPaymentFlow.SnakebiteIncident ? Times.Once : Times.Never);
+        consultationService.Verify(s => s.ProcessConsultationWebhookAsync(rawPayload, It.IsAny<CancellationToken>()), flow == PayOsPaymentFlow.Consultation ? Times.Once : Times.Never);
+    }
+
+    private static void VerifyConfirmByOrderCodeOwner(
+        PayOsPaymentFlow flow,
+        long orderCode,
+        Mock<IWalletTopupService> topupService,
+        Mock<ISnakeCatchingPaymentService> snakeCatchingService,
+        Mock<ISnakebiteIncidentPaymentService> incidentService,
+        Mock<IConsultationPaymentService> consultationService)
+    {
+        topupService.Verify(s => s.ConfirmWalletTopupByOrderCodeAsync(orderCode, It.IsAny<CancellationToken>()), flow == PayOsPaymentFlow.Topup ? Times.Once : Times.Never);
+        snakeCatchingService.Verify(s => s.ConfirmSnakeCatchingPaymentByOrderCodeAsync(orderCode, It.IsAny<CancellationToken>()), flow == PayOsPaymentFlow.SnakeCatching ? Times.Once : Times.Never);
+        incidentService.Verify(s => s.ConfirmSnakebiteIncidentPaymentByOrderCodeAsync(orderCode, It.IsAny<CancellationToken>()), flow == PayOsPaymentFlow.SnakebiteIncident ? Times.Once : Times.Never);
+        consultationService.Verify(s => s.ConfirmConsultationPaymentByOrderCodeAsync(orderCode, It.IsAny<CancellationToken>()), flow == PayOsPaymentFlow.Consultation ? Times.Once : Times.Never);
     }
 
     private sealed class TopupRoutingSqliteDbContext : SnakeAidDbContext

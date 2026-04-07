@@ -11,6 +11,7 @@ using SnakeAid.Core.Responses.PayOs;
 using SnakeAid.Repository.Data;
 using SnakeAid.Repository.Interfaces;
 using SnakeAid.Service.Interfaces;
+using SnakeAid.Service.Services.PayOs;
 using SnakeAid.Service.Services.PayOs.Models;
 
 namespace SnakeAid.Service.Implements;
@@ -18,9 +19,8 @@ namespace SnakeAid.Service.Implements;
 public class ConsultationPaymentService : IConsultationPaymentService
 {
     private const string SystemWalletUserId = "57288b98-5f91-4de8-b827-866e3df69587";
-    private const string PayOsDescriptionPrefix = "CONSULTPAY";
     private static readonly TimeSpan EmergencyRequestTtl = TimeSpan.FromMinutes(2);
-    private static readonly Regex OrderCodeRegex = new($@"^{PayOsDescriptionPrefix}-(\d+)", RegexOptions.Compiled);
+    private static readonly Regex OrderCodeRegex = new($@"^{PayOsPaymentFlowPrefixes.Consultation}(\d+)", RegexOptions.Compiled);
 
     private readonly IUnitOfWork<SnakeAidDbContext> _unitOfWork;
     private readonly IExpertEmergencyNotificationService _notificationService;
@@ -980,7 +980,7 @@ public class ConsultationPaymentService : IConsultationPaymentService
         bool asNoTracking,
         CancellationToken cancellationToken)
     {
-        var descriptionPrefix = $"{PayOsDescriptionPrefix}-{orderCode}";
+        var descriptionPrefix = PayOsPaymentFlowPrefixes.BuildOrderCodePrefix(PayOsPaymentFlow.Consultation, orderCode);
         return await _unitOfWork.GetRepository<Transaction>().FirstOrDefaultAsync(
             predicate: t => t.TransactionType == TransactionType.ConsultationPayment
                          && t.Description != null
@@ -992,7 +992,7 @@ public class ConsultationPaymentService : IConsultationPaymentService
 
     private static long GenerateOrderCode()
     {
-        // CONSULTPAY- = 11 chars, max description = 25 chars → orderCode max 14 digits
+        // PayOS descriptions are capped at 25 chars, so keep generated order codes short enough for the prefix.
         // timestamp (10 digits) + random (4 digits) = 14 digits
         var timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
         var randomPart = System.Security.Cryptography.RandomNumberGenerator.GetInt32(1000, 9999);
@@ -1002,7 +1002,7 @@ public class ConsultationPaymentService : IConsultationPaymentService
     private static string BuildDescription(long orderCode, string description)
     {
         const int maxLength = 25;
-        var baseDescription = $"{PayOsDescriptionPrefix}-{orderCode}";
+        var baseDescription = PayOsPaymentFlowPrefixes.BuildOrderCodePrefix(PayOsPaymentFlow.Consultation, orderCode);
 
         if (baseDescription.Length >= maxLength || string.IsNullOrWhiteSpace(description))
         {

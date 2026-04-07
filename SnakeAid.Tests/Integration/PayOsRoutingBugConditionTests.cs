@@ -9,6 +9,7 @@ using SnakeAid.Repository.Data;
 using SnakeAid.Repository.Implements;
 using SnakeAid.Service.Implements;
 using SnakeAid.Service.Interfaces;
+using SnakeAid.Service.Services.PayOs;
 using SnakeAid.Service.Services.PayOs.Models;
 
 namespace SnakeAid.Tests.Integration;
@@ -193,11 +194,7 @@ public class PayOsRoutingBugConditionTests
         var snakebitePrefix = ExtractPrefixFromDescription(description);
 
         // Extract Consultation prefix
-        var consultationType = typeof(ConsultationPaymentService);
-        var consultPrefixField = consultationType.GetField("PayOsDescriptionPrefix",
-            BindingFlags.NonPublic | BindingFlags.Static);
-        Assert.NotNull(consultPrefixField);
-        var consultationPrefix = (string)consultPrefixField.GetValue(null)! + "-";
+        var consultationPrefix = PayOsPaymentFlowPrefixes.GetPrefix(PayOsPaymentFlow.Consultation);
 
         // Act & Assert: All three prefixes should be unique
         var prefixes = new[] { snakeCatchingPrefix, snakebitePrefix, consultationPrefix };

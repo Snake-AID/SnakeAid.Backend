@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc.Routing;
 using SnakeAid.Api.Controllers;
 using SnakeAid.Service.Implements;
 using SnakeAid.Service.Interfaces;
+using SnakeAid.Service.Services.PayOs;
 
 namespace SnakeAid.Tests.Unit;
 
@@ -277,14 +278,7 @@ public class PayOsPreservationTests
     [Fact]
     public void ConsultationPaymentService_UsesConsultPayPrefix()
     {
-        var serviceType = typeof(ConsultationPaymentService);
-        var prefixField = serviceType.GetField("PayOsDescriptionPrefix",
-            BindingFlags.NonPublic | BindingFlags.Static);
-
-        Assert.NotNull(prefixField);
-
-        var prefix = (string)prefixField!.GetValue(null)!;
-        Assert.Equal("CONSULTPAY", prefix);
+        Assert.Equal("CONSULTPAY-", PayOsPaymentFlowPrefixes.GetPrefix(PayOsPaymentFlow.Consultation));
     }
 
     [Fact]

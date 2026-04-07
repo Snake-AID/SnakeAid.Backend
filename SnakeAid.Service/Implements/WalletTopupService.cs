@@ -9,6 +9,7 @@ using SnakeAid.Core.Responses.Wallet;
 using SnakeAid.Core.Settings;
 using SnakeAid.Repository.Interfaces;
 using SnakeAid.Service.Interfaces;
+using SnakeAid.Service.Services.PayOs;
 using SnakeAid.Service.Services.PayOs.Models;
 
 namespace SnakeAid.Service.Implements;
@@ -20,7 +21,7 @@ public class WalletTopupService : IWalletTopupService
     private readonly ILogger<WalletTopupService> _logger;
     private const string DefaultItemName = "Wallet Top-up";
     private const string LogPrefix = "[WalletTopup]";
-    private static readonly Regex OrderCodeRegex = new(@"^TOPUP-(\d+)", RegexOptions.Compiled);
+    private static readonly Regex OrderCodeRegex = new($@"^{PayOsPaymentFlowPrefixes.Topup}(\d+)", RegexOptions.Compiled);
 
     public WalletTopupService(
         IPaymentGateway paymentGateway,
@@ -215,7 +216,7 @@ public class WalletTopupService : IWalletTopupService
                 OrderCode = orderCode,
                 Amount = linkInfo.Amount,
                 PaymentLinkId = linkInfo.Id,
-                TransactionReference = $"TOPUP-MANUAL-{transactionId:N}",
+                TransactionReference = $"{PayOsPaymentFlowPrefixes.Topup}MANUAL-{transactionId:N}",
                 TransactionDateTime = DateTime.UtcNow
             },
             cancellationToken);
@@ -253,7 +254,7 @@ public class WalletTopupService : IWalletTopupService
         }
 
         transaction.ExternalTransactionId = string.IsNullOrWhiteSpace(webhook.TransactionReference)
-            ? $"TOPUP-WEBHOOK-{transaction.Id:N}"
+            ? $"{PayOsPaymentFlowPrefixes.Topup}WEBHOOK-{transaction.Id:N}"
             : webhook.TransactionReference;
         transaction.CreatedAt = webhook.TransactionDateTime ?? DateTime.UtcNow;
         _unitOfWork.GetRepository<Transaction>().Update(transaction);
@@ -305,7 +306,7 @@ public class WalletTopupService : IWalletTopupService
         bool asNoTracking,
         CancellationToken cancellationToken)
     {
-        var descriptionPrefix = $"TOPUP-{orderCode}";
+        var descriptionPrefix = PayOsPaymentFlowPrefixes.BuildOrderCodePrefix(PayOsPaymentFlow.Topup, orderCode);
         return await _unitOfWork.GetRepository<Transaction>()
             .FirstOrDefaultAsync(
                 predicate: t => t.TransactionType == TransactionType.WalletTopup &&
@@ -340,7 +341,7 @@ public class WalletTopupService : IWalletTopupService
     private string BuildDescription(long orderCode, string? customDescription)
     {
         const int maxLength = 25;
-        var baseDescription = $"TOPUP-{orderCode}";
+        var baseDescription = PayOsPaymentFlowPrefixes.BuildOrderCodePrefix(PayOsPaymentFlow.Topup, orderCode);
         if (baseDescription.Length >= maxLength || string.IsNullOrWhiteSpace(customDescription))
         {
             return baseDescription.Length > maxLength ? baseDescription[..maxLength] : baseDescription;
