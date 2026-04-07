@@ -880,6 +880,7 @@ namespace SnakeAid.Service.Implements
                         include: query => query
                             .Include(i => i.User)
                                 .ThenInclude(u => u.Account)
+                            .Include(i => i.HandlingOperator)
                             .Include(i => i.AssignedRescuer)
                                 .ThenInclude(r => r.Account)
                             .Include(i => i.Missions)
@@ -902,6 +903,21 @@ namespace SnakeAid.Service.Implements
                     await existingIncident.AttachReportMediaAsync(_unitOfWork, MediaReferenceType.SnakebiteIncident);
                     await existingIncident.Missions.AttachReportMediaAsync(_unitOfWork, MediaReferenceType.RescueMission);
 
+                    var paymentTransactions = await _unitOfWork.GetRepository<Transaction>().GetListAsync(
+                        predicate: t => t.ReferenceId == incidentId
+                                     && (t.TransactionType == TransactionType.SnakebiteIncidentPayment
+                                         || t.TransactionType == TransactionType.SnakebiteIncidentRefund),
+                        orderBy: q => q.OrderByDescending(t => t.CreatedAt));
+
+                    var latestPayment = paymentTransactions
+                        .Where(t => t.TransactionType == TransactionType.SnakebiteIncidentPayment)
+                        .OrderByDescending(t => t.CreatedAt)
+                        .FirstOrDefault();
+
+                    var refundTransactions = paymentTransactions
+                        .Where(t => t.TransactionType == TransactionType.SnakebiteIncidentRefund)
+                        .ToList();
+
                     var responseData = new AdminDetailSnakebiteIncidentResponse
                     {
                         Id = existingIncident.Id,
@@ -910,6 +926,11 @@ namespace SnakeAid.Service.Implements
                         SymptomsReport = existingIncident.SymptomsReport?.ToList(),
                         Status = existingIncident.Status,
                         CreatedAt = existingIncident.CreatedAt,
+                        HandlingOperatorId = existingIncident.HandlingOperatorId,
+                        HandlingOperatorName = existingIncident.HandlingOperator?.FullName,
+                        OperatorNotes = existingIncident.OperatorNotes,
+                        DispatchedAt = existingIncident.DispatchedAt,
+                        ConfirmedAt = existingIncident.ConfirmedAt,
                         AssignedAt = existingIncident.AssignedAt,
                         AssignedRescuerId = existingIncident.AssignedRescuerId,
                         CancellationReason = existingIncident.CancellationReason,
@@ -923,7 +944,22 @@ namespace SnakeAid.Service.Implements
                         AcceptedDispatchCount = existingIncident.DispatchRequests.Count(r => r.Status == RescueRequestStatus.Accepted),
                         DeclinedDispatchCount = existingIncident.DispatchRequests.Count(r => r.Status == RescueRequestStatus.Declined),
                         CancelledDispatchCount = existingIncident.DispatchRequests.Count(r => r.Status == RescueRequestStatus.Cancelled),
-                        Media = existingIncident.Media.Adapt<List<SnakeAIDetectMediaResponse>>()
+                        IncidentMedia = existingIncident.Media.Adapt<List<SnakeAIDetectMediaResponse>>(),
+                        PaymentSummary = new AdminIncidentPaymentSummaryResponse
+                        {
+                            PayOsOrderCode = existingIncident.PayOsOrderCode,
+                            PaymentState = existingIncident.Status == SnakebiteIncidentStatus.Completed
+                                ? "Paid"
+                                : latestPayment != null
+                                    ? "PaymentInProgress"
+                                    : "Unpaid",
+                            PaidAmount = latestPayment?.Amount,
+                            PaidAt = latestPayment?.CreatedAt,
+                            PaymentMethod = latestPayment?.PaymentMethod,
+                            PaymentExternalTransactionId = latestPayment?.ExternalTransactionId,
+                            TotalRefundedAmount = refundTransactions.Sum(t => t.Amount),
+                            LatestRefundedAt = refundTransactions.MaxBy(t => t.CreatedAt)?.CreatedAt
+                        }
                     };
 
                     if (existingIncident.IdentifiedSnakeSpecies != null)
@@ -1422,6 +1458,7 @@ namespace SnakeAid.Service.Implements
                         (!until.HasValue || i.CreatedAt <= until.Value.UtcDateTime),
                     include: q => q
                         .Include(i => i.Missions)
+                        .Include(i => i.HandlingOperator)
                         .Include(i => i.AssignedRescuer)
                             .ThenInclude(r => r.Account),
                     orderBy: q => q.OrderByDescending(i => i.CreatedAt),
@@ -1455,6 +1492,7 @@ namespace SnakeAid.Service.Implements
                         (!until.HasValue || i.CreatedAt <= until.Value.UtcDateTime),
                     include: q => q
                         .Include(i => i.Missions)
+                        .Include(i => i.HandlingOperator)
                         .Include(i => i.AssignedRescuer)
                             .ThenInclude(r => r.Account),
                     orderBy: q => q.OrderByDescending(i => i.CreatedAt),

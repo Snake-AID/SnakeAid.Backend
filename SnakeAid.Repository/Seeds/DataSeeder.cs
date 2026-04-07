@@ -2723,6 +2723,11 @@ namespace SnakeAid.Repository.Seeds
                     new SystemSetting { SettingKey = "LocationIq:PricePerKilometer", Value = "150000", ValueType = SettingValueType.Decimal, Description = "Price per kilometer used by distance pricing service (VND)" },
 
                     new SystemSetting { SettingKey = "TreatmentFacility:SearchRadiusMeters", Value = "30000", ValueType = SettingValueType.Decimal, Description = "Max search radius for nearest treatment facilities (meters)" },
+
+                    new SystemSetting { SettingKey = "Consultation:PlatformFeePercentage", Value = "10", ValueType = SettingValueType.Decimal, Description = "Platform fee percentage for consultations" },
+
+                    // AI recognition review queue settings
+                    new SystemSetting { SettingKey = "AI:Recognition:LowConfidenceThreshold", Value = "0.70", ValueType = SettingValueType.Decimal, Description = "Recognition confidence below this threshold requires expert review." },
                 };
 
                 context.SystemSettings.AddRange(systemSettings);

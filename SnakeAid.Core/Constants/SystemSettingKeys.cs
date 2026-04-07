@@ -14,4 +14,6 @@ public static class SystemSettingKeys
     public const string LocationIqPricePerKilometer = "LocationIq:PricePerKilometer";
 
     public const string TreatmentFacilitySearchRadiusMeters = "TreatmentFacility:SearchRadiusMeters";
+
+    public const string AIRecognitionLowConfidenceThreshold = "AI:Recognition:LowConfidenceThreshold";
 }

@@ -21,6 +21,16 @@ namespace SnakeAid.Core.Responses.SnakebiteIncident
 
         public DateTime CreatedAt { get; set; }
 
+        public Guid? HandlingOperatorId { get; set; }
+
+        public string? HandlingOperatorName { get; set; }
+
+        public string? OperatorNotes { get; set; }
+
+        public DateTime? DispatchedAt { get; set; }
+
+        public DateTime? ConfirmedAt { get; set; }
+
         public DateTime? AssignedAt { get; set; }
 
         public Guid? AssignedRescuerId { get; set; }
@@ -52,7 +62,9 @@ namespace SnakeAid.Core.Responses.SnakebiteIncident
         public int CancelledDispatchCount { get; set; }
 
         // Member-submitted incident media (snake identification verification).
-        public List<SnakeAIDetectMediaResponse> Media { get; set; } = new List<SnakeAIDetectMediaResponse>();
+        public List<SnakeAIDetectMediaResponse> IncidentMedia { get; set; } = new List<SnakeAIDetectMediaResponse>();
+
+        public AdminIncidentPaymentSummaryResponse PaymentSummary { get; set; } = new AdminIncidentPaymentSummaryResponse();
 
         // Full rescue mission history with rescuer evidence media per mission.
         public List<AdminRescueMissionHistoryItemResponse> MissionHistory { get; set; } = new List<AdminRescueMissionHistoryItemResponse>();
@@ -112,5 +124,24 @@ namespace SnakeAid.Core.Responses.SnakebiteIncident
         public DateTime? ResponseAt { get; set; }
 
         public string? DeclineReason { get; set; }
+    }
+
+    public class AdminIncidentPaymentSummaryResponse
+    {
+        public long? PayOsOrderCode { get; set; }
+
+        public string PaymentState { get; set; } = "Unpaid";
+
+        public decimal? PaidAmount { get; set; }
+
+        public DateTime? PaidAt { get; set; }
+
+        public string? PaymentMethod { get; set; }
+
+        public string? PaymentExternalTransactionId { get; set; }
+
+        public decimal TotalRefundedAmount { get; set; }
+
+        public DateTime? LatestRefundedAt { get; set; }
     }
 }

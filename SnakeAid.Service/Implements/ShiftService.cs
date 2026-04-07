@@ -483,5 +483,18 @@ namespace SnakeAid.Service.Implements
 
             return (shiftStartLocal, shiftEndLocal);
         }
+
+        public async Task<List<ShiftAssignmentResponse>> GetAssignmentsByRescuerIdAsync(Guid rescuerId)
+        {
+            var assignments = await _unitOfWork.GetRepository<ShiftAssignment>().GetListAsync(
+                predicate: a => a.RescuerId == rescuerId,
+                include: q => q
+                    .Include(a => a.Shift)
+                    .Include(a => a.Rescuer),
+                orderBy: q => q.OrderByDescending(a => a.ShiftStartLocal),
+                selector: a => a.Adapt<ShiftAssignmentResponse>());
+
+            return assignments.ToList();
+        }
     }
 }

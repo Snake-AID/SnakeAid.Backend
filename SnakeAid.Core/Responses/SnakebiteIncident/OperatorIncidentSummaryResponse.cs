@@ -22,5 +22,7 @@ namespace SnakeAid.Core.Responses.SnakebiteIncident
         public bool NeedsRedispatch { get; set; }
 
         public Guid? HandlingOperatorId { get; set; }
+
+        public string? HandlingOperatorName { get; set; }
     }
 }
