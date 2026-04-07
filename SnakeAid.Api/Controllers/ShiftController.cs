@@ -8,6 +8,7 @@ using SnakeAid.Service.Interfaces;
 using Swashbuckle.AspNetCore.Annotations;
 
 using Microsoft.AspNetCore.Authorization;
+using SnakeAid.Core.Utils;
 
 namespace SnakeAid.Api.Controllers
 {
@@ -179,7 +180,8 @@ namespace SnakeAid.Api.Controllers
         [SwaggerResponse(200, "Success", typeof(ApiResponse<List<ShiftAssignmentResponse>>))]
         public async Task<IActionResult> GetMyAssignmentsToday(Guid id)
         {
-            var result = await _shiftService.GetAssignmentsByRescuerIdAsync(id);
+            var today = AppTime.TodayLocalDate;
+            var result = await _shiftService.GetAssignmentsByRescuerIdAsync(id, today);
             return Ok(ApiResponseBuilder.BuildSuccessResponse(result));
         }
     }

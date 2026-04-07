@@ -484,14 +484,19 @@ namespace SnakeAid.Service.Implements
             return (shiftStartLocal, shiftEndLocal);
         }
 
-        public async Task<List<ShiftAssignmentResponse>> GetAssignmentsByRescuerIdAsync(Guid rescuerId)
+        public async Task<List<ShiftAssignmentResponse>> GetAssignmentsByRescuerIdAsync(Guid rescuerId, DateOnly date)
         {
+            var dayStart = date.ToDateTime(TimeOnly.MinValue);
+            var dayEnd = dayStart.AddDays(1);
+
             var assignments = await _unitOfWork.GetRepository<ShiftAssignment>().GetListAsync(
-                predicate: a => a.RescuerId == rescuerId,
+                predicate: a => a.RescuerId == rescuerId
+                                && a.ShiftStartLocal < dayEnd
+                                && a.ShiftEndLocal > dayStart,
                 include: q => q
                     .Include(a => a.Shift)
                     .Include(a => a.Rescuer),
-                orderBy: q => q.OrderByDescending(a => a.ShiftStartLocal),
+                orderBy: q => q.OrderBy(a => a.ShiftStartLocal),
                 selector: a => a.Adapt<ShiftAssignmentResponse>());
 
             return assignments.ToList();

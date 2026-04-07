@@ -19,6 +19,6 @@ namespace SnakeAid.Service.Interfaces
         Task<ShiftAssignmentResponse> CheckOutAssignmentAsync(Guid assignmentId);
         Task<List<ShiftAssignmentResponse>> GetAssignmentsByDateAsync(DateOnly date);
         Task<List<ShiftAssignmentResponse>> GetAssignmentsByDateRangeAsync(DateOnly startDate, DateOnly endDate);
-        Task<List<ShiftAssignmentResponse>> GetAssignmentsByRescuerIdAsync(Guid rescuerId);
+        Task<List<ShiftAssignmentResponse>> GetAssignmentsByRescuerIdAsync(Guid rescuerId, DateOnly date);
     }
 }
