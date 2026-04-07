@@ -71,7 +71,8 @@ namespace SnakeAid.Api.Services
                     Title = "Có đơn bắt rắn mới",
                     Body = $"Có yêu cầu bắt rắn mới từ {userName ?? "thành viên"} - {address ?? "chưa rõ địa chỉ"}.",
                     Type = "SNAKE_CATCHING_REQUEST_CREATED",
-                    TargetRoles = new List<AccountRole> { AccountRole.Operator }
+                    TargetRoles = new List<AccountRole> { AccountRole.Operator },
+                    Data = BuildEntityData(requestId)
                 });
             }, "SnakeCatchingRequestCreated", requestId);
 
@@ -101,7 +102,8 @@ namespace SnakeAid.Api.Services
                     UserId = userId,
                     Title = "Yêu cầu đã được xác nhận",
                     Body = $"Yêu cầu #{requestId} đã được xác nhận.",
-                    Type = "SNAKE_CATCHING_REQUEST_CONFIRMED"
+                    Type = "SNAKE_CATCHING_REQUEST_CONFIRMED",
+                    Data = BuildEntityData(requestId)
                 });
             }, "SnakeCatchingRequestAccepted", requestId);
 
@@ -133,7 +135,8 @@ namespace SnakeAid.Api.Services
                     UserId = userId,
                     Title = "Cứu hộ viên đang được phân công",
                     Body = $"{assignedRescuerName ?? "Cứu hộ viên"} sẽ đến hỗ trợ bạn.",
-                    Type = "SNAKE_CATCHING_RESCUER_ASSIGNED"
+                    Type = "SNAKE_CATCHING_RESCUER_ASSIGNED",
+                    Data = BuildEntityData(requestId)
                 });
 
                 if (assignedRescuerId.HasValue)
@@ -145,7 +148,8 @@ namespace SnakeAid.Api.Services
                         UserId = assignedRescuerId.Value,
                         Title = "Bạn được phân công nhiệm vụ bắt rắn mới",
                         Body = $"Mã nhiệm vụ: #{requestId}. Mở app để xem chi tiết.",
-                        Type = "SNAKE_CATCHING_MISSION_ASSIGNED"
+                        Type = "SNAKE_CATCHING_MISSION_ASSIGNED",
+                        Data = BuildEntityData(requestId)
                     });
                 }
             }, "SnakeCatchingRequestAssigned", requestId);
@@ -178,7 +182,8 @@ namespace SnakeAid.Api.Services
                         UserId = assignedRescuerId.Value,
                         Title = "Nhiệm vụ bị hủy",
                         Body = $"Khách hàng đã hủy yêu cầu #{requestId}.",
-                        Type = "SNAKE_CATCHING_REQUEST_CANCELLED_BY_MEMBER"
+                        Type = "SNAKE_CATCHING_REQUEST_CANCELLED_BY_MEMBER",
+                        Data = BuildEntityData(requestId)
                     });
                 }
             }, "SnakeCatchingRequestCancelled", requestId);
@@ -197,7 +202,8 @@ namespace SnakeAid.Api.Services
                     UserId = memberUserId,
                     Title = "Cứu hộ viên đang di chuyển đến",
                     Body = $"{rescuerName ?? "Cứu hộ viên"} đang di chuyển đến bạn{(estimatedMinutes.HasValue ? $". Dự kiến {estimatedMinutes.Value} phút." : ".")}",
-                    Type = "SNAKE_CATCHING_RESCUER_EN_ROUTE"
+                    Type = "SNAKE_CATCHING_RESCUER_EN_ROUTE",
+                    Data = BuildEntityData(requestId, missionId)
                 });
             }, "SnakeCatchingRescuerEnRoute", requestId);
 
@@ -214,7 +220,8 @@ namespace SnakeAid.Api.Services
                     UserId = memberUserId,
                     Title = "Cứu hộ viên đã đến",
                     Body = $"{rescuerName ?? "Cứu hộ viên"} đã đến nơi và bắt đầu khảo sát.",
-                    Type = "SNAKE_CATCHING_RESCUER_ARRIVED"
+                    Type = "SNAKE_CATCHING_RESCUER_ARRIVED",
+                    Data = BuildEntityData(requestId, missionId)
                 });
             }, "SnakeCatchingRescuerArrived", requestId);
 
@@ -234,7 +241,8 @@ namespace SnakeAid.Api.Services
                     Body = actualCost.HasValue
                         ? $"{rescuerName ?? "Cứu hộ viên"} đã hoàn thành. Phí dịch vụ: {actualCost.Value:N0} VND."
                         : $"{rescuerName ?? "Cứu hộ viên"} đã hoàn thành nhiệm vụ. Vui lòng thanh toán để kết thúc.",
-                    Type = "SNAKE_CATCHING_MISSION_COMPLETED"
+                    Type = "SNAKE_CATCHING_MISSION_COMPLETED",
+                    Data = BuildEntityData(requestId, missionId)
                 });
             }, "SnakeCatchingMissionCompleted", requestId);
 
@@ -252,7 +260,8 @@ namespace SnakeAid.Api.Services
                     UserId = memberUserId,
                     Title = "Cứu hộ viên không thể thực hiện",
                     Body = $"{rescuerName ?? "Cứu hộ viên"} không thể tiếp tục nhiệm vụ. Đợi SnakeAid đang tìm người thay thế.",
-                    Type = "SNAKE_CATCHING_MISSION_ABORTED"
+                    Type = "SNAKE_CATCHING_MISSION_ABORTED",
+                    Data = BuildEntityData(requestId, missionId)
                 });
 
                 await _notificationQueueService.BroadcastAsync(new AdminBroadcastNotificationRequest
@@ -260,9 +269,25 @@ namespace SnakeAid.Api.Services
                     Title = "Cần phân công lại ngay",
                     Body = $"Cứu hộ viên {rescuerName ?? rescuerUserId.ToString()} đã hủy nhiệm vụ cho đơn #{requestId}.",
                     Type = "SNAKE_CATCHING_REASSIGN_NEEDED",
-                    TargetRoles = new List<AccountRole> { AccountRole.Operator }
+                    TargetRoles = new List<AccountRole> { AccountRole.Operator },
+                    Data = BuildEntityData(requestId, missionId)
                 });
             }, "SnakeCatchingMissionAborted", requestId);
+
+        private static Dictionary<string, string> BuildEntityData(Guid requestId, Guid? missionId = null)
+        {
+            var data = new Dictionary<string, string>
+            {
+                ["requestId"] = requestId.ToString()
+            };
+
+            if (missionId.HasValue)
+            {
+                data["missionId"] = missionId.Value.ToString();
+            }
+
+            return data;
+        }
 
         private static double? NormalizeDouble(double? value)
         {

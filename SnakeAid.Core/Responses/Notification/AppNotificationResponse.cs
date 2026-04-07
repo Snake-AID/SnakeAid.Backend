@@ -11,6 +11,11 @@ public class AppNotificationResponse
     public string Message { get; set; } = string.Empty;
 
     public string NotificationType { get; set; } = string.Empty;
+
+    public string? DeepLink { get; set; }
+
+    public Dictionary<string, string>? Data { get; set; }
+
     public bool IsRead { get; set; }
 
     public DateTime CreatedAt { get; set; }

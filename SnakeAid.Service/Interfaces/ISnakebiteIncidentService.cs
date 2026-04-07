@@ -12,6 +12,8 @@ namespace SnakeAid.Service.Interfaces
 
         Task<DetailSnakebiteIncidentResponse> GetDetailIncidentAsync(Guid incidentId);
 
+        Task<AdminDetailSnakebiteIncidentResponse> GetAdminDetailIncidentAsync(Guid incidentId);
+
         Task<UpdateSymptomReportResponse> UpdateSymptomReportAsync(Guid incidentId, UpdateSymptomReportRequest request);
 
         Task<CreateIncidentResponse> CancelIncidentAsync(Guid incidentId, CancelIncidentRequest request);
