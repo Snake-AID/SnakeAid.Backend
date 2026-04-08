@@ -84,6 +84,7 @@ public class ConsultationPaymentIntegrationTests
 
         var paymentTx = await db.Set<Transaction>().FirstAsync(t => t.ReferenceId == bookingId && t.TransactionType == TransactionType.ConsultationPayment);
         Assert.Equal(150_000m, paymentTx.Amount);
+        Assert.Equal(150_000m, await GetConsultationEscrowAvailableByPaymentReferenceAsync(db, bookingId));
 
         var escrowCreditTx = await db.Set<Transaction>().FirstAsync(t =>
             t.ReferenceId == bookingId &&
@@ -147,6 +148,7 @@ public class ConsultationPaymentIntegrationTests
         var systemWallet = await db.Set<Wallet>().FirstAsync(w => w.UserId == SystemUserId);
         Assert.Equal(0m, userWallet.Balance);
         Assert.Equal(500_000m, systemWallet.Balance);
+        Assert.Equal(500_000m, await GetConsultationEscrowAvailableByPaymentReferenceAsync(db, requestId));
     }
 
     [Fact]
@@ -211,6 +213,7 @@ public class ConsultationPaymentIntegrationTests
         Assert.InRange(response.OrderCode!.Value, 1_000_000_000_100L, 99_999_999_999_999L);
 
         var paymentTx = await db.Set<Transaction>().FirstAsync(t => t.Id == response.TransactionId);
+        Assert.NotNull(paymentTx.Description);
         Assert.True(paymentTx.Description.Length <= 25);
 
         var booking = await db.ConsultationBookings.FirstAsync(x => x.Id == bookingId);
@@ -220,6 +223,7 @@ public class ConsultationPaymentIntegrationTests
         var systemWallet = await db.Set<Wallet>().FirstAsync(w => w.UserId == SystemUserId);
         Assert.Equal(500_000m, userWallet.Balance);
         Assert.Equal(0m, systemWallet.Balance);
+        Assert.Equal(0m, await GetConsultationEscrowAvailableByPaymentReferenceAsync(db, bookingId));
     }
 
     [Fact]
@@ -291,6 +295,7 @@ public class ConsultationPaymentIntegrationTests
 
         var systemWallet = await db.Set<Wallet>().FirstAsync(w => w.UserId == SystemUserId);
         Assert.Equal(150_000m, systemWallet.Balance);
+        Assert.Equal(150_000m, await GetConsultationEscrowAvailableByPaymentReferenceAsync(db, bookingId));
     }
 
     [Fact]
@@ -352,6 +357,7 @@ public class ConsultationPaymentIntegrationTests
             t.ReferenceId == requestId &&
             t.UserId == SystemUserId &&
             t.TransactionType == TransactionType.WalletWithdraw));
+        Assert.Equal(0m, await GetConsultationEscrowAvailableByPaymentReferenceAsync(db, requestId));
     }
 
     [Fact]
@@ -435,6 +441,68 @@ public class ConsultationPaymentIntegrationTests
             t.ReferenceId == consultationId &&
             t.UserId == SystemUserId &&
             t.TransactionType == TransactionType.WalletWithdraw));
+        Assert.Equal(0m, await GetConsultationEscrowAvailableForSettlementAsync(db, consultationId));
+    }
+
+    private static async Task<decimal> GetConsultationEscrowAvailableByPaymentReferenceAsync(
+        SnakeAidDbContext db,
+        Guid referenceId)
+    {
+        var heldTransactions = await db.Set<Transaction>()
+            .Where(t => t.ReferenceId == referenceId &&
+                        t.TransactionType == TransactionType.ConsultationPayment &&
+                        !string.IsNullOrEmpty(t.ExternalTransactionId))
+            .ToListAsync();
+
+        var releasedTransactions = await db.Set<Transaction>()
+            .Where(t => t.ReferenceId == referenceId &&
+                        (t.TransactionType == TransactionType.ConsultationRefund ||
+                         t.TransactionType == TransactionType.PlatformFee))
+            .ToListAsync();
+
+        return heldTransactions.Sum(t => t.Amount) - releasedTransactions.Sum(t => t.Amount);
+    }
+
+    private static async Task<decimal> GetConsultationEscrowAvailableForSettlementAsync(
+        SnakeAidDbContext db,
+        Guid consultationId)
+    {
+        Guid? paymentReferenceId = null;
+
+        var booking = await db.ConsultationBookings
+            .AsNoTracking()
+            .FirstOrDefaultAsync(b => b.ConsultationId == consultationId);
+        if (booking != null)
+        {
+            paymentReferenceId = booking.Id;
+        }
+
+        if (paymentReferenceId == null)
+        {
+            var pingRequest = await db.ConsultationPingRequests
+                .AsNoTracking()
+                .FirstOrDefaultAsync(p => p.ConsultationId == consultationId);
+            paymentReferenceId = pingRequest?.Id;
+        }
+
+        if (paymentReferenceId == null)
+        {
+            return 0m;
+        }
+
+        var heldTransactions = await db.Set<Transaction>()
+            .Where(t => t.ReferenceId == paymentReferenceId.Value &&
+                        t.TransactionType == TransactionType.ConsultationPayment &&
+                        !string.IsNullOrEmpty(t.ExternalTransactionId))
+            .ToListAsync();
+
+        var releasedTransactions = await db.Set<Transaction>()
+            .Where(t => t.ReferenceId == consultationId &&
+                        (t.TransactionType == TransactionType.ExpertPayout ||
+                         t.TransactionType == TransactionType.PlatformFee))
+            .ToListAsync();
+
+        return heldTransactions.Sum(t => t.Amount) - releasedTransactions.Sum(t => t.Amount);
     }
 
     private static ConsultationPaymentService CreatePaymentService(
