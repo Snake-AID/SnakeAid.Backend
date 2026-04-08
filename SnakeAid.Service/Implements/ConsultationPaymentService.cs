@@ -18,7 +18,6 @@ namespace SnakeAid.Service.Implements;
 
 public class ConsultationPaymentService : IConsultationPaymentService
 {
-    private const string SystemWalletUserId = "57288b98-5f91-4de8-b827-866e3df69587";
     private static readonly TimeSpan EmergencyRequestTtl = TimeSpan.FromMinutes(2);
     private static readonly Regex OrderCodeRegex = new($@"^{PayOsPaymentFlowPrefixes.Consultation}(\d+)", RegexOptions.Compiled);
 
@@ -280,6 +279,7 @@ public class ConsultationPaymentService : IConsultationPaymentService
             }
 
             decimal amount;
+            Guid paymentReferenceId;
             var scheduledBooking = await _unitOfWork.GetRepository<ConsultationBooking>().FirstOrDefaultAsync(
                 predicate: b => b.ConsultationId == consultationId,
                 asNoTracking: true,
@@ -287,7 +287,8 @@ public class ConsultationPaymentService : IConsultationPaymentService
 
             if (scheduledBooking != null)
             {
-                amount = (await RequireSuccessfulConsultationPaymentAsync(scheduledBooking.Id, cancellationToken)).Amount;
+                paymentReferenceId = scheduledBooking.Id;
+                amount = (await RequireSuccessfulConsultationPaymentAsync(paymentReferenceId, cancellationToken)).Amount;
             }
             else
             {
@@ -301,10 +302,11 @@ public class ConsultationPaymentService : IConsultationPaymentService
                     return false;
                 }
 
-                amount = (await RequireSuccessfulConsultationPaymentAsync(ping.Id, cancellationToken)).Amount;
+                paymentReferenceId = ping.Id;
+                amount = (await RequireSuccessfulConsultationPaymentAsync(paymentReferenceId, cancellationToken)).Amount;
             }
 
-            await TransferEscrowToExpertAsync(consultation.CalleeId, consultationId, amount, cancellationToken);
+            await TransferEscrowToExpertAsync(consultation.CalleeId, consultationId, paymentReferenceId, amount, cancellationToken);
             return true;
         });
     }
@@ -865,11 +867,6 @@ public class ConsultationPaymentService : IConsultationPaymentService
             asNoTracking: true,
             cancellationToken: cancellationToken);
 
-        var systemWallet = await _unitOfWork.GetRepository<Wallet>().FirstOrDefaultAsync(
-            predicate: w => w.UserId == Guid.Parse(SystemWalletUserId),
-            asNoTracking: true,
-            cancellationToken: cancellationToken);
-
         var booking = await _unitOfWork.GetRepository<ConsultationBooking>().FirstOrDefaultAsync(
             predicate: b => b.Id == transaction.ReferenceId,
             asNoTracking: true,
@@ -889,7 +886,7 @@ public class ConsultationPaymentService : IConsultationPaymentService
                     : ConsultationPaymentMethod.WalletBalance,
                 Status = "Escrowed",
                 UserWalletBalanceAfter = userWallet?.Balance,
-                SystemWalletBalanceAfter = systemWallet?.Balance,
+                SystemWalletBalanceAfter = null,
                 PaidAtUtc = transaction.CreatedAt,
                 Provider = transaction.PaymentMethod,
                 OrderCode = ExtractOrderCodeFromDescription(transaction.Description),
@@ -919,7 +916,7 @@ public class ConsultationPaymentService : IConsultationPaymentService
                 : ConsultationPaymentMethod.WalletBalance,
             Status = "Escrowed",
             UserWalletBalanceAfter = userWallet?.Balance,
-            SystemWalletBalanceAfter = systemWallet?.Balance,
+            SystemWalletBalanceAfter = null,
             PaidAtUtc = transaction.CreatedAt,
             Provider = transaction.PaymentMethod,
             OrderCode = ExtractOrderCodeFromDescription(transaction.Description),
@@ -1055,7 +1052,7 @@ public class ConsultationPaymentService : IConsultationPaymentService
         return tx;
     }
 
-    private async Task<(Guid TransactionId, decimal UserWalletBalanceAfter, decimal SystemWalletBalanceAfter, DateTime ProcessedAtUtc, string ExternalTransactionId)> MoveMoneyToEscrowAsync(
+    private async Task<(Guid TransactionId, decimal UserWalletBalanceAfter, decimal? SystemWalletBalanceAfter, DateTime ProcessedAtUtc, string ExternalTransactionId)> MoveMoneyToEscrowAsync(
         Guid userId,
         Guid referenceId,
         decimal amount,
@@ -1067,7 +1064,6 @@ public class ConsultationPaymentService : IConsultationPaymentService
         bool skipExistingPaymentInsert = false)
     {
         decimal userWalletBalanceAfter;
-        var systemWallet = await GetOrCreateWalletAsync(Guid.Parse(SystemWalletUserId), cancellationToken);
         var now = DateTime.UtcNow;
 
         if (string.Equals(paymentMethod, "Wallet", StringComparison.OrdinalIgnoreCase))
@@ -1090,9 +1086,6 @@ public class ConsultationPaymentService : IConsultationPaymentService
                 cancellationToken: cancellationToken);
             userWalletBalanceAfter = userWallet?.Balance ?? 0m;
         }
-
-        systemWallet.Balance += amount;
-        _unitOfWork.GetRepository<Wallet>().Update(systemWallet);
 
         Transaction paymentTx;
         if (skipExistingPaymentInsert)
@@ -1122,23 +1115,7 @@ public class ConsultationPaymentService : IConsultationPaymentService
             await _unitOfWork.GetRepository<Transaction>().InsertAsync(paymentTx);
         }
 
-        var systemCreditTx = new Transaction
-        {
-            Id = Guid.NewGuid(),
-            UserId = Guid.Parse(SystemWalletUserId),
-            ReferenceId = referenceId,
-            Amount = amount,
-            Currency = "VND",
-            TransactionType = TransactionType.EscrowHold,
-            Description = $"Escrow received for consultation reference {referenceId}",
-            PaymentMethod = paymentMethod,
-            ExternalTransactionId = externalTransactionId,
-            CreatedAt = now
-        };
-
-        await _unitOfWork.GetRepository<Transaction>().InsertAsync(systemCreditTx);
-
-        return (paymentTx.Id, userWalletBalanceAfter, systemWallet.Balance, now, externalTransactionId);
+        return (paymentTx.Id, userWalletBalanceAfter, null, now, externalTransactionId);
     }
 
     private async Task RefundFromEscrowAsync(
@@ -1148,31 +1125,15 @@ public class ConsultationPaymentService : IConsultationPaymentService
         string description,
         CancellationToken cancellationToken)
     {
-        var systemWallet = await GetRequiredWalletAsync(Guid.Parse(SystemWalletUserId), cancellationToken);
-        if (systemWallet.Balance < amount)
+        var available = await GetAvailableConsultationEscrowByPaymentReferenceAsync(referenceId, cancellationToken);
+        if (available < amount)
         {
-            throw new ConflictException("System escrow balance is insufficient for refund.");
+            throw new ConflictException("Consultation escrow balance is insufficient for refund.");
         }
 
         var receiverWallet = await GetOrCreateWalletAsync(receiverId, cancellationToken);
-        systemWallet.Balance -= amount;
         receiverWallet.Balance += amount;
-        _unitOfWork.GetRepository<Wallet>().Update(systemWallet);
         _unitOfWork.GetRepository<Wallet>().Update(receiverWallet);
-
-        await _unitOfWork.GetRepository<Transaction>().InsertAsync(new Transaction
-        {
-            Id = Guid.NewGuid(),
-            UserId = Guid.Parse(SystemWalletUserId),
-            ReferenceId = referenceId,
-            Amount = amount,
-            Currency = "VND",
-            TransactionType = TransactionType.EscrowRelease,
-            Description = $"Escrow refund source for consultation reference {referenceId}",
-            PaymentMethod = "Internal",
-            ExternalTransactionId = $"REFUND-SOURCE-{Guid.NewGuid():N}",
-            CreatedAt = DateTime.UtcNow
-        });
 
         await _unitOfWork.GetRepository<Transaction>().InsertAsync(new Transaction
         {
@@ -1194,34 +1155,19 @@ public class ConsultationPaymentService : IConsultationPaymentService
     private async Task TransferEscrowToExpertAsync(
         Guid expertId,
         Guid consultationId,
+        Guid paymentReferenceId,
         decimal amount,
         CancellationToken cancellationToken)
     {
-        var systemWallet = await GetRequiredWalletAsync(Guid.Parse(SystemWalletUserId), cancellationToken);
-        if (systemWallet.Balance < amount)
+        var available = await GetAvailableConsultationEscrowForSettlementAsync(consultationId, paymentReferenceId, cancellationToken);
+        if (available < amount)
         {
-            throw new ConflictException("System escrow balance is insufficient for expert settlement.");
+            throw new ConflictException("Consultation escrow balance is insufficient for expert settlement.");
         }
 
         var expertWallet = await GetOrCreateWalletAsync(expertId, cancellationToken);
-        systemWallet.Balance -= amount;
         expertWallet.Balance += amount;
-        _unitOfWork.GetRepository<Wallet>().Update(systemWallet);
         _unitOfWork.GetRepository<Wallet>().Update(expertWallet);
-
-        await _unitOfWork.GetRepository<Transaction>().InsertAsync(new Transaction
-        {
-            Id = Guid.NewGuid(),
-            UserId = Guid.Parse(SystemWalletUserId),
-            ReferenceId = consultationId,
-            Amount = amount,
-            Currency = "VND",
-            TransactionType = TransactionType.EscrowRelease,
-            Description = $"Escrow settlement source for consultation {consultationId}",
-            PaymentMethod = "Internal",
-            ExternalTransactionId = $"SETTLE-SOURCE-{Guid.NewGuid():N}",
-            CreatedAt = DateTime.UtcNow
-        });
 
         await _unitOfWork.GetRepository<Transaction>().InsertAsync(new Transaction
         {
@@ -1238,6 +1184,57 @@ public class ConsultationPaymentService : IConsultationPaymentService
         });
 
         await _unitOfWork.CommitAsync();
+    }
+
+    private async Task<decimal> GetAvailableConsultationEscrowByPaymentReferenceAsync(
+        Guid referenceId,
+        CancellationToken cancellationToken)
+    {
+        var heldTransactions = await _unitOfWork.GetRepository<Transaction>().GetListAsync(
+            predicate: t => t.ReferenceId == referenceId
+                         && t.TransactionType == TransactionType.ConsultationPayment
+                         && !string.IsNullOrEmpty(t.ExternalTransactionId),
+            asNoTracking: true,
+            cancellationToken: cancellationToken);
+
+        var releasedTransactions = await _unitOfWork.GetRepository<Transaction>().GetListAsync(
+            predicate: t => t.ReferenceId == referenceId
+                         && (t.TransactionType == TransactionType.ConsultationRefund
+                             || t.TransactionType == TransactionType.PlatformFee),
+            asNoTracking: true,
+            cancellationToken: cancellationToken);
+
+        return heldTransactions.Sum(t => t.Amount) - releasedTransactions.Sum(t => t.Amount);
+    }
+
+    private async Task<decimal> GetAvailableConsultationEscrowForSettlementAsync(
+        Guid consultationId,
+        Guid paymentReferenceId,
+        CancellationToken cancellationToken)
+    {
+        var heldTransactions = await _unitOfWork.GetRepository<Transaction>().GetListAsync(
+            predicate: t => t.ReferenceId == paymentReferenceId
+                         && t.TransactionType == TransactionType.ConsultationPayment
+                         && !string.IsNullOrEmpty(t.ExternalTransactionId),
+            asNoTracking: true,
+            cancellationToken: cancellationToken);
+
+        var releasedByPaymentReference = await _unitOfWork.GetRepository<Transaction>().GetListAsync(
+            predicate: t => t.ReferenceId == paymentReferenceId
+                         && t.TransactionType == TransactionType.ConsultationRefund,
+            asNoTracking: true,
+            cancellationToken: cancellationToken);
+
+        var releasedByConsultation = await _unitOfWork.GetRepository<Transaction>().GetListAsync(
+            predicate: t => t.ReferenceId == consultationId
+                         && (t.TransactionType == TransactionType.ExpertPayout
+                             || t.TransactionType == TransactionType.PlatformFee),
+            asNoTracking: true,
+            cancellationToken: cancellationToken);
+
+        return heldTransactions.Sum(t => t.Amount)
+               - releasedByPaymentReference.Sum(t => t.Amount)
+               - releasedByConsultation.Sum(t => t.Amount);
     }
 
     private async Task<Wallet> GetRequiredWalletAsync(Guid userId, CancellationToken cancellationToken)

@@ -27,7 +27,7 @@ public class ConsultationPaymentIntegrationTests
 
         await using var db = CreateDbContext();
         await SeedAccountsAsync(db, userId, expertId);
-        await SeedWalletsAsync(db, userId, expertId, 500_000m, 0m, 0m);
+        await SeedWalletsAsync(db, userId, expertId, 500_000m, 0m);
 
         db.ExpertTimeSlots.Add(new ExpertTimeSlot
         {
@@ -78,19 +78,17 @@ public class ConsultationPaymentIntegrationTests
         Assert.Equal(BookingStatus.Confirmed, booking.Status);
 
         var userWallet = await db.Set<Wallet>().FirstAsync(w => w.UserId == userId);
-        var systemWallet = await db.Set<Wallet>().FirstAsync(w => w.UserId == SystemUserId);
         Assert.Equal(350_000m, userWallet.Balance);
-        Assert.Equal(150_000m, systemWallet.Balance);
+        Assert.Null(response.SystemWalletBalanceAfter);
+        Assert.False(await db.Set<Wallet>().AnyAsync(w => w.UserId == SystemUserId));
 
         var paymentTx = await db.Set<Transaction>().FirstAsync(t => t.ReferenceId == bookingId && t.TransactionType == TransactionType.ConsultationPayment);
         Assert.Equal(150_000m, paymentTx.Amount);
         Assert.Equal(150_000m, await GetConsultationEscrowAvailableByPaymentReferenceAsync(db, bookingId));
 
-        var escrowCreditTx = await db.Set<Transaction>().FirstAsync(t =>
+        Assert.False(await db.Set<Transaction>().AnyAsync(t =>
             t.ReferenceId == bookingId &&
-            t.TransactionType == TransactionType.EscrowHold);
-        Assert.Equal(SystemUserId, escrowCreditTx.UserId);
-        Assert.Equal(150_000m, escrowCreditTx.Amount);
+            t.TransactionType == TransactionType.EscrowHold));
         Assert.False(await db.Set<Transaction>().AnyAsync(t =>
             t.ReferenceId == bookingId &&
             t.UserId == SystemUserId &&
@@ -106,7 +104,7 @@ public class ConsultationPaymentIntegrationTests
 
         await using var db = CreateDbContext();
         await SeedAccountsAsync(db, userId, expertId);
-        await SeedWalletsAsync(db, userId, expertId, 500_000m, 0m, 0m);
+        await SeedWalletsAsync(db, userId, expertId, 500_000m, 0m);
 
         db.ExpertProfiles.Add(new ExpertProfile
         {
@@ -145,9 +143,9 @@ public class ConsultationPaymentIntegrationTests
         Assert.NotNull(ping.ExpiresAt);
 
         var userWallet = await db.Set<Wallet>().FirstAsync(w => w.UserId == userId);
-        var systemWallet = await db.Set<Wallet>().FirstAsync(w => w.UserId == SystemUserId);
         Assert.Equal(0m, userWallet.Balance);
-        Assert.Equal(500_000m, systemWallet.Balance);
+        Assert.Null(response.SystemWalletBalanceAfter);
+        Assert.False(await db.Set<Wallet>().AnyAsync(w => w.UserId == SystemUserId));
         Assert.Equal(500_000m, await GetConsultationEscrowAvailableByPaymentReferenceAsync(db, requestId));
     }
 
@@ -162,7 +160,7 @@ public class ConsultationPaymentIntegrationTests
 
         await using var db = CreateDbContext();
         await SeedAccountsAsync(db, userId, expertId);
-        await SeedWalletsAsync(db, userId, expertId, 500_000m, 0m, 0m);
+        await SeedWalletsAsync(db, userId, expertId, 500_000m, 0m);
 
         db.ExpertTimeSlots.Add(new ExpertTimeSlot
         {
@@ -220,9 +218,9 @@ public class ConsultationPaymentIntegrationTests
         Assert.Equal(BookingStatus.PendingPayment, booking.Status);
 
         var userWallet = await db.Set<Wallet>().FirstAsync(w => w.UserId == userId);
-        var systemWallet = await db.Set<Wallet>().FirstAsync(w => w.UserId == SystemUserId);
         Assert.Equal(500_000m, userWallet.Balance);
-        Assert.Equal(0m, systemWallet.Balance);
+        Assert.Null(response.SystemWalletBalanceAfter);
+        Assert.False(await db.Set<Wallet>().AnyAsync(w => w.UserId == SystemUserId));
         Assert.Equal(0m, await GetConsultationEscrowAvailableByPaymentReferenceAsync(db, bookingId));
     }
 
@@ -237,7 +235,7 @@ public class ConsultationPaymentIntegrationTests
 
         await using var db = CreateDbContext();
         await SeedAccountsAsync(db, userId, expertId);
-        await SeedWalletsAsync(db, userId, expertId, 500_000m, 0m, 0m);
+        await SeedWalletsAsync(db, userId, expertId, 500_000m, 0m);
 
         db.ExpertTimeSlots.Add(new ExpertTimeSlot
         {
@@ -293,8 +291,11 @@ public class ConsultationPaymentIntegrationTests
         var paymentTx = await db.Set<Transaction>().FirstAsync(t => t.Id == pending.TransactionId);
         Assert.False(string.IsNullOrWhiteSpace(paymentTx.ExternalTransactionId));
 
-        var systemWallet = await db.Set<Wallet>().FirstAsync(w => w.UserId == SystemUserId);
-        Assert.Equal(150_000m, systemWallet.Balance);
+        Assert.Null(confirmed.SystemWalletBalanceAfter);
+        Assert.False(await db.Set<Wallet>().AnyAsync(w => w.UserId == SystemUserId));
+        Assert.False(await db.Set<Transaction>().AnyAsync(t =>
+            t.ReferenceId == bookingId &&
+            t.TransactionType == TransactionType.EscrowHold));
         Assert.Equal(150_000m, await GetConsultationEscrowAvailableByPaymentReferenceAsync(db, bookingId));
     }
 
@@ -307,7 +308,7 @@ public class ConsultationPaymentIntegrationTests
 
         await using var db = CreateDbContext();
         await SeedAccountsAsync(db, userId, expertId);
-        await SeedWalletsAsync(db, userId, expertId, 0m, 0m, 500_000m);
+        await SeedWalletsAsync(db, userId, expertId, 0m, 0m);
 
         db.ConsultationPingRequests.Add(new ConsultationPingRequest
         {
@@ -347,12 +348,11 @@ public class ConsultationPaymentIntegrationTests
         Assert.Equal(ConsultationPingStatus.DeclinedByExpert, response.Status);
 
         var userWallet = await db.Set<Wallet>().FirstAsync(w => w.UserId == userId);
-        var systemWallet = await db.Set<Wallet>().FirstAsync(w => w.UserId == SystemUserId);
         Assert.Equal(500_000m, userWallet.Balance);
-        Assert.Equal(0m, systemWallet.Balance);
+        Assert.False(await db.Set<Wallet>().AnyAsync(w => w.UserId == SystemUserId));
 
         Assert.NotNull(await db.Set<Transaction>().FirstOrDefaultAsync(t => t.ReferenceId == requestId && t.TransactionType == TransactionType.ConsultationRefund));
-        Assert.NotNull(await db.Set<Transaction>().FirstOrDefaultAsync(t => t.ReferenceId == requestId && t.TransactionType == TransactionType.EscrowRelease));
+        Assert.False(await db.Set<Transaction>().AnyAsync(t => t.ReferenceId == requestId && t.TransactionType == TransactionType.EscrowRelease));
         Assert.False(await db.Set<Transaction>().AnyAsync(t =>
             t.ReferenceId == requestId &&
             t.UserId == SystemUserId &&
@@ -371,7 +371,7 @@ public class ConsultationPaymentIntegrationTests
 
         await using var db = CreateDbContext();
         await SeedAccountsAsync(db, userId, expertId);
-        await SeedWalletsAsync(db, userId, expertId, 0m, 0m, 150_000m);
+        await SeedWalletsAsync(db, userId, expertId, 0m, 0m);
 
         db.ExpertTimeSlots.Add(new ExpertTimeSlot
         {
@@ -431,12 +431,11 @@ public class ConsultationPaymentIntegrationTests
         Assert.True(first);
         Assert.False(second);
 
-        var systemWallet = await db.Set<Wallet>().FirstAsync(w => w.UserId == SystemUserId);
         var expertWallet = await db.Set<Wallet>().FirstAsync(w => w.UserId == expertId);
-        Assert.Equal(0m, systemWallet.Balance);
+        Assert.False(await db.Set<Wallet>().AnyAsync(w => w.UserId == SystemUserId));
         Assert.Equal(150_000m, expertWallet.Balance);
         Assert.Equal(1, await db.Set<Transaction>().CountAsync(t => t.ReferenceId == consultationId && t.TransactionType == TransactionType.ExpertPayout));
-        Assert.Equal(1, await db.Set<Transaction>().CountAsync(t => t.ReferenceId == consultationId && t.TransactionType == TransactionType.EscrowRelease));
+        Assert.Equal(0, await db.Set<Transaction>().CountAsync(t => t.ReferenceId == consultationId && t.TransactionType == TransactionType.EscrowRelease));
         Assert.Equal(0, await db.Set<Transaction>().CountAsync(t =>
             t.ReferenceId == consultationId &&
             t.UserId == SystemUserId &&
@@ -572,7 +571,7 @@ public class ConsultationPaymentIntegrationTests
         await db.SaveChangesAsync();
     }
 
-    private static async Task SeedWalletsAsync(SnakeAidDbContext db, Guid userId, Guid expertId, decimal userBalance, decimal expertBalance, decimal systemBalance)
+    private static async Task SeedWalletsAsync(SnakeAidDbContext db, Guid userId, Guid expertId, decimal userBalance, decimal expertBalance)
     {
         db.Set<Wallet>().Add(new Wallet
         {
@@ -586,13 +585,6 @@ public class ConsultationPaymentIntegrationTests
             Id = Guid.NewGuid(),
             UserId = expertId,
             Balance = expertBalance
-        });
-
-        db.Set<Wallet>().Add(new Wallet
-        {
-            Id = Guid.NewGuid(),
-            UserId = SystemUserId,
-            Balance = systemBalance
         });
 
         await db.SaveChangesAsync();

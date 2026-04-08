@@ -515,14 +515,16 @@ public class PayOsPreservationTests
     }
 
     /// <summary>
-    /// Property: The system wallet ID is consistent across SnakebiteIncident and Consultation services.
-    /// Both use the same static SystemWalletUserId constant.
-    /// SnakeCatchingPaymentService uses an instance field 'systemId' with the same value.
+    /// Property: The legacy system wallet ID remains only in flows that have not moved to
+    /// transaction-sourced escrow yet.
+    /// SnakeCatchingPaymentService uses an instance field 'systemId'.
+    /// SnakebiteIncidentPaymentService still uses the static SystemWalletUserId constant.
+    /// ConsultationPaymentService no longer owns a system wallet constant after Money Aspect 6B.
     ///
     /// **Validates: Requirements 3.8**
     /// </summary>
     [Fact]
-    public void PaymentServices_HaveSystemWalletIdFields()
+    public void PaymentServices_SystemWalletIdFieldsMatchCurrentEscrowOwnership()
     {
         var expectedSystemId = "57288b98-5f91-4de8-b827-866e3df69587";
 
@@ -540,13 +542,10 @@ public class PayOsPreservationTests
         var siSystemId = (string)siField!.GetValue(null)!;
         Assert.Equal(expectedSystemId, siSystemId);
 
-        // ConsultationPaymentService uses 'SystemWalletUserId' const (static, can read directly)
         var cpType = typeof(ConsultationPaymentService);
         var cpField = cpType.GetField("SystemWalletUserId",
             BindingFlags.NonPublic | BindingFlags.Static);
-        Assert.NotNull(cpField);
-        var cpSystemId = (string)cpField!.GetValue(null)!;
-        Assert.Equal(expectedSystemId, cpSystemId);
+        Assert.Null(cpField);
     }
 
     #endregion
