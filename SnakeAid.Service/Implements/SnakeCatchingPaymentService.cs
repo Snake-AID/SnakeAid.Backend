@@ -695,33 +695,25 @@ public class SnakeCatchingPaymentService : ISnakeCatchingPaymentService
                 throw new InvalidOperationException("Refund amount must be greater than 0");
             }
 
-            var receiverExists = await _unitOfWork.GetRepository<Account>()
-                .ExistsAsync(a => a.Id == request.ReceiverId, cancellationToken);
-
-            if (!receiverExists)
-            {
-                throw new InvalidOperationException($"Receiver account {request.ReceiverId} not found");
-            }
-
-            var systemAccountId = Guid.Parse(systemId);
-            var systemWallet = await _unitOfWork.GetRepository<Wallet>()
-                .FirstOrDefaultAsync(
-                    predicate: w => w.UserId == systemAccountId,
-                    asNoTracking: false,
+            var originalPayments = await _unitOfWork.GetRepository<Transaction>()
+                .GetListAsync(
+                    predicate: t => t.ReferenceId == request.ReferenceId &&
+                                   (t.TransactionType == TransactionType.CatchingPayment ||
+                                    t.TransactionType == TransactionType.CatchingDeposit) &&
+                                   !string.IsNullOrEmpty(t.ExternalTransactionId),
+                    asNoTracking: true,
                     cancellationToken: cancellationToken);
 
-            if (systemWallet == null)
+            if (!originalPayments.Any())
             {
-                throw new InvalidOperationException($"System wallet for account {systemAccountId} not found");
+                throw new InvalidOperationException("Original snake catching payment transaction not found.");
             }
 
-            if (systemWallet.Balance < request.Amount)
+            var available = await GetRefundableSnakeCatchingRevenueAsync(request.ReferenceId, cancellationToken);
+            if (available < request.Amount)
             {
-                throw new InvalidOperationException(
-                    $"Insufficient balance in system wallet. Required: {request.Amount}, Available: {systemWallet.Balance}");
+                throw new InvalidOperationException("Snake catching refundable payment amount is insufficient for refund.");
             }
-
-            var systemBalanceBefore = systemWallet.Balance;
 
             var receiverWallet = await _unitOfWork.GetRepository<Wallet>()
                 .FirstOrDefaultAsync(
@@ -742,26 +734,9 @@ public class SnakeCatchingPaymentService : ISnakeCatchingPaymentService
 
             var receiverBalanceBefore = receiverWallet.Balance;
 
-            systemWallet.Balance -= request.Amount;
             receiverWallet.Balance += request.Amount;
 
-            _unitOfWork.GetRepository<Wallet>().Update(systemWallet);
             _unitOfWork.GetRepository<Wallet>().Update(receiverWallet);
-
-            var systemWithdrawTransaction = new Transaction
-            {
-                Id = Guid.NewGuid(),
-                UserId = systemAccountId,
-                ReferenceId = request.ReferenceId,
-                Amount = request.Amount,
-                Currency = "VND",
-                TransactionType = TransactionType.EscrowRelease,
-                Description = $"Refund to receiver {request.ReceiverId}: {request.Description}",
-                PaymentMethod = "Internal",
-                ExternalTransactionId = $"REFUND-{Guid.NewGuid()}",
-                CreatedAt = DateTime.UtcNow
-            };
-            await _unitOfWork.GetRepository<Transaction>().InsertAsync(systemWithdrawTransaction);
 
             var refundTransaction = new Transaction
             {
@@ -770,7 +745,7 @@ public class SnakeCatchingPaymentService : ISnakeCatchingPaymentService
                 ReferenceId = request.ReferenceId,
                 Amount = request.Amount,
                 Currency = "VND",
-                TransactionType = request.TransactionType,
+                TransactionType = TransactionType.CatchingRefund,
                 Description = $"Refund: {request.Description}",
                 PaymentMethod = "Internal",
                 ExternalTransactionId = $"REFUND-{Guid.NewGuid()}",
@@ -787,8 +762,8 @@ public class SnakeCatchingPaymentService : ISnakeCatchingPaymentService
                 ReceiverId = request.ReceiverId,
                 RefundAmount = request.Amount,
                 RefundTransactionId = refundTransaction.Id,
-                SystemWalletBalanceBefore = systemBalanceBefore,
-                SystemWalletBalanceAfter = systemWallet.Balance,
+                SystemWalletBalanceBefore = null,
+                SystemWalletBalanceAfter = null,
                 ReceiverWalletBalanceBefore = receiverBalanceBefore,
                 ReceiverWalletBalanceAfter = receiverWallet.Balance,
                 RefundedAt = DateTime.UtcNow
@@ -800,6 +775,29 @@ public class SnakeCatchingPaymentService : ISnakeCatchingPaymentService
                 LogPrefix, request.ReceiverId);
             throw;
         }
+    }
+
+    private async Task<decimal> GetRefundableSnakeCatchingRevenueAsync(
+        Guid requestId,
+        CancellationToken cancellationToken)
+    {
+        var paidTransactions = await _unitOfWork.GetRepository<Transaction>()
+            .GetListAsync(
+                predicate: t => t.ReferenceId == requestId &&
+                               (t.TransactionType == TransactionType.CatchingPayment ||
+                                t.TransactionType == TransactionType.CatchingDeposit) &&
+                               !string.IsNullOrEmpty(t.ExternalTransactionId),
+                asNoTracking: true,
+                cancellationToken: cancellationToken);
+
+        var refundedTransactions = await _unitOfWork.GetRepository<Transaction>()
+            .GetListAsync(
+                predicate: t => t.ReferenceId == requestId &&
+                               t.TransactionType == TransactionType.CatchingRefund,
+                asNoTracking: true,
+                cancellationToken: cancellationToken);
+
+        return paidTransactions.Sum(t => t.Amount) - refundedTransactions.Sum(t => t.Amount);
     }
 
     private async Task<SnakeCatchingPaymentOperationResult> ProcessWebhookCoreAsync(
