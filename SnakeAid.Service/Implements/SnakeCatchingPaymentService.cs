@@ -74,7 +74,6 @@ public class SnakeCatchingPaymentService : ISnakeCatchingPaymentService
                 LogPrefix, request.SnakeCatchingRequestId, request.TransactionType);
 
             var senderId = currentUserId;
-            var receiverId = Guid.Parse(systemId);
 
             await ValidateSnakeCatchingRequestAsync(
                 request.SnakeCatchingRequestId,
@@ -85,14 +84,6 @@ public class SnakeCatchingPaymentService : ISnakeCatchingPaymentService
             if (request.Amount <= 0)
             {
                 throw new InvalidOperationException("Payment amount must be greater than 0");
-            }
-
-            var receiverExists = await _unitOfWork.GetRepository<Account>()
-                .ExistsAsync(a => a.Id == receiverId, cancellationToken);
-
-            if (!receiverExists)
-            {
-                throw new InvalidOperationException($"System receiver account {receiverId} not found");
             }
 
             var existingTransaction = await _unitOfWork.GetRepository<Transaction>()
@@ -127,72 +118,15 @@ public class SnakeCatchingPaymentService : ISnakeCatchingPaymentService
 
             var orderCode = GenerateOrderCode();
             var description = BuildDescription(orderCode, request.Description);
-
-            var userPreviousBalance = userWallet.Balance;
-            userWallet.Balance -= request.Amount;
-            _unitOfWork.GetRepository<Wallet>().Update(userWallet);
-
-            _logger.LogInformation("{Prefix} User wallet debited. UserId={UserId}, Amount={Amount}, Balance: {PrevBalance} -> {NewBalance}",
-                LogPrefix, senderId, request.Amount, userPreviousBalance, userWallet.Balance);
-
-            var userTransaction = new Transaction
-            {
-                Id = Guid.NewGuid(),
-                UserId = senderId,
-                ReferenceId = request.SnakeCatchingRequestId,
-                Amount = request.Amount,
-                Currency = "VND",
-                TransactionType = request.TransactionType,
-                Description = $"{description} - Payment for {request.TransactionType}",
-                PaymentMethod = "Wallet",
-                ExternalTransactionId = $"WALLET-{orderCode}",
-                CreatedAt = DateTime.UtcNow
-            };
-
-            await _unitOfWork.GetRepository<Transaction>().InsertAsync(userTransaction);
-
-            var systemAccountId = Guid.Parse(systemId);
-            var systemWallet = await _unitOfWork.GetRepository<Wallet>()
-                .FirstOrDefaultAsync(
-                    predicate: w => w.UserId == systemAccountId,
-                    asNoTracking: false,
-                    cancellationToken: cancellationToken);
-
-            if (systemWallet == null)
-            {
-                systemWallet = new Wallet
-                {
-                    Id = Guid.NewGuid(),
-                    UserId = systemAccountId,
-                    Balance = 0
-                };
-                await _unitOfWork.GetRepository<Wallet>().InsertAsync(systemWallet);
-                _logger.LogInformation("{Prefix} Created system wallet for account {AccountId}",
-                    LogPrefix, systemAccountId);
-            }
-
-            var systemPreviousBalance = systemWallet.Balance;
-            systemWallet.Balance += request.Amount;
-            _unitOfWork.GetRepository<Wallet>().Update(systemWallet);
-
-            _logger.LogInformation("{Prefix} System wallet credited. Amount={Amount}, Balance: {PrevBalance} -> {NewBalance}",
-                LogPrefix, request.Amount, systemPreviousBalance, systemWallet.Balance);
-
-            var systemTransaction = new Transaction
-            {
-                Id = Guid.NewGuid(),
-                UserId = systemAccountId,
-                ReferenceId = request.SnakeCatchingRequestId,
-                Amount = request.Amount,
-                Currency = "VND",
-                TransactionType = TransactionType.EscrowHold,
-                Description = $"Received wallet payment for catching request {request.SnakeCatchingRequestId}",
-                PaymentMethod = "Wallet",
-                ExternalTransactionId = $"WALLET-{orderCode}",
-                CreatedAt = DateTime.UtcNow
-            };
-
-            await _unitOfWork.GetRepository<Transaction>().InsertAsync(systemTransaction);
+            var transfer = await RecordSystemRevenuePaymentAsync(
+                senderId,
+                request.SnakeCatchingRequestId,
+                request.Amount,
+                $"{description} - Payment for {request.TransactionType}",
+                request.TransactionType,
+                "Wallet",
+                $"WALLET-{orderCode}",
+                cancellationToken);
 
             if (request.TransactionType == TransactionType.CatchingDeposit)
             {
@@ -221,12 +155,12 @@ public class SnakeCatchingPaymentService : ISnakeCatchingPaymentService
 
             await _unitOfWork.CommitAsync();
 
-            _logger.LogInformation("{Prefix} Wallet payment completed successfully. UserTransactionId={UserTransactionId}, SystemTransactionId={SystemTransactionId}, OrderCode={OrderCode}",
-                LogPrefix, userTransaction.Id, systemTransaction.Id, orderCode);
+            _logger.LogInformation("{Prefix} Wallet payment completed successfully. UserTransactionId={UserTransactionId}, OrderCode={OrderCode}",
+                LogPrefix, transfer.TransactionId, orderCode);
 
             return new SnakeCatchingPaymentResponse
             {
-                TransactionId = userTransaction.Id,
+                TransactionId = transfer.TransactionId,
                 SnakeCatchingRequestId = request.SnakeCatchingRequestId,
                 Amount = request.Amount,
                 Status = "Paid",
@@ -238,10 +172,9 @@ public class SnakeCatchingPaymentService : ISnakeCatchingPaymentService
                 GatewayRawResponse = new
                 {
                     OrderCode = orderCode,
-                    UserTransactionId = userTransaction.Id,
-                    SystemTransactionId = systemTransaction.Id,
-                    UserWalletBalance = userWallet.Balance,
-                    SystemWalletBalance = systemWallet.Balance,
+                    UserTransactionId = transfer.TransactionId,
+                    UserWalletBalance = transfer.UserWalletBalanceAfter,
+                    SystemWalletBalance = transfer.SystemWalletBalanceAfter,
                     PaymentMethod = "Wallet"
                 }
             };
@@ -320,6 +253,7 @@ public class SnakeCatchingPaymentService : ISnakeCatchingPaymentService
             TransactionId = result.TransactionId,
             OrderCode = webhook.OrderCode,
             Amount = Convert.ToInt32(Math.Round(result.Amount, MidpointRounding.AwayFromZero)),
+            Status = result.Success ? PaymentStatus.Paid : PaymentStatus.Failed,
             TransactionReference = webhook.TransactionReference,
             TransactionDateTime = webhook.TransactionDateTime
         };
@@ -338,6 +272,7 @@ public class SnakeCatchingPaymentService : ISnakeCatchingPaymentService
             TransactionId = transactionId,
             OrderCode = result.OrderCode,
             Amount = Convert.ToInt32(Math.Round(result.Amount, MidpointRounding.AwayFromZero)),
+            Status = result.Success ? PaymentStatus.Paid : PaymentStatus.Failed,
             TransactionReference = result.OrderCode > 0
                 ? PayOsPaymentFlowPrefixes.BuildOrderCodePrefix(PayOsPaymentFlow.SnakeCatching, result.OrderCode)
                 : string.Empty,
@@ -1030,6 +965,23 @@ public class SnakeCatchingPaymentService : ISnakeCatchingPaymentService
 
             transactionId = transaction.Id;
 
+            if (!string.IsNullOrWhiteSpace(transaction.ExternalTransactionId))
+            {
+                _logger.LogInformation("{Prefix}{SourceTag} Payment already processed for transaction {TransactionId}, skipping side-effects",
+                    LogPrefix, sourceTag, transactionId);
+
+                return new SnakeCatchingPaymentOperationResult
+                {
+                    ReferenceId = transaction.ReferenceId,
+                    TransactionId = transactionId,
+                    Amount = transaction.Amount,
+                    Status = "AlreadyProcessed",
+                    Provider = "PayOS",
+                    GatewayRawResponse = webhook,
+                    Success = true
+                };
+            }
+
             if (webhook.Success)
             {
                 _logger.LogInformation("{Prefix}{SourceTag} Payment successful. TransactionId={TransactionId}",
@@ -1039,75 +991,8 @@ public class SnakeCatchingPaymentService : ISnakeCatchingPaymentService
                 transaction.ExternalTransactionId = webhook.TransactionReference;
                 transaction.CreatedAt = webhook.TransactionDateTime ?? DateTime.UtcNow;
                 _unitOfWork.GetRepository<Transaction>().Update(transaction);
-
-                // Check for existing processed transaction with same ExternalTransactionId (idempotency guard)
-                var existingTransaction = await _unitOfWork.GetRepository<Transaction>()
-                    .FirstOrDefaultAsync(
-                        predicate: t => t.ExternalTransactionId == webhook.TransactionReference
-                                     && t.TransactionType == TransactionType.EscrowHold,
-                        cancellationToken: cancellationToken);
-
-                if (existingTransaction != null)
-                {
-                    _logger.LogInformation("{Prefix}{SourceTag} Webhook already processed for TransactionReference {TransactionRef}, skipping side-effects",
-                        LogPrefix, sourceTag, webhook.TransactionReference);
-                    return new SnakeCatchingPaymentOperationResult
-                    {
-                        ReferenceId = transaction.ReferenceId,
-                        TransactionId = transactionId,
-                        Amount = webhook.Amount,
-                        Status = "AlreadyProcessed",
-                        Provider = "PayOS",
-                        GatewayRawResponse = webhook,
-                        Success = true
-                    };
-                }
-
-                // Add amount to system wallet
-                var systemAccountId = Guid.Parse(systemId);
-                var systemWallet = await _unitOfWork.GetRepository<Wallet>()
-                    .FirstOrDefaultAsync(
-                        predicate: w => w.UserId == systemAccountId,
-                        asNoTracking: false,
-                        cancellationToken: cancellationToken);
-
-                if (systemWallet == null)
-                {
-                    // Create system wallet if not exists
-                    systemWallet = new Wallet
-                    {
-                        Id = Guid.NewGuid(),
-                        UserId = systemAccountId,
-                        Balance = 0
-                    };
-                    await _unitOfWork.GetRepository<Wallet>().InsertAsync(systemWallet);
-                    _logger.LogInformation("{Prefix}{SourceTag} Created system wallet for account {AccountId}",
-                        LogPrefix, sourceTag, systemAccountId);
-                }
-
-                var previousBalance = systemWallet.Balance;
-                systemWallet.Balance += transaction.Amount;
-                _unitOfWork.GetRepository<Wallet>().Update(systemWallet);
-
-                // Create transaction record for system wallet receiving payment
-                var systemWalletTransaction = new Transaction
-                {
-                    Id = Guid.NewGuid(),
-                    UserId = systemAccountId,
-                    ReferenceId = transaction.ReferenceId, // Same SnakeCatchingRequestId
-                    Amount = transaction.Amount,
-                    Currency = transaction.Currency,
-                    TransactionType = TransactionType.EscrowHold,
-                    Description = $"Received payment for catching request {transaction.ReferenceId}",
-                    PaymentMethod = "PayOS",
-                    ExternalTransactionId = webhook.TransactionReference,
-                    CreatedAt = DateTime.UtcNow
-                };
-
-                await _unitOfWork.GetRepository<Transaction>().InsertAsync(systemWalletTransaction);
-
-                _logger.LogInformation("{Prefix}{SourceTag} System wallet updated. Amount={Amount}, Balance: {PrevBalance} -> {NewBalance}, TransactionId={TransactionId}",
-                    LogPrefix, sourceTag, transaction.Amount, previousBalance, systemWallet.Balance, systemWalletTransaction.Id);
+                _logger.LogInformation("{Prefix}{SourceTag} Recorded snake catching payment as ledger-only system/platform revenue. TransactionId={TransactionId}, ExternalTransactionId={ExternalTransactionId}",
+                    LogPrefix, sourceTag, transactionId, transaction.ExternalTransactionId);
 
                 // Update SnakeCatchingRequest status to Paid only for CatchingPayment transactions
                 if (transaction.TransactionType == TransactionType.CatchingPayment)
@@ -1125,10 +1010,17 @@ public class SnakeCatchingPaymentService : ISnakeCatchingPaymentService
                     }
                 }
 
-                // Handle different transaction types
-                if (transaction.TransactionType == TransactionType.CatchingPayment)
+                if (transaction.TransactionType == TransactionType.CatchingDeposit)
                 {
-                    await HandleCatcherCommissionAsync(transaction, sourceTag, cancellationToken);
+                    var catchingRequest = await _unitOfWork.GetRepository<SnakeCatchingRequest>()
+                        .GetByIdAsync(transaction.ReferenceId);
+
+                    if (catchingRequest != null)
+                    {
+                        catchingRequest.PrePaidAt = DateTime.UtcNow;
+                        catchingRequest.IsPrePaid = true;
+                        _unitOfWork.GetRepository<SnakeCatchingRequest>().Update(catchingRequest);
+                    }
                 }
             }
             else
@@ -1169,95 +1061,79 @@ public class SnakeCatchingPaymentService : ISnakeCatchingPaymentService
         }
     }
 
-    private async Task HandleCatcherCommissionAsync(Transaction transaction, string sourceTag, CancellationToken cancellationToken)
+    private async Task<(Guid TransactionId, decimal UserWalletBalanceAfter, decimal? SystemWalletBalanceAfter, DateTime ProcessedAtUtc, string ExternalTransactionId)> RecordSystemRevenuePaymentAsync(
+        Guid userId,
+        Guid requestId,
+        decimal amount,
+        string description,
+        TransactionType transactionType,
+        string paymentMethod,
+        string externalTransactionId,
+        CancellationToken cancellationToken,
+        bool skipExistingPaymentInsert = false)
     {
-        try
+        decimal userWalletBalanceAfter;
+        var now = DateTime.UtcNow;
+
+        if (string.Equals(paymentMethod, "Wallet", StringComparison.OrdinalIgnoreCase))
         {
-            var catchingRequest = await _unitOfWork.GetRepository<SnakeCatchingRequest>()
+            var userWallet = await _unitOfWork.GetRepository<Wallet>()
                 .FirstOrDefaultAsync(
-                    predicate: scr => scr.Id == transaction.ReferenceId,
-                    include: query => query.Include(scr => scr.AssignedRescuer),
-                    cancellationToken: cancellationToken);
+                    predicate: w => w.UserId == userId,
+                    asNoTracking: false,
+                    cancellationToken: cancellationToken)
+                ?? throw new InvalidOperationException($"User wallet not found for user {userId}");
 
-            if (catchingRequest?.AssignedRescuer == null)
+            if (userWallet.Balance < amount)
             {
-                _logger.LogWarning("{Prefix}{SourceTag} No assigned rescuer found for catching request {RequestId}",
-                    LogPrefix, sourceTag, transaction.ReferenceId);
-                return;
+                throw new InvalidOperationException(
+                    $"Insufficient wallet balance. Available: {userWallet.Balance} VND, Required: {amount} VND");
             }
 
-            var rescuerId = catchingRequest.AssignedRescuerId.Value;
-            var commissionAmount = Math.Min(commissionFee, transaction.Amount);
-
-            // Deduct commission from system wallet
-            var systemAccountId = Guid.Parse(systemId);
-            var systemWallet = await _unitOfWork.GetRepository<Wallet>()
+            userWallet.Balance -= amount;
+            userWalletBalanceAfter = userWallet.Balance;
+            _unitOfWork.GetRepository<Wallet>().Update(userWallet);
+        }
+        else
+        {
+            var userWallet = await _unitOfWork.GetRepository<Wallet>()
                 .FirstOrDefaultAsync(
-                    predicate: w => w.UserId == systemAccountId,
+                    predicate: w => w.UserId == userId,
                     asNoTracking: false,
                     cancellationToken: cancellationToken);
+            userWalletBalanceAfter = userWallet?.Balance ?? 0m;
+        }
 
-            if (systemWallet == null || systemWallet.Balance < commissionAmount)
-            {
-                _logger.LogWarning("{Prefix}{SourceTag} Insufficient system wallet balance for commission payout. Balance={Balance}, Commission={Commission}",
-                    LogPrefix, sourceTag, systemWallet?.Balance ?? 0, commissionAmount);
-                return;
-            }
-
-            var previousSystemBalance = systemWallet.Balance;
-            systemWallet.Balance -= commissionAmount;
-            _unitOfWork.GetRepository<Wallet>().Update(systemWallet);
-
-            // Add commission to rescuer wallet
-            var rescuerWallet = await _unitOfWork.GetRepository<Wallet>()
+        Transaction paymentTransaction;
+        if (skipExistingPaymentInsert)
+        {
+            paymentTransaction = await _unitOfWork.GetRepository<Transaction>()
                 .FirstOrDefaultAsync(
-                    predicate: w => w.UserId == rescuerId,
+                    predicate: t => t.ReferenceId == requestId && t.TransactionType == transactionType,
                     asNoTracking: false,
-                    cancellationToken: cancellationToken);
-
-            if (rescuerWallet == null)
-            {
-                rescuerWallet = new Wallet
-                {
-                    Id = Guid.NewGuid(),
-                    UserId = rescuerId,
-                    Balance = 0
-                };
-                await _unitOfWork.GetRepository<Wallet>().InsertAsync(rescuerWallet);
-                _logger.LogInformation("{Prefix}{SourceTag} Created wallet for rescuer {RescuerId}",
-                    LogPrefix, sourceTag, rescuerId);
-            }
-
-            var previousRescuerBalance = rescuerWallet.Balance;
-            rescuerWallet.Balance += commissionAmount;
-            _unitOfWork.GetRepository<Wallet>().Update(rescuerWallet);
-
-            // Create commission transaction records
-            var commissionTransaction = new Transaction
+                    cancellationToken: cancellationToken)
+                ?? throw new InvalidOperationException("Snake catching payment transaction was not found.");
+        }
+        else
+        {
+            paymentTransaction = new Transaction
             {
                 Id = Guid.NewGuid(),
-                UserId = rescuerId,
-                ReferenceId = transaction.ReferenceId,
-                Amount = commissionAmount,
-                Currency = transaction.Currency,
-                TransactionType = TransactionType.CatcherPayout,
-                Description = $"Commission payout for catching request {transaction.ReferenceId}",
-                PaymentMethod = "Internal",
-                ExternalTransactionId = transaction.ExternalTransactionId,
-                CreatedAt = DateTime.UtcNow
+                UserId = userId,
+                ReferenceId = requestId,
+                Amount = amount,
+                Currency = "VND",
+                TransactionType = transactionType,
+                Description = description,
+                PaymentMethod = paymentMethod,
+                ExternalTransactionId = externalTransactionId,
+                CreatedAt = now
             };
 
-            await _unitOfWork.GetRepository<Transaction>().InsertAsync(commissionTransaction);
+            await _unitOfWork.GetRepository<Transaction>().InsertAsync(paymentTransaction);
+        }
 
-            _logger.LogInformation("{Prefix}{SourceTag} Commission payout completed. Amount={Amount}, Rescuer={RescuerId}, SystemBalance: {PrevSysBalance} -> {NewSysBalance}, RescuerBalance: {PrevResBalance} -> {NewResBalance}",
-                LogPrefix, sourceTag, commissionAmount, rescuerId, previousSystemBalance, systemWallet.Balance, previousRescuerBalance, rescuerWallet.Balance);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "{Prefix}{SourceTag} Failed to process catcher commission for transaction {TransactionId}",
-                LogPrefix, sourceTag, transaction.Id);
-            // Don't throw - commission failure shouldn't fail the payment
-        }
+        return (paymentTransaction.Id, userWalletBalanceAfter, null, now, externalTransactionId);
     }
 
     private long GenerateOrderCode()
