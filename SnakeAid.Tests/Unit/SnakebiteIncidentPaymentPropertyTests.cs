@@ -421,7 +421,7 @@ public class SnakebiteIncidentPaymentPropertyTests
         Assert.Equal(typeof(CancellationToken), parameters[6].ParameterType);
         Assert.Equal(typeof(bool), parameters[7].ParameterType);           // skipExistingPaymentInsert
 
-        // Return type: Task<(Guid, decimal, decimal, DateTime, string)>
+        // Return type: Task<(Guid, decimal, decimal?, DateTime, string)>
         Assert.True(method.ReturnType.IsGenericType);
         Assert.Equal(typeof(Task<>), method.ReturnType.GetGenericTypeDefinition());
 
@@ -432,7 +432,7 @@ public class SnakebiteIncidentPaymentPropertyTests
         Assert.Equal(5, tupleArgs.Length);
         Assert.Equal(typeof(Guid), tupleArgs[0]);      // TransactionId
         Assert.Equal(typeof(decimal), tupleArgs[1]);    // UserWalletBalanceAfter
-        Assert.Equal(typeof(decimal), tupleArgs[2]);    // SystemWalletBalanceAfter
+        Assert.Equal(typeof(decimal?), tupleArgs[2]);   // SystemWalletBalanceAfter
         Assert.Equal(typeof(DateTime), tupleArgs[3]);   // ProcessedAtUtc
         Assert.Equal(typeof(string), tupleArgs[4]);     // ExternalTransactionId
     }
@@ -638,7 +638,7 @@ public class SnakebiteIncidentPaymentPropertyTests
     /// Validates: Requirements 4.1, 4.2, 10.3
     ///
     /// Verifies that RefundTransactionResponse has the expected balance fields:
-    /// SystemWalletBalanceBefore, SystemWalletBalanceAfter,
+    /// nullable SystemWalletBalanceBefore, nullable SystemWalletBalanceAfter,
     /// ReceiverWalletBalanceBefore, ReceiverWalletBalanceAfter.
     /// These fields are essential for verifying money conservation on refund.
     /// </summary>
@@ -649,11 +649,11 @@ public class SnakebiteIncidentPaymentPropertyTests
 
         var systemBefore = responseType.GetProperty("SystemWalletBalanceBefore", BindingFlags.Public | BindingFlags.Instance);
         Assert.NotNull(systemBefore);
-        Assert.Equal(typeof(decimal), systemBefore!.PropertyType);
+        Assert.Equal(typeof(decimal?), systemBefore!.PropertyType);
 
         var systemAfter = responseType.GetProperty("SystemWalletBalanceAfter", BindingFlags.Public | BindingFlags.Instance);
         Assert.NotNull(systemAfter);
-        Assert.Equal(typeof(decimal), systemAfter!.PropertyType);
+        Assert.Equal(typeof(decimal?), systemAfter!.PropertyType);
 
         var receiverBefore = responseType.GetProperty("ReceiverWalletBalanceBefore", BindingFlags.Public | BindingFlags.Instance);
         Assert.NotNull(receiverBefore);
@@ -677,26 +677,25 @@ public class SnakebiteIncidentPaymentPropertyTests
     public FsCheck.Property RefundTransactionResponse_BalanceFieldsRoundTrip(PositiveInt amountSeed)
     {
         var amount = (decimal)amountSeed.Get + 0.01m;
-        var systemBefore = amount + 1000m;
-        var systemAfter = systemBefore - amount;
         var receiverBefore = 500m;
         var receiverAfter = receiverBefore + amount;
 
         var response = new RefundTransactionResponse
         {
-            SystemWalletBalanceBefore = systemBefore,
-            SystemWalletBalanceAfter = systemAfter,
+            SystemWalletBalanceBefore = null,
+            SystemWalletBalanceAfter = null,
             ReceiverWalletBalanceBefore = receiverBefore,
             ReceiverWalletBalanceAfter = receiverAfter,
             RefundAmount = amount
         };
 
-        var systemDebit = response.SystemWalletBalanceBefore - response.SystemWalletBalanceAfter;
         var receiverCredit = response.ReceiverWalletBalanceAfter - response.ReceiverWalletBalanceBefore;
 
         return Prop.Label(
-            systemDebit == amount && receiverCredit == amount && systemDebit == receiverCredit,
-            $"Refund amount={amount}: system debit={systemDebit}, receiver credit={receiverCredit} should both equal amount");
+            response.SystemWalletBalanceBefore == null
+            && response.SystemWalletBalanceAfter == null
+            && receiverCredit == amount,
+            $"Refund amount={amount}: receiver credit={receiverCredit} should equal amount and system balances should be null");
     }
 
     #endregion
