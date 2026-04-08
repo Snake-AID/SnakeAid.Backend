@@ -174,7 +174,6 @@ public class SnakeCatchingPaymentService : ISnakeCatchingPaymentService
                     OrderCode = orderCode,
                     UserTransactionId = transfer.TransactionId,
                     UserWalletBalance = transfer.UserWalletBalanceAfter,
-                    SystemWalletBalance = transfer.SystemWalletBalanceAfter,
                     PaymentMethod = "Wallet"
                 }
             };

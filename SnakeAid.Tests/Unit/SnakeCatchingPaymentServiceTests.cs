@@ -84,6 +84,8 @@ public class SnakeCatchingPaymentServiceTests
         Assert.Equal(TransactionType.CatchingPayment, insertedTransactions[0].TransactionType);
         Assert.DoesNotContain(insertedTransactions, t => t.TransactionType == TransactionType.EscrowHold);
         Assert.Equal(300_000m, userWallet.Balance);
+        Assert.NotNull(response.GatewayRawResponse);
+        Assert.Null(response.GatewayRawResponse!.GetType().GetProperty("SystemWalletBalance"));
 
         _walletRepoMock.Verify(r => r.Update(It.Is<Wallet>(w => w.UserId == TestUserId)), Times.Once);
         _walletRepoMock.Verify(r => r.Update(It.Is<Wallet>(w => w.UserId == SystemUserId)), Times.Never);
