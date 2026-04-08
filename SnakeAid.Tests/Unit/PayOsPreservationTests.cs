@@ -493,10 +493,10 @@ public class PayOsPreservationTests
 
     #endregion
 
-    #region Property: Wallet operations produce same balance changes
+    #region Property: Wallet operations preserve current ownership
 
     /// <summary>
-    /// Observe: Wallet operations (credit, debit, escrow) produce same balance changes.
+    /// Observe: wallet/revenue operations preserve current ownership.
     ///
     /// Property: The SnakeCatchingPaymentService has a commissionFee field.
     /// This business rule field must exist to preserve the 200,000 VND commission.
@@ -515,8 +515,8 @@ public class PayOsPreservationTests
     }
 
     /// <summary>
-    /// Property: The legacy system wallet ID remains only in flows that have not moved to
-    /// transaction-sourced escrow yet.
+    /// Property: The legacy system wallet ID remains only in snake catching while Phase 6D
+    /// has not yet corrected it to ledger-only system revenue.
     /// SnakeCatchingPaymentService uses an instance field 'systemId'.
     /// SnakebiteIncidentPaymentService no longer owns a system wallet constant after Money Aspect 6C.
     /// ConsultationPaymentService no longer owns a system wallet constant after Money Aspect 6B.
@@ -524,10 +524,8 @@ public class PayOsPreservationTests
     /// **Validates: Requirements 3.8**
     /// </summary>
     [Fact]
-    public void PaymentServices_SystemWalletIdFieldsMatchCurrentEscrowOwnership()
+    public void PaymentServices_SystemWalletIdFieldsMatchCurrentRevenueOwnership()
     {
-        var expectedSystemId = "57288b98-5f91-4de8-b827-866e3df69587";
-
         // SnakeCatchingPaymentService uses 'systemId' instance field (verified by field existence)
         var scType = typeof(SnakeCatchingPaymentService);
         var scField = scType.GetField("systemId", BindingFlags.NonPublic | BindingFlags.Instance);

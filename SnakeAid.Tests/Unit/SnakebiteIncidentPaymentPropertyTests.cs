@@ -143,16 +143,16 @@ public class SnakebiteIncidentPaymentPropertyTests
 
     #endregion
 
-    #region Property 3: Webhook escrow and idempotency
+    #region Property 3: Webhook payment and idempotency
 
     /// <summary>
-    /// Feature: incident-payos-payment, Property 3: Webhook escrow and idempotency
+    /// Feature: incident-payos-payment, Property 3: Webhook payment and idempotency
     ///
     /// Validates: Requirements 2.1, 2.5, 3.5, 10.4
     ///
     /// Verifies that ProcessConfirmedPayOsPaymentAsync exists as a private method
     /// with the correct signature (PayOsWebhookData, CancellationToken) → Task&lt;PayOsWebhookResponse&gt;.
-    /// This ensures the webhook escrow processing infrastructure is in place.
+    /// This ensures the webhook payment processing infrastructure is in place.
     /// </summary>
     [Fact]
     public void ProcessConfirmedPayOsPaymentAsync_HasCorrectSignature()
@@ -177,7 +177,7 @@ public class SnakebiteIncidentPaymentPropertyTests
     }
 
     /// <summary>
-    /// Feature: incident-payos-payment, Property 3: Webhook escrow and idempotency
+    /// Feature: incident-payos-payment, Property 3: Webhook payment and idempotency
     ///
     /// Validates: Requirements 2.1, 2.5, 3.5, 10.4
     ///
@@ -394,7 +394,7 @@ public class SnakebiteIncidentPaymentPropertyTests
     ///
     /// Validates: Requirements 2.2, 10.2, 6.2
     ///
-    /// Verifies that MoveMoneyToEscrowAsync exists with the correct signature:
+    /// Verifies that RecordSystemRevenuePaymentAsync exists with the correct signature:
     /// (Guid userId, Guid incidentId, decimal amount, string description,
     ///  string paymentMethod, string externalTransactionId, CancellationToken,
     ///  bool skipExistingPaymentInsert)
@@ -402,10 +402,10 @@ public class SnakebiteIncidentPaymentPropertyTests
     /// ProcessedAtUtc, ExternalTransactionId).
     /// </summary>
     [Fact]
-    public void MoveMoneyToEscrowAsync_HasCorrectSignature()
+    public void RecordSystemRevenuePaymentAsync_HasCorrectSignature()
     {
         var method = ServiceType.GetMethod(
-            "MoveMoneyToEscrowAsync",
+            "RecordSystemRevenuePaymentAsync",
             BindingFlags.NonPublic | BindingFlags.Instance);
 
         Assert.NotNull(method);
@@ -442,24 +442,24 @@ public class SnakebiteIncidentPaymentPropertyTests
     ///
     /// Validates: Requirements 2.2, 10.2, 6.2
     ///
-    /// For any random positive decimal amount, MoveMoneyToEscrowAsync's signature
+    /// For any random positive decimal amount, RecordSystemRevenuePaymentAsync's signature
     /// accepts it via the decimal parameter — ensuring the method supports arbitrary
     /// positive payment amounts for money conservation.
     /// </summary>
     [FsCheck.Xunit.Property(MaxTest = 100)]
-    public FsCheck.Property MoveMoneyToEscrowAsync_AcceptsAnyPositiveAmount(PositiveInt amountSeed)
+    public FsCheck.Property RecordSystemRevenuePaymentAsync_AcceptsAnyPositiveAmount(PositiveInt amountSeed)
     {
         var amount = (decimal)amountSeed.Get + 0.01m; // ensure positive decimal
 
         var method = ServiceType.GetMethod(
-            "MoveMoneyToEscrowAsync",
+            "RecordSystemRevenuePaymentAsync",
             BindingFlags.NonPublic | BindingFlags.Instance);
 
         var amountParam = method!.GetParameters()[2];
 
         return Prop.Label(
             amountParam.ParameterType == typeof(decimal) && amount > 0m,
-            $"MoveMoneyToEscrowAsync should accept positive decimal amount={amount}");
+            $"RecordSystemRevenuePaymentAsync should accept positive decimal amount={amount}");
     }
 
     /// <summary>
@@ -467,21 +467,21 @@ public class SnakebiteIncidentPaymentPropertyTests
     ///
     /// Validates: Requirements 2.2, 10.2, 6.2
     ///
-    /// Verifies that MoveMoneyToEscrowAsync is private, ensuring money movement
+    /// Verifies that RecordSystemRevenuePaymentAsync is private, ensuring money movement
     /// is only triggered through the public payment methods (not directly by controllers).
     /// </summary>
     [Fact]
-    public void MoveMoneyToEscrowAsync_IsPrivate()
+    public void RecordSystemRevenuePaymentAsync_IsPrivate()
     {
         var method = ServiceType.GetMethod(
-            "MoveMoneyToEscrowAsync",
+            "RecordSystemRevenuePaymentAsync",
             BindingFlags.NonPublic | BindingFlags.Instance);
 
         Assert.NotNull(method);
-        Assert.True(method!.IsPrivate, "MoveMoneyToEscrowAsync should be private");
+        Assert.True(method!.IsPrivate, "RecordSystemRevenuePaymentAsync should be private");
 
         var publicMethod = ServiceType.GetMethod(
-            "MoveMoneyToEscrowAsync",
+            "RecordSystemRevenuePaymentAsync",
             BindingFlags.Public | BindingFlags.Instance);
 
         Assert.Null(publicMethod);

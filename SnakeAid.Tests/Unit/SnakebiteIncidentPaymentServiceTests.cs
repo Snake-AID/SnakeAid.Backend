@@ -375,7 +375,7 @@ public class SnakebiteIncidentPaymentServiceTests
     }
 
     [Fact]
-    public async Task WalletPayment_UsesTransactionSourcedEscrowWithoutSystemWallet()
+    public async Task WalletPayment_RecordsSystemRevenueWithoutSystemWallet()
     {
         // Arrange
         var incident = CreateIncident(SnakebiteIncidentStatus.Finished);
@@ -415,6 +415,7 @@ public class SnakebiteIncidentPaymentServiceTests
         // Assert
         Assert.Equal(150_000m, response.UserWalletBalanceAfter);
         Assert.Null(response.SystemWalletBalanceAfter);
+        Assert.Equal("Paid", response.Status);
         Assert.Equal(SnakebiteIncidentStatus.Completed, incident.Status);
         Assert.Equal(150_000m, userWallet.Balance);
 
@@ -493,7 +494,7 @@ public class SnakebiteIncidentPaymentServiceTests
     }
 
     [Fact]
-    public async Task Refund_UsesTransactionSourcedEscrowWithoutSystemWallet()
+    public async Task Refund_UsesSystemRevenueLedgerWithoutSystemWallet()
     {
         // Arrange
         var originalTx = new Transaction

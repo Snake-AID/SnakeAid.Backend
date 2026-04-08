@@ -175,7 +175,7 @@ public class SnakebiteIncidentPaymentService : ISnakebiteIncidentPaymentService
             throw new ValidationException($"Payment amount must equal completed mission amount ({expectedAmount}).");
         }
 
-        var transfer = await MoveMoneyToEscrowAsync(
+        var transfer = await RecordSystemRevenuePaymentAsync(
             currentUserId,
             request.SnakebiteIncidentId,
             request.Amount,
@@ -196,7 +196,7 @@ public class SnakebiteIncidentPaymentService : ISnakebiteIncidentPaymentService
             OrderCode = null,
             Amount = request.Amount,
             Currency = "VND",
-            Status = "Escrowed",
+            Status = "Paid",
             Provider = "Wallet",
             CheckoutUrl = null,
             PaymentLinkId = null,
@@ -376,10 +376,10 @@ public class SnakebiteIncidentPaymentService : ISnakebiteIncidentPaymentService
             throw new ValidationException("Refund amount cannot exceed original payment amount.");
         }
 
-        var available = await GetAvailableSnakebiteIncidentEscrowAsync(request.ReferenceId, cancellationToken);
+        var available = await GetRefundableSnakebiteIncidentRevenueAsync(request.ReferenceId, cancellationToken);
         if (available < request.Amount)
         {
-            throw new ConflictException("Snakebite incident escrow balance is insufficient for refund.");
+            throw new ConflictException("Snakebite incident refundable payment amount is insufficient for refund.");
         }
 
         var receiverWallet = await GetOrCreateWalletAsync(request.ReceiverId, cancellationToken);
@@ -423,11 +423,11 @@ public class SnakebiteIncidentPaymentService : ISnakebiteIncidentPaymentService
         };
     }
 
-    private async Task<decimal> GetAvailableSnakebiteIncidentEscrowAsync(
+    private async Task<decimal> GetRefundableSnakebiteIncidentRevenueAsync(
         Guid incidentId,
         CancellationToken cancellationToken)
     {
-        var heldTransactions = await _unitOfWork.GetRepository<Transaction>().GetListAsync(
+        var paidTransactions = await _unitOfWork.GetRepository<Transaction>().GetListAsync(
             predicate: t => t.ReferenceId == incidentId
                          && t.TransactionType == TransactionType.SnakebiteIncidentPayment
                          && !string.IsNullOrEmpty(t.ExternalTransactionId),
@@ -440,7 +440,7 @@ public class SnakebiteIncidentPaymentService : ISnakebiteIncidentPaymentService
             asNoTracking: true,
             cancellationToken: cancellationToken);
 
-        return heldTransactions.Sum(t => t.Amount) - refundedTransactions.Sum(t => t.Amount);
+        return paidTransactions.Sum(t => t.Amount) - refundedTransactions.Sum(t => t.Amount);
     }
 
     private async Task<Wallet> GetRequiredWalletAsync(Guid userId, CancellationToken cancellationToken)
@@ -609,11 +609,11 @@ public class SnakebiteIncidentPaymentService : ISnakebiteIncidentPaymentService
     }
 
     /// <summary>
-    /// Di chuyển tiền vào transaction-sourced escrow ledger.
-    /// Mirror pattern từ ConsultationPaymentService.MoveMoneyToEscrowAsync.
-    /// Cho cả Wallet payment (debit user) và PayOS payment (không credit system wallet).
+    /// Ghi nhận incident payment như ledger-only system/platform revenue.
+    /// Wallet payment debit user wallet; PayOS payment đã được gateway thu tiền.
+    /// Không credit system wallet vì system revenue được admin đọc từ Transaction.
     /// </summary>
-    private async Task<(Guid TransactionId, decimal UserWalletBalanceAfter, decimal? SystemWalletBalanceAfter, DateTime ProcessedAtUtc, string ExternalTransactionId)> MoveMoneyToEscrowAsync(
+    private async Task<(Guid TransactionId, decimal UserWalletBalanceAfter, decimal? SystemWalletBalanceAfter, DateTime ProcessedAtUtc, string ExternalTransactionId)> RecordSystemRevenuePaymentAsync(
         Guid userId,
         Guid incidentId,
         decimal amount,
@@ -722,8 +722,8 @@ public class SnakebiteIncidentPaymentService : ISnakebiteIncidentPaymentService
         transaction.CreatedAt = webhook.TransactionDateTime ?? DateTime.UtcNow;
         _unitOfWork.GetRepository<Transaction>().Update(transaction);
 
-        // Mark payment as held by transaction-sourced escrow.
-        var escrowTransfer = await MoveMoneyToEscrowAsync(
+        // Mark the payment as ledger-only system/platform revenue.
+        await RecordSystemRevenuePaymentAsync(
             transaction.UserId,
             transaction.ReferenceId,
             transaction.Amount,
