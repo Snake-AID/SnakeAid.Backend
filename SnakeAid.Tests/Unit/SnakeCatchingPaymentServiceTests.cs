@@ -146,6 +146,73 @@ public class SnakeCatchingPaymentServiceTests
         _requestRepoMock.Verify(r => r.Update(It.Is<SnakeCatchingRequest>(req => req.Id == TestRequestId && req.Status == RequestStatus.Paid)), Times.Once);
     }
 
+    [Fact]
+    public async Task TransferToRescuer_ReturnsDeprecatedNoOpWithoutWalletOrTransactionSideEffects()
+    {
+        var requestEntity = CreateRequest(RequestStatus.Paid, TestUserId);
+        requestEntity.AssignedRescuerId = Guid.NewGuid();
+        var paidTransactions = new List<Transaction>
+        {
+            new()
+            {
+                Id = Guid.NewGuid(),
+                UserId = TestUserId,
+                ReferenceId = TestRequestId,
+                Amount = 350_000m,
+                Currency = "VND",
+                TransactionType = TransactionType.CatchingPayment,
+                PaymentMethod = "Wallet",
+                ExternalTransactionId = "WALLET-1",
+                CreatedAt = DateTime.UtcNow
+            }
+        };
+
+        SetupRequestRepo(requestEntity);
+        SetupTransactionRepo(existingTransaction: null, list: paidTransactions);
+        SetupWalletRepoFromList(Array.Empty<Wallet>());
+        _transactionRepoMock
+            .Setup(r => r.GetListAsync(
+                It.IsAny<Expression<Func<Transaction, bool>>>(),
+                It.IsAny<Func<IQueryable<Transaction>, IOrderedQueryable<Transaction>>>(),
+                It.IsAny<Func<IQueryable<Transaction>, IQueryable<Transaction>>>(),
+                It.IsAny<int?>(),
+                It.IsAny<bool>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync((
+                Expression<Func<Transaction, bool>> predicate,
+                Func<IQueryable<Transaction>, IOrderedQueryable<Transaction>>? _1,
+                Func<IQueryable<Transaction>, IQueryable<Transaction>>? _2,
+                int? _3,
+                bool _4,
+                CancellationToken _5) =>
+            {
+                var compiled = predicate.Compile();
+                return paidTransactions.Where(compiled).ToList();
+            });
+
+        var response = await _service.TransferSnakeCatchingFundsToRescuerAsync(
+            new SnakeAid.Core.Requests.PayOs.TransferToRescuerRequest
+            {
+                SnakeCatchingRequestId = TestRequestId
+            },
+            CancellationToken.None);
+
+        Assert.True(response.Success);
+        Assert.Contains("deprecated", response.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(350_000m, response.TotalAmount);
+        Assert.Equal(0m, response.NetAmountToRescuer);
+        Assert.Null(response.TransferTransactionId);
+        Assert.Null(response.SystemWalletBalanceBefore);
+        Assert.Null(response.SystemWalletBalanceAfter);
+        Assert.Null(response.RescuerWalletBalanceBefore);
+        Assert.Null(response.RescuerWalletBalanceAfter);
+
+        _walletRepoMock.Verify(r => r.Update(It.IsAny<Wallet>()), Times.Never);
+        _walletRepoMock.Verify(r => r.InsertAsync(It.IsAny<Wallet>(), It.IsAny<CancellationToken>()), Times.Never);
+        _transactionRepoMock.Verify(r => r.InsertAsync(It.IsAny<Transaction>(), It.IsAny<CancellationToken>()), Times.Never);
+        _requestRepoMock.Verify(r => r.Update(It.IsAny<SnakeCatchingRequest>()), Times.Never);
+    }
+
     private static SnakeCatchingRequest CreateRequest(RequestStatus status, Guid userId)
     {
         return new SnakeCatchingRequest

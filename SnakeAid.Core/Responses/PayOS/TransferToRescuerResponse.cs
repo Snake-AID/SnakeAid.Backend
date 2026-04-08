@@ -9,10 +9,10 @@ public class TransferToRescuerResponse
     public decimal TotalAmount { get; set; }
     public decimal CommissionFee { get; set; }
     public decimal NetAmountToRescuer { get; set; }
-    public Guid TransferTransactionId { get; set; }
-    public decimal SystemWalletBalanceBefore { get; set; }
-    public decimal SystemWalletBalanceAfter { get; set; }
-    public decimal RescuerWalletBalanceBefore { get; set; }
-    public decimal RescuerWalletBalanceAfter { get; set; }
+    public Guid? TransferTransactionId { get; set; }
+    public decimal? SystemWalletBalanceBefore { get; set; }
+    public decimal? SystemWalletBalanceAfter { get; set; }
+    public decimal? RescuerWalletBalanceBefore { get; set; }
+    public decimal? RescuerWalletBalanceAfter { get; set; }
     public DateTime TransferredAt { get; set; }
 }
