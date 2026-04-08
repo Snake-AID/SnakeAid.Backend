@@ -496,41 +496,33 @@ public class PayOsPreservationTests
     #region Property: Wallet operations preserve current ownership
 
     /// <summary>
-    /// Observe: wallet/revenue operations preserve current ownership.
-    ///
-    /// Property: The SnakeCatchingPaymentService has a commissionFee field.
-    /// This business rule field must exist to preserve the 200,000 VND commission.
+    /// Property: Snake catching customer payment no longer carries a hardcoded commission field
+    /// after the deprecated payout path was removed from production semantics.
     ///
     /// **Validates: Requirements 3.5, 3.8**
     /// </summary>
     [Fact]
-    public void SnakeCatchingPaymentService_HasCommissionFeeField()
+    public void SnakeCatchingPaymentService_DoesNotExposeLegacyCommissionField()
     {
         var serviceType = typeof(SnakeCatchingPaymentService);
         var commissionField = serviceType.GetField("commissionFee",
             BindingFlags.NonPublic | BindingFlags.Instance);
 
-        Assert.NotNull(commissionField);
-        Assert.Equal(typeof(int), commissionField!.FieldType);
+        Assert.Null(commissionField);
     }
 
     /// <summary>
-    /// Property: The legacy system wallet ID remains only in snake catching while Phase 6D
-    /// has not yet corrected it to ledger-only system revenue.
-    /// SnakeCatchingPaymentService uses an instance field 'systemId'.
-    /// SnakebiteIncidentPaymentService no longer owns a system wallet constant after Money Aspect 6C.
-    /// ConsultationPaymentService no longer owns a system wallet constant after Money Aspect 6B.
+    /// Property: payment services no longer own legacy system wallet ID fields after
+    /// consultation, incident, and snake catching all moved away from system-wallet-side-effect semantics.
     ///
     /// **Validates: Requirements 3.8**
     /// </summary>
     [Fact]
-    public void PaymentServices_SystemWalletIdFieldsMatchCurrentRevenueOwnership()
+    public void PaymentServices_DoNotOwnLegacySystemWalletIdFields()
     {
-        // SnakeCatchingPaymentService uses 'systemId' instance field (verified by field existence)
         var scType = typeof(SnakeCatchingPaymentService);
         var scField = scType.GetField("systemId", BindingFlags.NonPublic | BindingFlags.Instance);
-        Assert.NotNull(scField);
-        Assert.Equal(typeof(string), scField!.FieldType);
+        Assert.Null(scField);
 
         var siType = typeof(SnakebiteIncidentPaymentService);
         var siField = siType.GetField("SystemWalletUserId",

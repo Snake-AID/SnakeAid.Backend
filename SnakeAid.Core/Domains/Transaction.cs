@@ -72,8 +72,6 @@ namespace SnakeAid.Core.Domains
         PlatformFee = 30,            // Platform commission
         WalletTopup = 31,            // User nạp tiền
         WalletWithdraw = 32,         // User rút tiền
-        AdminAdjustment = 33,        // Admin điều chỉnh
-        EscrowHold = 34,             // System wallet giữ tiền trong escrow
-        EscrowRelease = 35           // System wallet giải phóng tiền khỏi escrow
+        AdminAdjustment = 33         // Admin điều chỉnh
     }
 }

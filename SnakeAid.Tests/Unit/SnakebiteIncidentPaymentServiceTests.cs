@@ -421,7 +421,6 @@ public class SnakebiteIncidentPaymentServiceTests
 
         Assert.DoesNotContain(insertedWallets, w => w.UserId == SystemWalletUserId);
         Assert.DoesNotContain(updatedWallets, w => w.UserId == SystemWalletUserId);
-        Assert.DoesNotContain(insertedTransactions, t => t.TransactionType == TransactionType.EscrowHold);
         Assert.Contains(insertedTransactions, t =>
             t.TransactionType == TransactionType.SnakebiteIncidentPayment
             && t.ReferenceId == TestIncidentId
@@ -547,7 +546,6 @@ public class SnakebiteIncidentPaymentServiceTests
         Assert.Equal(65_000m, receiverWallet.Balance);
 
         Assert.DoesNotContain(updatedWallets, w => w.UserId == SystemWalletUserId);
-        Assert.DoesNotContain(insertedTransactions, t => t.TransactionType == TransactionType.EscrowRelease);
         Assert.Contains(insertedTransactions, t =>
             t.TransactionType == TransactionType.SnakebiteIncidentRefund
             && t.ReferenceId == TestIncidentId

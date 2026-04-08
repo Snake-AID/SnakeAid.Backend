@@ -21,9 +21,7 @@ public class SnakeCatchingPaymentService : ISnakeCatchingPaymentService
     private readonly ILogger<SnakeCatchingPaymentService> _logger;
     private const string DefaultItemName = "Snake Catching Service";
     private const string LogPrefix = "[SnakeCatchingPaymentService]";
-    private readonly string systemId = "57288b98-5f91-4de8-b827-866e3df69587";
     private static readonly Regex OrderCodeRegex = new($@"^{PayOsPaymentFlowPrefixes.SnakeCatching}(\d+)", RegexOptions.Compiled);
-    private readonly int commissionFee = 200000;
 
     public SnakeCatchingPaymentService(
         IPaymentGateway paymentGateway,
@@ -306,8 +304,7 @@ public class SnakeCatchingPaymentService : ISnakeCatchingPaymentService
     {
         var isSnakeCatchingTransaction = transactionType == TransactionType.CatchingPayment ||
                                          transactionType == TransactionType.CatchingDeposit ||
-                                         transactionType == TransactionType.CatchingRefund ||
-                                         transactionType == TransactionType.CatcherPayout;
+                                         transactionType == TransactionType.CatchingRefund;
 
         if (!isSnakeCatchingTransaction)
         {
@@ -365,24 +362,12 @@ public class SnakeCatchingPaymentService : ISnakeCatchingPaymentService
             _logger.LogInformation("{Prefix} Creating payment link for ReferenceId {RequestId}",
                 LogPrefix, requestId);
 
-            // ReceiverId is always the system account
-            var receiverId = Guid.Parse(systemId);
-
             await ValidateSnakeCatchingRequestAsync(requestId, transactionType, allowAssignedDeposit: true, cancellationToken);
 
             // Validate amount
             if (amount <= 0)
             {
                 throw new InvalidOperationException("Payment amount must be greater than 0");
-            }
-
-            // Validate system receiver account exists
-            var receiverExists = await _unitOfWork.GetRepository<Account>()
-                .ExistsAsync(a => a.Id == receiverId, cancellationToken);
-
-            if (!receiverExists)
-            {
-                throw new InvalidOperationException($"System receiver account {receiverId} not found");
             }
 
             // Check if payment already exists for this request
@@ -647,8 +632,7 @@ public class SnakeCatchingPaymentService : ISnakeCatchingPaymentService
                 .GetListAsync(
                     predicate: t => t.ReferenceId == request.SnakeCatchingRequestId &&
                                    (t.TransactionType == TransactionType.CatcherPayout ||
-                                    t.TransactionType == TransactionType.PlatformFee ||
-                                    t.TransactionType == TransactionType.EscrowRelease),
+                                    t.TransactionType == TransactionType.PlatformFee),
                     asNoTracking: true,
                     cancellationToken: cancellationToken);
 
@@ -925,7 +909,7 @@ public class SnakeCatchingPaymentService : ISnakeCatchingPaymentService
         }
     }
 
-    private async Task<(Guid TransactionId, decimal UserWalletBalanceAfter, decimal? SystemWalletBalanceAfter, DateTime ProcessedAtUtc, string ExternalTransactionId)> RecordSystemRevenuePaymentAsync(
+    private async Task<(Guid TransactionId, decimal UserWalletBalanceAfter, DateTime ProcessedAtUtc, string ExternalTransactionId)> RecordSystemRevenuePaymentAsync(
         Guid userId,
         Guid requestId,
         decimal amount,
@@ -997,7 +981,7 @@ public class SnakeCatchingPaymentService : ISnakeCatchingPaymentService
             await _unitOfWork.GetRepository<Transaction>().InsertAsync(paymentTransaction);
         }
 
-        return (paymentTransaction.Id, userWalletBalanceAfter, null, now, externalTransactionId);
+        return (paymentTransaction.Id, userWalletBalanceAfter, now, externalTransactionId);
     }
 
     private long GenerateOrderCode()

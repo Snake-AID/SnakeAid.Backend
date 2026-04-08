@@ -88,9 +88,6 @@ public class ConsultationPaymentIntegrationTests
 
         Assert.False(await db.Set<Transaction>().AnyAsync(t =>
             t.ReferenceId == bookingId &&
-            t.TransactionType == TransactionType.EscrowHold));
-        Assert.False(await db.Set<Transaction>().AnyAsync(t =>
-            t.ReferenceId == bookingId &&
             t.UserId == SystemUserId &&
             t.TransactionType == TransactionType.WalletTopup));
     }
@@ -293,9 +290,6 @@ public class ConsultationPaymentIntegrationTests
 
         Assert.Null(confirmed.SystemWalletBalanceAfter);
         Assert.False(await db.Set<Wallet>().AnyAsync(w => w.UserId == SystemUserId));
-        Assert.False(await db.Set<Transaction>().AnyAsync(t =>
-            t.ReferenceId == bookingId &&
-            t.TransactionType == TransactionType.EscrowHold));
         Assert.Equal(150_000m, await GetConsultationEscrowAvailableByPaymentReferenceAsync(db, bookingId));
     }
 
@@ -352,7 +346,6 @@ public class ConsultationPaymentIntegrationTests
         Assert.False(await db.Set<Wallet>().AnyAsync(w => w.UserId == SystemUserId));
 
         Assert.NotNull(await db.Set<Transaction>().FirstOrDefaultAsync(t => t.ReferenceId == requestId && t.TransactionType == TransactionType.ConsultationRefund));
-        Assert.False(await db.Set<Transaction>().AnyAsync(t => t.ReferenceId == requestId && t.TransactionType == TransactionType.EscrowRelease));
         Assert.False(await db.Set<Transaction>().AnyAsync(t =>
             t.ReferenceId == requestId &&
             t.UserId == SystemUserId &&
@@ -435,7 +428,6 @@ public class ConsultationPaymentIntegrationTests
         Assert.False(await db.Set<Wallet>().AnyAsync(w => w.UserId == SystemUserId));
         Assert.Equal(150_000m, expertWallet.Balance);
         Assert.Equal(1, await db.Set<Transaction>().CountAsync(t => t.ReferenceId == consultationId && t.TransactionType == TransactionType.ExpertPayout));
-        Assert.Equal(0, await db.Set<Transaction>().CountAsync(t => t.ReferenceId == consultationId && t.TransactionType == TransactionType.EscrowRelease));
         Assert.Equal(0, await db.Set<Transaction>().CountAsync(t =>
             t.ReferenceId == consultationId &&
             t.UserId == SystemUserId &&

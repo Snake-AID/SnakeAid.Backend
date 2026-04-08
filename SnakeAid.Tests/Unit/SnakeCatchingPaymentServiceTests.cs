@@ -82,7 +82,6 @@ public class SnakeCatchingPaymentServiceTests
         Assert.Equal("Paid", response.Status);
         Assert.Single(insertedTransactions);
         Assert.Equal(TransactionType.CatchingPayment, insertedTransactions[0].TransactionType);
-        Assert.DoesNotContain(insertedTransactions, t => t.TransactionType == TransactionType.EscrowHold);
         Assert.Equal(300_000m, userWallet.Balance);
         Assert.NotNull(response.GatewayRawResponse);
         Assert.Null(response.GatewayRawResponse!.GetType().GetProperty("SystemWalletBalance"));
@@ -94,7 +93,7 @@ public class SnakeCatchingPaymentServiceTests
     }
 
     [Fact]
-    public async Task ConfirmSnakeCatchingPayment_RecordsPayOsRevenueWithoutEscrowHold()
+    public async Task ConfirmSnakeCatchingPayment_RecordsPayOsRevenueWithoutLegacyEscrowArtifacts()
     {
         var pendingTransaction = new Transaction
         {
@@ -144,7 +143,6 @@ public class SnakeCatchingPaymentServiceTests
 
         _walletRepoMock.Verify(r => r.Update(It.IsAny<Wallet>()), Times.Never);
         _walletRepoMock.Verify(r => r.InsertAsync(It.IsAny<Wallet>(), It.IsAny<CancellationToken>()), Times.Never);
-        _transactionRepoMock.Verify(r => r.InsertAsync(It.Is<Transaction>(t => t.TransactionType == TransactionType.EscrowHold), It.IsAny<CancellationToken>()), Times.Never);
         _requestRepoMock.Verify(r => r.Update(It.Is<SnakeCatchingRequest>(req => req.Id == TestRequestId && req.Status == RequestStatus.Paid)), Times.Once);
     }
 
@@ -284,8 +282,6 @@ public class SnakeCatchingPaymentServiceTests
         Assert.Equal(25_000m, response.ReceiverWalletBalanceBefore);
         Assert.Equal(65_000m, response.ReceiverWalletBalanceAfter);
         Assert.Contains(insertedTransactions, t => t.TransactionType == TransactionType.CatchingRefund);
-        Assert.DoesNotContain(insertedTransactions, t => t.TransactionType == TransactionType.EscrowRelease);
-
         _walletRepoMock.Verify(r => r.Update(It.Is<Wallet>(w => w.UserId == receiverId && w.Balance == 65_000m)), Times.Once);
     }
 
