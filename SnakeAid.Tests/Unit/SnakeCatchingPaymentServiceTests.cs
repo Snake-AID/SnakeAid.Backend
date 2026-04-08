@@ -213,6 +213,152 @@ public class SnakeCatchingPaymentServiceTests
         _requestRepoMock.Verify(r => r.Update(It.IsAny<SnakeCatchingRequest>()), Times.Never);
     }
 
+    [Fact]
+    public async Task RefundSnakeCatchingTransaction_UsesRevenueLedgerWithoutSystemWallet()
+    {
+        var receiverId = Guid.NewGuid();
+        var receiverWallet = new Wallet { Id = Guid.NewGuid(), UserId = receiverId, Balance = 25_000m };
+        var transactions = new List<Transaction>
+        {
+            new()
+            {
+                Id = Guid.NewGuid(),
+                UserId = TestUserId,
+                ReferenceId = TestRequestId,
+                Amount = 100_000m,
+                Currency = "VND",
+                TransactionType = TransactionType.CatchingPayment,
+                PaymentMethod = "Wallet",
+                ExternalTransactionId = "WALLET-1",
+                CreatedAt = DateTime.UtcNow
+            }
+        };
+        var insertedTransactions = new List<Transaction>();
+
+        SetupWalletRepoFromList(new[] { receiverWallet });
+        SetupTransactionRepo(existingTransaction: null, list: transactions);
+        _transactionRepoMock
+            .Setup(r => r.GetListAsync(
+                It.IsAny<Expression<Func<Transaction, bool>>>(),
+                It.IsAny<Func<IQueryable<Transaction>, IOrderedQueryable<Transaction>>>(),
+                It.IsAny<Func<IQueryable<Transaction>, IQueryable<Transaction>>>(),
+                It.IsAny<int?>(),
+                It.IsAny<bool>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync((
+                Expression<Func<Transaction, bool>> predicate,
+                Func<IQueryable<Transaction>, IOrderedQueryable<Transaction>>? _1,
+                Func<IQueryable<Transaction>, IQueryable<Transaction>>? _2,
+                int? _3,
+                bool _4,
+                CancellationToken _5) =>
+            {
+                var compiled = predicate.Compile();
+                return transactions.Where(compiled).ToList();
+            });
+        _transactionRepoMock
+            .Setup(r => r.InsertAsync(It.IsAny<Transaction>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Transaction tx, CancellationToken _) =>
+            {
+                insertedTransactions.Add(tx);
+                transactions.Add(tx);
+                return tx;
+            });
+
+        var response = await _service.RefundSnakeCatchingTransactionAsync(
+            new RefundTransactionRequest
+            {
+                ReceiverId = receiverId,
+                ReferenceId = TestRequestId,
+                Amount = 40_000m,
+                Description = "Refund catching payment",
+                TransactionType = TransactionType.CatchingRefund
+            },
+            CancellationToken.None);
+
+        Assert.True(response.Success);
+        Assert.Null(response.SystemWalletBalanceBefore);
+        Assert.Null(response.SystemWalletBalanceAfter);
+        Assert.Equal(25_000m, response.ReceiverWalletBalanceBefore);
+        Assert.Equal(65_000m, response.ReceiverWalletBalanceAfter);
+        Assert.Contains(insertedTransactions, t => t.TransactionType == TransactionType.CatchingRefund);
+        Assert.DoesNotContain(insertedTransactions, t => t.TransactionType == TransactionType.EscrowRelease);
+
+        _walletRepoMock.Verify(r => r.Update(It.Is<Wallet>(w => w.UserId == receiverId && w.Balance == 65_000m)), Times.Once);
+    }
+
+    [Fact]
+    public async Task RefundSnakeCatchingTransaction_WhenAmountExceedsRefundableRevenue_Throws()
+    {
+        var receiverId = Guid.NewGuid();
+        var receiverWallet = new Wallet { Id = Guid.NewGuid(), UserId = receiverId, Balance = 10_000m };
+        var transactions = new List<Transaction>
+        {
+            new()
+            {
+                Id = Guid.NewGuid(),
+                UserId = TestUserId,
+                ReferenceId = TestRequestId,
+                Amount = 100_000m,
+                Currency = "VND",
+                TransactionType = TransactionType.CatchingPayment,
+                PaymentMethod = "Wallet",
+                ExternalTransactionId = "WALLET-1",
+                CreatedAt = DateTime.UtcNow
+            },
+            new()
+            {
+                Id = Guid.NewGuid(),
+                UserId = receiverId,
+                ReferenceId = TestRequestId,
+                Amount = 70_000m,
+                Currency = "VND",
+                TransactionType = TransactionType.CatchingRefund,
+                PaymentMethod = "Internal",
+                ExternalTransactionId = "REFUND-1",
+                CreatedAt = DateTime.UtcNow
+            }
+        };
+
+        SetupWalletRepoFromList(new[] { receiverWallet });
+        SetupTransactionRepo(existingTransaction: null, list: transactions);
+        _transactionRepoMock
+            .Setup(r => r.GetListAsync(
+                It.IsAny<Expression<Func<Transaction, bool>>>(),
+                It.IsAny<Func<IQueryable<Transaction>, IOrderedQueryable<Transaction>>>(),
+                It.IsAny<Func<IQueryable<Transaction>, IQueryable<Transaction>>>(),
+                It.IsAny<int?>(),
+                It.IsAny<bool>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync((
+                Expression<Func<Transaction, bool>> predicate,
+                Func<IQueryable<Transaction>, IOrderedQueryable<Transaction>>? _1,
+                Func<IQueryable<Transaction>, IQueryable<Transaction>>? _2,
+                int? _3,
+                bool _4,
+                CancellationToken _5) =>
+            {
+                var compiled = predicate.Compile();
+                return transactions.Where(compiled).ToList();
+            });
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => _service.RefundSnakeCatchingTransactionAsync(
+                new RefundTransactionRequest
+                {
+                    ReceiverId = receiverId,
+                    ReferenceId = TestRequestId,
+                    Amount = 40_000m,
+                    Description = "Over refund",
+                    TransactionType = TransactionType.CatchingRefund
+                },
+                CancellationToken.None));
+
+        Assert.Contains("refundable payment amount is insufficient", ex.Message, StringComparison.OrdinalIgnoreCase);
+        _walletRepoMock.Verify(r => r.Update(It.IsAny<Wallet>()), Times.Never);
+        _transactionRepoMock.Verify(r => r.InsertAsync(It.IsAny<Transaction>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
     private static SnakeCatchingRequest CreateRequest(RequestStatus status, Guid userId)
     {
         return new SnakeCatchingRequest
