@@ -259,9 +259,12 @@ public class WalletTopupService : IWalletTopupService
         transaction.CreatedAt = webhook.TransactionDateTime ?? DateTime.UtcNow;
         _unitOfWork.GetRepository<Transaction>().Update(transaction);
 
+        var userId = transaction.UserId
+            ?? throw new InvalidOperationException("Wallet top-up transaction is missing user ownership.");
+
         var userWallet = await _unitOfWork.GetRepository<Wallet>()
             .FirstOrDefaultAsync(
-                predicate: w => w.UserId == transaction.UserId,
+                predicate: w => w.UserId == userId,
                 asNoTracking: false,
                 cancellationToken: cancellationToken);
 
@@ -270,11 +273,11 @@ public class WalletTopupService : IWalletTopupService
             userWallet = new Wallet
             {
                 Id = Guid.NewGuid(),
-                UserId = transaction.UserId,
+                UserId = userId,
                 Balance = 0
             };
             await _unitOfWork.GetRepository<Wallet>().InsertAsync(userWallet);
-            _logger.LogInformation("{Prefix} Created wallet for user {UserId}", LogPrefix, transaction.UserId);
+            _logger.LogInformation("{Prefix} Created wallet for user {UserId}", LogPrefix, userId);
         }
 
         var previousBalance = userWallet.Balance;
@@ -284,7 +287,7 @@ public class WalletTopupService : IWalletTopupService
         await _unitOfWork.CommitAsync();
 
         _logger.LogInformation("{Prefix} Wallet top-up completed. UserId={UserId}, Amount={Amount}, Balance: {PreviousBalance} -> {NewBalance}",
-            LogPrefix, transaction.UserId, transaction.Amount, previousBalance, userWallet.Balance);
+            LogPrefix, userId, transaction.Amount, previousBalance, userWallet.Balance);
 
         return BuildSuccessResponse(transaction, webhook.OrderCode);
     }

@@ -22,7 +22,6 @@ public class ConsultationPaymentService : IConsultationPaymentService
 {
     private static readonly TimeSpan EmergencyRequestTtl = TimeSpan.FromMinutes(2);
     private static readonly Regex OrderCodeRegex = new($@"^{PayOsPaymentFlowPrefixes.Consultation}(\d+)", RegexOptions.Compiled);
-    private static readonly Guid PlatformLedgerUserId = Guid.Parse("57288b98-5f91-4de8-b827-866e3df69587");
     private const decimal DefaultConsultationPlatformFeePercent = 0.20m;
 
     private readonly IUnitOfWork<SnakeAidDbContext> _unitOfWork;
@@ -709,8 +708,11 @@ public class ConsultationPaymentService : IConsultationPaymentService
             transaction.CreatedAt = webhook.TransactionDateTime ?? DateTime.UtcNow;
             _unitOfWork.GetRepository<Transaction>().Update(transaction);
 
+            var payerUserId = transaction.UserId
+                ?? throw new ConflictException("Consultation payment transaction is missing payer user ownership.");
+
             var escrowTransfer = await MoveMoneyToEscrowAsync(
-                transaction.UserId,
+                payerUserId,
                 transaction.ReferenceId,
                 transaction.Amount,
                 TransactionType.ConsultationPayment,
@@ -1176,7 +1178,7 @@ public class ConsultationPaymentService : IConsultationPaymentService
             await _unitOfWork.GetRepository<Transaction>().InsertAsync(new Transaction
             {
                 Id = Guid.NewGuid(),
-                UserId = PlatformLedgerUserId,
+                UserId = null,
                 ReferenceId = consultationId,
                 Amount = settlement.PlatformFeeAmount,
                 Currency = "VND",

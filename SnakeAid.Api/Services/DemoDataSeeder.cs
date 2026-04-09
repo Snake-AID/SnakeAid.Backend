@@ -679,7 +679,7 @@ namespace SnakeAid.Api.Services
 
                 // 8. Delete Transactions for demo users (if any)
                 var transactions = await _dbContext.Transactions
-                    .Where(t => demoUserIds.Contains(t.UserId))
+                    .Where(t => t.UserId.HasValue && demoUserIds.Contains(t.UserId.Value))
                     .ToListAsync();
                 _dbContext.Transactions.RemoveRange(transactions);
                 _logger.LogInformation("Removing {Count} transactions", transactions.Count);

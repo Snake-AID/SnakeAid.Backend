@@ -722,9 +722,12 @@ public class SnakebiteIncidentPaymentService : ISnakebiteIncidentPaymentService
         transaction.CreatedAt = webhook.TransactionDateTime ?? DateTime.UtcNow;
         _unitOfWork.GetRepository<Transaction>().Update(transaction);
 
+        var payerUserId = transaction.UserId
+            ?? throw new ConflictException("Incident payment transaction is missing payer user ownership.");
+
         // Mark the payment as ledger-only system/platform revenue.
         await RecordSystemRevenuePaymentAsync(
-            transaction.UserId,
+            payerUserId,
             transaction.ReferenceId,
             transaction.Amount,
             "Incident payment via PayOS",
