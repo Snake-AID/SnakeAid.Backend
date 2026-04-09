@@ -101,7 +101,8 @@ namespace SnakeAid.Service.Implements
                 [
                     TransactionType.ConsultationPayment,
                     TransactionType.ExpertPayout,
-                    TransactionType.ConsultationRefund
+                    TransactionType.ConsultationRefund,
+                    TransactionType.PlatformFee
                 ],
                 "snakecatching" or "snakecathcing" =>
                 [

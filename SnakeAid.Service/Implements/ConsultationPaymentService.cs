@@ -22,6 +22,7 @@ public class ConsultationPaymentService : IConsultationPaymentService
 {
     private static readonly TimeSpan EmergencyRequestTtl = TimeSpan.FromMinutes(2);
     private static readonly Regex OrderCodeRegex = new($@"^{PayOsPaymentFlowPrefixes.Consultation}(\d+)", RegexOptions.Compiled);
+    private static readonly Guid PlatformLedgerUserId = Guid.Parse("57288b98-5f91-4de8-b827-866e3df69587");
     private const decimal DefaultConsultationPlatformFeePercent = 0.20m;
 
     private readonly IUnitOfWork<SnakeAidDbContext> _unitOfWork;
@@ -1165,22 +1166,40 @@ public class ConsultationPaymentService : IConsultationPaymentService
         decimal amount,
         CancellationToken cancellationToken)
     {
+        var settlement = CalculateConsultationSettlementAmounts(amount);
         var available = await GetAvailableConsultationEscrowForSettlementAsync(consultationId, paymentReferenceId, cancellationToken);
-        if (available < amount)
+        if (available < settlement.GrossAmount)
         {
             throw new ConflictException("Consultation escrow balance is insufficient for expert settlement.");
         }
 
         var expertWallet = await GetOrCreateWalletAsync(expertId, cancellationToken);
-        expertWallet.Balance += amount;
+        expertWallet.Balance += settlement.ExpertNetAmount;
         _unitOfWork.GetRepository<Wallet>().Update(expertWallet);
+
+        if (settlement.PlatformFeeAmount > 0m)
+        {
+            await _unitOfWork.GetRepository<Transaction>().InsertAsync(new Transaction
+            {
+                Id = Guid.NewGuid(),
+                UserId = PlatformLedgerUserId,
+                ReferenceId = consultationId,
+                Amount = settlement.PlatformFeeAmount,
+                Currency = "VND",
+                TransactionType = TransactionType.PlatformFee,
+                Description = $"Consultation platform fee for consultation {consultationId}",
+                PaymentMethod = "Internal",
+                ExternalTransactionId = $"SETTLE-FEE-{Guid.NewGuid():N}",
+                CreatedAt = DateTime.UtcNow
+            });
+        }
 
         await _unitOfWork.GetRepository<Transaction>().InsertAsync(new Transaction
         {
             Id = Guid.NewGuid(),
             UserId = expertId,
             ReferenceId = consultationId,
-            Amount = amount,
+            Amount = settlement.ExpertNetAmount,
             Currency = "VND",
             TransactionType = TransactionType.ExpertPayout,
             Description = $"Consultation settlement for consultation {consultationId}",
