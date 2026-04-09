@@ -24,13 +24,27 @@ namespace SnakeAid.Repository.Migrations
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.Sql(
+                """
+                DO $$
+                BEGIN
+                    IF EXISTS (
+                        SELECT 1
+                        FROM "SnakeAid"."Transactions"
+                        WHERE "UserId" IS NULL
+                    ) THEN
+                        RAISE EXCEPTION 'Cannot rollback MakeTransactionUserIdNullable while Transactions.UserId contains NULL rows. Reassign or delete platform-owned transactions before downgrading.';
+                    END IF;
+                END
+                $$;
+                """);
+
             migrationBuilder.AlterColumn<Guid>(
                 name: "UserId",
                 schema: "SnakeAid",
                 table: "Transactions",
                 type: "uuid",
                 nullable: false,
-                defaultValue: new Guid("00000000-0000-0000-0000-000000000000"),
                 oldClrType: typeof(Guid),
                 oldType: "uuid",
                 oldNullable: true);
