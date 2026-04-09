@@ -12,6 +12,7 @@ using SnakeAid.Core.Requests.RescueMission;
 using SnakeAid.Core.Responses.Media;
 using SnakeAid.Core.Responses.RescueMission;
 using SnakeAid.Core.Responses.SnakeSpecies;
+using SnakeAid.Core.Meta;
 using SnakeAid.Core.Services;
 using SnakeAid.Repository.Data;
 using SnakeAid.Repository.Interfaces;
@@ -618,12 +619,14 @@ namespace SnakeAid.Service.Implements
                 }
 
                 await mission.Incident.AttachReportMediaAsync(_unitOfWork, MediaReferenceType.SnakebiteIncident);
+                await mission.AttachReportMediaAsync(_unitOfWork, MediaReferenceType.RescueMission);
 
                 // DEBUG: Log media and AI results
                 _logger.LogInformation("Mission {MissionId}: Loaded {MediaCount} media items",
                     missionId, mission.Incident.Media?.Count ?? 0);
 
                 var response = mission.Adapt<DetailRescueMissionResponse>();
+                response.MissionMedia = mission.Media.Adapt<List<ReportMediaResponse>>();
 
                 // Manually map identified snake and identification context if available
                 if (mission.Incident.IdentifiedSnakeSpecies != null && response.Incident != null)
@@ -801,6 +804,56 @@ namespace SnakeAid.Service.Implements
             {
                 _logger.LogError(ex, "Error reporting hospital transfer for mission {MissionId}: {Message}",
                     missionId, ex.Message);
+                throw;
+            }
+        }
+
+        public Task<PagedData<AdminRescueMissionSummaryResponse>> GetAdminMissionListAsync(
+            IEnumerable<RescueMissionStatus>? statuses,
+            DateTimeOffset? since,
+            DateTimeOffset? until,
+            int page,
+            int pageSize)
+        {
+            try
+            {
+                var hasStatusFilter = statuses != null && statuses.Any();
+                var repo = _unitOfWork.GetRepository<RescueMission>();
+
+                return repo.GetPagingListAsync<AdminRescueMissionSummaryResponse>(
+                    predicate: m =>
+                        (!hasStatusFilter || statuses!.Contains(m.Status)) &&
+                        (!since.HasValue || m.CreatedAt >= since.Value.UtcDateTime) &&
+                        (!until.HasValue || m.CreatedAt <= until.Value.UtcDateTime),
+                    include: q => q
+                        .Include(m => m.Incident)
+                        .Include(m => m.Rescuer)
+                            .ThenInclude(r => r.Account),
+                    orderBy: q => q.OrderByDescending(m => m.CreatedAt),
+                    page: page,
+                    size: pageSize,
+                    selector: m => new AdminRescueMissionSummaryResponse
+                    {
+                        Id = m.Id,
+                        IncidentId = m.IncidentId,
+                        RescuerId = m.RescuerId,
+                        Status = m.Status,
+                        Price = m.Price,
+                        CostFromCenter = m.CostFromCenter,
+                        ActualCost = m.ActualCost,
+                        CreatedAt = m.CreatedAt,
+                        UpdatedAt = m.UpdatedAt,
+                        StartedAt = m.StartedAt,
+                        ArrivedAt = m.ArrivedAt,
+                        CompletedAt = m.CompletedAt,
+                        IncidentStatus = m.Incident.Status,
+                        IncidentAddress = m.Incident.Address,
+                        RescuerName = m.Rescuer.Account.FullName
+                    });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving admin rescue mission list: {Message}", ex.Message);
                 throw;
             }
         }

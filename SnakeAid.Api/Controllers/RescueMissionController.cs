@@ -10,6 +10,8 @@ using SnakeAid.Core.Responses.RescueMission;
 using SnakeAid.Service.Interfaces;
 using Swashbuckle.AspNetCore.Annotations;
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 
 namespace SnakeAid.Api.Controllers
@@ -57,6 +59,46 @@ namespace SnakeAid.Api.Controllers
         {
             var result = await _missionService.GetMissionDetailAsync(missionId, rescuerLat, rescuerLng);
             return Ok(ApiResponseBuilder.BuildSuccessResponse(result, "Mission details retrieved successfully!"));
+        }
+
+        /// <summary>
+        /// Get paged rescue mission list for admin dashboard.
+        /// </summary>
+        [HttpGet("admin/list")]
+        [Authorize(Roles = "Admin")]
+        [SwaggerOperation(
+            Summary = "Get Admin Rescue Mission List",
+            Description = "Retrieve paged rescue mission summaries for admin with optional status/time filters.")]
+        [SwaggerResponse(200, "Rescue missions retrieved successfully", typeof(ApiResponse<PagedData<AdminRescueMissionSummaryResponse>>))]
+        public async Task<IActionResult> GetAdminMissionList(
+            [FromQuery] string? status = null,
+            [FromQuery] DateTimeOffset? since = null,
+            [FromQuery] DateTimeOffset? until = null,
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 50)
+        {
+            var statuses = ParseMissionStatuses(status);
+            var result = await _missionService.GetAdminMissionListAsync(statuses, since, until, page, pageSize);
+            return Ok(ApiResponseBuilder.BuildSuccessResponse(result, "Admin rescue mission list retrieved."));
+        }
+
+        private static IEnumerable<RescueMissionStatus>? ParseMissionStatuses(string? csvStatuses)
+        {
+            if (string.IsNullOrWhiteSpace(csvStatuses))
+            {
+                return null;
+            }
+
+            var values = new List<RescueMissionStatus>();
+            foreach (var rawValue in csvStatuses.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            {
+                if (Enum.TryParse(rawValue, true, out RescueMissionStatus parsed))
+                {
+                    values.Add(parsed);
+                }
+            }
+
+            return values.Count > 0 ? values : null;
         }
 
 

@@ -14,7 +14,7 @@ namespace SnakeAid.Service.Implements;
 
 public class NotificationQueueService : INotificationQueueService
 {
-    private static readonly TimeSpan WithdrawalPublishTimeout = TimeSpan.FromSeconds(3);
+    private static readonly TimeSpan BrokerPublishTimeout = TimeSpan.FromSeconds(3);
     private readonly IPublishEndpoint _publishEndpoint;
     private readonly ILogger<NotificationQueueService> _logger;
     private readonly IUnitOfWork<SnakeAidDbContext> _unitOfWork;
@@ -51,7 +51,7 @@ public class NotificationQueueService : INotificationQueueService
         }, cancellationToken);
         await _unitOfWork.CommitAsync();
 
-        await PublishToBrokerAsync(message, cancellationToken);
+        await PublishToBrokerAsync(message, 1, cancellationToken);
 
         _logger.LogInformation(
             "Queued notification {NotificationId} for user {UserId} with type {Type}",
@@ -86,7 +86,7 @@ public class NotificationQueueService : INotificationQueueService
         for (var index = 0; index < messageList.Count; index += publishBatchSize)
         {
             var batch = messageList.Skip(index).Take(publishBatchSize).ToList();
-            await Task.WhenAll(batch.Select(message => PublishToBrokerAsync(message, cancellationToken)));
+            await Task.WhenAll(batch.Select(message => PublishToBrokerAsync(message, batch.Count, cancellationToken)));
         }
 
         _logger.LogInformation(
@@ -153,34 +153,25 @@ public class NotificationQueueService : INotificationQueueService
         return recipientIds.Count;
     }
 
-    private async Task PublishToBrokerAsync(NotificationMessage message, CancellationToken cancellationToken)
+    private async Task PublishToBrokerAsync(
+        NotificationMessage message,
+        int persistedNotificationCount,
+        CancellationToken cancellationToken)
     {
         try
         {
             var publishTask = _publishEndpoint.Publish(message, cancellationToken);
-            if (IsWithdrawalNotificationType(message.Type))
-            {
-                await publishTask.WaitAsync(WithdrawalPublishTimeout, cancellationToken);
-            }
-            else
-            {
-                await publishTask;
-            }
+            await publishTask.WaitAsync(BrokerPublishTimeout, cancellationToken);
         }
-        catch (Exception ex) when (IsWithdrawalNotificationType(message.Type) && IsBrokerDeliveryFailure(ex))
+        catch (Exception ex) when (IsBrokerDeliveryFailure(ex))
         {
             _logger.LogWarning(
                 ex,
-                "Skipping broker publish for withdrawal notification {NotificationType} and user {UserId}. App notification was already stored.",
+                "Skipping broker publish for notification {NotificationType} and user {UserId}. App notification was already stored. PersistedNotificationCount={PersistedNotificationCount}",
                 message.Type,
-                message.UserId);
+                message.UserId,
+                persistedNotificationCount);
         }
-    }
-
-    private static bool IsWithdrawalNotificationType(string? notificationType)
-    {
-        return !string.IsNullOrWhiteSpace(notificationType)
-            && notificationType.StartsWith("WITHDRAWAL_", StringComparison.Ordinal);
     }
 
     private static bool IsBrokerDeliveryFailure(Exception exception)

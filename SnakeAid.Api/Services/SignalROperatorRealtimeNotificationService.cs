@@ -213,34 +213,34 @@ namespace SnakeAid.Api.Services
 
                 // Prefer notifying the operator currently handling the incident.
                 // If that operator is not connected, fall back to broadcasting to all operators.
-                if (operatorId.HasValue && ConnectedOperators.ContainsKey(operatorId.Value.ToString()))
-                {
-                    _logger.LogInformation("Sending RescuerAborted to specific operator {OperatorId}", operatorId.Value);
-                    await _hubContext.Clients.User(operatorId.Value.ToString()).SendAsync("RescuerAborted", new
-                    {
-                        IncidentId = incidentId,
-                        RescuerId = rescuerId,
-                        OperatorId = operatorId.Value,
-                        Reason = reason,
-                        UpdatedAt = DateTime.UtcNow
-                    });
+                // if (operatorId.HasValue && ConnectedOperators.ContainsKey(operatorId.Value.ToString()))
+                // {
+                //     _logger.LogInformation("Sending RescuerAborted to specific operator {OperatorId}", operatorId.Value);
+                //     await _hubContext.Clients.User(operatorId.Value.ToString()).SendAsync("RescuerAborted", new
+                //     {
+                //         IncidentId = incidentId,
+                //         RescuerId = rescuerId,
+                //         OperatorId = operatorId.Value,
+                //         Reason = reason,
+                //         UpdatedAt = DateTime.UtcNow
+                //     });
 
-                    _logger.LogInformation("Sent RescuerAborted for {IncidentId} to operator {OperatorId}", incidentId, operatorId.Value);
-                }
-                else
+                //     _logger.LogInformation("Sent RescuerAborted for {IncidentId} to operator {OperatorId}", incidentId, operatorId.Value);
+                // }
+                // else
+                // {
+                _logger.LogInformation("Broadcasting RescuerAborted to all operators in group '{OperatorGroup}'", OperatorGroup);
+                await _hubContext.Clients.Group(OperatorGroup).SendAsync("RescuerAborted", new
                 {
-                    _logger.LogInformation("Broadcasting RescuerAborted to all operators in group '{OperatorGroup}'", OperatorGroup);
-                    await _hubContext.Clients.Group(OperatorGroup).SendAsync("RescuerAborted", new
-                    {
-                        IncidentId = incidentId,
-                        RescuerId = rescuerId,
-                        OperatorId = operatorId,
-                        Reason = reason,
-                        UpdatedAt = DateTime.UtcNow
-                    });
+                    IncidentId = incidentId,
+                    RescuerId = rescuerId,
+                    OperatorId = operatorId,
+                    Reason = reason,
+                    UpdatedAt = DateTime.UtcNow
+                });
 
-                    _logger.LogInformation("Broadcasted RescuerAborted for {IncidentId} to operator group", incidentId);
-                }
+                _logger.LogInformation("Broadcasted RescuerAborted for {IncidentId} to operator group", incidentId);
+                // }
             }
             catch (Exception ex)
             {

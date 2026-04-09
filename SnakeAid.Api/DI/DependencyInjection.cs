@@ -85,7 +85,7 @@ public static class DependencyInjection
         // Always register LocationIQ Service (with or without API keys)
         // Service will throw ExternalServiceException if called without API keys
         var locationIqSettings = locationIqSection.Get<SnakeAid.Service.Options.LocationIqOptions>();
-        
+
         services.AddHttpClient<SnakeAid.Service.Interfaces.ILocationIqService, SnakeAid.Service.Implements.LocationIqService>()
             .ConfigureHttpClient(c =>
             {
@@ -98,7 +98,7 @@ public static class DependencyInjection
             .AddPolicyHandler(GetRetryPolicy())
             .AddPolicyHandler(GetCircuitBreakerPolicy());
 
-        if (locationIqSettings is null || locationIqSettings.ApiKeys == null || locationIqSettings.ApiKeys.Length == 0 || 
+        if (locationIqSettings is null || locationIqSettings.ApiKeys == null || locationIqSettings.ApiKeys.Length == 0 ||
             locationIqSettings.ApiKeys.All(k => string.IsNullOrWhiteSpace(k)))
         {
             Serilog.Log.Warning("⚠️ LocationIQ API keys are not configured. Distance calculation will use fallback prices.");

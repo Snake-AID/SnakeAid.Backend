@@ -57,7 +57,8 @@ namespace SnakeAid.Api.Services
                     UserId = Guid.Parse(rescuerId),
                     Title = "Điều phối viên gửi yêu cầu hỗ trợ khẩn cấp cho bạn",
                     Body = BuildRequestSummary(requestData) ?? "Điều phối viên vừa gửi yêu cầu cho bạn.",
-                    Type = "SNAKE_RESCUE_DISPATCH_REQUESTED"
+                    Type = "SNAKE_RESCUE_DISPATCH_REQUESTED",
+                    Data = BuildEntityData(requestData)
                 });
             }, "NotifyDispatchRequested", rescuerId);
         }
@@ -202,8 +203,44 @@ namespace SnakeAid.Api.Services
                 UserId = userId,
                 Title = title,
                 Body = BuildRequestSummary(payload) ?? "Mở app để xem chi tiết.",
-                Type = GetNotificationType(actionName)
+                Type = GetNotificationType(actionName),
+                Data = BuildEntityData(payload)
             });
+        }
+
+        private static Dictionary<string, string>? BuildEntityData(object payload)
+        {
+            switch (payload)
+            {
+                case DispatchRequestNotificationPayload p:
+                    return new Dictionary<string, string>
+                    {
+                        ["requestId"] = p.RequestId.ToString(),
+                        ["incidentId"] = p.IncidentId.ToString(),
+                        ["rescuerId"] = p.RescuerId.ToString()
+                    };
+                case RescuerRequestNotificationPayload p:
+                    return new Dictionary<string, string>
+                    {
+                        ["requestId"] = p.RequestId.ToString(),
+                        ["rescuerId"] = p.RescuerId.ToString()
+                    };
+                case AcceptRescueResponse p:
+                    return new Dictionary<string, string>
+                    {
+                        ["requestId"] = p.RequestId.ToString(),
+                        ["incidentId"] = p.IncidentId.ToString(),
+                        ["missionId"] = p.MissionId.ToString(),
+                        ["rescuerId"] = p.RescuerId.ToString()
+                    };
+                case RejectRescueResponse p:
+                    return new Dictionary<string, string>
+                    {
+                        ["requestId"] = p.RequestId.ToString()
+                    };
+                default:
+                    return null;
+            }
         }
 
         private static string GetNotificationType(string actionName)

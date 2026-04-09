@@ -387,7 +387,7 @@ namespace SnakeAid.Service.Implements
 
                     if (catchingRequest != null)
                     {
-                        catchingRequest.Status = RequestStatus.Pending;
+                        catchingRequest.Status = RequestStatus.Confirmed;
                         catchingRequest.AssignedRescuerId = null;
                         catchingRequest.AssignedAt = null;
                         _unitOfWork.GetRepository<SnakeCatchingRequest>().Update(catchingRequest);
@@ -420,68 +420,6 @@ namespace SnakeAid.Service.Implements
                             rescuerId,
                             rescuerName,
                             request.Reason);
-                    }
-
-                    // Check for paid transactions and process refund (OUTSIDE the transaction)
-                    var paidTransactions = await _unitOfWork.GetRepository<Transaction>().GetListAsync(
-                        predicate: t => t.ReferenceId == mission.SnakeCatchingRequestId &&
-                                       t.ExternalTransactionId != null &&
-                                       (t.TransactionType == TransactionType.CatchingPayment ||
-                                        t.TransactionType == TransactionType.CatchingDeposit),
-                        asNoTracking: true,
-                        cancellationToken: default);
-
-                    if (paidTransactions != null && paidTransactions.Any())
-                    {
-                        var totalRefundAmount = paidTransactions.Sum(t => t.Amount);
-                        var userId = catchingRequest?.UserId ?? mission.SnakeCatchingRequest?.UserId;
-
-                        if (userId.HasValue)
-                        {
-                            _logger.LogInformation(
-                                "Found {Count} paid transaction(s) for mission {MissionId}. Total refund amount: {Amount}",
-                                paidTransactions.Count(), missionId, totalRefundAmount);
-
-                            try
-                            {
-                                // Process refund to user wallet
-                                var refundRequest = new RefundTransactionRequest
-                                {
-                                    ReceiverId = userId.Value,
-                                    ReferenceId = mission.SnakeCatchingRequestId,
-                                    Amount = totalRefundAmount,
-                                    Description = $"Refund for aborted mission {missionId}: {request.Reason}",
-                                    TransactionType = TransactionType.CatchingRefund
-                                };
-
-                                var refundResponse = await _snakeCatchingPaymentService.RefundSnakeCatchingTransactionAsync(
-                                    refundRequest,
-                                    cancellationToken: default);
-
-                                _logger.LogInformation(
-                                    "Refund processed successfully for mission {MissionId}. RefundAmount: {Amount}, RefundTransactionId: {TransactionId}",
-                                    missionId, refundResponse.RefundAmount, refundResponse.RefundTransactionId);
-                            }
-                            catch (Exception refundEx)
-                            {
-                                // Log error but don't fail the abort operation
-                                _logger.LogError(refundEx,
-                                    "Failed to process refund for mission {MissionId}. User may need manual refund.",
-                                    missionId);
-                            }
-                        }
-                        else
-                        {
-                            _logger.LogWarning(
-                                "Cannot process refund for mission {MissionId}. UserId not found.",
-                                missionId);
-                        }
-                    }
-                    else
-                    {
-                        _logger.LogInformation(
-                            "No paid transactions found for mission {MissionId}. No refund needed.",
-                            missionId);
                     }
 
                     await mission.AttachReportMediaAsync(_unitOfWork, MediaReferenceType.SnakeCatchingMission);

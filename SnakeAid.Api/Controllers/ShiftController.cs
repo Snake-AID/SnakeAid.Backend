@@ -8,6 +8,7 @@ using SnakeAid.Service.Interfaces;
 using Swashbuckle.AspNetCore.Annotations;
 
 using Microsoft.AspNetCore.Authorization;
+using SnakeAid.Core.Utils;
 
 namespace SnakeAid.Api.Controllers
 {
@@ -172,6 +173,16 @@ namespace SnakeAid.Api.Controllers
         {
             var result = await _shiftService.DeleteShiftAssignmentAsync(assignmentId);
             return Ok(ApiResponseBuilder.BuildSuccessResponse(result, "Shift assignment deleted successfully."));
+        }
+
+        [HttpGet("rescuer/{id}/my-assignments-today")]
+        [SwaggerOperation(Summary = "Get My Shift Assignments for Today", Description = "Retrieve shift assignments for the logged-in rescuer for the current day")]
+        [SwaggerResponse(200, "Success", typeof(ApiResponse<List<ShiftAssignmentResponse>>))]
+        public async Task<IActionResult> GetMyAssignmentsToday(Guid id)
+        {
+            var today = AppTime.TodayLocalDate;
+            var result = await _shiftService.GetAssignmentsByRescuerIdAsync(id, today);
+            return Ok(ApiResponseBuilder.BuildSuccessResponse(result));
         }
     }
 }

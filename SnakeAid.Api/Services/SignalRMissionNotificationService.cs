@@ -40,7 +40,8 @@ namespace SnakeAid.Api.Services
                     UserId = memberUserId,
                     Title = "Cứu hộ viên đã nhận yêu cầu",
                     Body = "Cứu hộ viên đã xác nhận yêu cầu của bạn và đang chuẩn bị di chuyển.",
-                    Type = "SNAKE_RESCUE_REQUEST_ACCEPTED"
+                    Type = "SNAKE_RESCUE_REQUEST_ACCEPTED",
+                    Data = BuildEntityData(incidentId)
                 });
             }, "RescuerAccepted", incidentId);
 
@@ -62,7 +63,8 @@ namespace SnakeAid.Api.Services
                     Body = !string.IsNullOrWhiteSpace(rescuerName)
                         ? $"{rescuerName} đang trên đường đến vị trí của bạn."
                         : "Cứu hộ viên đang trên đường đến vị trí của bạn.",
-                    Type = "SNAKE_RESCUE_RESCUER_EN_ROUTE"
+                    Type = "SNAKE_RESCUE_RESCUER_EN_ROUTE",
+                    Data = BuildEntityData(incidentId)
                 });
             }, "MissionStarted", incidentId);
 
@@ -78,7 +80,8 @@ namespace SnakeAid.Api.Services
                     Body = !string.IsNullOrWhiteSpace(rescuerName)
                         ? $"{rescuerName} đã đến nơi và bắt đầu khảo sát hiện trường."
                         : "Cứu hộ viên đã đến nơi và bắt đầu khảo sát hiện trường.",
-                    Type = "SNAKE_RESCUE_RESCUER_ARRIVED"
+                    Type = "SNAKE_RESCUE_RESCUER_ARRIVED",
+                    Data = BuildEntityData(incidentId)
                 });
             }, "RescuerArrived", incidentId);
 
@@ -104,7 +107,8 @@ namespace SnakeAid.Api.Services
                         : (!string.IsNullOrWhiteSpace(rescuerName)
                             ? $"{rescuerName} đã hoàn thành nhiệm vụ. Vui lòng thanh toán để kết thúc dịch vụ."
                             : "Cứu hộ viên đã hoàn thành nhiệm vụ. Vui lòng thanh toán để kết thúc dịch vụ."),
-                    Type = "SNAKE_RESCUE_MISSION_COMPLETED"
+                    Type = "SNAKE_RESCUE_MISSION_COMPLETED",
+                    Data = BuildEntityData(incidentId, result.MissionId)
                 });
             }, "MissionCompleted", incidentId);
 
@@ -120,7 +124,8 @@ namespace SnakeAid.Api.Services
                     Body = string.IsNullOrWhiteSpace(reason)
                         ? "Khách hàng đã hủy yêu cầu. Nhiệm vụ của bạn được dừng lại."
                         : $"Khách hàng đã hủy yêu cầu. Lý do: {reason}",
-                    Type = "SNAKE_RESCUE_REQUEST_CANCELLED_BY_MEMBER"
+                    Type = "SNAKE_RESCUE_REQUEST_CANCELLED_BY_MEMBER",
+                    Data = BuildEntityData(incidentId)
                 });
             }, "MissionCancelled", incidentId);
 
@@ -136,9 +141,25 @@ namespace SnakeAid.Api.Services
                     Body = !string.IsNullOrWhiteSpace(rescuerName)
                         ? $"{rescuerName} không thể hoàn thành nhiệm vụ. Đội SnakeAid đang tìm cứu hộ viên thay thế cho bạn."
                         : "Cứu hộ viên không thể hoàn thành nhiệm vụ. Đội SnakeAid đang tìm người thay thế.",
-                    Type = "SNAKE_RESCUE_MISSION_ABORTED"
+                    Type = "SNAKE_RESCUE_MISSION_ABORTED",
+                    Data = BuildEntityData(incidentId)
                 });
             }, "MissionAborted", incidentId);
+
+        private static Dictionary<string, string> BuildEntityData(Guid incidentId, Guid? missionId = null)
+        {
+            var data = new Dictionary<string, string>
+            {
+                ["incidentId"] = incidentId.ToString()
+            };
+
+            if (missionId.HasValue)
+            {
+                data["missionId"] = missionId.Value.ToString();
+            }
+
+            return data;
+        }
 
         private async Task SafeExecuteAsync(Func<Task> action, string actionName, Guid incidentId)
         {

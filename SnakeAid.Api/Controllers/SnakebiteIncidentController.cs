@@ -225,17 +225,52 @@ namespace SnakeAid.Api.Controllers
             return Ok(ApiResponseBuilder.BuildSuccessResponse(result));
         }
 
+        /// <summary>
+        /// Get paged incident list for admin dashboard.
+        /// </summary>
+        [HttpGet("admin/list")]
+        [Authorize(Roles = "Admin")]
+        [SwaggerOperation(Summary = "Get Admin Incident List", Description = "Retrieve paged incident summaries for admin with optional status/time filters.")]
+        [SwaggerResponse(200, "Success", typeof(ApiResponse<PagedData<OperatorIncidentSummaryResponse>>))]
+        public async Task<IActionResult> GetAdminIncidentList(
+            [FromQuery] string? status = null,
+            [FromQuery] DateTimeOffset? since = null,
+            [FromQuery] DateTimeOffset? until = null,
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 50)
+        {
+            var statuses = ParseStatuses(status);
+            var result = await _incidentService.GetAdminIncidentsAsync(statuses, since, until, page, pageSize);
+            return Ok(ApiResponseBuilder.BuildSuccessResponse(result, "Admin incident list retrieved."));
+        }
+
+        /// <summary>
+        /// Get detailed incident information for admin, including full mission and dispatch request histories.
+        /// </summary>
+        [HttpGet("admin/{incidentId}")]
+        [Authorize(Roles = "Admin")]
+        [SwaggerOperation(Summary = "Get Admin Incident Detail", Description = "Retrieve full admin detail for an incident, including all rescue missions, dispatch requests, and media.")]
+        [SwaggerResponse(200, "Success", typeof(ApiResponse<AdminDetailSnakebiteIncidentResponse>))]
+        [SwaggerResponse(404, "Incident not found")]
+        public async Task<IActionResult> GetAdminIncidentDetail(Guid incidentId)
+        {
+            var result = await _incidentService.GetAdminDetailIncidentAsync(incidentId);
+            return Ok(ApiResponseBuilder.BuildSuccessResponse(result, "Admin incident detail retrieved."));
+        }
+
         private static IEnumerable<SnakebiteIncidentStatus>? ParseStatuses(string? csvStatuses)
         {
             if (string.IsNullOrWhiteSpace(csvStatuses))
                 return null;
 
-            var values = csvStatuses
-                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-                .Select(v => Enum.TryParse<SnakebiteIncidentStatus>(v, true, out var parsed) ? (SnakebiteIncidentStatus?)parsed : null)
-                .Where(x => x.HasValue)
-                .Select(x => x.Value)
-                .ToList();
+            var values = new List<SnakebiteIncidentStatus>();
+            foreach (var rawValue in csvStatuses.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            {
+                if (Enum.TryParse(rawValue, true, out SnakebiteIncidentStatus parsed))
+                {
+                    values.Add(parsed);
+                }
+            }
 
             return values.Count > 0 ? values : null;
         }

@@ -251,6 +251,15 @@ namespace SnakeAid.Api.Hubs
                         // Rescuer online status is managed by RescuerHub connection lifecycle
                         if (isAssignedRescuer)
                         {
+                            await _rescuerHubContext.Clients.Group(OperatorGroup).SendAsync("RescuerOnlineStatus", new
+                            {
+                                RescuerId = userId.ToString(),
+                                IsOnline = false,
+                                IsAvailable = false,
+                                InMission = false,
+                                UpdatedAt = DateTime.UtcNow
+                            });
+
                             _logger.LogInformation("Rescuer {UserId} disconnected from MissionHub for incident {IncidentId}", userId, incidentId);
                         }
                     }

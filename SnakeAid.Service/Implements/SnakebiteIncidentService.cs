@@ -7,6 +7,9 @@ using SnakeAid.Core.Exceptions;
 using SnakeAid.Core.Requests;
 using SnakeAid.Core.Requests.Notification;
 using SnakeAid.Core.Requests.SnakebiteIncident;
+using SnakeAid.Core.Responses.Media;
+using SnakeAid.Core.Responses.MemberProfile;
+using SnakeAid.Core.Responses.RescuerProfile;
 using SnakeAid.Core.Responses.SnakebiteIncident;
 using SnakeAid.Core.Utils;
 using SnakeAid.Repository.Data;
@@ -367,7 +370,9 @@ namespace SnakeAid.Service.Implements
         {
             try
             {
-                return await _unitOfWork.ExecuteInTransactionAsync(async () =>
+                Guid memberUserId = Guid.Empty;
+
+                var response = await _unitOfWork.ExecuteInTransactionAsync(async () =>
                 {
                     var request = await _unitOfWork.GetRepository<RescuerRequest>().FirstOrDefaultAsync(
                         predicate: r => r.Id == requestId,
@@ -390,6 +395,8 @@ namespace SnakeAid.Service.Implements
                     if (incident.Status != SnakebiteIncidentStatus.Verified)
                         throw new BadRequestException($"Cannot accept dispatch when incident is in status: {incident.Status}");
 
+                    memberUserId = incident.UserId;
+
                     var mission = await _snakeRescueMissionService.CreateMissionAsync(incident.Id, rescuerId);
 
                     // Detach loaded navigation object to avoid EF track conflict (same Incident loaded in CreateMissionAsync)
@@ -410,17 +417,33 @@ namespace SnakeAid.Service.Implements
                         Message = "Dispatch accepted. Mission created."
                     };
 
+                    return response;
+                });
+
+                // Best-effort realtime/push notifications after transaction commit.
+                // Do not fail accepted dispatch response if notification pipeline has transient issues.
+                try
+                {
                     // Notify the rescuer that they have accepted the dispatch
                     await _rescueNotificationService.NotifyRescuerAcceptedAsync(rescuerId.ToString(), response);
 
                     // Notify mission/member channel that rescuer accepted so member also receives push.
-                    await _missionNotificationService.NotifyRescuerAcceptedAsync(incident.Id, incident.UserId, response);
+                    if (memberUserId != Guid.Empty)
+                    {
+                        await _missionNotificationService.NotifyRescuerAcceptedAsync(response.IncidentId, memberUserId, response);
+                    }
 
                     // Notify operators that the rescuer has been dispatched.
-                    await _operatorRealtimeNotificationService.NotifyRescuerDispatchedAsync(incident.Id, rescuerId);
+                    await _operatorRealtimeNotificationService.NotifyRescuerDispatchedAsync(response.IncidentId, rescuerId);
+                }
+                catch (Exception notifyEx)
+                {
+                    _logger.LogWarning(notifyEx,
+                        "AcceptDispatchRequest notifications failed after commit for request {RequestId}. Core transaction already committed.",
+                        requestId);
+                }
 
-                    return response;
-                });
+                return response;
             }
             catch (DbUpdateConcurrencyException ex)
             {
@@ -797,11 +820,22 @@ namespace SnakeAid.Service.Implements
                     }
 
                     await existingIncident.AttachReportMediaAsync(_unitOfWork, MediaReferenceType.SnakebiteIncident);
+                    await existingIncident.Missions.AttachReportMediaAsync(_unitOfWork, MediaReferenceType.RescueMission);
 
                     _logger.LogInformation("Loaded {MediaCount} media items for incident {IncidentId}",
                         existingIncident.Media?.Count ?? 0, incidentId);
 
                     var responseData = existingIncident.Adapt<DetailSnakebiteIncidentResponse>();
+
+                    responseData.RescueMissionMedia = existingIncident.Missions
+                        .OrderByDescending(m => m.CreatedAt)
+                        .Select(m => new RescueMissionMediaGroupResponse
+                        {
+                            MissionId = m.Id,
+                            MissionStatus = m.Status,
+                            Media = m.Media.Adapt<List<ReportMediaResponse>>()
+                        })
+                        .ToList();
 
                     // Map identified snake manually if available
                     if (existingIncident.IdentifiedSnakeSpecies != null)
@@ -831,6 +865,160 @@ namespace SnakeAid.Service.Implements
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error retrieving snakebite incident details: {Message}", ex.Message);
+                throw;
+            }
+        }
+
+        public async Task<AdminDetailSnakebiteIncidentResponse> GetAdminDetailIncidentAsync(Guid incidentId)
+        {
+            try
+            {
+                return await _unitOfWork.ExecuteInTransactionAsync(async () =>
+                {
+                    var existingIncident = await _unitOfWork.GetRepository<SnakebiteIncident>().FirstOrDefaultAsync(
+                        predicate: i => i.Id == incidentId,
+                        include: query => query
+                            .Include(i => i.User)
+                                .ThenInclude(u => u.Account)
+                            .Include(i => i.HandlingOperator)
+                            .Include(i => i.AssignedRescuer)
+                                .ThenInclude(r => r.Account)
+                            .Include(i => i.Missions)
+                                .ThenInclude(m => m.Rescuer)
+                                    .ThenInclude(r => r.Account)
+                            .Include(i => i.DispatchRequests)
+                                .ThenInclude(r => r.Rescuer)
+                                    .ThenInclude(rescuer => rescuer.Account)
+                            .Include(i => i.DispatchRequests)
+                                .ThenInclude(r => r.Operator)
+                            .Include(i => i.IdentifiedSnakeSpecies)
+                            .Include(i => i.AIRecognitionResult)
+                    );
+
+                    if (existingIncident == null)
+                    {
+                        throw new NotFoundException("Snakebite incident not found.");
+                    }
+
+                    await existingIncident.AttachReportMediaAsync(_unitOfWork, MediaReferenceType.SnakebiteIncident);
+                    await existingIncident.Missions.AttachReportMediaAsync(_unitOfWork, MediaReferenceType.RescueMission);
+
+                    var paymentTransactions = await _unitOfWork.GetRepository<Transaction>().GetListAsync(
+                        predicate: t => t.ReferenceId == incidentId
+                                     && (t.TransactionType == TransactionType.SnakebiteIncidentPayment
+                                         || t.TransactionType == TransactionType.SnakebiteIncidentRefund),
+                        orderBy: q => q.OrderByDescending(t => t.CreatedAt));
+
+                    var latestPayment = paymentTransactions
+                        .Where(t => t.TransactionType == TransactionType.SnakebiteIncidentPayment)
+                        .OrderByDescending(t => t.CreatedAt)
+                        .FirstOrDefault();
+
+                    var refundTransactions = paymentTransactions
+                        .Where(t => t.TransactionType == TransactionType.SnakebiteIncidentRefund)
+                        .ToList();
+
+                    var responseData = new AdminDetailSnakebiteIncidentResponse
+                    {
+                        Id = existingIncident.Id,
+                        LocationCoordinates = existingIncident.LocationCoordinates.Adapt<GeoPointResponse>(),
+                        Address = existingIncident.Address,
+                        SymptomsReport = existingIncident.SymptomsReport?.ToList(),
+                        Status = existingIncident.Status,
+                        CreatedAt = existingIncident.CreatedAt,
+                        HandlingOperatorId = existingIncident.HandlingOperatorId,
+                        HandlingOperatorName = existingIncident.HandlingOperator?.FullName,
+                        OperatorNotes = existingIncident.OperatorNotes,
+                        DispatchedAt = existingIncident.DispatchedAt,
+                        ConfirmedAt = existingIncident.ConfirmedAt,
+                        AssignedAt = existingIncident.AssignedAt,
+                        AssignedRescuerId = existingIncident.AssignedRescuerId,
+                        CancellationReason = existingIncident.CancellationReason,
+                        SeverityLevel = existingIncident.SeverityLevel,
+                        IncidentOccurredAt = existingIncident.IncidentOccurredAt,
+                        User = existingIncident.User.Adapt<BriefMemberProfileResponse>(),
+                        AssignedRescuer = existingIncident.AssignedRescuer?.Adapt<BriefRescuerProfileResponse>(),
+                        TotalRescueAttempts = existingIncident.Missions.Count,
+                        FailedAttemptsCount = existingIncident.Missions.Count(m => m.Status == RescueMissionStatus.MissionAborted),
+                        TotalDispatchRequests = existingIncident.DispatchRequests.Count,
+                        AcceptedDispatchCount = existingIncident.DispatchRequests.Count(r => r.Status == RescueRequestStatus.Accepted),
+                        DeclinedDispatchCount = existingIncident.DispatchRequests.Count(r => r.Status == RescueRequestStatus.Declined),
+                        CancelledDispatchCount = existingIncident.DispatchRequests.Count(r => r.Status == RescueRequestStatus.Cancelled),
+                        IncidentMedia = existingIncident.Media.Adapt<List<SnakeAIDetectMediaResponse>>(),
+                        PaymentSummary = new AdminIncidentPaymentSummaryResponse
+                        {
+                            PayOsOrderCode = existingIncident.PayOsOrderCode,
+                            PaymentState = existingIncident.Status == SnakebiteIncidentStatus.Completed
+                                ? "Paid"
+                                : latestPayment != null
+                                    ? "PaymentInProgress"
+                                    : "Unpaid",
+                            PaidAmount = latestPayment?.Amount,
+                            PaidAt = latestPayment?.CreatedAt,
+                            PaymentMethod = latestPayment?.PaymentMethod,
+                            PaymentExternalTransactionId = latestPayment?.ExternalTransactionId,
+                            TotalRefundedAmount = refundTransactions.Sum(t => t.Amount),
+                            LatestRefundedAt = refundTransactions.MaxBy(t => t.CreatedAt)?.CreatedAt
+                        }
+                    };
+
+                    if (existingIncident.IdentifiedSnakeSpecies != null)
+                    {
+                        responseData.IdentifiedSnake = existingIncident.IdentifiedSnakeSpecies.Adapt<SnakeSpeciesResponse>();
+                        responseData.IdentificationContext = new Core.Responses.FirstAid.SnakeIdentificationContext
+                        {
+                            Method = existingIncident.IdentificationMethod,
+                            IdentifiedAt = existingIncident.IdentifiedAt ?? DateTime.UtcNow,
+                            AIConfidence = existingIncident.IdentificationMethod == SnakeIdentificationMethod.AIDetection
+                                ? (float?)existingIncident.AIRecognitionResult?.Confidence
+                                : null
+                        };
+                    }
+
+                    responseData.MissionHistory = existingIncident.Missions
+                        .OrderByDescending(m => m.CreatedAt)
+                        .Select(m => new AdminRescueMissionHistoryItemResponse
+                        {
+                            MissionId = m.Id,
+                            RescuerId = m.RescuerId,
+                            RescuerName = m.Rescuer?.Account?.FullName ?? string.Empty,
+                            RescuerPhone = m.Rescuer?.Account?.PhoneNumber ?? string.Empty,
+                            Status = m.Status,
+                            Price = m.Price,
+                            ActualCost = m.ActualCost,
+                            CreatedAt = m.CreatedAt,
+                            StartedAt = m.StartedAt,
+                            ArrivedAt = m.ArrivedAt,
+                            CompletedAt = m.CompletedAt,
+                            Notes = m.Notes,
+                            CancellationReason = m.CancellationReason,
+                            Media = m.Media.Adapt<List<ReportMediaResponse>>()
+                        })
+                        .ToList();
+
+                    responseData.DispatchRequests = existingIncident.DispatchRequests
+                        .OrderByDescending(r => r.DispatchedAt)
+                        .Select(r => new AdminDispatchRequestHistoryItemResponse
+                        {
+                            RequestId = r.Id,
+                            RescuerId = r.RescuerId,
+                            RescuerName = r.Rescuer?.Account?.FullName ?? string.Empty,
+                            RescuerPhone = r.Rescuer?.Account?.PhoneNumber ?? string.Empty,
+                            OperatorId = r.OperatorId,
+                            OperatorName = r.Operator?.FullName,
+                            Status = r.Status,
+                            DispatchedAt = r.DispatchedAt,
+                            ResponseAt = r.ResponseAt,
+                            DeclineReason = r.DeclineReason
+                        })
+                        .ToList();
+
+                    return responseData;
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving admin snakebite incident details: {Message}", ex.Message);
                 throw;
             }
         }
@@ -1268,7 +1456,11 @@ namespace SnakeAid.Service.Implements
                         effectiveStatuses.Contains(i.Status) &&
                         (!since.HasValue || i.CreatedAt >= since.Value.UtcDateTime) &&
                         (!until.HasValue || i.CreatedAt <= until.Value.UtcDateTime),
-                    include: q => q.Include(i => i.Missions),
+                    include: q => q
+                        .Include(i => i.Missions)
+                        .Include(i => i.HandlingOperator)
+                        .Include(i => i.AssignedRescuer)
+                            .ThenInclude(r => r.Account),
                     orderBy: q => q.OrderByDescending(i => i.CreatedAt),
                     page: page,
                     size: pageSize,
@@ -1277,6 +1469,40 @@ namespace SnakeAid.Service.Implements
             catch (System.Exception ex)
             {
                 _logger.LogError(ex, "Error retrieving active incidents: {Message}", ex.Message);
+                throw;
+            }
+        }
+
+        public Task<PagedData<OperatorIncidentSummaryResponse>> GetAdminIncidentsAsync(
+            IEnumerable<SnakebiteIncidentStatus>? statuses,
+            DateTimeOffset? since,
+            DateTimeOffset? until,
+            int page,
+            int pageSize)
+        {
+            try
+            {
+                var hasStatusFilter = statuses != null && statuses.Any();
+                var repo = _unitOfWork.GetRepository<SnakebiteIncident>();
+
+                return repo.GetPagingListAsync<OperatorIncidentSummaryResponse>(
+                    predicate: i =>
+                        (!hasStatusFilter || statuses!.Contains(i.Status)) &&
+                        (!since.HasValue || i.CreatedAt >= since.Value.UtcDateTime) &&
+                        (!until.HasValue || i.CreatedAt <= until.Value.UtcDateTime),
+                    include: q => q
+                        .Include(i => i.Missions)
+                        .Include(i => i.HandlingOperator)
+                        .Include(i => i.AssignedRescuer)
+                            .ThenInclude(r => r.Account),
+                    orderBy: q => q.OrderByDescending(i => i.CreatedAt),
+                    page: page,
+                    size: pageSize,
+                    selector: i => i.Adapt<OperatorIncidentSummaryResponse>());
+            }
+            catch (System.Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving admin incidents: {Message}", ex.Message);
                 throw;
             }
         }
