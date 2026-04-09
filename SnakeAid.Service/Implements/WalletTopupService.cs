@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using System.Text.RegularExpressions;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using SnakeAid.Core.Domains;
@@ -7,6 +8,7 @@ using SnakeAid.Core.Requests.Wallet;
 using SnakeAid.Core.Responses.PayOs;
 using SnakeAid.Core.Responses.Wallet;
 using SnakeAid.Core.Settings;
+using SnakeAid.Repository.Data;
 using SnakeAid.Repository.Interfaces;
 using SnakeAid.Service.Interfaces;
 using SnakeAid.Service.Services.PayOs;
@@ -242,54 +244,100 @@ public class WalletTopupService : IWalletTopupService
         _logger.LogInformation("{Prefix} Processing confirmed wallet top-up. OrderCode={OrderCode}, TransactionRef={TransactionRef}",
             LogPrefix, webhook.OrderCode, webhook.TransactionReference);
 
-        var transaction = await FindTransactionByOrderCodeAsync(webhook.OrderCode, false, cancellationToken);
-        if (transaction == null)
+        return await _unitOfWork.ExecuteInTransactionAsync(async () =>
         {
-            throw new InvalidOperationException($"Wallet top-up transaction with orderCode {webhook.OrderCode} not found");
-        }
-
-        if (!string.IsNullOrWhiteSpace(transaction.ExternalTransactionId))
-        {
-            return BuildSuccessResponse(transaction, webhook.OrderCode);
-        }
-
-        transaction.ExternalTransactionId = string.IsNullOrWhiteSpace(webhook.TransactionReference)
-            ? $"{PayOsPaymentFlowPrefixes.Topup}WEBHOOK-{transaction.Id:N}"
-            : webhook.TransactionReference;
-        transaction.CreatedAt = webhook.TransactionDateTime ?? DateTime.UtcNow;
-        _unitOfWork.GetRepository<Transaction>().Update(transaction);
-
-        var userId = transaction.UserId
-            ?? throw new InvalidOperationException("Wallet top-up transaction is missing user ownership.");
-
-        var userWallet = await _unitOfWork.GetRepository<Wallet>()
-            .FirstOrDefaultAsync(
-                predicate: w => w.UserId == userId,
-                asNoTracking: false,
-                cancellationToken: cancellationToken);
-
-        if (userWallet == null)
-        {
-            userWallet = new Wallet
+            var transaction = await FindTransactionByOrderCodeAsync(webhook.OrderCode, true, cancellationToken);
+            if (transaction == null)
             {
-                Id = Guid.NewGuid(),
-                UserId = userId,
-                Balance = 0
-            };
-            await _unitOfWork.GetRepository<Wallet>().InsertAsync(userWallet);
-            _logger.LogInformation("{Prefix} Created wallet for user {UserId}", LogPrefix, userId);
+                throw new InvalidOperationException($"Wallet top-up transaction with orderCode {webhook.OrderCode} not found");
+            }
+
+            if (!string.IsNullOrWhiteSpace(transaction.ExternalTransactionId))
+            {
+                return BuildSuccessResponse(transaction, webhook.OrderCode);
+            }
+
+            var externalTransactionId = string.IsNullOrWhiteSpace(webhook.TransactionReference)
+                ? $"{PayOsPaymentFlowPrefixes.Topup}WEBHOOK-{transaction.Id:N}"
+                : webhook.TransactionReference;
+            var confirmedAt = webhook.TransactionDateTime ?? DateTime.UtcNow;
+
+            var claimSucceeded = await TryMarkTransactionConfirmedAsync(
+                transaction.Id,
+                externalTransactionId,
+                confirmedAt,
+                cancellationToken);
+
+            if (!claimSucceeded)
+            {
+                var confirmedTransaction = await FindTransactionByIdAsync(transaction.Id, true, cancellationToken)
+                    ?? throw new InvalidOperationException($"Transaction {transaction.Id} disappeared during top-up confirmation.");
+                return BuildSuccessResponse(confirmedTransaction, webhook.OrderCode);
+            }
+
+            var userId = transaction.UserId
+                ?? throw new InvalidOperationException("Wallet top-up transaction is missing user ownership.");
+
+            var userWallet = await _unitOfWork.GetRepository<Wallet>()
+                .FirstOrDefaultAsync(
+                    predicate: w => w.UserId == userId,
+                    asNoTracking: false,
+                    cancellationToken: cancellationToken);
+
+            if (userWallet == null)
+            {
+                userWallet = new Wallet
+                {
+                    Id = Guid.NewGuid(),
+                    UserId = userId,
+                    Balance = 0
+                };
+                await _unitOfWork.GetRepository<Wallet>().InsertAsync(userWallet);
+                _logger.LogInformation("{Prefix} Created wallet for user {UserId}", LogPrefix, userId);
+            }
+
+            var previousBalance = userWallet.Balance;
+            userWallet.Balance += transaction.Amount;
+            _unitOfWork.GetRepository<Wallet>().Update(userWallet);
+
+            transaction.ExternalTransactionId = externalTransactionId;
+            transaction.CreatedAt = confirmedAt;
+
+            _logger.LogInformation("{Prefix} Wallet top-up completed. UserId={UserId}, Amount={Amount}, Balance: {PreviousBalance} -> {NewBalance}",
+                LogPrefix, userId, transaction.Amount, previousBalance, userWallet.Balance);
+
+            return BuildSuccessResponse(transaction, webhook.OrderCode);
+        });
+    }
+
+    private async Task<bool> TryMarkTransactionConfirmedAsync(
+        Guid transactionId,
+        string externalTransactionId,
+        DateTime confirmedAt,
+        CancellationToken cancellationToken)
+    {
+        var dbContext = GetDbContext();
+
+        var affectedRows = await dbContext.Set<Transaction>()
+            .Where(t => t.Id == transactionId && t.ExternalTransactionId == null)
+            .ExecuteUpdateAsync(
+                setters => setters
+                    .SetProperty(t => t.ExternalTransactionId, externalTransactionId)
+                    .SetProperty(t => t.CreatedAt, confirmedAt),
+                cancellationToken);
+
+        if (affectedRows == 1)
+        {
+            var trackedEntry = dbContext.ChangeTracker.Entries<Transaction>()
+                .FirstOrDefault(e => e.Entity.Id == transactionId);
+            if (trackedEntry != null)
+            {
+                trackedEntry.Entity.ExternalTransactionId = externalTransactionId;
+                trackedEntry.Entity.CreatedAt = confirmedAt;
+            }
         }
 
-        var previousBalance = userWallet.Balance;
-        userWallet.Balance += transaction.Amount;
-        _unitOfWork.GetRepository<Wallet>().Update(userWallet);
-
-        await _unitOfWork.CommitAsync();
-
-        _logger.LogInformation("{Prefix} Wallet top-up completed. UserId={UserId}, Amount={Amount}, Balance: {PreviousBalance} -> {NewBalance}",
-            LogPrefix, userId, transaction.Amount, previousBalance, userWallet.Balance);
-
-        return BuildSuccessResponse(transaction, webhook.OrderCode);
+        return affectedRows == 1;
     }
 
     private async Task<Transaction?> FindTransactionByIdAsync(
@@ -332,6 +380,16 @@ public class WalletTopupService : IWalletTopupService
             TransactionReference = transaction.ExternalTransactionId ?? string.Empty,
             TransactionDateTime = transaction.CreatedAt
         };
+    }
+
+    private SnakeAidDbContext GetDbContext()
+    {
+        if (_unitOfWork is IUnitOfWork<SnakeAidDbContext> dbUnitOfWork)
+        {
+            return dbUnitOfWork.Context;
+        }
+
+        throw new InvalidOperationException("WalletTopupService requires IUnitOfWork<SnakeAidDbContext> for atomic confirmation updates.");
     }
 
     private static long GenerateOrderCode()
