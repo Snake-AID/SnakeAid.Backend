@@ -1,8 +1,10 @@
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
+using SnakeAid.Core.Constants;
 using SnakeAid.Core.Domains;
 using SnakeAid.Core.Requests.Consultation;
+using SnakeAid.Core.Services;
 using SnakeAid.Repository.Data;
 using SnakeAid.Repository.Implements;
 using SnakeAid.Service.Implements;
@@ -435,6 +437,58 @@ public class ConsultationPaymentIntegrationTests
         Assert.Equal(0m, await GetConsultationEscrowAvailableForSettlementAsync(db, consultationId));
     }
 
+    [Fact]
+    public void ConsultationPlatformFeeConfiguration_ShouldUseDefaultPercent_WhenSettingServiceIsMissing()
+    {
+        using var db = CreateDbContext();
+        var service = CreatePaymentService(db);
+
+        var feePercent = InvokeResolveConsultationPlatformFeePercent(service);
+        var breakdown = InvokeCalculateConsultationSettlementAmounts(service, 100_001m);
+
+        Assert.Equal(0.20m, feePercent);
+        Assert.Equal(100_001m, ReadDecimalProperty(breakdown, "GrossAmount"));
+        Assert.Equal(0.20m, ReadDecimalProperty(breakdown, "FeePercent"));
+        Assert.Equal(20_000m, ReadDecimalProperty(breakdown, "PlatformFeeAmount"));
+        Assert.Equal(80_001m, ReadDecimalProperty(breakdown, "ExpertNetAmount"));
+    }
+
+    [Fact]
+    public void ConsultationPlatformFeeConfiguration_ShouldUseConfiguredPercent_WhenSettingExists()
+    {
+        using var db = CreateDbContext();
+        var settingService = new FakeSystemSettingService();
+        settingService.SetDecimal(SystemSettingKeys.ConsultationPlatformFeePercent, 0.15m);
+
+        var service = CreatePaymentService(db, systemSettingService: settingService);
+
+        var feePercent = InvokeResolveConsultationPlatformFeePercent(service);
+        var breakdown = InvokeCalculateConsultationSettlementAmounts(service, 200_001m);
+
+        Assert.Equal(0.15m, feePercent);
+        Assert.Equal(200_001m, ReadDecimalProperty(breakdown, "GrossAmount"));
+        Assert.Equal(0.15m, ReadDecimalProperty(breakdown, "FeePercent"));
+        Assert.Equal(30_000m, ReadDecimalProperty(breakdown, "PlatformFeeAmount"));
+        Assert.Equal(170_001m, ReadDecimalProperty(breakdown, "ExpertNetAmount"));
+    }
+
+    [Theory]
+    [InlineData(-0.01)]
+    [InlineData(1.00)]
+    [InlineData(1.50)]
+    public void ConsultationPlatformFeeConfiguration_ShouldFallbackToDefault_WhenConfiguredPercentIsOutsideSafeRange(decimal invalidPercent)
+    {
+        using var db = CreateDbContext();
+        var settingService = new FakeSystemSettingService();
+        settingService.SetDecimal(SystemSettingKeys.ConsultationPlatformFeePercent, invalidPercent);
+
+        var service = CreatePaymentService(db, systemSettingService: settingService);
+
+        var feePercent = InvokeResolveConsultationPlatformFeePercent(service);
+
+        Assert.Equal(0.20m, feePercent);
+    }
+
     private static async Task<decimal> GetConsultationEscrowAvailableByPaymentReferenceAsync(
         SnakeAidDbContext db,
         Guid referenceId)
@@ -499,13 +553,42 @@ public class ConsultationPaymentIntegrationTests
     private static ConsultationPaymentService CreatePaymentService(
         SnakeAidDbContext db,
         IExpertEmergencyNotificationService? notificationService = null,
-        IPaymentGateway? paymentGateway = null)
+        IPaymentGateway? paymentGateway = null,
+        ISystemSettingService? systemSettingService = null)
     {
         return new ConsultationPaymentService(
             new UnitOfWork<SnakeAidDbContext>(db),
             notificationService ?? new RecordingExpertEmergencyNotificationService(),
             paymentGateway ?? new FakePaymentGateway(),
-            NullLogger<ConsultationPaymentService>.Instance);
+            NullLogger<ConsultationPaymentService>.Instance,
+            systemSettingService: systemSettingService);
+    }
+
+    private static decimal InvokeResolveConsultationPlatformFeePercent(ConsultationPaymentService service)
+    {
+        var method = typeof(ConsultationPaymentService).GetMethod(
+            "ResolveConsultationPlatformFeePercent",
+            BindingFlags.Instance | BindingFlags.NonPublic);
+
+        Assert.NotNull(method);
+        return (decimal)method!.Invoke(service, null)!;
+    }
+
+    private static object InvokeCalculateConsultationSettlementAmounts(ConsultationPaymentService service, decimal grossAmount)
+    {
+        var method = typeof(ConsultationPaymentService).GetMethod(
+            "CalculateConsultationSettlementAmounts",
+            BindingFlags.Instance | BindingFlags.NonPublic);
+
+        Assert.NotNull(method);
+        return method!.Invoke(service, [grossAmount])!;
+    }
+
+    private static decimal ReadDecimalProperty(object instance, string propertyName)
+    {
+        var property = instance.GetType().GetProperty(propertyName, BindingFlags.Instance | BindingFlags.Public);
+        Assert.NotNull(property);
+        return (decimal)property!.GetValue(instance)!;
     }
 
     private static SnakeAidDbContext CreateDbContext()
@@ -630,6 +713,41 @@ public class ConsultationPaymentIntegrationTests
             });
 
         public PayOsWebhookData VerifyWebhook(string rawPayload) => throw new NotImplementedException();
+    }
+
+    private sealed class FakeSystemSettingService : ISystemSettingService
+    {
+        private readonly Dictionary<string, object> _settings = new(StringComparer.OrdinalIgnoreCase);
+
+        public void SetDecimal(string key, decimal value) => _settings[key] = value;
+
+        public Task LoadSettingsAsync() => Task.CompletedTask;
+
+        public T? GetSetting<T>(string key)
+        {
+            if (!_settings.TryGetValue(key, out var value))
+            {
+                return default;
+            }
+
+            return (T?)value;
+        }
+
+        public T GetSetting<T>(string key, T defaultValue)
+        {
+            if (!_settings.TryGetValue(key, out var value))
+            {
+                return defaultValue;
+            }
+
+            return (T)value;
+        }
+
+        public Task<SystemSetting?> GetByKeyAsync(string key) => Task.FromResult<SystemSetting?>(null);
+        public Task<IReadOnlyCollection<SystemSetting>> GetAllAsync() => Task.FromResult<IReadOnlyCollection<SystemSetting>>([]);
+        public Task<SystemSetting> UpsertAsync(string key, string value, SettingValueType valueType, string? description = null) => throw new NotSupportedException();
+        public Task RefreshSettingAsync(string key) => Task.CompletedTask;
+        public Task RefreshAllSettingsAsync() => Task.CompletedTask;
     }
 
     private sealed class ConsultationPaymentSqliteDbContext : SnakeAidDbContext

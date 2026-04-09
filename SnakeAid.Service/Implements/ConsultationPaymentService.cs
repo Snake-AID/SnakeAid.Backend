@@ -8,6 +8,8 @@ using SnakeAid.Core.Messages.Notifications;
 using SnakeAid.Core.Requests.Consultation;
 using SnakeAid.Core.Responses.Consultation;
 using SnakeAid.Core.Responses.PayOs;
+using SnakeAid.Core.Constants;
+using SnakeAid.Core.Services;
 using SnakeAid.Repository.Data;
 using SnakeAid.Repository.Interfaces;
 using SnakeAid.Service.Interfaces;
@@ -20,11 +22,13 @@ public class ConsultationPaymentService : IConsultationPaymentService
 {
     private static readonly TimeSpan EmergencyRequestTtl = TimeSpan.FromMinutes(2);
     private static readonly Regex OrderCodeRegex = new($@"^{PayOsPaymentFlowPrefixes.Consultation}(\d+)", RegexOptions.Compiled);
+    private const decimal DefaultConsultationPlatformFeePercent = 0.20m;
 
     private readonly IUnitOfWork<SnakeAidDbContext> _unitOfWork;
     private readonly IExpertEmergencyNotificationService _notificationService;
     private readonly INotificationQueueService? _notificationQueueService;
     private readonly IPaymentGateway _paymentGateway;
+    private readonly ISystemSettingService? _systemSettingService;
     private readonly ILogger<ConsultationPaymentService> _logger;
 
     public ConsultationPaymentService(
@@ -32,13 +36,15 @@ public class ConsultationPaymentService : IConsultationPaymentService
         IExpertEmergencyNotificationService notificationService,
         IPaymentGateway paymentGateway,
         ILogger<ConsultationPaymentService> logger,
-        INotificationQueueService? notificationQueueService = null)
+        INotificationQueueService? notificationQueueService = null,
+        ISystemSettingService? systemSettingService = null)
     {
         _unitOfWork = unitOfWork;
         _notificationService = notificationService;
         _paymentGateway = paymentGateway;
         _logger = logger;
         _notificationQueueService = notificationQueueService;
+        _systemSettingService = systemSettingService;
     }
 
     public async Task<ConsultationPaymentResponse> PayScheduledBookingAsync(
@@ -1185,6 +1191,45 @@ public class ConsultationPaymentService : IConsultationPaymentService
 
         await _unitOfWork.CommitAsync();
     }
+
+    private decimal ResolveConsultationPlatformFeePercent()
+    {
+        var configuredPercent = _systemSettingService?.GetSetting<decimal?>(
+            SystemSettingKeys.ConsultationPlatformFeePercent,
+            DefaultConsultationPlatformFeePercent);
+
+        var feePercent = configuredPercent ?? DefaultConsultationPlatformFeePercent;
+        if (feePercent < 0m || feePercent >= 1m)
+        {
+            _logger.LogWarning(
+                "Consultation platform fee percent {FeePercent} is outside the safe range [0, 1). Using default {DefaultPercent}.",
+                feePercent,
+                DefaultConsultationPlatformFeePercent);
+            return DefaultConsultationPlatformFeePercent;
+        }
+
+        return feePercent;
+    }
+
+    private ConsultationSettlementAmounts CalculateConsultationSettlementAmounts(decimal grossAmount)
+    {
+        if (grossAmount < 0m)
+        {
+            throw new ValidationException("Consultation settlement gross amount cannot be negative.");
+        }
+
+        var feePercent = ResolveConsultationPlatformFeePercent();
+        var expertNetAmount = decimal.Ceiling(grossAmount * (1m - feePercent));
+        var feeAmount = grossAmount - expertNetAmount;
+
+        return new ConsultationSettlementAmounts(grossAmount, feePercent, feeAmount, expertNetAmount);
+    }
+
+    private readonly record struct ConsultationSettlementAmounts(
+        decimal GrossAmount,
+        decimal FeePercent,
+        decimal PlatformFeeAmount,
+        decimal ExpertNetAmount);
 
     private async Task<decimal> GetAvailableConsultationEscrowByPaymentReferenceAsync(
         Guid referenceId,
