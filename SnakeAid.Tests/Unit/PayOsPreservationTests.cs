@@ -209,7 +209,7 @@ public class PayOsPreservationTests
 
     /// <summary>
     /// Property: For all generated order codes, SnakeCatchingPaymentService.BuildDescription
-    /// produces a description starting with "CATCHING-{orderCode}".
+    /// preserves the "CATCHING-{orderCode}" prefix and never exceeds PayOS's 25-char description limit.
     ///
     /// Test with multiple order codes to verify the property holds across inputs.
     ///
@@ -234,6 +234,7 @@ public class PayOsPreservationTests
         var description = (string)buildDescMethod!.Invoke(instance, new object?[] { orderCode, customDescription })!;
 
         Assert.StartsWith($"CATCHING-{orderCode}", description);
+        Assert.True(description.Length <= 25);
     }
 
     /// <summary>

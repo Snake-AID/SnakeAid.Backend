@@ -986,18 +986,30 @@ public class SnakeCatchingPaymentService : ISnakeCatchingPaymentService
 
     private long GenerateOrderCode()
     {
-        var timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-        var random = new Random();
-        var randomPart = random.Next(1000, 9999);
+        // PayOS descriptions are capped at 25 chars, so keep generated order codes short enough for the prefix.
+        // timestamp (10 digits) + random (4 digits) = 14 digits; with "CATCHING-" prefix that stays within 25 chars.
+        var timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        var randomPart = System.Security.Cryptography.RandomNumberGenerator.GetInt32(1000, 9999);
         return long.Parse($"{timestamp}{randomPart}");
     }
 
     private string BuildDescription(long orderCode, string? customDescription)
     {
+        const int maxLength = 25;
         var baseDescription = PayOsPaymentFlowPrefixes.BuildOrderCodePrefix(PayOsPaymentFlow.SnakeCatching, orderCode);
-        return string.IsNullOrEmpty(customDescription)
-            ? baseDescription
-            : $"{baseDescription} - {customDescription}";
+        if (baseDescription.Length >= maxLength || string.IsNullOrWhiteSpace(customDescription))
+        {
+            return baseDescription.Length > maxLength ? baseDescription[..maxLength] : baseDescription;
+        }
+
+        var remaining = maxLength - baseDescription.Length - 1;
+        if (remaining <= 0)
+        {
+            return baseDescription[..maxLength];
+        }
+
+        var suffix = customDescription.Length > remaining ? customDescription[..remaining] : customDescription;
+        return $"{baseDescription}-{suffix}";
     }
 
     private long ExtractOrderCodeFromDescription(string description)
