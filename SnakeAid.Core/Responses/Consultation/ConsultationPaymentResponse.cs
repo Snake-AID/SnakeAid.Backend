@@ -12,7 +12,6 @@ public class ConsultationPaymentResponse
     public ConsultationPaymentMethod PaymentMethod { get; set; }
     public string Status { get; set; } = string.Empty;
     public decimal? UserWalletBalanceAfter { get; set; }
-    public decimal? SystemWalletBalanceAfter { get; set; }
     public DateTime? PaidAtUtc { get; set; }
     public string? Provider { get; set; }
     public string? CheckoutUrl { get; set; }

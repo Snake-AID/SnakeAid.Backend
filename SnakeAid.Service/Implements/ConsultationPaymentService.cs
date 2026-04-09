@@ -378,7 +378,6 @@ public class ConsultationPaymentService : IConsultationPaymentService
                 PaymentMethod = request.PaymentMethod,
                 Status = "Escrowed",
                 UserWalletBalanceAfter = transfer.UserWalletBalanceAfter,
-                SystemWalletBalanceAfter = transfer.SystemWalletBalanceAfter,
                 PaidAtUtc = transfer.ProcessedAtUtc,
                 Provider = "Wallet",
                 ExternalTransactionId = transfer.ExternalTransactionId
@@ -461,7 +460,6 @@ public class ConsultationPaymentService : IConsultationPaymentService
                     PaymentMethod = request.PaymentMethod,
                     Status = "Escrowed",
                     UserWalletBalanceAfter = transfer.UserWalletBalanceAfter,
-                    SystemWalletBalanceAfter = transfer.SystemWalletBalanceAfter,
                     PaidAtUtc = transfer.ProcessedAtUtc,
                     Provider = "Wallet",
                     ExternalTransactionId = transfer.ExternalTransactionId
@@ -751,7 +749,6 @@ public class ConsultationPaymentService : IConsultationPaymentService
                         PaymentMethod = ConsultationPaymentMethod.PayOs,
                         Status = "Escrowed",
                         UserWalletBalanceAfter = escrowTransfer.UserWalletBalanceAfter,
-                        SystemWalletBalanceAfter = escrowTransfer.SystemWalletBalanceAfter,
                         PaidAtUtc = escrowTransfer.ProcessedAtUtc,
                         Provider = "PayOS",
                         OrderCode = webhook.OrderCode,
@@ -796,7 +793,6 @@ public class ConsultationPaymentService : IConsultationPaymentService
                     PaymentMethod = ConsultationPaymentMethod.PayOs,
                     Status = "Escrowed",
                     UserWalletBalanceAfter = escrowTransfer.UserWalletBalanceAfter,
-                    SystemWalletBalanceAfter = escrowTransfer.SystemWalletBalanceAfter,
                     PaidAtUtc = escrowTransfer.ProcessedAtUtc,
                     Provider = "PayOS",
                     OrderCode = webhook.OrderCode,
@@ -893,7 +889,6 @@ public class ConsultationPaymentService : IConsultationPaymentService
                     : ConsultationPaymentMethod.WalletBalance,
                 Status = "Escrowed",
                 UserWalletBalanceAfter = userWallet?.Balance,
-                SystemWalletBalanceAfter = null,
                 PaidAtUtc = transaction.CreatedAt,
                 Provider = transaction.PaymentMethod,
                 OrderCode = ExtractOrderCodeFromDescription(transaction.Description),
@@ -923,7 +918,6 @@ public class ConsultationPaymentService : IConsultationPaymentService
                 : ConsultationPaymentMethod.WalletBalance,
             Status = "Escrowed",
             UserWalletBalanceAfter = userWallet?.Balance,
-            SystemWalletBalanceAfter = null,
             PaidAtUtc = transaction.CreatedAt,
             Provider = transaction.PaymentMethod,
             OrderCode = ExtractOrderCodeFromDescription(transaction.Description),
@@ -1059,7 +1053,7 @@ public class ConsultationPaymentService : IConsultationPaymentService
         return tx;
     }
 
-    private async Task<(Guid TransactionId, decimal UserWalletBalanceAfter, decimal? SystemWalletBalanceAfter, DateTime ProcessedAtUtc, string ExternalTransactionId)> MoveMoneyToEscrowAsync(
+    private async Task<(Guid TransactionId, decimal UserWalletBalanceAfter, DateTime ProcessedAtUtc, string ExternalTransactionId)> MoveMoneyToEscrowAsync(
         Guid userId,
         Guid referenceId,
         decimal amount,
@@ -1122,7 +1116,7 @@ public class ConsultationPaymentService : IConsultationPaymentService
             await _unitOfWork.GetRepository<Transaction>().InsertAsync(paymentTx);
         }
 
-        return (paymentTx.Id, userWalletBalanceAfter, null, now, externalTransactionId);
+        return (paymentTx.Id, userWalletBalanceAfter, now, externalTransactionId);
     }
 
     private async Task RefundFromEscrowAsync(

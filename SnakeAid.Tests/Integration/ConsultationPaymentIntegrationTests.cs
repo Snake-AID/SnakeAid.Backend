@@ -17,7 +17,7 @@ namespace SnakeAid.Tests.Integration;
 
 public class ConsultationPaymentIntegrationTests
 {
-    private static readonly Guid SystemUserId = Guid.Parse("57288b98-5f91-4de8-b827-866e3df69587");
+    private static readonly Guid PlatformLedgerAccountId = Guid.Parse("57288b98-5f91-4de8-b827-866e3df69587");
 
     [Fact]
     public async Task PayScheduledBookingAsync_ShouldMoveFundsToEscrow_AndConfirmBooking()
@@ -82,8 +82,7 @@ public class ConsultationPaymentIntegrationTests
 
         var userWallet = await db.Set<Wallet>().FirstAsync(w => w.UserId == userId);
         Assert.Equal(350_000m, userWallet.Balance);
-        Assert.Null(response.SystemWalletBalanceAfter);
-        Assert.False(await db.Set<Wallet>().AnyAsync(w => w.UserId == SystemUserId));
+        Assert.False(await db.Set<Wallet>().AnyAsync(w => w.UserId == PlatformLedgerAccountId));
 
         var paymentTx = await db.Set<Transaction>().FirstAsync(t => t.ReferenceId == bookingId && t.TransactionType == TransactionType.ConsultationPayment);
         Assert.Equal(150_000m, paymentTx.Amount);
@@ -91,7 +90,7 @@ public class ConsultationPaymentIntegrationTests
 
         Assert.False(await db.Set<Transaction>().AnyAsync(t =>
             t.ReferenceId == bookingId &&
-            t.UserId == SystemUserId &&
+            t.UserId == PlatformLedgerAccountId &&
             t.TransactionType == TransactionType.WalletTopup));
     }
 
@@ -144,8 +143,7 @@ public class ConsultationPaymentIntegrationTests
 
         var userWallet = await db.Set<Wallet>().FirstAsync(w => w.UserId == userId);
         Assert.Equal(0m, userWallet.Balance);
-        Assert.Null(response.SystemWalletBalanceAfter);
-        Assert.False(await db.Set<Wallet>().AnyAsync(w => w.UserId == SystemUserId));
+        Assert.False(await db.Set<Wallet>().AnyAsync(w => w.UserId == PlatformLedgerAccountId));
         Assert.Equal(500_000m, await GetConsultationEscrowAvailableByPaymentReferenceAsync(db, requestId));
     }
 
@@ -219,8 +217,7 @@ public class ConsultationPaymentIntegrationTests
 
         var userWallet = await db.Set<Wallet>().FirstAsync(w => w.UserId == userId);
         Assert.Equal(500_000m, userWallet.Balance);
-        Assert.Null(response.SystemWalletBalanceAfter);
-        Assert.False(await db.Set<Wallet>().AnyAsync(w => w.UserId == SystemUserId));
+        Assert.False(await db.Set<Wallet>().AnyAsync(w => w.UserId == PlatformLedgerAccountId));
         Assert.Equal(0m, await GetConsultationEscrowAvailableByPaymentReferenceAsync(db, bookingId));
     }
 
@@ -291,8 +288,7 @@ public class ConsultationPaymentIntegrationTests
         var paymentTx = await db.Set<Transaction>().FirstAsync(t => t.Id == pending.TransactionId);
         Assert.False(string.IsNullOrWhiteSpace(paymentTx.ExternalTransactionId));
 
-        Assert.Null(confirmed.SystemWalletBalanceAfter);
-        Assert.False(await db.Set<Wallet>().AnyAsync(w => w.UserId == SystemUserId));
+        Assert.False(await db.Set<Wallet>().AnyAsync(w => w.UserId == PlatformLedgerAccountId));
         Assert.Equal(150_000m, await GetConsultationEscrowAvailableByPaymentReferenceAsync(db, bookingId));
     }
 
@@ -346,12 +342,12 @@ public class ConsultationPaymentIntegrationTests
 
         var userWallet = await db.Set<Wallet>().FirstAsync(w => w.UserId == userId);
         Assert.Equal(500_000m, userWallet.Balance);
-        Assert.False(await db.Set<Wallet>().AnyAsync(w => w.UserId == SystemUserId));
+        Assert.False(await db.Set<Wallet>().AnyAsync(w => w.UserId == PlatformLedgerAccountId));
 
         Assert.NotNull(await db.Set<Transaction>().FirstOrDefaultAsync(t => t.ReferenceId == requestId && t.TransactionType == TransactionType.ConsultationRefund));
         Assert.False(await db.Set<Transaction>().AnyAsync(t =>
             t.ReferenceId == requestId &&
-            t.UserId == SystemUserId &&
+            t.UserId == PlatformLedgerAccountId &&
             t.TransactionType == TransactionType.WalletWithdraw));
         Assert.Equal(0m, await GetConsultationEscrowAvailableByPaymentReferenceAsync(db, requestId));
     }
@@ -428,7 +424,7 @@ public class ConsultationPaymentIntegrationTests
         Assert.False(second);
 
         var expertWallet = await db.Set<Wallet>().FirstAsync(w => w.UserId == expertId);
-        Assert.False(await db.Set<Wallet>().AnyAsync(w => w.UserId == SystemUserId));
+        Assert.False(await db.Set<Wallet>().AnyAsync(w => w.UserId == PlatformLedgerAccountId));
         Assert.Equal(120_000m, expertWallet.Balance);
         Assert.Equal(1, await db.Set<Transaction>().CountAsync(t => t.ReferenceId == consultationId && t.TransactionType == TransactionType.ExpertPayout));
         Assert.Equal(1, await db.Set<Transaction>().CountAsync(t => t.ReferenceId == consultationId && t.TransactionType == TransactionType.PlatformFee));
@@ -442,7 +438,7 @@ public class ConsultationPaymentIntegrationTests
             .SingleAsync());
         Assert.Equal(0, await db.Set<Transaction>().CountAsync(t =>
             t.ReferenceId == consultationId &&
-            t.UserId == SystemUserId &&
+            t.UserId == PlatformLedgerAccountId &&
             t.TransactionType == TransactionType.WalletWithdraw));
         Assert.Equal(0m, await GetConsultationEscrowAvailableForSettlementAsync(db, consultationId));
     }
@@ -813,12 +809,12 @@ public class ConsultationPaymentIntegrationTests
 
         db.Set<Account>().Add(new Account
         {
-            Id = SystemUserId,
-            FullName = "System Wallet",
-            UserName = "system.wallet",
-            NormalizedUserName = "SYSTEM.WALLET",
-            Email = "system.wallet@test.local",
-            NormalizedEmail = "SYSTEM.WALLET@TEST.LOCAL",
+            Id = PlatformLedgerAccountId,
+            FullName = "Platform Ledger",
+            UserName = "platform.ledger",
+            NormalizedUserName = "PLATFORM.LEDGER",
+            Email = "platform.ledger@test.local",
+            NormalizedEmail = "PLATFORM.LEDGER@TEST.LOCAL",
             IsActive = true,
             Role = AccountRole.Admin
         });
