@@ -633,6 +633,12 @@ namespace SnakeAid.Api.Services
                     .Select(r => r.Id)
                     .ToListAsync();
 
+                var demoTransactionReferenceIds = demoIncidentIds
+                    .Concat(missionIds)
+                    .Concat(demoCatchingRequestIds)
+                    .Distinct()
+                    .ToList();
+
                 var catchingMissions = await _dbContext.SnakeCatchingMissions
                     .Where(m => demoUserIds.Contains(m.RescuerId) || demoCatchingRequestIds.Contains(m.SnakeCatchingRequestId))
                     .ToListAsync();
@@ -679,7 +685,9 @@ namespace SnakeAid.Api.Services
 
                 // 8. Delete Transactions for demo users (if any)
                 var transactions = await _dbContext.Transactions
-                    .Where(t => demoUserIds.Contains(t.UserId))
+                    .Where(t =>
+                        (t.UserId.HasValue && demoUserIds.Contains(t.UserId.Value))
+                        || demoTransactionReferenceIds.Contains(t.ReferenceId))
                     .ToListAsync();
                 _dbContext.Transactions.RemoveRange(transactions);
                 _logger.LogInformation("Removing {Count} transactions", transactions.Count);

@@ -10,6 +10,11 @@ public interface ISnakeCatchingPaymentService
         Guid currentUserId,
         CancellationToken cancellationToken);
 
+    Task<SnakeCatchingPaymentResponse> CreateWalletPaymentAsync(
+        CreateSnakeCatchingPaymentRequest request,
+        Guid currentUserId,
+        CancellationToken cancellationToken);
+
     Task<CancelPaymentLinkResponse> CancelSnakeCatchingPaymentLinkAsync(
         long orderCode,
         CancelPaymentLinkRequest request,

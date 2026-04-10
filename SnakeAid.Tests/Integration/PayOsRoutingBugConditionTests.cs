@@ -9,6 +9,7 @@ using SnakeAid.Repository.Data;
 using SnakeAid.Repository.Implements;
 using SnakeAid.Service.Implements;
 using SnakeAid.Service.Interfaces;
+using SnakeAid.Service.Services.PayOs;
 using SnakeAid.Service.Services.PayOs.Models;
 
 namespace SnakeAid.Tests.Integration;
@@ -154,14 +155,10 @@ public class PayOsRoutingBugConditionTests
     }
 
     /// <summary>
-    /// Test 4: SnakebiteIncident and SnakeCatching share the same SNAKEAID- prefix.
-    ///
-    /// Bug Condition: Both SnakebiteIncidentPaymentService and SnakeCatchingPaymentService
-    /// use "SNAKEAID-" as the order code prefix, making it impossible to deterministically
-    /// route webhooks between these two flows based on the description field.
+    /// Test 4: SnakebiteIncident and SnakeCatching use distinct prefixes.
     ///
     /// Expected Behavior: Each flow should have a unique prefix:
-    /// - SnakeCatching: "SNAKEAID-"
+    /// - SnakeCatching: "CATCHING-"
     /// - SnakebiteIncident: "INCIDENT-"
     /// - Consultation: "CONSULTPAY-"
     ///
@@ -171,8 +168,8 @@ public class PayOsRoutingBugConditionTests
     public async Task OrderCodePrefixes_ShouldBeUniqueAcrossAllFlows()
     {
         // Arrange: Extract the prefix patterns from each payment service using reflection.
-        // SnakeCatchingPaymentService uses OrderCodeRegex = new(@"^SNAKEAID-(\d+)")
-        // SnakebiteIncidentPaymentService uses BuildDescription with "SNAKEAID-{orderCode}"
+        // SnakeCatchingPaymentService uses OrderCodeRegex = new(@"^CATCHING-(\d+)")
+        // SnakebiteIncidentPaymentService uses BuildDescription with "INCIDENT-{orderCode}"
         // ConsultationPaymentService uses PayOsDescriptionPrefix = "CONSULTPAY"
 
         // Extract SnakeCatching prefix from its OrderCodeRegex
@@ -197,17 +194,11 @@ public class PayOsRoutingBugConditionTests
         var snakebitePrefix = ExtractPrefixFromDescription(description);
 
         // Extract Consultation prefix
-        var consultationType = typeof(ConsultationPaymentService);
-        var consultPrefixField = consultationType.GetField("PayOsDescriptionPrefix",
-            BindingFlags.NonPublic | BindingFlags.Static);
-        Assert.NotNull(consultPrefixField);
-        var consultationPrefix = (string)consultPrefixField.GetValue(null)! + "-";
+        var consultationPrefix = PayOsPaymentFlowPrefixes.GetPrefix(PayOsPaymentFlow.Consultation);
 
         // Act & Assert: All three prefixes should be unique
         var prefixes = new[] { snakeCatchingPrefix, snakebitePrefix, consultationPrefix };
 
-        // On unfixed code, this will FAIL because both SnakeCatching and SnakebiteIncident
-        // use "SNAKEAID-" as their prefix.
         Assert.Equal(prefixes.Length, prefixes.Distinct().Count());
     }
 
@@ -215,14 +206,14 @@ public class PayOsRoutingBugConditionTests
 
     private static string ExtractPrefixFromRegex(string regexPattern)
     {
-        // Pattern like "^SNAKEAID-(\d+)" → extract "SNAKEAID-"
+        // Pattern like "^CATCHING-(\d+)" → extract "CATCHING-"
         var match = Regex.Match(regexPattern, @"\^?([A-Z]+-)", RegexOptions.IgnoreCase);
         return match.Success ? match.Groups[1].Value : regexPattern;
     }
 
     private static string ExtractPrefixFromDescription(string description)
     {
-        // Description like "SNAKEAID-123456" → extract "SNAKEAID-"
+        // Description like "INCIDENT-123456" → extract "INCIDENT-"
         var match = Regex.Match(description, @"^([A-Z]+-)", RegexOptions.IgnoreCase);
         return match.Success ? match.Groups[1].Value : description;
     }

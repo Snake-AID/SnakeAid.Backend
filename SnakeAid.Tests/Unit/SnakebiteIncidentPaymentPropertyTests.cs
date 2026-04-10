@@ -143,16 +143,16 @@ public class SnakebiteIncidentPaymentPropertyTests
 
     #endregion
 
-    #region Property 3: Webhook escrow and idempotency
+    #region Property 3: Webhook payment and idempotency
 
     /// <summary>
-    /// Feature: incident-payos-payment, Property 3: Webhook escrow and idempotency
+    /// Feature: incident-payos-payment, Property 3: Webhook payment and idempotency
     ///
     /// Validates: Requirements 2.1, 2.5, 3.5, 10.4
     ///
     /// Verifies that ProcessConfirmedPayOsPaymentAsync exists as a private method
     /// with the correct signature (PayOsWebhookData, CancellationToken) → Task&lt;PayOsWebhookResponse&gt;.
-    /// This ensures the webhook escrow processing infrastructure is in place.
+    /// This ensures the webhook payment processing infrastructure is in place.
     /// </summary>
     [Fact]
     public void ProcessConfirmedPayOsPaymentAsync_HasCorrectSignature()
@@ -177,7 +177,7 @@ public class SnakebiteIncidentPaymentPropertyTests
     }
 
     /// <summary>
-    /// Feature: incident-payos-payment, Property 3: Webhook escrow and idempotency
+    /// Feature: incident-payos-payment, Property 3: Webhook payment and idempotency
     ///
     /// Validates: Requirements 2.1, 2.5, 3.5, 10.4
     ///
@@ -394,7 +394,7 @@ public class SnakebiteIncidentPaymentPropertyTests
     ///
     /// Validates: Requirements 2.2, 10.2, 6.2
     ///
-    /// Verifies that MoveMoneyToEscrowAsync exists with the correct signature:
+    /// Verifies that RecordSystemRevenuePaymentAsync exists with the correct signature:
     /// (Guid userId, Guid incidentId, decimal amount, string description,
     ///  string paymentMethod, string externalTransactionId, CancellationToken,
     ///  bool skipExistingPaymentInsert)
@@ -402,10 +402,10 @@ public class SnakebiteIncidentPaymentPropertyTests
     /// ProcessedAtUtc, ExternalTransactionId).
     /// </summary>
     [Fact]
-    public void MoveMoneyToEscrowAsync_HasCorrectSignature()
+    public void RecordSystemRevenuePaymentAsync_HasCorrectSignature()
     {
         var method = ServiceType.GetMethod(
-            "MoveMoneyToEscrowAsync",
+            "RecordSystemRevenuePaymentAsync",
             BindingFlags.NonPublic | BindingFlags.Instance);
 
         Assert.NotNull(method);
@@ -421,7 +421,7 @@ public class SnakebiteIncidentPaymentPropertyTests
         Assert.Equal(typeof(CancellationToken), parameters[6].ParameterType);
         Assert.Equal(typeof(bool), parameters[7].ParameterType);           // skipExistingPaymentInsert
 
-        // Return type: Task<(Guid, decimal, decimal, DateTime, string)>
+        // Return type: Task<(Guid, decimal, decimal?, DateTime, string)>
         Assert.True(method.ReturnType.IsGenericType);
         Assert.Equal(typeof(Task<>), method.ReturnType.GetGenericTypeDefinition());
 
@@ -432,7 +432,7 @@ public class SnakebiteIncidentPaymentPropertyTests
         Assert.Equal(5, tupleArgs.Length);
         Assert.Equal(typeof(Guid), tupleArgs[0]);      // TransactionId
         Assert.Equal(typeof(decimal), tupleArgs[1]);    // UserWalletBalanceAfter
-        Assert.Equal(typeof(decimal), tupleArgs[2]);    // SystemWalletBalanceAfter
+        Assert.Equal(typeof(decimal?), tupleArgs[2]);   // SystemWalletBalanceAfter
         Assert.Equal(typeof(DateTime), tupleArgs[3]);   // ProcessedAtUtc
         Assert.Equal(typeof(string), tupleArgs[4]);     // ExternalTransactionId
     }
@@ -442,24 +442,24 @@ public class SnakebiteIncidentPaymentPropertyTests
     ///
     /// Validates: Requirements 2.2, 10.2, 6.2
     ///
-    /// For any random positive decimal amount, MoveMoneyToEscrowAsync's signature
+    /// For any random positive decimal amount, RecordSystemRevenuePaymentAsync's signature
     /// accepts it via the decimal parameter — ensuring the method supports arbitrary
     /// positive payment amounts for money conservation.
     /// </summary>
     [FsCheck.Xunit.Property(MaxTest = 100)]
-    public FsCheck.Property MoveMoneyToEscrowAsync_AcceptsAnyPositiveAmount(PositiveInt amountSeed)
+    public FsCheck.Property RecordSystemRevenuePaymentAsync_AcceptsAnyPositiveAmount(PositiveInt amountSeed)
     {
         var amount = (decimal)amountSeed.Get + 0.01m; // ensure positive decimal
 
         var method = ServiceType.GetMethod(
-            "MoveMoneyToEscrowAsync",
+            "RecordSystemRevenuePaymentAsync",
             BindingFlags.NonPublic | BindingFlags.Instance);
 
         var amountParam = method!.GetParameters()[2];
 
         return Prop.Label(
             amountParam.ParameterType == typeof(decimal) && amount > 0m,
-            $"MoveMoneyToEscrowAsync should accept positive decimal amount={amount}");
+            $"RecordSystemRevenuePaymentAsync should accept positive decimal amount={amount}");
     }
 
     /// <summary>
@@ -467,21 +467,21 @@ public class SnakebiteIncidentPaymentPropertyTests
     ///
     /// Validates: Requirements 2.2, 10.2, 6.2
     ///
-    /// Verifies that MoveMoneyToEscrowAsync is private, ensuring money movement
+    /// Verifies that RecordSystemRevenuePaymentAsync is private, ensuring money movement
     /// is only triggered through the public payment methods (not directly by controllers).
     /// </summary>
     [Fact]
-    public void MoveMoneyToEscrowAsync_IsPrivate()
+    public void RecordSystemRevenuePaymentAsync_IsPrivate()
     {
         var method = ServiceType.GetMethod(
-            "MoveMoneyToEscrowAsync",
+            "RecordSystemRevenuePaymentAsync",
             BindingFlags.NonPublic | BindingFlags.Instance);
 
         Assert.NotNull(method);
-        Assert.True(method!.IsPrivate, "MoveMoneyToEscrowAsync should be private");
+        Assert.True(method!.IsPrivate, "RecordSystemRevenuePaymentAsync should be private");
 
         var publicMethod = ServiceType.GetMethod(
-            "MoveMoneyToEscrowAsync",
+            "RecordSystemRevenuePaymentAsync",
             BindingFlags.Public | BindingFlags.Instance);
 
         Assert.Null(publicMethod);
@@ -638,7 +638,7 @@ public class SnakebiteIncidentPaymentPropertyTests
     /// Validates: Requirements 4.1, 4.2, 10.3
     ///
     /// Verifies that RefundTransactionResponse has the expected balance fields:
-    /// SystemWalletBalanceBefore, SystemWalletBalanceAfter,
+    /// nullable SystemWalletBalanceBefore, nullable SystemWalletBalanceAfter,
     /// ReceiverWalletBalanceBefore, ReceiverWalletBalanceAfter.
     /// These fields are essential for verifying money conservation on refund.
     /// </summary>
@@ -649,11 +649,11 @@ public class SnakebiteIncidentPaymentPropertyTests
 
         var systemBefore = responseType.GetProperty("SystemWalletBalanceBefore", BindingFlags.Public | BindingFlags.Instance);
         Assert.NotNull(systemBefore);
-        Assert.Equal(typeof(decimal), systemBefore!.PropertyType);
+        Assert.Equal(typeof(decimal?), systemBefore!.PropertyType);
 
         var systemAfter = responseType.GetProperty("SystemWalletBalanceAfter", BindingFlags.Public | BindingFlags.Instance);
         Assert.NotNull(systemAfter);
-        Assert.Equal(typeof(decimal), systemAfter!.PropertyType);
+        Assert.Equal(typeof(decimal?), systemAfter!.PropertyType);
 
         var receiverBefore = responseType.GetProperty("ReceiverWalletBalanceBefore", BindingFlags.Public | BindingFlags.Instance);
         Assert.NotNull(receiverBefore);
@@ -677,26 +677,25 @@ public class SnakebiteIncidentPaymentPropertyTests
     public FsCheck.Property RefundTransactionResponse_BalanceFieldsRoundTrip(PositiveInt amountSeed)
     {
         var amount = (decimal)amountSeed.Get + 0.01m;
-        var systemBefore = amount + 1000m;
-        var systemAfter = systemBefore - amount;
         var receiverBefore = 500m;
         var receiverAfter = receiverBefore + amount;
 
         var response = new RefundTransactionResponse
         {
-            SystemWalletBalanceBefore = systemBefore,
-            SystemWalletBalanceAfter = systemAfter,
+            SystemWalletBalanceBefore = null,
+            SystemWalletBalanceAfter = null,
             ReceiverWalletBalanceBefore = receiverBefore,
             ReceiverWalletBalanceAfter = receiverAfter,
             RefundAmount = amount
         };
 
-        var systemDebit = response.SystemWalletBalanceBefore - response.SystemWalletBalanceAfter;
         var receiverCredit = response.ReceiverWalletBalanceAfter - response.ReceiverWalletBalanceBefore;
 
         return Prop.Label(
-            systemDebit == amount && receiverCredit == amount && systemDebit == receiverCredit,
-            $"Refund amount={amount}: system debit={systemDebit}, receiver credit={receiverCredit} should both equal amount");
+            response.SystemWalletBalanceBefore == null
+            && response.SystemWalletBalanceAfter == null
+            && receiverCredit == amount,
+            $"Refund amount={amount}: receiver credit={receiverCredit} should equal amount and system balances should be null");
     }
 
     #endregion

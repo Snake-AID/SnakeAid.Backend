@@ -14,6 +14,7 @@ using SnakeAid.Core.Responses.PayOS;
 using SnakeAid.Repository.Data;
 using SnakeAid.Repository.Interfaces;
 using SnakeAid.Service.Interfaces;
+using SnakeAid.Service.Services.PayOs;
 using SnakeAid.Service.Services.PayOs.Models;
 
 namespace SnakeAid.Service.Implements;
@@ -23,7 +24,6 @@ public class SnakebiteIncidentPaymentService : ISnakebiteIncidentPaymentService
     private readonly IUnitOfWork<SnakeAidDbContext> _unitOfWork;
     private readonly IPaymentGateway _paymentGateway;
     private readonly ILogger<SnakebiteIncidentPaymentService> _logger;
-    private const string SystemWalletUserId = "57288b98-5f91-4de8-b827-866e3df69587";
 
     public SnakebiteIncidentPaymentService(
         IUnitOfWork<SnakeAidDbContext> unitOfWork,
@@ -175,7 +175,7 @@ public class SnakebiteIncidentPaymentService : ISnakebiteIncidentPaymentService
             throw new ValidationException($"Payment amount must equal completed mission amount ({expectedAmount}).");
         }
 
-        var transfer = await MoveMoneyToEscrowAsync(
+        var transfer = await RecordSystemRevenuePaymentAsync(
             currentUserId,
             request.SnakebiteIncidentId,
             request.Amount,
@@ -196,7 +196,7 @@ public class SnakebiteIncidentPaymentService : ISnakebiteIncidentPaymentService
             OrderCode = null,
             Amount = request.Amount,
             Currency = "VND",
-            Status = "Escrowed",
+            Status = "Paid",
             Provider = "Wallet",
             CheckoutUrl = null,
             PaymentLinkId = null,
@@ -332,7 +332,7 @@ public class SnakebiteIncidentPaymentService : ISnakebiteIncidentPaymentService
                 OrderCode = orderCode,
                 Amount = linkInfo.Amount,
                 PaymentLinkId = linkInfo.Id,
-                TransactionReference = $"INCIDENT-MANUAL-{transactionId:N}",
+                TransactionReference = $"{PayOsPaymentFlowPrefixes.SnakebiteIncident}MANUAL-{transactionId:N}",
                 TransactionDateTime = DateTime.UtcNow
             },
             cancellationToken);
@@ -376,36 +376,19 @@ public class SnakebiteIncidentPaymentService : ISnakebiteIncidentPaymentService
             throw new ValidationException("Refund amount cannot exceed original payment amount.");
         }
 
-        var systemWallet = await GetRequiredWalletAsync(Guid.Parse(SystemWalletUserId), cancellationToken);
-        if (systemWallet.Balance < request.Amount)
+        var available = await GetRefundableSnakebiteIncidentRevenueAsync(request.ReferenceId, cancellationToken);
+        if (available < request.Amount)
         {
-            throw new ConflictException("System wallet has insufficient balance for refund.");
+            throw new ConflictException("Snakebite incident refundable payment amount is insufficient for refund.");
         }
 
         var receiverWallet = await GetOrCreateWalletAsync(request.ReceiverId, cancellationToken);
 
-        var systemBefore = systemWallet.Balance;
         var receiverBefore = receiverWallet.Balance;
 
-        systemWallet.Balance -= request.Amount;
         receiverWallet.Balance += request.Amount;
 
-        _unitOfWork.GetRepository<Wallet>().Update(systemWallet);
         _unitOfWork.GetRepository<Wallet>().Update(receiverWallet);
-
-        var refundSourceTx = new Transaction
-        {
-            Id = Guid.NewGuid(),
-            UserId = Guid.Parse(SystemWalletUserId),
-            ReferenceId = request.ReferenceId,
-            Amount = request.Amount,
-            Currency = "VND",
-            TransactionType = TransactionType.WalletWithdraw,
-            Description = $"Escrow refund source for incident reference {request.ReferenceId}",
-            PaymentMethod = "Wallet",
-            ExternalTransactionId = $"REFUND-SOURCE-{Guid.NewGuid():N}",
-            CreatedAt = DateTime.UtcNow
-        };
 
         var refundTx = new Transaction
         {
@@ -421,7 +404,6 @@ public class SnakebiteIncidentPaymentService : ISnakebiteIncidentPaymentService
             CreatedAt = DateTime.UtcNow
         };
 
-        await _unitOfWork.GetRepository<Transaction>().InsertAsync(refundSourceTx);
         await _unitOfWork.GetRepository<Transaction>().InsertAsync(refundTx);
 
         await _unitOfWork.CommitAsync();
@@ -433,12 +415,32 @@ public class SnakebiteIncidentPaymentService : ISnakebiteIncidentPaymentService
             ReceiverId = request.ReceiverId,
             RefundAmount = request.Amount,
             RefundTransactionId = refundTx.Id,
-            SystemWalletBalanceBefore = systemBefore,
-            SystemWalletBalanceAfter = systemWallet.Balance,
+            SystemWalletBalanceBefore = null,
+            SystemWalletBalanceAfter = null,
             ReceiverWalletBalanceBefore = receiverBefore,
             ReceiverWalletBalanceAfter = receiverWallet.Balance,
             RefundedAt = DateTime.UtcNow
         };
+    }
+
+    private async Task<decimal> GetRefundableSnakebiteIncidentRevenueAsync(
+        Guid incidentId,
+        CancellationToken cancellationToken)
+    {
+        var paidTransactions = await _unitOfWork.GetRepository<Transaction>().GetListAsync(
+            predicate: t => t.ReferenceId == incidentId
+                         && t.TransactionType == TransactionType.SnakebiteIncidentPayment
+                         && !string.IsNullOrEmpty(t.ExternalTransactionId),
+            asNoTracking: true,
+            cancellationToken: cancellationToken);
+
+        var refundedTransactions = await _unitOfWork.GetRepository<Transaction>().GetListAsync(
+            predicate: t => t.ReferenceId == incidentId
+                         && t.TransactionType == TransactionType.SnakebiteIncidentRefund,
+            asNoTracking: true,
+            cancellationToken: cancellationToken);
+
+        return paidTransactions.Sum(t => t.Amount) - refundedTransactions.Sum(t => t.Amount);
     }
 
     private async Task<Wallet> GetRequiredWalletAsync(Guid userId, CancellationToken cancellationToken)
@@ -489,7 +491,7 @@ public class SnakebiteIncidentPaymentService : ISnakebiteIncidentPaymentService
     private string BuildDescription(long orderCode, string additionalInfo)
     {
         const int maxLength = 25;
-        var baseDescription = $"INCIDENT-{orderCode}".Trim();
+        var baseDescription = PayOsPaymentFlowPrefixes.BuildOrderCodePrefix(PayOsPaymentFlow.SnakebiteIncident, orderCode).Trim();
         return baseDescription.Length <= maxLength ? baseDescription : baseDescription.Substring(0, maxLength);
     }
 
@@ -501,12 +503,12 @@ public class SnakebiteIncidentPaymentService : ISnakebiteIncidentPaymentService
         }
 
         var parts = description.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-        if (parts.Length == 0 || !parts[0].StartsWith("INCIDENT-"))
+        if (parts.Length == 0 || !parts[0].StartsWith(PayOsPaymentFlowPrefixes.SnakebiteIncident))
         {
             return 0;
         }
 
-        if (long.TryParse(parts[0].Replace("INCIDENT-", ""), out var orderCode))
+        if (long.TryParse(parts[0].Replace(PayOsPaymentFlowPrefixes.SnakebiteIncident, ""), out var orderCode))
         {
             return orderCode;
         }
@@ -529,7 +531,7 @@ public class SnakebiteIncidentPaymentService : ISnakebiteIncidentPaymentService
         bool asNoTracking,
         CancellationToken cancellationToken)
     {
-        var descriptionPrefix = $"INCIDENT-{orderCode}";
+        var descriptionPrefix = PayOsPaymentFlowPrefixes.BuildOrderCodePrefix(PayOsPaymentFlow.SnakebiteIncident, orderCode);
         return await _unitOfWork.GetRepository<Transaction>().FirstOrDefaultAsync(
             predicate: t => t.TransactionType == TransactionType.SnakebiteIncidentPayment
                          && t.Description != null
@@ -607,11 +609,11 @@ public class SnakebiteIncidentPaymentService : ISnakebiteIncidentPaymentService
     }
 
     /// <summary>
-    /// Di chuyển tiền vào escrow (System_Wallet).
-    /// Mirror pattern từ ConsultationPaymentService.MoveMoneyToEscrowAsync.
-    /// Cho cả Wallet payment (debit user) và PayOS payment (chỉ credit system).
+    /// Ghi nhận incident payment như ledger-only system/platform revenue.
+    /// Wallet payment debit user wallet; PayOS payment đã được gateway thu tiền.
+    /// Không credit system wallet vì system revenue được admin đọc từ Transaction.
     /// </summary>
-    private async Task<(Guid TransactionId, decimal UserWalletBalanceAfter, decimal SystemWalletBalanceAfter, DateTime ProcessedAtUtc, string ExternalTransactionId)> MoveMoneyToEscrowAsync(
+    private async Task<(Guid TransactionId, decimal UserWalletBalanceAfter, decimal? SystemWalletBalanceAfter, DateTime ProcessedAtUtc, string ExternalTransactionId)> RecordSystemRevenuePaymentAsync(
         Guid userId,
         Guid incidentId,
         decimal amount,
@@ -622,7 +624,6 @@ public class SnakebiteIncidentPaymentService : ISnakebiteIncidentPaymentService
         bool skipExistingPaymentInsert = false)
     {
         decimal userWalletBalanceAfter;
-        var systemWallet = await GetOrCreateWalletAsync(Guid.Parse(SystemWalletUserId), cancellationToken);
         var now = DateTime.UtcNow;
 
         if (string.Equals(paymentMethod, "Wallet", StringComparison.OrdinalIgnoreCase))
@@ -645,9 +646,6 @@ public class SnakebiteIncidentPaymentService : ISnakebiteIncidentPaymentService
                 cancellationToken: cancellationToken);
             userWalletBalanceAfter = userWallet?.Balance ?? 0m;
         }
-
-        systemWallet.Balance += amount;
-        _unitOfWork.GetRepository<Wallet>().Update(systemWallet);
 
         Transaction paymentTx;
         if (skipExistingPaymentInsert)
@@ -677,23 +675,7 @@ public class SnakebiteIncidentPaymentService : ISnakebiteIncidentPaymentService
             await _unitOfWork.GetRepository<Transaction>().InsertAsync(paymentTx);
         }
 
-        var systemCreditTx = new Transaction
-        {
-            Id = Guid.NewGuid(),
-            UserId = Guid.Parse(SystemWalletUserId),
-            ReferenceId = incidentId,
-            Amount = amount,
-            Currency = "VND",
-            TransactionType = TransactionType.WalletTopup,
-            Description = $"Escrow received for incident reference {incidentId}",
-            PaymentMethod = paymentMethod,
-            ExternalTransactionId = externalTransactionId,
-            CreatedAt = now
-        };
-
-        await _unitOfWork.GetRepository<Transaction>().InsertAsync(systemCreditTx);
-
-        return (paymentTx.Id, userWalletBalanceAfter, systemWallet.Balance, now, externalTransactionId);
+        return (paymentTx.Id, userWalletBalanceAfter, null, now, externalTransactionId);
     }
 
     /// <summary>
@@ -735,14 +717,17 @@ public class SnakebiteIncidentPaymentService : ISnakebiteIncidentPaymentService
 
         // Set ExternalTransactionId on the pending transaction
         transaction.ExternalTransactionId = string.IsNullOrWhiteSpace(webhook.TransactionReference)
-            ? $"INCIDENT-WEBHOOK-{transaction.Id:N}"
+            ? $"{PayOsPaymentFlowPrefixes.SnakebiteIncident}WEBHOOK-{transaction.Id:N}"
             : webhook.TransactionReference;
         transaction.CreatedAt = webhook.TransactionDateTime ?? DateTime.UtcNow;
         _unitOfWork.GetRepository<Transaction>().Update(transaction);
 
-        // Move money to escrow (credit System_Wallet + create WalletTopup)
-        var escrowTransfer = await MoveMoneyToEscrowAsync(
-            transaction.UserId,
+        var payerUserId = transaction.UserId
+            ?? throw new ConflictException("Incident payment transaction is missing payer user ownership.");
+
+        // Mark the payment as ledger-only system/platform revenue.
+        await RecordSystemRevenuePaymentAsync(
+            payerUserId,
             transaction.ReferenceId,
             transaction.Amount,
             "Incident payment via PayOS",

@@ -29,12 +29,14 @@ public class PayOsDescriptionLookup
     public async Task<string?> GetByOrderCodeAsync(long orderCode, CancellationToken ct = default)
     {
         var orderCodeStr = orderCode.ToString();
+
         var transaction = await _unitOfWork.GetRepository<Transaction>()
             .FirstOrDefaultAsync(
                 predicate: t => t.Description != null &&
-                    (t.Description.StartsWith("SNAKEAID-" + orderCodeStr) ||
-                     t.Description.StartsWith("INCIDENT-" + orderCodeStr) ||
-                     t.Description.StartsWith("CONSULTPAY-" + orderCodeStr)),
+                    (t.Description.StartsWith(PayOsPaymentFlowPrefixes.Topup + orderCodeStr) ||
+                     t.Description.StartsWith(PayOsPaymentFlowPrefixes.SnakeCatching + orderCodeStr) ||
+                     t.Description.StartsWith(PayOsPaymentFlowPrefixes.SnakebiteIncident + orderCodeStr) ||
+                     t.Description.StartsWith(PayOsPaymentFlowPrefixes.Consultation + orderCodeStr)),
                 asNoTracking: true,
                 cancellationToken: ct);
         return transaction?.Description;

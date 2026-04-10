@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc.Routing;
 using SnakeAid.Api.Controllers;
 using SnakeAid.Service.Implements;
 using SnakeAid.Service.Interfaces;
+using SnakeAid.Service.Services.PayOs;
 
 namespace SnakeAid.Tests.Unit;
 
@@ -25,7 +26,7 @@ public class PayOsPreservationTests
     #region Property: SnakeCatching webhook routing is handled by SnakeCatchingPaymentService
 
     /// <summary>
-    /// Observe: SnakeCatching webhook with SNAKEAID-{orderCode} description is processed
+    /// Observe: SnakeCatching webhook with CATCHING-{orderCode} description is processed
     /// by SnakeCatchingPaymentService on unfixed code.
     ///
     /// Property: The PayOsController injects all 3 domain payment services directly
@@ -180,19 +181,19 @@ public class PayOsPreservationTests
 
     #endregion
 
-    #region Property: SnakeCatching service uses SNAKEAID- prefix consistently
+    #region Property: SnakeCatching service uses CATCHING- prefix consistently
 
     /// <summary>
-    /// Property: For all SnakeCatching payment operations, the system uses the SNAKEAID- prefix.
-    /// The OrderCodeRegex in SnakeCatchingPaymentService matches ^SNAKEAID-(\d+).
+    /// Property: For all SnakeCatching payment operations, the system uses the CATCHING- prefix.
+    /// The OrderCodeRegex in SnakeCatchingPaymentService matches ^CATCHING-(\d+).
     ///
     /// This is the baseline prefix that must be preserved after the fix.
-    /// SnakeCatching keeps SNAKEAID-, SnakebiteIncident will change to INCIDENT-.
+    /// SnakeCatching keeps CATCHING-, SnakebiteIncident keeps INCIDENT-.
     ///
     /// **Validates: Requirements 3.5**
     /// </summary>
     [Fact]
-    public void SnakeCatchingPaymentService_UsesSnakeAidPrefix()
+    public void SnakeCatchingPaymentService_UsesCatchingPrefix()
     {
         var serviceType = typeof(SnakeCatchingPaymentService);
         var regexField = serviceType.GetField("OrderCodeRegex",
@@ -203,13 +204,12 @@ public class PayOsPreservationTests
         var regex = (Regex)regexField!.GetValue(null)!;
         var pattern = regex.ToString();
 
-        // The regex must start with ^SNAKEAID-
-        Assert.StartsWith("^SNAKEAID-", pattern);
+        Assert.StartsWith("^CATCHING-", pattern);
     }
 
     /// <summary>
     /// Property: For all generated order codes, SnakeCatchingPaymentService.BuildDescription
-    /// produces a description starting with "SNAKEAID-{orderCode}".
+    /// preserves the "CATCHING-{orderCode}" prefix and never exceeds PayOS's 25-char description limit.
     ///
     /// Test with multiple order codes to verify the property holds across inputs.
     ///
@@ -220,7 +220,7 @@ public class PayOsPreservationTests
     [InlineData(9999999999L, "")]
     [InlineData(1L, "Snake catching payment")]
     [InlineData(100000L, null)]
-    public void SnakeCatchingPaymentService_BuildDescription_ProducesSnakeAidPrefix(long orderCode, string? customDescription)
+    public void SnakeCatchingPaymentService_BuildDescription_ProducesCatchingPrefix(long orderCode, string? customDescription)
     {
         var serviceType = typeof(SnakeCatchingPaymentService);
         var buildDescMethod = serviceType.GetMethod("BuildDescription",
@@ -233,7 +233,8 @@ public class PayOsPreservationTests
         var instance = CreateSnakeCatchingServiceViaReflection();
         var description = (string)buildDescMethod!.Invoke(instance, new object?[] { orderCode, customDescription })!;
 
-        Assert.StartsWith($"SNAKEAID-{orderCode}", description);
+        Assert.StartsWith($"CATCHING-{orderCode}", description);
+        Assert.True(description.Length <= 25);
     }
 
     /// <summary>
@@ -278,14 +279,7 @@ public class PayOsPreservationTests
     [Fact]
     public void ConsultationPaymentService_UsesConsultPayPrefix()
     {
-        var serviceType = typeof(ConsultationPaymentService);
-        var prefixField = serviceType.GetField("PayOsDescriptionPrefix",
-            BindingFlags.NonPublic | BindingFlags.Static);
-
-        Assert.NotNull(prefixField);
-
-        var prefix = (string)prefixField!.GetValue(null)!;
-        Assert.Equal("CONSULTPAY", prefix);
+        Assert.Equal("CONSULTPAY-", PayOsPaymentFlowPrefixes.GetPrefix(PayOsPaymentFlow.Consultation));
     }
 
     [Fact]
@@ -305,17 +299,15 @@ public class PayOsPreservationTests
 
     #endregion
 
-    #region Property: SnakebiteIncident service uses SNAKEAID- prefix (on unfixed code)
+    #region Property: SnakebiteIncident service uses INCIDENT- prefix
 
     /// <summary>
-    /// Observe: On unfixed code, SnakebiteIncidentPaymentService also uses SNAKEAID- prefix.
-    /// This is the bug condition (shared prefix). After the fix, it will change to INCIDENT-.
-    /// This test documents the CURRENT behavior for observation purposes.
+    /// SnakebiteIncidentPaymentService uses INCIDENT- prefix.
     ///
     /// **Validates: Requirements 3.6**
     /// </summary>
     [Fact]
-    public void SnakebiteIncidentPaymentService_CurrentlyUsesSnakeAidPrefix_ObservationOnly()
+    public void SnakebiteIncidentPaymentService_UsesIncidentPrefix()
     {
         var serviceType = typeof(SnakebiteIncidentPaymentService);
         var buildDescMethod = serviceType.GetMethod("BuildDescription",
@@ -327,10 +319,7 @@ public class PayOsPreservationTests
         var instance = CreateSnakebiteServiceViaReflection();
         var description = (string)buildDescMethod!.Invoke(instance, new object[] { 123456L, "test" })!;
 
-        // On unfixed code, this starts with SNAKEAID-
-        // After fix, it will start with INCIDENT-
-        // This observation test just documents the current state
-        Assert.Matches(@"^(SNAKEAID|INCIDENT)-\d+", description);
+        Assert.StartsWith("INCIDENT-", description);
     }
 
     #endregion
@@ -442,6 +431,7 @@ public class PayOsPreservationTests
     /// </summary>
     [Theory]
     [InlineData("CreatePaymentLink", "POST", "create-link")]
+    [InlineData("CreateWalletPayment", "POST", "wallet")]
     [InlineData("CancelPaymentLink", "POST", "cancel-link/{orderCode}")]
     [InlineData("TransferToRescuer", "POST", "transfer-to-rescuer")]
     public void SnakeCatchingPaymentsController_HasEndpointRoutes(string methodName, string expectedHttpMethod, string expectedTemplate)
@@ -487,6 +477,7 @@ public class PayOsPreservationTests
     /// </summary>
     [Theory]
     [InlineData("CreateSnakeCatchingPaymentLinkAsync")]
+    [InlineData("CreateWalletPaymentAsync")]
     [InlineData("CancelSnakeCatchingPaymentLinkAsync")]
     [InlineData("ProcessSnakeCatchingWebhookAsync")]
     [InlineData("ConfirmSnakeCatchingPaymentAsync")]
@@ -503,60 +494,46 @@ public class PayOsPreservationTests
 
     #endregion
 
-    #region Property: Wallet operations produce same balance changes
+    #region Property: Wallet operations preserve current ownership
 
     /// <summary>
-    /// Observe: Wallet operations (credit, debit, escrow) produce same balance changes.
-    ///
-    /// Property: The SnakeCatchingPaymentService has a commissionFee field.
-    /// This business rule field must exist to preserve the 200,000 VND commission.
+    /// Property: Snake catching customer payment no longer carries a hardcoded commission field
+    /// after the deprecated payout path was removed from production semantics.
     ///
     /// **Validates: Requirements 3.5, 3.8**
     /// </summary>
     [Fact]
-    public void SnakeCatchingPaymentService_HasCommissionFeeField()
+    public void SnakeCatchingPaymentService_DoesNotExposeLegacyCommissionField()
     {
         var serviceType = typeof(SnakeCatchingPaymentService);
         var commissionField = serviceType.GetField("commissionFee",
             BindingFlags.NonPublic | BindingFlags.Instance);
 
-        Assert.NotNull(commissionField);
-        Assert.Equal(typeof(int), commissionField!.FieldType);
+        Assert.Null(commissionField);
     }
 
     /// <summary>
-    /// Property: The system wallet ID is consistent across SnakebiteIncident and Consultation services.
-    /// Both use the same static SystemWalletUserId constant.
-    /// SnakeCatchingPaymentService uses an instance field 'systemId' with the same value.
+    /// Property: payment services no longer own legacy system wallet ID fields after
+    /// consultation, incident, and snake catching all moved away from system-wallet-side-effect semantics.
     ///
     /// **Validates: Requirements 3.8**
     /// </summary>
     [Fact]
-    public void PaymentServices_HaveSystemWalletIdFields()
+    public void PaymentServices_DoNotOwnLegacySystemWalletIdFields()
     {
-        var expectedSystemId = "57288b98-5f91-4de8-b827-866e3df69587";
-
-        // SnakeCatchingPaymentService uses 'systemId' instance field (verified by field existence)
         var scType = typeof(SnakeCatchingPaymentService);
         var scField = scType.GetField("systemId", BindingFlags.NonPublic | BindingFlags.Instance);
-        Assert.NotNull(scField);
-        Assert.Equal(typeof(string), scField!.FieldType);
+        Assert.Null(scField);
 
-        // SnakebiteIncidentPaymentService uses 'SystemWalletUserId' const (static, can read directly)
         var siType = typeof(SnakebiteIncidentPaymentService);
         var siField = siType.GetField("SystemWalletUserId",
             BindingFlags.NonPublic | BindingFlags.Static);
-        Assert.NotNull(siField);
-        var siSystemId = (string)siField!.GetValue(null)!;
-        Assert.Equal(expectedSystemId, siSystemId);
+        Assert.Null(siField);
 
-        // ConsultationPaymentService uses 'SystemWalletUserId' const (static, can read directly)
         var cpType = typeof(ConsultationPaymentService);
         var cpField = cpType.GetField("SystemWalletUserId",
             BindingFlags.NonPublic | BindingFlags.Static);
-        Assert.NotNull(cpField);
-        var cpSystemId = (string)cpField!.GetValue(null)!;
-        Assert.Equal(expectedSystemId, cpSystemId);
+        Assert.Null(cpField);
     }
 
     #endregion

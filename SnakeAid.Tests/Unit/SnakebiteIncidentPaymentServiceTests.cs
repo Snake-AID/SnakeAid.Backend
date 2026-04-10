@@ -135,6 +135,73 @@ public class SnakebiteIncidentPaymentServiceTests
             .ReturnsAsync(wallet);
     }
 
+    private void SetupWalletRepoFromList(ICollection<Wallet> wallets)
+    {
+        _walletRepoMock
+            .Setup(r => r.FirstOrDefaultAsync(
+                It.IsAny<Expression<Func<Wallet, bool>>>(),
+                It.IsAny<Func<IQueryable<Wallet>, IOrderedQueryable<Wallet>>>(),
+                It.IsAny<Func<IQueryable<Wallet>, IQueryable<Wallet>>>(),
+                It.IsAny<bool>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync((
+                Expression<Func<Wallet, bool>> predicate,
+                Func<IQueryable<Wallet>, IOrderedQueryable<Wallet>>? _1,
+                Func<IQueryable<Wallet>, IQueryable<Wallet>>? _2,
+                bool _3,
+                CancellationToken _4) =>
+            {
+                var compiled = predicate.Compile();
+                return wallets.FirstOrDefault(compiled);
+            });
+    }
+
+    private void SetupTransactionRepoFromList(ICollection<Transaction> transactions)
+    {
+        _transactionRepoMock
+            .Setup(r => r.FirstOrDefaultAsync(
+                It.IsAny<Expression<Func<Transaction, bool>>>(),
+                It.IsAny<Func<IQueryable<Transaction>, IOrderedQueryable<Transaction>>>(),
+                It.IsAny<Func<IQueryable<Transaction>, IQueryable<Transaction>>>(),
+                It.IsAny<bool>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync((
+                Expression<Func<Transaction, bool>> predicate,
+                Func<IQueryable<Transaction>, IOrderedQueryable<Transaction>>? _1,
+                Func<IQueryable<Transaction>, IQueryable<Transaction>>? _2,
+                bool _3,
+                CancellationToken _4) =>
+            {
+                var compiled = predicate.Compile();
+                return transactions.FirstOrDefault(compiled);
+            });
+
+        _transactionRepoMock
+            .Setup(r => r.GetListAsync(
+                It.IsAny<Expression<Func<Transaction, bool>>>(),
+                It.IsAny<Func<IQueryable<Transaction>, IOrderedQueryable<Transaction>>>(),
+                It.IsAny<Func<IQueryable<Transaction>, IQueryable<Transaction>>>(),
+                It.IsAny<int?>(),
+                It.IsAny<bool>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync((
+                Expression<Func<Transaction, bool>>? predicate,
+                Func<IQueryable<Transaction>, IOrderedQueryable<Transaction>>? _1,
+                Func<IQueryable<Transaction>, IQueryable<Transaction>>? _2,
+                int? _3,
+                bool _4,
+                CancellationToken _5) =>
+            {
+                if (predicate == null)
+                {
+                    return transactions.ToList();
+                }
+
+                var compiled = predicate.Compile();
+                return transactions.Where(compiled).ToList();
+            });
+    }
+
     #endregion
 
     #region Test 1: CreatePaymentLink_IncidentNotFinished_ThrowsConflict — Req 1.3
@@ -292,29 +359,8 @@ public class SnakebiteIncidentPaymentServiceTests
 
         // User wallet with insufficient balance
         var userWallet = new Wallet { Id = Guid.NewGuid(), UserId = TestUserId, Balance = 50_000m };
-        var systemWallet = new Wallet { Id = Guid.NewGuid(), UserId = SystemWalletUserId, Balance = 0m };
 
-        // Setup wallet repo to return different wallets based on userId
-        _walletRepoMock
-            .Setup(r => r.FirstOrDefaultAsync(
-                It.IsAny<Expression<Func<Wallet, bool>>>(),
-                It.IsAny<Func<IQueryable<Wallet>, IOrderedQueryable<Wallet>>>(),
-                It.IsAny<Func<IQueryable<Wallet>, IQueryable<Wallet>>>(),
-                It.IsAny<bool>(),
-                It.IsAny<CancellationToken>()))
-            .ReturnsAsync((
-                Expression<Func<Wallet, bool>> predicate,
-                Func<IQueryable<Wallet>, IOrderedQueryable<Wallet>>? _1,
-                Func<IQueryable<Wallet>, IQueryable<Wallet>>? _2,
-                bool _3,
-                CancellationToken _4) =>
-            {
-                // Compile and test against both wallets
-                var compiled = predicate.Compile();
-                if (compiled(systemWallet)) return systemWallet;
-                if (compiled(userWallet)) return userWallet;
-                return null;
-            });
+        SetupWalletRepoFromList(new[] { userWallet });
 
         _transactionRepoMock
             .Setup(r => r.InsertAsync(It.IsAny<Transaction>(), It.IsAny<CancellationToken>()))
@@ -326,6 +372,59 @@ public class SnakebiteIncidentPaymentServiceTests
                 CreatePaymentRequest(), TestUserId, CancellationToken.None));
 
         Assert.Contains("Insufficient wallet balance", ex.Message);
+    }
+
+    [Fact]
+    public async Task WalletPayment_RecordsSystemRevenueWithoutSystemWallet()
+    {
+        // Arrange
+        var incident = CreateIncident(SnakebiteIncidentStatus.Finished);
+        SetupIncidentRepo(incident);
+
+        var userWallet = new Wallet { Id = Guid.NewGuid(), UserId = TestUserId, Balance = 250_000m };
+        var insertedWallets = new List<Wallet>();
+        var updatedWallets = new List<Wallet>();
+        var insertedTransactions = new List<Transaction>();
+
+        SetupWalletRepoFromList(new[] { userWallet });
+
+        _walletRepoMock
+            .Setup(r => r.InsertAsync(It.IsAny<Wallet>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Wallet wallet, CancellationToken _) =>
+            {
+                insertedWallets.Add(wallet);
+                return wallet;
+            });
+
+        _walletRepoMock
+            .Setup(r => r.Update(It.IsAny<Wallet>()))
+            .Callback<Wallet>(updatedWallets.Add);
+
+        _transactionRepoMock
+            .Setup(r => r.InsertAsync(It.IsAny<Transaction>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Transaction transaction, CancellationToken _) =>
+            {
+                insertedTransactions.Add(transaction);
+                return transaction;
+            });
+
+        // Act
+        var response = await _service.CreateSnakebiteIncidentWalletPaymentAsync(
+            CreatePaymentRequest(), TestUserId, CancellationToken.None);
+
+        // Assert
+        Assert.Equal(150_000m, response.UserWalletBalanceAfter);
+        Assert.Null(response.SystemWalletBalanceAfter);
+        Assert.Equal("Paid", response.Status);
+        Assert.Equal(SnakebiteIncidentStatus.Completed, incident.Status);
+        Assert.Equal(150_000m, userWallet.Balance);
+
+        Assert.DoesNotContain(insertedWallets, w => w.UserId == SystemWalletUserId);
+        Assert.DoesNotContain(updatedWallets, w => w.UserId == SystemWalletUserId);
+        Assert.Contains(insertedTransactions, t =>
+            t.TransactionType == TransactionType.SnakebiteIncidentPayment
+            && t.ReferenceId == TestIncidentId
+            && !string.IsNullOrWhiteSpace(t.ExternalTransactionId));
     }
 
     #endregion
@@ -391,6 +490,66 @@ public class SnakebiteIncidentPaymentServiceTests
             () => _service.RefundSnakebiteIncidentTransactionAsync(request, CancellationToken.None));
 
         Assert.Contains("cannot exceed", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task Refund_UsesSystemRevenueLedgerWithoutSystemWallet()
+    {
+        // Arrange
+        var originalTx = new Transaction
+        {
+            Id = Guid.NewGuid(),
+            UserId = TestUserId,
+            ReferenceId = TestIncidentId,
+            Amount = 100_000m,
+            TransactionType = TransactionType.SnakebiteIncidentPayment,
+            PaymentMethod = "Wallet",
+            ExternalTransactionId = "PAID-123"
+        };
+
+        SetupTransactionRepoFromList(new[] { originalTx });
+
+        var receiverWallet = new Wallet { Id = Guid.NewGuid(), UserId = TestUserId, Balance = 25_000m };
+        var updatedWallets = new List<Wallet>();
+        var insertedTransactions = new List<Transaction>();
+        SetupWalletRepoFromList(new[] { receiverWallet });
+
+        _walletRepoMock
+            .Setup(r => r.Update(It.IsAny<Wallet>()))
+            .Callback<Wallet>(updatedWallets.Add);
+
+        _transactionRepoMock
+            .Setup(r => r.InsertAsync(It.IsAny<Transaction>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Transaction transaction, CancellationToken _) =>
+            {
+                insertedTransactions.Add(transaction);
+                return transaction;
+            });
+
+        var request = new RefundTransactionRequest
+        {
+            ReceiverId = TestUserId,
+            ReferenceId = TestIncidentId,
+            Amount = 40_000m,
+            Description = "Incident refund"
+        };
+
+        // Act
+        var response = await _service.RefundSnakebiteIncidentTransactionAsync(request, CancellationToken.None);
+
+        // Assert
+        Assert.True(response.Success);
+        Assert.Null(response.SystemWalletBalanceBefore);
+        Assert.Null(response.SystemWalletBalanceAfter);
+        Assert.Equal(25_000m, response.ReceiverWalletBalanceBefore);
+        Assert.Equal(65_000m, response.ReceiverWalletBalanceAfter);
+        Assert.Equal(65_000m, receiverWallet.Balance);
+
+        Assert.DoesNotContain(updatedWallets, w => w.UserId == SystemWalletUserId);
+        Assert.Contains(insertedTransactions, t =>
+            t.TransactionType == TransactionType.SnakebiteIncidentRefund
+            && t.ReferenceId == TestIncidentId
+            && t.Amount == 40_000m);
     }
 
     #endregion

@@ -7,8 +7,8 @@ public class RefundTransactionResponse
     public Guid ReceiverId { get; set; }
     public decimal RefundAmount { get; set; }
     public Guid RefundTransactionId { get; set; }
-    public decimal SystemWalletBalanceBefore { get; set; }
-    public decimal SystemWalletBalanceAfter { get; set; }
+    public decimal? SystemWalletBalanceBefore { get; set; }
+    public decimal? SystemWalletBalanceAfter { get; set; }
     public decimal ReceiverWalletBalanceBefore { get; set; }
     public decimal ReceiverWalletBalanceAfter { get; set; }
     public DateTime RefundedAt { get; set; }

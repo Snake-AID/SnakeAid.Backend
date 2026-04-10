@@ -1,8 +1,11 @@
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
+using SnakeAid.Core.Constants;
 using SnakeAid.Core.Domains;
 using SnakeAid.Core.Requests.Consultation;
+using SnakeAid.Core.Requests.Transaction;
+using SnakeAid.Core.Services;
 using SnakeAid.Repository.Data;
 using SnakeAid.Repository.Implements;
 using SnakeAid.Service.Implements;
@@ -14,8 +17,6 @@ namespace SnakeAid.Tests.Integration;
 
 public class ConsultationPaymentIntegrationTests
 {
-    private static readonly Guid SystemUserId = Guid.Parse("57288b98-5f91-4de8-b827-866e3df69587");
-
     [Fact]
     public async Task PayScheduledBookingAsync_ShouldMoveFundsToEscrow_AndConfirmBooking()
     {
@@ -27,7 +28,7 @@ public class ConsultationPaymentIntegrationTests
 
         await using var db = CreateDbContext();
         await SeedAccountsAsync(db, userId, expertId);
-        await SeedWalletsAsync(db, userId, expertId, 500_000m, 0m, 0m);
+        await SeedWalletsAsync(db, userId, expertId, 500_000m, 0m);
 
         db.ExpertTimeSlots.Add(new ExpertTimeSlot
         {
@@ -78,12 +79,11 @@ public class ConsultationPaymentIntegrationTests
         Assert.Equal(BookingStatus.Confirmed, booking.Status);
 
         var userWallet = await db.Set<Wallet>().FirstAsync(w => w.UserId == userId);
-        var systemWallet = await db.Set<Wallet>().FirstAsync(w => w.UserId == SystemUserId);
         Assert.Equal(350_000m, userWallet.Balance);
-        Assert.Equal(150_000m, systemWallet.Balance);
 
         var paymentTx = await db.Set<Transaction>().FirstAsync(t => t.ReferenceId == bookingId && t.TransactionType == TransactionType.ConsultationPayment);
         Assert.Equal(150_000m, paymentTx.Amount);
+        Assert.Equal(150_000m, await GetConsultationEscrowAvailableByPaymentReferenceAsync(db, bookingId));
     }
 
     [Fact]
@@ -95,7 +95,7 @@ public class ConsultationPaymentIntegrationTests
 
         await using var db = CreateDbContext();
         await SeedAccountsAsync(db, userId, expertId);
-        await SeedWalletsAsync(db, userId, expertId, 500_000m, 0m, 0m);
+        await SeedWalletsAsync(db, userId, expertId, 500_000m, 0m);
 
         db.ExpertProfiles.Add(new ExpertProfile
         {
@@ -134,9 +134,8 @@ public class ConsultationPaymentIntegrationTests
         Assert.NotNull(ping.ExpiresAt);
 
         var userWallet = await db.Set<Wallet>().FirstAsync(w => w.UserId == userId);
-        var systemWallet = await db.Set<Wallet>().FirstAsync(w => w.UserId == SystemUserId);
         Assert.Equal(0m, userWallet.Balance);
-        Assert.Equal(500_000m, systemWallet.Balance);
+        Assert.Equal(500_000m, await GetConsultationEscrowAvailableByPaymentReferenceAsync(db, requestId));
     }
 
     [Fact]
@@ -150,7 +149,7 @@ public class ConsultationPaymentIntegrationTests
 
         await using var db = CreateDbContext();
         await SeedAccountsAsync(db, userId, expertId);
-        await SeedWalletsAsync(db, userId, expertId, 500_000m, 0m, 0m);
+        await SeedWalletsAsync(db, userId, expertId, 500_000m, 0m);
 
         db.ExpertTimeSlots.Add(new ExpertTimeSlot
         {
@@ -201,15 +200,15 @@ public class ConsultationPaymentIntegrationTests
         Assert.InRange(response.OrderCode!.Value, 1_000_000_000_100L, 99_999_999_999_999L);
 
         var paymentTx = await db.Set<Transaction>().FirstAsync(t => t.Id == response.TransactionId);
+        Assert.NotNull(paymentTx.Description);
         Assert.True(paymentTx.Description.Length <= 25);
 
         var booking = await db.ConsultationBookings.FirstAsync(x => x.Id == bookingId);
         Assert.Equal(BookingStatus.PendingPayment, booking.Status);
 
         var userWallet = await db.Set<Wallet>().FirstAsync(w => w.UserId == userId);
-        var systemWallet = await db.Set<Wallet>().FirstAsync(w => w.UserId == SystemUserId);
         Assert.Equal(500_000m, userWallet.Balance);
-        Assert.Equal(0m, systemWallet.Balance);
+        Assert.Equal(0m, await GetConsultationEscrowAvailableByPaymentReferenceAsync(db, bookingId));
     }
 
     [Fact]
@@ -223,7 +222,7 @@ public class ConsultationPaymentIntegrationTests
 
         await using var db = CreateDbContext();
         await SeedAccountsAsync(db, userId, expertId);
-        await SeedWalletsAsync(db, userId, expertId, 500_000m, 0m, 0m);
+        await SeedWalletsAsync(db, userId, expertId, 500_000m, 0m);
 
         db.ExpertTimeSlots.Add(new ExpertTimeSlot
         {
@@ -279,8 +278,7 @@ public class ConsultationPaymentIntegrationTests
         var paymentTx = await db.Set<Transaction>().FirstAsync(t => t.Id == pending.TransactionId);
         Assert.False(string.IsNullOrWhiteSpace(paymentTx.ExternalTransactionId));
 
-        var systemWallet = await db.Set<Wallet>().FirstAsync(w => w.UserId == SystemUserId);
-        Assert.Equal(150_000m, systemWallet.Balance);
+        Assert.Equal(150_000m, await GetConsultationEscrowAvailableByPaymentReferenceAsync(db, bookingId));
     }
 
     [Fact]
@@ -292,7 +290,7 @@ public class ConsultationPaymentIntegrationTests
 
         await using var db = CreateDbContext();
         await SeedAccountsAsync(db, userId, expertId);
-        await SeedWalletsAsync(db, userId, expertId, 0m, 0m, 500_000m);
+        await SeedWalletsAsync(db, userId, expertId, 0m, 0m);
 
         db.ConsultationPingRequests.Add(new ConsultationPingRequest
         {
@@ -332,11 +330,10 @@ public class ConsultationPaymentIntegrationTests
         Assert.Equal(ConsultationPingStatus.DeclinedByExpert, response.Status);
 
         var userWallet = await db.Set<Wallet>().FirstAsync(w => w.UserId == userId);
-        var systemWallet = await db.Set<Wallet>().FirstAsync(w => w.UserId == SystemUserId);
         Assert.Equal(500_000m, userWallet.Balance);
-        Assert.Equal(0m, systemWallet.Balance);
 
         Assert.NotNull(await db.Set<Transaction>().FirstOrDefaultAsync(t => t.ReferenceId == requestId && t.TransactionType == TransactionType.ConsultationRefund));
+        Assert.Equal(0m, await GetConsultationEscrowAvailableByPaymentReferenceAsync(db, requestId));
     }
 
     [Fact]
@@ -350,7 +347,7 @@ public class ConsultationPaymentIntegrationTests
 
         await using var db = CreateDbContext();
         await SeedAccountsAsync(db, userId, expertId);
-        await SeedWalletsAsync(db, userId, expertId, 0m, 0m, 150_000m);
+        await SeedWalletsAsync(db, userId, expertId, 0m, 0m);
 
         db.ExpertTimeSlots.Add(new ExpertTimeSlot
         {
@@ -410,23 +407,351 @@ public class ConsultationPaymentIntegrationTests
         Assert.True(first);
         Assert.False(second);
 
-        var systemWallet = await db.Set<Wallet>().FirstAsync(w => w.UserId == SystemUserId);
         var expertWallet = await db.Set<Wallet>().FirstAsync(w => w.UserId == expertId);
-        Assert.Equal(0m, systemWallet.Balance);
-        Assert.Equal(150_000m, expertWallet.Balance);
+        Assert.Equal(120_000m, expertWallet.Balance);
         Assert.Equal(1, await db.Set<Transaction>().CountAsync(t => t.ReferenceId == consultationId && t.TransactionType == TransactionType.ExpertPayout));
+        Assert.Equal(1, await db.Set<Transaction>().CountAsync(t => t.ReferenceId == consultationId && t.TransactionType == TransactionType.PlatformFee));
+        Assert.Equal(30_000m, await db.Set<Transaction>()
+            .Where(t => t.ReferenceId == consultationId && t.TransactionType == TransactionType.PlatformFee)
+            .Select(t => t.Amount)
+            .SingleAsync());
+        Assert.Equal(120_000m, await db.Set<Transaction>()
+            .Where(t => t.ReferenceId == consultationId && t.TransactionType == TransactionType.ExpertPayout)
+            .Select(t => t.Amount)
+            .SingleAsync());
+        Assert.Null(await db.Set<Transaction>()
+            .Where(t => t.ReferenceId == consultationId && t.TransactionType == TransactionType.PlatformFee)
+            .Select(t => t.UserId)
+            .SingleAsync());
+        Assert.Equal(0m, await GetConsultationEscrowAvailableForSettlementAsync(db, consultationId));
+    }
+
+    [Fact]
+    public async Task SettleConsultationEscrowAsync_ShouldApplyConfiguredPlatformFee_AndCreditExpertNetAmount()
+    {
+        var userId = Guid.NewGuid();
+        var expertId = Guid.NewGuid();
+        var consultationId = Guid.NewGuid();
+        var bookingId = Guid.NewGuid();
+        var slotId = Guid.NewGuid();
+
+        await using var db = CreateDbContext();
+        await SeedAccountsAsync(db, userId, expertId);
+        await SeedWalletsAsync(db, userId, expertId, 0m, 0m);
+
+        db.ExpertTimeSlots.Add(new ExpertTimeSlot
+        {
+            Id = slotId,
+            ExpertId = expertId,
+            StartTime = DateTime.UtcNow.AddHours(-1),
+            EndTime = DateTime.UtcNow.AddMinutes(-30),
+            Status = TimeSlotStatus.Booked,
+            Version = 0
+        });
+
+        db.Consultations.Add(new Consultation
+        {
+            Id = consultationId,
+            CallerId = userId,
+            CalleeId = expertId,
+            RoomId = $"consultation-{consultationId:N}",
+            StartTime = DateTime.UtcNow.AddHours(-1),
+            EndTime = DateTime.UtcNow.AddMinutes(-30),
+            Status = ConsultationStatus.Completed,
+            Type = ConsultationType.Scheduled
+        });
+
+        db.ConsultationBookings.Add(new ConsultationBooking
+        {
+            Id = bookingId,
+            UserId = userId,
+            ExpertId = expertId,
+            Price = 200_001m,
+            BookedAt = DateTime.UtcNow.AddHours(-2),
+            PaymentDeadline = DateTime.UtcNow.AddHours(-2),
+            Status = BookingStatus.Completed,
+            TimeSlotId = slotId,
+            ConsultationId = consultationId
+        });
+
+        db.Set<Transaction>().Add(new Transaction
+        {
+            Id = Guid.NewGuid(),
+            UserId = userId,
+            ReferenceId = bookingId,
+            Amount = 200_001m,
+            Currency = "VND",
+            TransactionType = TransactionType.ConsultationPayment,
+            PaymentMethod = "Wallet",
+            ExternalTransactionId = "seed-payment-2",
+            Description = "Scheduled consultation payment",
+            CreatedAt = DateTime.UtcNow
+        });
+
+        await db.SaveChangesAsync();
+
+        var settingService = new FakeSystemSettingService();
+        settingService.SetDecimal(SystemSettingKeys.ConsultationPlatformFeePercent, 0.15m);
+        var service = CreatePaymentService(db, systemSettingService: settingService);
+
+        var settled = await service.SettleConsultationEscrowAsync(consultationId);
+
+        Assert.True(settled);
+
+        var expertWallet = await db.Set<Wallet>().FirstAsync(w => w.UserId == expertId);
+        Assert.Equal(170_001m, expertWallet.Balance);
+
+        var platformFeeAmount = await db.Set<Transaction>()
+            .Where(t => t.ReferenceId == consultationId && t.TransactionType == TransactionType.PlatformFee)
+            .Select(t => t.Amount)
+            .SingleAsync();
+        var expertPayoutAmount = await db.Set<Transaction>()
+            .Where(t => t.ReferenceId == consultationId && t.TransactionType == TransactionType.ExpertPayout)
+            .Select(t => t.Amount)
+            .SingleAsync();
+
+        Assert.Equal(30_000m, platformFeeAmount);
+        Assert.Equal(170_001m, expertPayoutAmount);
+        Assert.Equal(200_001m, platformFeeAmount + expertPayoutAmount);
+        Assert.Equal(0m, await GetConsultationEscrowAvailableForSettlementAsync(db, consultationId));
+    }
+
+    [Fact]
+    public async Task GetTransactionsAsync_WithConsultationGroup_ShouldIncludePlatformFee()
+    {
+        var userId = Guid.NewGuid();
+        var expertId = Guid.NewGuid();
+        var consultationId = Guid.NewGuid();
+        var bookingId = Guid.NewGuid();
+        var slotId = Guid.NewGuid();
+
+        await using var db = CreateDbContext();
+        await SeedAccountsAsync(db, userId, expertId);
+        await SeedWalletsAsync(db, userId, expertId, 0m, 0m);
+
+        db.ExpertTimeSlots.Add(new ExpertTimeSlot
+        {
+            Id = slotId,
+            ExpertId = expertId,
+            StartTime = DateTime.UtcNow.AddHours(-1),
+            EndTime = DateTime.UtcNow.AddMinutes(-30),
+            Status = TimeSlotStatus.Booked,
+            Version = 0
+        });
+
+        db.Consultations.Add(new Consultation
+        {
+            Id = consultationId,
+            CallerId = userId,
+            CalleeId = expertId,
+            RoomId = $"consultation-{consultationId:N}",
+            StartTime = DateTime.UtcNow.AddHours(-1),
+            EndTime = DateTime.UtcNow.AddMinutes(-30),
+            Status = ConsultationStatus.Completed,
+            Type = ConsultationType.Scheduled
+        });
+
+        db.ConsultationBookings.Add(new ConsultationBooking
+        {
+            Id = bookingId,
+            UserId = userId,
+            ExpertId = expertId,
+            Price = 150_000m,
+            BookedAt = DateTime.UtcNow.AddHours(-2),
+            PaymentDeadline = DateTime.UtcNow.AddHours(-2),
+            Status = BookingStatus.Completed,
+            TimeSlotId = slotId,
+            ConsultationId = consultationId
+        });
+
+        db.Set<Transaction>().Add(new Transaction
+        {
+            Id = Guid.NewGuid(),
+            UserId = userId,
+            ReferenceId = bookingId,
+            Amount = 150_000m,
+            Currency = "VND",
+            TransactionType = TransactionType.ConsultationPayment,
+            PaymentMethod = "Wallet",
+            ExternalTransactionId = "seed-payment-3",
+            Description = "Scheduled consultation payment",
+            CreatedAt = DateTime.UtcNow
+        });
+
+        await db.SaveChangesAsync();
+
+        var paymentService = CreatePaymentService(db);
+        await paymentService.SettleConsultationEscrowAsync(consultationId);
+
+        var transactionService = new TransactionService(new UnitOfWork<SnakeAidDbContext>(db));
+        var response = await transactionService.GetTransactionsAsync(new GetTransactionsRequest
+        {
+            TransType = "consultation",
+            PageNumber = 1,
+            PageSize = 20
+        });
+
+        var platformFee = Assert.Single(response.Items.Where(t =>
+            t.ReferenceId == consultationId &&
+            t.TransactionType == TransactionType.PlatformFee));
+        Assert.Null(platformFee.UserName);
+        Assert.Null(platformFee.FullName);
+        Assert.Contains(response.Items, t => t.ReferenceId == consultationId && t.TransactionType == TransactionType.ExpertPayout);
+        Assert.Contains(response.Items, t => t.ReferenceId == bookingId && t.TransactionType == TransactionType.ConsultationPayment);
+    }
+
+    [Fact]
+    public void ConsultationPlatformFeeConfiguration_ShouldUseDefaultPercent_WhenSettingServiceIsMissing()
+    {
+        using var db = CreateDbContext();
+        var service = CreatePaymentService(db);
+
+        var feePercent = InvokeResolveConsultationPlatformFeePercent(service);
+        var breakdown = InvokeCalculateConsultationSettlementAmounts(service, 100_001m);
+
+        Assert.Equal(0.20m, feePercent);
+        Assert.Equal(100_001m, ReadDecimalProperty(breakdown, "GrossAmount"));
+        Assert.Equal(0.20m, ReadDecimalProperty(breakdown, "FeePercent"));
+        Assert.Equal(20_000m, ReadDecimalProperty(breakdown, "PlatformFeeAmount"));
+        Assert.Equal(80_001m, ReadDecimalProperty(breakdown, "ExpertNetAmount"));
+    }
+
+    [Fact]
+    public void ConsultationPlatformFeeConfiguration_ShouldUseConfiguredPercent_WhenSettingExists()
+    {
+        using var db = CreateDbContext();
+        var settingService = new FakeSystemSettingService();
+        settingService.SetDecimal(SystemSettingKeys.ConsultationPlatformFeePercent, 0.15m);
+
+        var service = CreatePaymentService(db, systemSettingService: settingService);
+
+        var feePercent = InvokeResolveConsultationPlatformFeePercent(service);
+        var breakdown = InvokeCalculateConsultationSettlementAmounts(service, 200_001m);
+
+        Assert.Equal(0.15m, feePercent);
+        Assert.Equal(200_001m, ReadDecimalProperty(breakdown, "GrossAmount"));
+        Assert.Equal(0.15m, ReadDecimalProperty(breakdown, "FeePercent"));
+        Assert.Equal(30_000m, ReadDecimalProperty(breakdown, "PlatformFeeAmount"));
+        Assert.Equal(170_001m, ReadDecimalProperty(breakdown, "ExpertNetAmount"));
+    }
+
+    [Theory]
+    [InlineData(-0.01)]
+    [InlineData(1.00)]
+    [InlineData(1.50)]
+    public void ConsultationPlatformFeeConfiguration_ShouldFallbackToDefault_WhenConfiguredPercentIsOutsideSafeRange(decimal invalidPercent)
+    {
+        using var db = CreateDbContext();
+        var settingService = new FakeSystemSettingService();
+        settingService.SetDecimal(SystemSettingKeys.ConsultationPlatformFeePercent, invalidPercent);
+
+        var service = CreatePaymentService(db, systemSettingService: settingService);
+
+        var feePercent = InvokeResolveConsultationPlatformFeePercent(service);
+
+        Assert.Equal(0.20m, feePercent);
+    }
+
+    private static async Task<decimal> GetConsultationEscrowAvailableByPaymentReferenceAsync(
+        SnakeAidDbContext db,
+        Guid referenceId)
+    {
+        var heldTransactions = await db.Set<Transaction>()
+            .Where(t => t.ReferenceId == referenceId &&
+                        t.TransactionType == TransactionType.ConsultationPayment &&
+                        !string.IsNullOrEmpty(t.ExternalTransactionId))
+            .ToListAsync();
+
+        var releasedTransactions = await db.Set<Transaction>()
+            .Where(t => t.ReferenceId == referenceId &&
+                        (t.TransactionType == TransactionType.ConsultationRefund ||
+                         t.TransactionType == TransactionType.PlatformFee))
+            .ToListAsync();
+
+        return heldTransactions.Sum(t => t.Amount) - releasedTransactions.Sum(t => t.Amount);
+    }
+
+    private static async Task<decimal> GetConsultationEscrowAvailableForSettlementAsync(
+        SnakeAidDbContext db,
+        Guid consultationId)
+    {
+        Guid? paymentReferenceId = null;
+
+        var booking = await db.ConsultationBookings
+            .AsNoTracking()
+            .FirstOrDefaultAsync(b => b.ConsultationId == consultationId);
+        if (booking != null)
+        {
+            paymentReferenceId = booking.Id;
+        }
+
+        if (paymentReferenceId == null)
+        {
+            var pingRequest = await db.ConsultationPingRequests
+                .AsNoTracking()
+                .FirstOrDefaultAsync(p => p.ConsultationId == consultationId);
+            paymentReferenceId = pingRequest?.Id;
+        }
+
+        if (paymentReferenceId == null)
+        {
+            return 0m;
+        }
+
+        var heldTransactions = await db.Set<Transaction>()
+            .Where(t => t.ReferenceId == paymentReferenceId.Value &&
+                        t.TransactionType == TransactionType.ConsultationPayment &&
+                        !string.IsNullOrEmpty(t.ExternalTransactionId))
+            .ToListAsync();
+
+        var releasedTransactions = await db.Set<Transaction>()
+            .Where(t => t.ReferenceId == consultationId &&
+                        (t.TransactionType == TransactionType.ExpertPayout ||
+                         t.TransactionType == TransactionType.PlatformFee))
+            .ToListAsync();
+
+        return heldTransactions.Sum(t => t.Amount) - releasedTransactions.Sum(t => t.Amount);
     }
 
     private static ConsultationPaymentService CreatePaymentService(
         SnakeAidDbContext db,
         IExpertEmergencyNotificationService? notificationService = null,
-        IPaymentGateway? paymentGateway = null)
+        IPaymentGateway? paymentGateway = null,
+        ISystemSettingService? systemSettingService = null)
     {
         return new ConsultationPaymentService(
             new UnitOfWork<SnakeAidDbContext>(db),
             notificationService ?? new RecordingExpertEmergencyNotificationService(),
             paymentGateway ?? new FakePaymentGateway(),
-            NullLogger<ConsultationPaymentService>.Instance);
+            NullLogger<ConsultationPaymentService>.Instance,
+            systemSettingService: systemSettingService);
+    }
+
+    private static decimal InvokeResolveConsultationPlatformFeePercent(ConsultationPaymentService service)
+    {
+        var method = typeof(ConsultationPaymentService).GetMethod(
+            "ResolveConsultationPlatformFeePercent",
+            BindingFlags.Instance | BindingFlags.NonPublic);
+
+        Assert.NotNull(method);
+        return (decimal)method!.Invoke(service, null)!;
+    }
+
+    private static object InvokeCalculateConsultationSettlementAmounts(ConsultationPaymentService service, decimal grossAmount)
+    {
+        var method = typeof(ConsultationPaymentService).GetMethod(
+            "CalculateConsultationSettlementAmounts",
+            BindingFlags.Instance | BindingFlags.NonPublic);
+
+        Assert.NotNull(method);
+        return method!.Invoke(service, [grossAmount])!;
+    }
+
+    private static decimal ReadDecimalProperty(object instance, string propertyName)
+    {
+        var property = instance.GetType().GetProperty(propertyName, BindingFlags.Instance | BindingFlags.Public);
+        Assert.NotNull(property);
+        return (decimal)property!.GetValue(instance)!;
     }
 
     private static SnakeAidDbContext CreateDbContext()
@@ -469,22 +794,10 @@ public class ConsultationPaymentIntegrationTests
             Role = AccountRole.Expert
         });
 
-        db.Set<Account>().Add(new Account
-        {
-            Id = SystemUserId,
-            FullName = "System Wallet",
-            UserName = "system.wallet",
-            NormalizedUserName = "SYSTEM.WALLET",
-            Email = "system.wallet@test.local",
-            NormalizedEmail = "SYSTEM.WALLET@TEST.LOCAL",
-            IsActive = true,
-            Role = AccountRole.Admin
-        });
-
         await db.SaveChangesAsync();
     }
 
-    private static async Task SeedWalletsAsync(SnakeAidDbContext db, Guid userId, Guid expertId, decimal userBalance, decimal expertBalance, decimal systemBalance)
+    private static async Task SeedWalletsAsync(SnakeAidDbContext db, Guid userId, Guid expertId, decimal userBalance, decimal expertBalance)
     {
         db.Set<Wallet>().Add(new Wallet
         {
@@ -498,13 +811,6 @@ public class ConsultationPaymentIntegrationTests
             Id = Guid.NewGuid(),
             UserId = expertId,
             Balance = expertBalance
-        });
-
-        db.Set<Wallet>().Add(new Wallet
-        {
-            Id = Guid.NewGuid(),
-            UserId = SystemUserId,
-            Balance = systemBalance
         });
 
         await db.SaveChangesAsync();
@@ -558,6 +864,41 @@ public class ConsultationPaymentIntegrationTests
             });
 
         public PayOsWebhookData VerifyWebhook(string rawPayload) => throw new NotImplementedException();
+    }
+
+    private sealed class FakeSystemSettingService : ISystemSettingService
+    {
+        private readonly Dictionary<string, object> _settings = new(StringComparer.OrdinalIgnoreCase);
+
+        public void SetDecimal(string key, decimal value) => _settings[key] = value;
+
+        public Task LoadSettingsAsync() => Task.CompletedTask;
+
+        public T? GetSetting<T>(string key)
+        {
+            if (!_settings.TryGetValue(key, out var value))
+            {
+                return default;
+            }
+
+            return (T?)value;
+        }
+
+        public T GetSetting<T>(string key, T defaultValue)
+        {
+            if (!_settings.TryGetValue(key, out var value))
+            {
+                return defaultValue;
+            }
+
+            return (T)value;
+        }
+
+        public Task<SystemSetting?> GetByKeyAsync(string key) => Task.FromResult<SystemSetting?>(null);
+        public Task<IReadOnlyCollection<SystemSetting>> GetAllAsync() => Task.FromResult<IReadOnlyCollection<SystemSetting>>([]);
+        public Task<SystemSetting> UpsertAsync(string key, string value, SettingValueType valueType, string? description = null) => throw new NotSupportedException();
+        public Task RefreshSettingAsync(string key) => Task.CompletedTask;
+        public Task RefreshAllSettingsAsync() => Task.CompletedTask;
     }
 
     private sealed class ConsultationPaymentSqliteDbContext : SnakeAidDbContext

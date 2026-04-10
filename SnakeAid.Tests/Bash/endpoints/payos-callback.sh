@@ -30,4 +30,4 @@ echo ""
 echo "=== POST /api/v1/payos/webhook (public, no auth — will fail verify but tests routing) ==="
 curl --globoff -s -X POST "${BASE_URL}/api/v1/payos/webhook" \
   -H "Content-Type: application/json" \
-  -d '{"data":{"description":"SNAKEAID-999999"}}' | jq .
+  -d '{"data":{"description":"CATCHING-999999"}}' | jq .

@@ -16,6 +16,9 @@ namespace SnakeAid.Repository.Data.Configurations
                 .IsRequired();
 
             // Relationship: Transaction -> Account (User)
+            builder.Property(t => t.UserId)
+                .IsRequired(false);
+
             builder.HasOne(t => t.User)
                 .WithMany()
                 .HasForeignKey(t => t.UserId)

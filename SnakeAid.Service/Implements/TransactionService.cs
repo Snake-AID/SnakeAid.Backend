@@ -35,8 +35,8 @@ namespace SnakeAid.Service.Implements
                     selector: t => new TransactionResponse
                     {
                         Id = t.Id,
-                        UserName = t.User.UserName,
-                        FullName = t.User.FullName,
+                        UserName = t.User != null ? t.User.UserName : null,
+                        FullName = t.User != null ? t.User.FullName : null,
                         ReferenceId = t.ReferenceId,
                         Amount = t.Amount,
                         Currency = t.Currency,
@@ -70,8 +70,8 @@ namespace SnakeAid.Service.Implements
                     selector: t => new TransactionResponse
                     {
                         Id = t.Id,
-                        UserName = t.User.UserName,
-                        FullName = t.User.FullName,
+                        UserName = t.User != null ? t.User.UserName : null,
+                        FullName = t.User != null ? t.User.FullName : null,
                         ReferenceId = t.ReferenceId,
                         Amount = t.Amount,
                         Currency = t.Currency,
@@ -103,7 +103,8 @@ namespace SnakeAid.Service.Implements
                 [
                     TransactionType.ConsultationPayment,
                     TransactionType.ExpertPayout,
-                    TransactionType.ConsultationRefund
+                    TransactionType.ConsultationRefund,
+                    TransactionType.PlatformFee
                 ],
                 "snakecatching" or "snakecathcing" =>
                 [
