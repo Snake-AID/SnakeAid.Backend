@@ -276,6 +276,58 @@ public class PayOsTopupRoutingTests
         VerifyConfirmByOrderCodeOwner(flow, orderCode, topupService, snakeCatchingService, incidentService, consultationService);
     }
 
+    [Fact]
+    public async Task Return_SuccessRedirectsToSnakeAidDeepLinkAndConfirmsByOrderCode()
+    {
+        const long orderCode = 123456;
+        var topupService = new Mock<IWalletTopupService>();
+        topupService.Setup(s => s.ConfirmWalletTopupByOrderCodeAsync(orderCode, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new PayOsWebhookResponse { Success = true });
+
+        await using var db = CreateDbContext();
+        await SeedTransactionAsync(db, Guid.NewGuid(), $"TOPUP-{orderCode}");
+
+        var controller = CreateController(
+            topupService.Object,
+            new PayOsDescriptionLookup(new UnitOfWork<SnakeAidDbContext>(db)));
+
+        var result = await controller.Return(
+            code: "00",
+            id: "payos-id",
+            cancel: false,
+            status: "PAID",
+            orderCode: orderCode,
+            cancellationToken: CancellationToken.None);
+
+        var redirect = Assert.IsType<RedirectResult>(result);
+        Assert.StartsWith("snakeaid://payment/return?", redirect.Url);
+        Assert.Contains("success=true", redirect.Url);
+        Assert.Contains($"orderCode={orderCode}", redirect.Url);
+        topupService.Verify(s => s.ConfirmWalletTopupByOrderCodeAsync(orderCode, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task Cancel_RedirectsToSnakeAidDeepLinkCancel()
+    {
+        await using var db = CreateDbContext();
+        var controller = CreateController(
+            Mock.Of<IWalletTopupService>(),
+            new PayOsDescriptionLookup(new UnitOfWork<SnakeAidDbContext>(db)));
+
+        var result = await controller.Cancel(
+            code: "01",
+            id: "payos-id",
+            cancel: true,
+            status: "CANCELLED",
+            orderCode: 123456,
+            cancellationToken: CancellationToken.None);
+
+        var redirect = Assert.IsType<RedirectResult>(result);
+        Assert.StartsWith("snakeaid://payment/cancel?", redirect.Url);
+        Assert.Contains("cancel=true", redirect.Url);
+        Assert.Contains("success=false", redirect.Url);
+    }
+
     private static SnakeAidDbContext CreateDbContext()
     {
         var connection = new SqliteConnection("Data Source=:memory:");
