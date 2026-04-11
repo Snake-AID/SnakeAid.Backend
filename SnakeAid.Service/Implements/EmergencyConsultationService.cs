@@ -63,7 +63,7 @@ namespace SnakeAid.Service.Implements
                 ExpertId = request.ExpertId,
                 Status = ConsultationPingStatus.PendingPayment,
                 RequestedAt = now,
-                ExpiresAt = null
+                ExpiresAt = now.Add(DefaultRequestTtl)
             };
 
             await _unitOfWork.GetRepository<ConsultationPingRequest>().InsertAsync(ping);

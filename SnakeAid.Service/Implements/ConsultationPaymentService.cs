@@ -212,21 +212,29 @@ public class ConsultationPaymentService : IConsultationPaymentService
     {
         var now = DateTime.UtcNow;
         var pendingRequests = await _unitOfWork.GetRepository<ConsultationPingRequest>().GetListAsync(
-            predicate: p => p.Status == ConsultationPingStatus.PendingExpertResponse
-                && p.ExpiresAt.HasValue
-                && p.ExpiresAt.Value <= now,
+            predicate: p =>
+                (p.Status == ConsultationPingStatus.PendingExpertResponse
+                 || p.Status == ConsultationPingStatus.PendingPayment)
+                && (
+                    (p.ExpiresAt.HasValue && p.ExpiresAt.Value <= now)
+                    || (!p.ExpiresAt.HasValue && p.RequestedAt <= now.Add(-EmergencyRequestTtl))
+                ),
             asNoTracking: false,
             cancellationToken: cancellationToken);
 
         var expiredCount = 0;
         foreach (var ping in pendingRequests)
         {
+            var shouldRefund = ping.Status == ConsultationPingStatus.PendingExpertResponse;
             ping.Status = ConsultationPingStatus.Expired;
             ping.RespondedAt = now;
             _unitOfWork.GetRepository<ConsultationPingRequest>().Update(ping);
             await _unitOfWork.CommitAsync();
 
-            await RefundEmergencyEscrowAsync(ping.Id, "Emergency consultation request expired.", cancellationToken);
+            if (shouldRefund)
+            {
+                await RefundEmergencyEscrowAsync(ping.Id, "Emergency consultation request expired.", cancellationToken);
+            }
             await _notificationService.NotifyEmergencyRequestStatusChangedAsync(
                 ping.Id,
                 new
