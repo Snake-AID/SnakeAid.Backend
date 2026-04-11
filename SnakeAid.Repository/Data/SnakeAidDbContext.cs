@@ -27,6 +27,7 @@ namespace SnakeAid.Repository.Data
         public DbSet<AISnakeClassMapping> AISnakeClassMappings { get; set; }
         public DbSet<Antivenom> Antivenoms { get; set; }
         public DbSet<AppNotification> AppNotifications { get; set; }
+        public DbSet<AuthSession> AuthSessions { get; set; }
         public DbSet<Blog> Blogs { get; set; }
         public DbSet<CatchingEnvironment> CatchingEnvironments { get; set; }
         public DbSet<CatchingMissionDetail> CatchingMissionDetails { get; set; }

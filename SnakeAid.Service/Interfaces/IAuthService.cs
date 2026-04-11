@@ -34,7 +34,7 @@ public interface IAuthService
     /// <summary>
     /// Logout - invalidate refresh token
     /// </summary>
-    Task LogoutAsync(Guid userId);
+    Task LogoutAsync(Guid userId, Guid? sessionId = null);
 
     /// <summary>
     /// Verify account with OTP and activate user

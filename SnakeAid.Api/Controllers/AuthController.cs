@@ -115,7 +115,7 @@ public class AuthController : BaseController<AuthController>
     public async Task<IActionResult> Logout()
     {
         var userId = GetCurrentUserId();
-        await _authService.LogoutAsync(userId);
+        await _authService.LogoutAsync(userId, GetCurrentSessionId());
         return Ok(ApiResponseBuilder.BuildSuccessResponse("Logged out successfully."));
     }
 

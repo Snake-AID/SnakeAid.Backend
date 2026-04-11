@@ -1,5 +1,6 @@
 using Google.Apis.Auth;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -294,20 +295,23 @@ public class AuthService : IAuthService
             throw new ForbiddenException("Account is inactive.");
         }
 
-        // Validate refresh token
-        var isValid = await ValidateRefreshTokenAsync(user, request.RefreshToken);
-        if (!isValid)
+        var sessionRefresh = await TryRefreshSessionTokenAsync(user, request.RefreshToken);
+        if (sessionRefresh != null)
+        {
+            _logger.LogInformation("Token refreshed for user {Email} in session {SessionId}", user.Email, sessionRefresh.SessionId);
+            return sessionRefresh.Response;
+        }
+
+        var isLegacyValid = await ValidateRefreshTokenAsync(user, request.RefreshToken);
+        if (!isLegacyValid)
         {
             throw new UnauthorizedException("Invalid or expired refresh token.");
         }
 
-        // Token rotation: Remove old tokens
         await _userManager.RemoveAuthenticationTokenAsync(user, RefreshTokenProvider, RefreshTokenName);
         await _userManager.RemoveAuthenticationTokenAsync(user, RefreshTokenProvider, RefreshTokenExpiryName);
 
-        _logger.LogInformation("Token refreshed for user: {Email}", user.Email);
-
-        // Generate new tokens
+        _logger.LogInformation("Token refreshed for user {Email} via legacy token migration path", user.Email);
         return await GenerateTokensAsync(user);
     }
 
@@ -392,7 +396,7 @@ public class AuthService : IAuthService
         return await GenerateTokensAsync(user);
     }
 
-    public async Task LogoutAsync(Guid userId)
+    public async Task LogoutAsync(Guid userId, Guid? sessionId = null)
     {
         var user = await _userManager.FindByIdAsync(userId.ToString());
         if (user == null)
@@ -400,9 +404,27 @@ public class AuthService : IAuthService
             throw new NotFoundException("User not found.");
         }
 
-        // Remove refresh tokens
-        await _userManager.RemoveAuthenticationTokenAsync(user, RefreshTokenProvider, RefreshTokenName);
-        await _userManager.RemoveAuthenticationTokenAsync(user, RefreshTokenProvider, RefreshTokenExpiryName);
+        if (sessionId.HasValue)
+        {
+            var now = DateTime.UtcNow;
+            var session = await _unitOfWork.GetRepository<AuthSession>().FirstOrDefaultAsync(
+                predicate: x => x.Id == sessionId.Value && x.UserId == userId && x.RevokedAt == null,
+                asNoTracking: false);
+
+            if (session != null)
+            {
+                session.RevokedAt = now;
+                session.RevokedReason = "logout";
+                session.LastUsedAt = now;
+                session.UpdatedAt = now;
+                await _unitOfWork.CommitAsync();
+            }
+        }
+        else
+        {
+            await _userManager.RemoveAuthenticationTokenAsync(user, RefreshTokenProvider, RefreshTokenName);
+            await _userManager.RemoveAuthenticationTokenAsync(user, RefreshTokenProvider, RefreshTokenExpiryName);
+        }
 
         _logger.LogInformation("User logged out: {Email}", user.Email);
     }
@@ -460,18 +482,24 @@ public class AuthService : IAuthService
 
     #region Private Methods
 
-    private async Task<AuthResponse> GenerateTokensAsync(Account user)
+    private async Task<AuthResponse> GenerateTokensAsync(Account user, Guid? sessionId = null)
     {
+        var resolvedSessionId = sessionId ?? Guid.NewGuid();
+        var now = DateTime.UtcNow;
         var accessExpiresAt = DateTime.UtcNow.AddMinutes(_jwtSettings.AccessTokenExpirationMinutes);
         var refreshExpiresAt = DateTime.UtcNow.AddDays(_jwtSettings.RefreshTokenExpirationDays);
-
-        var accessToken = GenerateAccessToken(user, accessExpiresAt);
         var refreshToken = GenerateRefreshToken();
+        var accessToken = GenerateAccessToken(user, resolvedSessionId, accessExpiresAt);
 
-        // Store refresh token
-        await _userManager.SetAuthenticationTokenAsync(user, RefreshTokenProvider, RefreshTokenName, refreshToken);
-        await _userManager.SetAuthenticationTokenAsync(user, RefreshTokenProvider, RefreshTokenExpiryName,
-            refreshExpiresAt.ToString("O", CultureInfo.InvariantCulture));
+        await _unitOfWork.GetRepository<AuthSession>().InsertAsync(new AuthSession
+        {
+            Id = resolvedSessionId,
+            UserId = user.Id,
+            RefreshTokenHash = HashRefreshToken(refreshToken),
+            RefreshTokenExpiresAt = refreshExpiresAt,
+            LastUsedAt = now
+        });
+        await _unitOfWork.CommitAsync();
 
         return new AuthResponse
         {
@@ -491,13 +519,14 @@ public class AuthService : IAuthService
         };
     }
 
-    private string GenerateAccessToken(Account user, DateTime expiresAt)
+    private string GenerateAccessToken(Account user, Guid sessionId, DateTime expiresAt)
     {
         var claims = new List<Claim>
         {
             new(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
             new(JwtRegisteredClaimNames.Email, user.Email ?? string.Empty),
             new(JwtRegisteredClaimNames.UniqueName, user.UserName ?? string.Empty),
+            new(JwtRegisteredClaimNames.Sid, sessionId.ToString()),
             new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
             new(ClaimTypes.NameIdentifier, user.Id.ToString()),
             new(ClaimTypes.Name, user.UserName ?? string.Empty),
@@ -527,6 +556,12 @@ public class AuthService : IAuthService
         return Convert.ToBase64String(bytes);
     }
 
+    private static string HashRefreshToken(string refreshToken)
+    {
+        var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(refreshToken));
+        return Convert.ToHexString(bytes);
+    }
+
     private async Task<bool> ValidateRefreshTokenAsync(Account user, string refreshToken)
     {
         var storedToken = await _userManager.GetAuthenticationTokenAsync(user, RefreshTokenProvider, RefreshTokenName);
@@ -549,6 +584,63 @@ public class AuthService : IAuthService
         return expiry >= DateTime.UtcNow;
     }
 
+    private async Task<RefreshSessionResult?> TryRefreshSessionTokenAsync(Account user, string refreshToken)
+    {
+        var now = DateTime.UtcNow;
+        var refreshTokenHash = HashRefreshToken(refreshToken);
+        var session = await _unitOfWork.GetRepository<AuthSession>().FirstOrDefaultAsync(
+            predicate: x => x.UserId == user.Id && x.RefreshTokenHash == refreshTokenHash,
+            asNoTracking: false);
+
+        if (session == null)
+        {
+            return null;
+        }
+
+        if (session.RevokedAt.HasValue || session.RefreshTokenExpiresAt <= now)
+        {
+            throw new UnauthorizedException("Invalid or expired refresh token.");
+        }
+
+        var nextRefreshToken = GenerateRefreshToken();
+        var nextRefreshTokenHash = HashRefreshToken(nextRefreshToken);
+        var nextRefreshExpiresAt = now.AddDays(_jwtSettings.RefreshTokenExpirationDays);
+        var nextAccessExpiresAt = now.AddMinutes(_jwtSettings.AccessTokenExpirationMinutes);
+
+        session.RefreshTokenHash = nextRefreshTokenHash;
+        session.RefreshTokenExpiresAt = nextRefreshExpiresAt;
+        session.LastUsedAt = now;
+        session.UpdatedAt = now;
+
+        try
+        {
+            await _unitOfWork.CommitAsync();
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            throw new UnauthorizedException("Refresh token already rotated or revoked.");
+        }
+
+        return new RefreshSessionResult(
+            session.Id,
+            new AuthResponse
+            {
+                AccessToken = GenerateAccessToken(user, session.Id, nextAccessExpiresAt),
+                RefreshToken = nextRefreshToken,
+                AccessTokenExpiresAt = nextAccessExpiresAt,
+                RefreshTokenExpiresAt = nextRefreshExpiresAt,
+                User = new UserInfo
+                {
+                    Id = user.Id,
+                    Email = user.Email ?? string.Empty,
+                    FullName = user.FullName,
+                    AvatarUrl = user.AvatarUrl,
+                    Role = user.Role.ToString(),
+                    IsActive = user.IsActive
+                }
+            });
+    }
+
     #endregion
 
     #region Private Methods
@@ -559,5 +651,7 @@ public class AuthService : IAuthService
         { RegisterRole.Rescuer, AccountRole.Rescuer },
         { RegisterRole.Expert,  AccountRole.Expert }
     };
+
+    private sealed record RefreshSessionResult(Guid SessionId, AuthResponse Response);
     #endregion
 }

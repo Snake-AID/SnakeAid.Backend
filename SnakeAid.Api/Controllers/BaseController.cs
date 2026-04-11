@@ -50,5 +50,13 @@ namespace SnakeAid.Api.Controllers
             return _httpContextAccessor.HttpContext?.User?.FindFirst(ClaimTypes.Role)?.Value
                    ?? throw new UnauthorizedException("User role not found in token");
         }
+
+        protected Guid? GetCurrentSessionId()
+        {
+            var sessionIdClaim = _httpContextAccessor.HttpContext?.User?.FindFirst(JwtRegisteredClaimNames.Sid)?.Value
+                                 ?? _httpContextAccessor.HttpContext?.User?.FindFirst("sid")?.Value;
+
+            return Guid.TryParse(sessionIdClaim, out var sessionId) ? sessionId : null;
+        }
     }
 }
