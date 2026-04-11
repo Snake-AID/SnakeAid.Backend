@@ -338,11 +338,15 @@ public class SnakeCatchingPaymentService : ISnakeCatchingPaymentService
             return;
         }
 
-        if (catchingRequest.Status != RequestStatus.Assigned &&
-            catchingRequest.Status != RequestStatus.Finished)
+        var isAllowedPaymentStatus = catchingRequest.Status == RequestStatus.Pending ||
+                                     catchingRequest.Status == RequestStatus.Confirmed ||
+                                     catchingRequest.Status == RequestStatus.Assigned ||
+                                     catchingRequest.Status == RequestStatus.Finished;
+
+        if (!isAllowedPaymentStatus)
         {
             throw new InvalidOperationException(
-                $"Cannot create payment for request with status {catchingRequest.Status}. Request must be Assigned or Finished.");
+                $"Cannot create payment for request with status {catchingRequest.Status}. Request must be Pending, Confirmed, Assigned, or Finished.");
         }
     }
 
