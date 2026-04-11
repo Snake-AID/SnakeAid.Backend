@@ -47,6 +47,8 @@ namespace SnakeAid.Service.Implements
                         CreatedAt = t.CreatedAt
                     },
                     predicate: t =>
+                        (t.PaymentMethod != "PayOS" || !string.IsNullOrEmpty(t.ExternalTransactionId))
+                        &&
                         (!request.UserId.HasValue || t.UserId == request.UserId.Value)
                         && (!hasTypeFilter || matchedTypes!.Contains(t.TransactionType))
                         && (!hasReferenceFilter || t.ReferenceId == referenceId),
@@ -81,7 +83,8 @@ namespace SnakeAid.Service.Implements
                         ExternalTransactionId = t.ExternalTransactionId,
                         CreatedAt = t.CreatedAt
                     },
-                    predicate: t => t.Id == transactionId,
+                    predicate: t => t.Id == transactionId
+                        && (t.PaymentMethod != "PayOS" || !string.IsNullOrEmpty(t.ExternalTransactionId)),
                     include: q => q.Include(t => t.User),
                     asNoTracking: true,
                     cancellationToken: ct);
