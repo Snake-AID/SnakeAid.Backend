@@ -45,7 +45,8 @@ public class EmergencyConsultationIntegrationTests
         var ping = await db.ConsultationPingRequests.FirstAsync(x => x.Id == response.RequestId);
         Assert.Equal(expertId, ping.ExpertId);
         Assert.Equal(userId, ping.RescuerId);
-        Assert.Null(ping.ExpiresAt);
+        Assert.NotNull(ping.ExpiresAt);
+        Assert.True(ping.ExpiresAt > ping.RequestedAt);
     }
 
     [Fact]
