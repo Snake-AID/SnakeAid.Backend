@@ -200,6 +200,164 @@ public class ConsultationService : IConsultationService
         };
     }
 
+    public async Task<PagingResponse<AdminConsultationResponse>> GetAllConsultationsForAdminAsync(AdminConsultationsQueryRequest query)
+    {
+        var results = new List<AdminConsultationResponse>();
+        var (includeScheduled, includeEmergency) = ResolveConsultationTypeInclusion(query.Type, nameof(query.Type));
+        var statusFilter = ParseConsultationStatusFilter(query.Status);
+
+        if (includeScheduled)
+        {
+            var bookings = await _unitOfWork.GetRepository<ConsultationBooking>().GetListAsync(
+                predicate: b => b.ConsultationId.HasValue
+                    && (!statusFilter.HasValue || b.Consultation!.Status == statusFilter.Value),
+                include: q => q
+                    .Include(b => b.User)
+                    .Include(b => b.Expert)
+                    .Include(b => b.TimeSlot)
+                    .Include(b => b.Consultation));
+
+            foreach (var booking in bookings)
+            {
+                if (booking.Consultation is null)
+                {
+                    continue;
+                }
+
+                results.Add(new AdminConsultationResponse
+                {
+                    ConsultationId = booking.ConsultationId!.Value,
+                    Type = ConsultationType.Scheduled.ToString(),
+                    Status = booking.Consultation.Status.ToString(),
+                    UserId = booking.UserId,
+                    UserName = booking.User?.FullName,
+                    ExpertId = booking.ExpertId,
+                    ExpertName = booking.Expert?.FullName,
+                    RoomId = booking.Consultation.RoomId,
+                    StartTime = booking.Consultation.StartTime,
+                    EndTime = booking.Consultation.EndTime,
+                    Price = booking.Price,
+                    ProblemDescription = booking.ProblemDescription,
+                    BookingId = booking.Id,
+                    SlotStartTime = booking.TimeSlot?.StartTime,
+                    SlotEndTime = booking.TimeSlot?.EndTime
+                });
+            }
+
+            var scheduledConsultationIds = results
+                .Where(r => r.Type == ConsultationType.Scheduled.ToString())
+                .Select(r => r.ConsultationId)
+                .ToHashSet();
+
+            var orphanedScheduled = await _unitOfWork.GetRepository<Consultation>().GetListAsync(
+                predicate: c => c.Type == ConsultationType.Scheduled
+                    && (!statusFilter.HasValue || c.Status == statusFilter.Value)
+                    && !scheduledConsultationIds.Contains(c.Id),
+                include: q => q
+                    .Include(c => c.Caller)
+                    .Include(c => c.Callee));
+
+            foreach (var consultation in orphanedScheduled)
+            {
+                var hasBooking = await _unitOfWork.GetRepository<ConsultationBooking>().FirstOrDefaultAsync(
+                    predicate: b => b.ConsultationId == consultation.Id);
+
+                if (hasBooking != null)
+                {
+                    continue;
+                }
+
+                _logger.LogWarning(
+                    "Scheduled consultation {ConsultationId} has no associated ConsultationBooking. Admin history price will be null.",
+                    consultation.Id);
+
+                results.Add(new AdminConsultationResponse
+                {
+                    ConsultationId = consultation.Id,
+                    Type = ConsultationType.Scheduled.ToString(),
+                    Status = consultation.Status.ToString(),
+                    UserId = consultation.CallerId,
+                    UserName = consultation.Caller?.FullName,
+                    ExpertId = consultation.CalleeId,
+                    ExpertName = consultation.Callee?.FullName,
+                    RoomId = consultation.RoomId,
+                    StartTime = consultation.StartTime,
+                    EndTime = consultation.EndTime,
+                    Price = null
+                });
+            }
+        }
+
+        if (includeEmergency)
+        {
+            var emergencyRequests = await _unitOfWork.GetRepository<ConsultationPingRequest>().GetListAsync(
+                predicate: p => p.ConsultationId.HasValue
+                    && p.Status == ConsultationPingStatus.AcceptedByExpert
+                    && (!statusFilter.HasValue || p.Consultation!.Status == statusFilter.Value),
+                include: q => q
+                    .Include(p => p.Rescuer)
+                    .Include(p => p.Expert)
+                    .Include(p => p.Consultation));
+
+            var emergencyRequestIds = emergencyRequests.Select(p => p.Id).ToList();
+            var emergencyConsultationIds = emergencyRequests
+                .Where(p => p.ConsultationId.HasValue)
+                .Select(p => p.ConsultationId!.Value)
+                .ToList();
+
+            var consultationPayments = emergencyRequestIds.Count > 0
+                ? await _unitOfWork.GetRepository<Transaction>().GetListAsync(
+                    predicate: t => t.TransactionType == TransactionType.ConsultationPayment
+                        && emergencyRequestIds.Contains(t.ReferenceId))
+                : new List<Transaction>();
+            var expertPayouts = emergencyConsultationIds.Count > 0
+                ? await _unitOfWork.GetRepository<Transaction>().GetListAsync(
+                    predicate: t => t.TransactionType == TransactionType.ExpertPayout
+                        && emergencyConsultationIds.Contains(t.ReferenceId))
+                : new List<Transaction>();
+
+            var paymentLookup = consultationPayments
+                .GroupBy(t => t.ReferenceId)
+                .ToDictionary(g => g.Key, g => g.OrderByDescending(t => t.CreatedAt).First().Amount);
+            var payoutLookup = expertPayouts
+                .GroupBy(t => t.ReferenceId)
+                .ToDictionary(g => g.Key, g => g.OrderByDescending(t => t.CreatedAt).First().Amount);
+
+            foreach (var request in emergencyRequests)
+            {
+                if (request.Consultation is null)
+                {
+                    continue;
+                }
+
+                var consultation = request.Consultation;
+                decimal? price = paymentLookup.TryGetValue(request.Id, out var paymentAmount)
+                    ? paymentAmount
+                    : payoutLookup.TryGetValue(consultation.Id, out var payoutAmount)
+                        ? payoutAmount
+                        : null;
+
+                results.Add(new AdminConsultationResponse
+                {
+                    ConsultationId = consultation.Id,
+                    Type = ConsultationType.Emergency.ToString(),
+                    Status = consultation.Status.ToString(),
+                    UserId = request.RescuerId,
+                    UserName = request.Rescuer?.FullName,
+                    ExpertId = request.ExpertId,
+                    ExpertName = request.Expert?.FullName,
+                    RoomId = consultation.RoomId,
+                    StartTime = consultation.StartTime,
+                    EndTime = consultation.EndTime,
+                    Price = price,
+                    EmergencyRequestId = request.Id
+                });
+            }
+        }
+
+        return BuildPagingResponse(results, query.PageNumber, query.PageSize, c => c.StartTime);
+    }
+
     public async Task<PagingResponse<ExpertConsultationResponse>> GetExpertConsultationsAsync(Guid expertId, MyConsultationsQueryRequest query)
     {
         var results = new List<ExpertConsultationResponse>();
@@ -209,15 +367,7 @@ public class ConsultationService : IConsultationService
         var includeEmergency = string.IsNullOrEmpty(query.Type)
             || query.Type.Equals("Emergency", StringComparison.OrdinalIgnoreCase);
 
-        ConsultationStatus? statusFilter = null;
-        if (!string.IsNullOrEmpty(query.Status))
-        {
-            if (!Enum.TryParse<ConsultationStatus>(query.Status, ignoreCase: true, out var parsed))
-            {
-                throw new ArgumentException($"Invalid status value: {query.Status}", nameof(query.Status));
-            }
-            statusFilter = parsed;
-        }
+        var statusFilter = ParseConsultationStatusFilter(query.Status);
 
         // Scheduled consultations — query by ExpertId
         if (includeScheduled)
@@ -336,21 +486,7 @@ public class ConsultationService : IConsultationService
         }
 
         // Sort + paginate
-        var sorted = results.OrderByDescending(c => c.StartTime ?? DateTime.MinValue).ToList();
-        var totalItems = sorted.Count;
-        var paged = sorted.Skip((query.PageNumber - 1) * query.PageSize).Take(query.PageSize);
-
-        return new PagingResponse<ExpertConsultationResponse>
-        {
-            Items = paged,
-            Meta = new PaginationMeta
-            {
-                CurrentPage = query.PageNumber,
-                PageSize = query.PageSize,
-                TotalItems = totalItems,
-                TotalPages = (int)Math.Ceiling(totalItems / (double)query.PageSize)
-            }
-        };
+        return BuildPagingResponse(results, query.PageNumber, query.PageSize, c => c.StartTime);
     }
 
     public async Task<PagingResponse<MyConsultationResponse>> GetMyConsultationsAsync(Guid userId, MyConsultationsQueryRequest query)
@@ -363,15 +499,7 @@ public class ConsultationService : IConsultationService
             || query.Type.Equals("Emergency", StringComparison.OrdinalIgnoreCase);
 
         // Parse status filter once for DB-level filtering
-        ConsultationStatus? statusFilter = null;
-        if (!string.IsNullOrEmpty(query.Status))
-        {
-            if (!Enum.TryParse<ConsultationStatus>(query.Status, ignoreCase: true, out var parsed))
-            {
-                throw new ArgumentException($"Invalid status value: {query.Status}", nameof(query.Status));
-            }
-            statusFilter = parsed;
-        }
+        var statusFilter = ParseConsultationStatusFilter(query.Status);
 
         // Scheduled consultations
         if (includeScheduled)
@@ -447,19 +575,68 @@ public class ConsultationService : IConsultationService
         }
 
         // Sort + paginate
-        var sorted = results.OrderByDescending(c => c.StartTime ?? DateTime.MinValue).ToList();
-        var totalItems = sorted.Count;
-        var paged = sorted.Skip((query.PageNumber - 1) * query.PageSize).Take(query.PageSize);
+        return BuildPagingResponse(results, query.PageNumber, query.PageSize, c => c.StartTime);
+    }
 
-        return new PagingResponse<MyConsultationResponse>
+    private static ConsultationStatus? ParseConsultationStatusFilter(string? status)
+    {
+        if (string.IsNullOrWhiteSpace(status))
+        {
+            return null;
+        }
+
+        if (!Enum.TryParse<ConsultationStatus>(status, ignoreCase: true, out var parsed))
+        {
+            throw new ArgumentException($"Invalid status value: {status}", nameof(status));
+        }
+
+        return parsed;
+    }
+
+    private static (bool includeScheduled, bool includeEmergency) ResolveConsultationTypeInclusion(string? type, string paramName)
+    {
+        if (string.IsNullOrWhiteSpace(type))
+        {
+            return (true, true);
+        }
+
+        if (!Enum.TryParse<ConsultationType>(type, ignoreCase: true, out var parsed))
+        {
+            throw new ArgumentException($"Invalid type value: {type}", paramName);
+        }
+
+        return parsed switch
+        {
+            ConsultationType.Scheduled => (true, false),
+            ConsultationType.Emergency => (false, true),
+            _ => throw new ArgumentOutOfRangeException(paramName, type, "Unsupported consultation type.")
+        };
+    }
+
+    private static PagingResponse<T> BuildPagingResponse<T>(
+        IEnumerable<T> items,
+        int pageNumber,
+        int pageSize,
+        Func<T, DateTime?> startTimeSelector)
+    {
+        var sorted = items
+            .OrderByDescending(item => startTimeSelector(item) ?? DateTime.MinValue)
+            .ToList();
+        var totalItems = sorted.Count;
+        var paged = sorted
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .ToList();
+
+        return new PagingResponse<T>
         {
             Items = paged,
             Meta = new PaginationMeta
             {
-                CurrentPage = query.PageNumber,
-                PageSize = query.PageSize,
+                CurrentPage = pageNumber,
+                PageSize = pageSize,
                 TotalItems = totalItems,
-                TotalPages = (int)Math.Ceiling(totalItems / (double)query.PageSize)
+                TotalPages = (int)Math.Ceiling(totalItems / (double)pageSize)
             }
         };
     }
