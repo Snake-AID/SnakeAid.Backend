@@ -290,6 +290,10 @@ public class ConsultationService : IConsultationService
 
         if (includeEmergency)
         {
+            var allEmergencyConsultationIds = await _unitOfWork.GetRepository<Consultation>().GetListAsync(
+                predicate: c => c.Type == ConsultationType.Emergency
+                    && (!statusFilter.HasValue || c.Status == statusFilter.Value));
+
             var emergencyRequests = await _unitOfWork.GetRepository<ConsultationPingRequest>().GetListAsync(
                 predicate: p => p.ConsultationId.HasValue
                     && p.Status == ConsultationPingStatus.AcceptedByExpert
@@ -300,9 +304,8 @@ public class ConsultationService : IConsultationService
                     .Include(p => p.Consultation));
 
             var emergencyRequestIds = emergencyRequests.Select(p => p.Id).ToList();
-            var emergencyConsultationIds = emergencyRequests
-                .Where(p => p.ConsultationId.HasValue)
-                .Select(p => p.ConsultationId!.Value)
+            var emergencyConsultationIds = allEmergencyConsultationIds
+                .Select(c => c.Id)
                 .ToList();
 
             var consultationPayments = emergencyRequestIds.Count > 0
@@ -351,6 +354,50 @@ public class ConsultationService : IConsultationService
                     EndTime = consultation.EndTime,
                     Price = price,
                     EmergencyRequestId = request.Id
+                });
+            }
+
+            var mappedEmergencyConsultationIds = results
+                .Where(r => r.Type == ConsultationType.Emergency.ToString())
+                .Select(r => r.ConsultationId)
+                .ToHashSet();
+
+            var orphanedEmergency = await _unitOfWork.GetRepository<Consultation>().GetListAsync(
+                predicate: c => c.Type == ConsultationType.Emergency
+                    && (!statusFilter.HasValue || c.Status == statusFilter.Value)
+                    && !mappedEmergencyConsultationIds.Contains(c.Id),
+                include: q => q
+                    .Include(c => c.Caller)
+                    .Include(c => c.Callee));
+
+            foreach (var consultation in orphanedEmergency)
+            {
+                var hasPingRequest = await _unitOfWork.GetRepository<ConsultationPingRequest>().FirstOrDefaultAsync(
+                    predicate: p => p.ConsultationId == consultation.Id);
+
+                if (hasPingRequest != null)
+                {
+                    continue;
+                }
+
+                _logger.LogWarning(
+                    "Emergency consultation {ConsultationId} has no associated ConsultationPingRequest. Admin history emergency request id will be null.",
+                    consultation.Id);
+
+                results.Add(new AdminConsultationResponse
+                {
+                    ConsultationId = consultation.Id,
+                    Type = ConsultationType.Emergency.ToString(),
+                    Status = consultation.Status.ToString(),
+                    UserId = consultation.CallerId,
+                    UserName = consultation.Caller?.FullName,
+                    ExpertId = consultation.CalleeId,
+                    ExpertName = consultation.Callee?.FullName,
+                    RoomId = consultation.RoomId,
+                    StartTime = consultation.StartTime,
+                    EndTime = consultation.EndTime,
+                    Price = payoutLookup.TryGetValue(consultation.Id, out var payoutAmount) ? payoutAmount : null,
+                    EmergencyRequestId = null
                 });
             }
         }

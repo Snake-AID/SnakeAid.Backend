@@ -27,6 +27,7 @@ public class AdminConsultationHistoryIntegrationTests : IDisposable
     private readonly Guid _orphanScheduledConsultationId = Guid.NewGuid();
     private readonly Guid _emergencyConsultation1Id = Guid.NewGuid();
     private readonly Guid _emergencyConsultation2Id = Guid.NewGuid();
+    private readonly Guid _orphanEmergencyConsultationId = Guid.NewGuid();
 
     private readonly Guid _booking1Id = Guid.NewGuid();
     private readonly Guid _booking2Id = Guid.NewGuid();
@@ -72,13 +73,14 @@ public class AdminConsultationHistoryIntegrationTests : IDisposable
 
         var items = result.Items.ToList();
 
-        Assert.Equal(5, result.Meta.TotalItems);
+        Assert.Equal(6, result.Meta.TotalItems);
         Assert.Equal(1, result.Meta.TotalPages);
         Assert.Equal(_emergencyConsultation1Id, items[0].ConsultationId);
         Assert.Equal(_scheduledConsultation1Id, items[1].ConsultationId);
         Assert.Equal(_orphanScheduledConsultationId, items[2].ConsultationId);
-        Assert.Equal(_emergencyConsultation2Id, items[3].ConsultationId);
-        Assert.Equal(_scheduledConsultation2Id, items[4].ConsultationId);
+        Assert.Equal(_orphanEmergencyConsultationId, items[3].ConsultationId);
+        Assert.Equal(_emergencyConsultation2Id, items[4].ConsultationId);
+        Assert.Equal(_scheduledConsultation2Id, items[5].ConsultationId);
     }
 
     [Fact]
@@ -118,15 +120,47 @@ public class AdminConsultationHistoryIntegrationTests : IDisposable
         });
 
         var items = result.Items.OrderBy(i => i.ConsultationId).ToList();
-        Assert.Equal(2, items.Count);
+        Assert.Equal(3, items.Count);
 
         var paidByUser = items.Single(i => i.ConsultationId == _emergencyConsultation1Id);
-        var paidByFallback = items.Single(i => i.ConsultationId == _emergencyConsultation2Id);
+        var paidByPingFallback = items.Single(i => i.ConsultationId == _emergencyConsultation2Id);
+        var orphanEmergency = items.Single(i => i.ConsultationId == _orphanEmergencyConsultationId);
 
         Assert.Equal(220_000m, paidByUser.Price);
         Assert.Equal(_pingRequest1Id, paidByUser.EmergencyRequestId);
-        Assert.Equal(180_000m, paidByFallback.Price);
-        Assert.Equal(_pingRequest2Id, paidByFallback.EmergencyRequestId);
+        Assert.Equal(180_000m, paidByPingFallback.Price);
+        Assert.Equal(_pingRequest2Id, paidByPingFallback.EmergencyRequestId);
+        Assert.Equal(260_000m, orphanEmergency.Price);
+        Assert.Null(orphanEmergency.EmergencyRequestId);
+    }
+
+    [Fact]
+    public async Task GetAllConsultationsForAdminAsync_ShouldIncludeEmergencyConsultationFallbackWithoutDuplicate()
+    {
+        var result = await _service.GetAllConsultationsForAdminAsync(new AdminConsultationsQueryRequest
+        {
+            PageNumber = 1,
+            PageSize = 10,
+            Type = "Emergency",
+            Status = "Completed"
+        });
+
+        var items = result.Items.ToList();
+
+        Assert.Equal(3, items.Count);
+        Assert.Equal(3, items.Select(i => i.ConsultationId).Distinct().Count());
+
+        var orphanEmergency = Assert.Single(items, item => item.ConsultationId == _orphanEmergencyConsultationId);
+        Assert.Equal(_user1Id, orphanEmergency.UserId);
+        Assert.Equal("Member One", orphanEmergency.UserName);
+        Assert.Equal(_expert1Id, orphanEmergency.ExpertId);
+        Assert.Equal("Expert One", orphanEmergency.ExpertName);
+        Assert.Null(orphanEmergency.EmergencyRequestId);
+        Assert.Equal(260_000m, orphanEmergency.Price);
+        Assert.Null(orphanEmergency.BookingId);
+        Assert.Null(orphanEmergency.ProblemDescription);
+        Assert.Null(orphanEmergency.SlotStartTime);
+        Assert.Null(orphanEmergency.SlotEndTime);
     }
 
     [Fact]
@@ -146,8 +180,8 @@ public class AdminConsultationHistoryIntegrationTests : IDisposable
             Status = "Completed"
         });
 
-        Assert.Equal(4, completedPage1.Meta.TotalItems);
-        Assert.Equal(2, completedPage1.Meta.TotalPages);
+        Assert.Equal(5, completedPage1.Meta.TotalItems);
+        Assert.Equal(3, completedPage1.Meta.TotalPages);
         Assert.Equal(2, completedPage1.Items.Count());
         Assert.Equal(2, completedPage2.Items.Count());
         Assert.All(completedPage1.Items.Concat(completedPage2.Items), item => Assert.Equal("Completed", item.Status));
@@ -246,6 +280,17 @@ public class AdminConsultationHistoryIntegrationTests : IDisposable
                 EndTime = new DateTime(2026, 4, 8, 11, 15, 0, DateTimeKind.Utc),
                 Status = ConsultationStatus.Completed,
                 Type = ConsultationType.Emergency
+            },
+            new Consultation
+            {
+                Id = _orphanEmergencyConsultationId,
+                CallerId = _user1Id,
+                CalleeId = _expert1Id,
+                RoomId = "room-emergency-orphan",
+                StartTime = new DateTime(2026, 4, 8, 11, 45, 0, DateTimeKind.Utc),
+                EndTime = new DateTime(2026, 4, 8, 12, 5, 0, DateTimeKind.Utc),
+                Status = ConsultationStatus.Completed,
+                Type = ConsultationType.Emergency
             });
 
         _db.Set<ConsultationBooking>().AddRange(
@@ -316,6 +361,16 @@ public class AdminConsultationHistoryIntegrationTests : IDisposable
                 Currency = "VND",
                 TransactionType = TransactionType.ExpertPayout,
                 CreatedAt = new DateTime(2026, 4, 8, 11, 20, 0, DateTimeKind.Utc)
+            },
+            new Transaction
+            {
+                Id = Guid.NewGuid(),
+                UserId = _expert1Id,
+                ReferenceId = _orphanEmergencyConsultationId,
+                Amount = 260_000m,
+                Currency = "VND",
+                TransactionType = TransactionType.ExpertPayout,
+                CreatedAt = new DateTime(2026, 4, 8, 12, 10, 0, DateTimeKind.Utc)
             });
 
         _db.SaveChanges();
