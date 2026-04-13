@@ -2720,6 +2720,7 @@ namespace SnakeAid.Repository.Seeds
                     new SystemSetting { SettingKey = "Catching:BasePrice", Value = "500000", ValueType = SettingValueType.Decimal, Description = "Base price for snake catching mission (VND)" },
                     new SystemSetting { SettingKey = "Catching:AdditionalSnakePrice", Value = "100000", ValueType = SettingValueType.Decimal, Description = "Additional fee per extra snake (VND)" },
                     new SystemSetting { SettingKey = "Catching:FallbackEstimatedPrice", Value = "50000", ValueType = SettingValueType.Decimal, Description = "Fallback estimated price when distance service fails (VND)" },
+                    new SystemSetting { SettingKey = "Catching:PricePerKilomenter", Value = "150000", ValueType = SettingValueType.Decimal, Description = "Snake catching operational price per kilometer for distance-based pricing (VND)" },
                     new SystemSetting { SettingKey = "LocationIq:PricePerKilometer", Value = "150000", ValueType = SettingValueType.Decimal, Description = "Price per kilometer used by distance pricing service (VND)" },
 
                     new SystemSetting { SettingKey = "TreatmentFacility:SearchRadiusMeters", Value = "30000", ValueType = SettingValueType.Decimal, Description = "Max search radius for nearest treatment facilities (meters)" },

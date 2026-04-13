@@ -342,7 +342,7 @@ namespace SnakeAid.Service.Implements
                     DispatchedAt = dispatchedAt,
                     Latitude = incidentLatitude,
                     Longitude = incidentLongitude,
-                    Message = "Operator assigned a dispatch request. Please acknowledge if you can take this case."
+                    Message = "Điều phối viên vừa gửi yêu cầu cứu hộ mới đến bạn. Vui lòng kiểm tra và phản hồi yêu cầu trong thời gian sớm nhất."
                 });
 
                 // Notify operators that we've successfully dispatched the request to a rescuer.

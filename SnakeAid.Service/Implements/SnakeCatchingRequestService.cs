@@ -28,8 +28,8 @@ namespace SnakeAid.Service.Implements
         private readonly ILocationIqService _locationIqService;
         private readonly ISnakeAIService _snakeAIService;
         private readonly ISnakeCatchingRequestNotificationService _snakeCatchingRequestNotificationService;
-        private const decimal ADDITIONAL_SNAKE_PRICE = 100000m;
-        private const decimal TRANSFER_PRICE = 150000m;
+        private const decimal ADDITIONAL_SNAKE_PRICE = 1000m;
+        private const decimal PRICE_PER_KM_DEFAULT = 1500m;
         private const double DEFAULT_CENTER_LATITUDE = 10.8391267;
         private const double DEFAULT_CENTER_LONGITUDE = 106.8413534;
 
@@ -306,7 +306,7 @@ namespace SnakeAid.Service.Implements
 
                     if (response.EstimatedPrice.HasValue)
                     {
-                        var perKmRate = _systemSettingService.GetSetting(SystemSettingKeys.LocationIqPricePerKilometer, TRANSFER_PRICE);
+                        var perKmRate = GetCatchingPricePerKilomenter();
                         if (perKmRate > 0)
                         {
                             response.DistanceKm = (double)(response.EstimatedPrice.Value / perKmRate);
@@ -402,7 +402,7 @@ namespace SnakeAid.Service.Implements
                     var response = updatedRequest.Adapt<CreateSnakeCatchingRequestResponse>();
                     if (response.EstimatedPrice.HasValue)
                     {
-                        var perKmRate = _systemSettingService.GetSetting(SystemSettingKeys.LocationIqPricePerKilometer, TRANSFER_PRICE);
+                        var perKmRate = GetCatchingPricePerKilomenter();
                         if (perKmRate > 0)
                         {
                             response.DistanceKm = (double)(response.EstimatedPrice.Value / perKmRate);
@@ -561,7 +561,7 @@ namespace SnakeAid.Service.Implements
                     var response = updatedRequest.Adapt<CreateSnakeCatchingRequestResponse>();
                     if (response.EstimatedPrice.HasValue)
                     {
-                        var perKmRate = _systemSettingService.GetSetting(SystemSettingKeys.LocationIqPricePerKilometer, TRANSFER_PRICE);
+                        var perKmRate = GetCatchingPricePerKilomenter();
                         if (perKmRate > 0)
                         {
                             response.DistanceKm = (double)(response.EstimatedPrice.Value / perKmRate);
@@ -693,7 +693,7 @@ namespace SnakeAid.Service.Implements
                 response.AIResults = aiResults;
                 if (response.EstimatedPrice.HasValue)
                 {
-                    var perKmRate = _systemSettingService.GetSetting(SystemSettingKeys.LocationIqPricePerKilometer, TRANSFER_PRICE);
+                    var perKmRate = GetCatchingPricePerKilomenter();
                     if (perKmRate > 0)
                     {
                         response.DistanceKm = (double)(response.EstimatedPrice.Value / perKmRate);
@@ -808,6 +808,17 @@ namespace SnakeAid.Service.Implements
             return (centerLng, centerLat);
         }
 
+        private decimal GetCatchingPricePerKilomenter()
+        {
+            var configuredPrice = _systemSettingService.GetSetting(SystemSettingKeys.CatchingPricePerKilomenter, 0m);
+            if (configuredPrice > 0)
+            {
+                return configuredPrice;
+            }
+
+            return _systemSettingService.GetSetting(SystemSettingKeys.LegacyLocationIqPricePerKilometer, PRICE_PER_KM_DEFAULT);
+        }
+
         private async Task<decimal> CalculateEstimatedPriceFromCenterAsync(double destinationLng, double destinationLat, string context)
         {
             var (centerLng, centerLat) = GetCenterCoordinates();
@@ -827,7 +838,7 @@ namespace SnakeAid.Service.Implements
                     centerLat,
                     destinationLng,
                     destinationLat,
-                    _systemSettingService.GetSetting(SystemSettingKeys.LocationIqPricePerKilometer, TRANSFER_PRICE));
+                    GetCatchingPricePerKilomenter());
 
                 _logger.LogInformation(
                     "Estimated price calculated for {Context}: {Distance} km, Price: {Price} VND",
@@ -980,7 +991,7 @@ namespace SnakeAid.Service.Implements
                     var response = updatedRequest.Adapt<DetailSnakeCatchingRequestResponse>();
                     if (response.EstimatedPrice.HasValue)
                     {
-                        var perKmRate = _systemSettingService.GetSetting(SystemSettingKeys.LocationIqPricePerKilometer, TRANSFER_PRICE);
+                        var perKmRate = GetCatchingPricePerKilomenter();
                         if (perKmRate > 0)
                         {
                             response.DistanceKm = (double)(response.EstimatedPrice.Value / perKmRate);
