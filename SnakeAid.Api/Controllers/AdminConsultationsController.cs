@@ -34,4 +34,12 @@ public class AdminConsultationsController : BaseController<AdminConsultationsCon
         var result = await _consultationService.GetAllConsultationsForAdminAsync(query);
         return Ok(ApiResponseBuilder.BuildSuccessResponse(result));
     }
+
+    [HttpGet("{consultationId:guid}")]
+    [ProducesResponseType(typeof(ApiResponse<AdminConsultationResponse>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<ApiResponse<AdminConsultationResponse>>> GetConsultationById(Guid consultationId)
+    {
+        var result = await _consultationService.GetConsultationByIdForAdminAsync(consultationId);
+        return Ok(ApiResponseBuilder.BuildSuccessResponse(result));
+    }
 }

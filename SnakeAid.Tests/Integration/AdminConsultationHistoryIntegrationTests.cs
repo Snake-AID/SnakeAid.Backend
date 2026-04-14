@@ -104,6 +104,9 @@ public class AdminConsultationHistoryIntegrationTests : IDisposable
         Assert.Equal(150_000m, item.Price);
         Assert.Equal("Snakebite on arm", item.ProblemDescription);
         Assert.Equal(_booking1Id, item.BookingId);
+        Assert.Equal("Completed", item.BookingStatus);
+        Assert.Equal(new DateTime(2026, 4, 8, 8, 0, 0, DateTimeKind.Utc), item.BookedAt);
+        Assert.Equal(new DateTime(2026, 4, 9, 7, 45, 0, DateTimeKind.Utc), item.PaymentDeadline);
         Assert.Null(item.EmergencyRequestId);
         Assert.Equal(new DateTime(2026, 4, 9, 8, 0, 0, DateTimeKind.Utc), item.SlotStartTime);
         Assert.Equal(new DateTime(2026, 4, 9, 8, 30, 0, DateTimeKind.Utc), item.SlotEndTime);
@@ -128,8 +131,11 @@ public class AdminConsultationHistoryIntegrationTests : IDisposable
 
         Assert.Equal(220_000m, paidByUser.Price);
         Assert.Equal(_pingRequest1Id, paidByUser.EmergencyRequestId);
+        Assert.Equal("AcceptedByExpert", paidByUser.EmergencyRequestStatus);
+        Assert.Equal(new DateTime(2026, 4, 10, 8, 55, 0, DateTimeKind.Utc), paidByUser.RequestedAt);
         Assert.Equal(180_000m, paidByPingFallback.Price);
         Assert.Equal(_pingRequest2Id, paidByPingFallback.EmergencyRequestId);
+        Assert.Equal(new DateTime(2026, 4, 8, 10, 57, 0, DateTimeKind.Utc), paidByPingFallback.RespondedAt);
         Assert.Equal(260_000m, orphanEmergency.Price);
         Assert.Null(orphanEmergency.EmergencyRequestId);
     }
@@ -156,6 +162,7 @@ public class AdminConsultationHistoryIntegrationTests : IDisposable
         Assert.Equal(_expert1Id, orphanEmergency.ExpertId);
         Assert.Equal("Expert One", orphanEmergency.ExpertName);
         Assert.Null(orphanEmergency.EmergencyRequestId);
+        Assert.Null(orphanEmergency.EmergencyRequestStatus);
         Assert.Equal(260_000m, orphanEmergency.Price);
         Assert.Null(orphanEmergency.BookingId);
         Assert.Null(orphanEmergency.ProblemDescription);
@@ -197,6 +204,69 @@ public class AdminConsultationHistoryIntegrationTests : IDisposable
                 PageSize = 10,
                 Type = "InvalidType"
             }));
+    }
+
+    [Fact]
+    public async Task GetConsultationByIdForAdminAsync_ShouldMapScheduledDetailFields()
+    {
+        var result = await _service.GetConsultationByIdForAdminAsync(_scheduledConsultation1Id);
+
+        Assert.Equal(_scheduledConsultation1Id, result.ConsultationId);
+        Assert.Equal("Scheduled", result.Type);
+        Assert.Equal("Completed", result.Status);
+        Assert.Equal(_booking1Id, result.BookingId);
+        Assert.Equal("Completed", result.BookingStatus);
+        Assert.Equal(new DateTime(2026, 4, 8, 8, 0, 0, DateTimeKind.Utc), result.BookedAt);
+        Assert.Equal(new DateTime(2026, 4, 9, 7, 45, 0, DateTimeKind.Utc), result.PaymentDeadline);
+        Assert.Null(result.CancelledAt);
+        Assert.Null(result.CancellationReason);
+        Assert.Equal("Snakebite on arm", result.ProblemDescription);
+        Assert.Equal(new DateTime(2026, 4, 9, 8, 0, 0, DateTimeKind.Utc), result.SlotStartTime);
+        Assert.Equal(new DateTime(2026, 4, 9, 8, 30, 0, DateTimeKind.Utc), result.SlotEndTime);
+        Assert.Null(result.EmergencyRequestId);
+        Assert.Null(result.EmergencyRequestStatus);
+    }
+
+    [Fact]
+    public async Task GetConsultationByIdForAdminAsync_ShouldMapEmergencyDetailAndFallbackPrice()
+    {
+        var result = await _service.GetConsultationByIdForAdminAsync(_emergencyConsultation2Id);
+
+        Assert.Equal(_emergencyConsultation2Id, result.ConsultationId);
+        Assert.Equal("Emergency", result.Type);
+        Assert.Equal("Completed", result.Status);
+        Assert.Equal(_pingRequest2Id, result.EmergencyRequestId);
+        Assert.Equal("AcceptedByExpert", result.EmergencyRequestStatus);
+        Assert.Equal(new DateTime(2026, 4, 8, 10, 55, 0, DateTimeKind.Utc), result.RequestedAt);
+        Assert.Equal(new DateTime(2026, 4, 8, 10, 57, 0, DateTimeKind.Utc), result.RespondedAt);
+        Assert.Equal(new DateTime(2026, 4, 8, 11, 5, 0, DateTimeKind.Utc), result.ExpiresAt);
+        Assert.Equal(180_000m, result.Price);
+        Assert.Null(result.BookingId);
+        Assert.Null(result.BookingStatus);
+    }
+
+    [Fact]
+    public async Task GetConsultationByIdForAdminAsync_OrphanEmergency_ShouldReturnNullEmergencyRequestFields()
+    {
+        var result = await _service.GetConsultationByIdForAdminAsync(_orphanEmergencyConsultationId);
+
+        Assert.Equal(_orphanEmergencyConsultationId, result.ConsultationId);
+        Assert.Equal("Emergency", result.Type);
+        Assert.Equal(_user1Id, result.UserId);
+        Assert.Equal(_expert1Id, result.ExpertId);
+        Assert.Equal(260_000m, result.Price);
+        Assert.Null(result.EmergencyRequestId);
+        Assert.Null(result.EmergencyRequestStatus);
+        Assert.Null(result.RequestedAt);
+        Assert.Null(result.RespondedAt);
+        Assert.Null(result.ExpiresAt);
+    }
+
+    [Fact]
+    public async Task GetConsultationByIdForAdminAsync_NotFound_ShouldThrowNotFoundException()
+    {
+        await Assert.ThrowsAsync<SnakeAid.Core.Exceptions.NotFoundException>(
+            () => _service.GetConsultationByIdForAdminAsync(Guid.NewGuid()));
     }
 
     private void SeedData()
@@ -329,6 +399,8 @@ public class AdminConsultationHistoryIntegrationTests : IDisposable
                 ExpertId = _expert2Id,
                 Status = ConsultationPingStatus.AcceptedByExpert,
                 RequestedAt = new DateTime(2026, 4, 10, 8, 55, 0, DateTimeKind.Utc),
+                RespondedAt = new DateTime(2026, 4, 10, 8, 56, 0, DateTimeKind.Utc),
+                ExpiresAt = new DateTime(2026, 4, 10, 9, 5, 0, DateTimeKind.Utc),
                 ConsultationId = _emergencyConsultation1Id
             },
             new ConsultationPingRequest
@@ -338,6 +410,8 @@ public class AdminConsultationHistoryIntegrationTests : IDisposable
                 ExpertId = _expert1Id,
                 Status = ConsultationPingStatus.AcceptedByExpert,
                 RequestedAt = new DateTime(2026, 4, 8, 10, 55, 0, DateTimeKind.Utc),
+                RespondedAt = new DateTime(2026, 4, 8, 10, 57, 0, DateTimeKind.Utc),
+                ExpiresAt = new DateTime(2026, 4, 8, 11, 5, 0, DateTimeKind.Utc),
                 ConsultationId = _emergencyConsultation2Id
             });
 

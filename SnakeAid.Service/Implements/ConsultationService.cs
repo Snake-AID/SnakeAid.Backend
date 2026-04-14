@@ -1,7 +1,9 @@
+using Mapster;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using SnakeAid.Core.Domains;
 using SnakeAid.Core.Exceptions;
+using SnakeAid.Core.Mappings;
 using SnakeAid.Core.Meta;
 using SnakeAid.Core.Requests.Consultation;
 using SnakeAid.Core.Responses.Consultation;
@@ -18,6 +20,12 @@ public class ConsultationService : IConsultationService
     private readonly IConsultationPaymentService _consultationPaymentService;
     private readonly ILogger<ConsultationService> _logger;
 
+#region Constructor
+    static ConsultationService()
+    {
+        MapsterConfig.RegisterMappings();
+    }
+
     public ConsultationService(
         IUnitOfWork<SnakeAidDbContext> unitOfWork,
         IConsultationPaymentService consultationPaymentService,
@@ -27,7 +35,9 @@ public class ConsultationService : IConsultationService
         _consultationPaymentService = consultationPaymentService;
         _logger = logger;
     }
+#endregion
 
+#region Consultation Lifecycle
     public async Task EndConsultationAsync(Guid consultationId, Guid actorId)
     {
         var consultationRepo = _unitOfWork.GetRepository<Consultation>();
@@ -79,7 +89,9 @@ public class ConsultationService : IConsultationService
         await _unitOfWork.CommitAsync();
         await _consultationPaymentService.SettleConsultationEscrowAsync(consultationId);
     }
+#endregion
 
+#region Consultation Feedback
     public async Task<UserFeedbackResponse> CreateConsultationReviewAsync(Guid consultationId, Guid raterId, CreateConsultationReviewRequest request)
     {
         var consultation = await _unitOfWork.GetRepository<Consultation>().FirstOrDefaultAsync(
@@ -199,7 +211,9 @@ public class ConsultationService : IConsultationService
             UpdatedRatingCount = 0
         };
     }
+#endregion
 
+#region Admin Consultation History
     public async Task<PagingResponse<AdminConsultationResponse>> GetAllConsultationsForAdminAsync(AdminConsultationsQueryRequest query)
     {
         var results = new List<AdminConsultationResponse>();
@@ -224,24 +238,7 @@ public class ConsultationService : IConsultationService
                     continue;
                 }
 
-                results.Add(new AdminConsultationResponse
-                {
-                    ConsultationId = booking.ConsultationId!.Value,
-                    Type = ConsultationType.Scheduled.ToString(),
-                    Status = booking.Consultation.Status.ToString(),
-                    UserId = booking.UserId,
-                    UserName = booking.User?.FullName,
-                    ExpertId = booking.ExpertId,
-                    ExpertName = booking.Expert?.FullName,
-                    RoomId = booking.Consultation.RoomId,
-                    StartTime = booking.Consultation.StartTime,
-                    EndTime = booking.Consultation.EndTime,
-                    Price = booking.Price,
-                    ProblemDescription = booking.ProblemDescription,
-                    BookingId = booking.Id,
-                    SlotStartTime = booking.TimeSlot?.StartTime,
-                    SlotEndTime = booking.TimeSlot?.EndTime
-                });
+                results.Add(MapScheduledAdminConsultationResponse(booking.Consultation, booking));
             }
 
             var scheduledConsultationIds = results
@@ -271,20 +268,7 @@ public class ConsultationService : IConsultationService
                     "Scheduled consultation {ConsultationId} has no associated ConsultationBooking. Admin history price will be null.",
                     consultation.Id);
 
-                results.Add(new AdminConsultationResponse
-                {
-                    ConsultationId = consultation.Id,
-                    Type = ConsultationType.Scheduled.ToString(),
-                    Status = consultation.Status.ToString(),
-                    UserId = consultation.CallerId,
-                    UserName = consultation.Caller?.FullName,
-                    ExpertId = consultation.CalleeId,
-                    ExpertName = consultation.Callee?.FullName,
-                    RoomId = consultation.RoomId,
-                    StartTime = consultation.StartTime,
-                    EndTime = consultation.EndTime,
-                    Price = null
-                });
+                results.Add(MapScheduledAdminConsultationResponse(consultation));
             }
         }
 
@@ -334,27 +318,10 @@ public class ConsultationService : IConsultationService
                 }
 
                 var consultation = request.Consultation;
-                decimal? price = paymentLookup.TryGetValue(request.Id, out var paymentAmount)
-                    ? paymentAmount
-                    : payoutLookup.TryGetValue(consultation.Id, out var payoutAmount)
-                        ? payoutAmount
-                        : null;
-
-                results.Add(new AdminConsultationResponse
-                {
-                    ConsultationId = consultation.Id,
-                    Type = ConsultationType.Emergency.ToString(),
-                    Status = consultation.Status.ToString(),
-                    UserId = request.RescuerId,
-                    UserName = request.Rescuer?.FullName,
-                    ExpertId = request.ExpertId,
-                    ExpertName = request.Expert?.FullName,
-                    RoomId = consultation.RoomId,
-                    StartTime = consultation.StartTime,
-                    EndTime = consultation.EndTime,
-                    Price = price,
-                    EmergencyRequestId = request.Id
-                });
+                results.Add(MapEmergencyAdminConsultationResponse(
+                    consultation,
+                    ResolveEmergencyPrice(consultation.Id, request.Id, paymentLookup, payoutLookup),
+                    request));
             }
 
             var mappedEmergencyConsultationIds = results
@@ -384,27 +351,38 @@ public class ConsultationService : IConsultationService
                     "Emergency consultation {ConsultationId} has no associated ConsultationPingRequest. Admin history emergency request id will be null.",
                     consultation.Id);
 
-                results.Add(new AdminConsultationResponse
-                {
-                    ConsultationId = consultation.Id,
-                    Type = ConsultationType.Emergency.ToString(),
-                    Status = consultation.Status.ToString(),
-                    UserId = consultation.CallerId,
-                    UserName = consultation.Caller?.FullName,
-                    ExpertId = consultation.CalleeId,
-                    ExpertName = consultation.Callee?.FullName,
-                    RoomId = consultation.RoomId,
-                    StartTime = consultation.StartTime,
-                    EndTime = consultation.EndTime,
-                    Price = payoutLookup.TryGetValue(consultation.Id, out var payoutAmount) ? payoutAmount : null,
-                    EmergencyRequestId = null
-                });
+                results.Add(MapEmergencyAdminConsultationResponse(
+                    consultation,
+                    ResolveEmergencyPrice(consultation.Id, null, paymentLookup, payoutLookup)));
             }
         }
 
         return BuildPagingResponse(results, query.PageNumber, query.PageSize, c => c.StartTime);
     }
 
+    public async Task<AdminConsultationResponse> GetConsultationByIdForAdminAsync(Guid consultationId)
+    {
+        var consultation = await _unitOfWork.GetRepository<Consultation>().FirstOrDefaultAsync(
+            predicate: c => c.Id == consultationId,
+            include: q => q
+                .Include(c => c.Caller)
+                .Include(c => c.Callee));
+
+        if (consultation == null)
+        {
+            throw new NotFoundException("Consultation not found.");
+        }
+
+        return consultation.Type switch
+        {
+            ConsultationType.Scheduled => await BuildScheduledAdminConsultationDetailAsync(consultation),
+            ConsultationType.Emergency => await BuildEmergencyAdminConsultationDetailAsync(consultation),
+            _ => throw new ArgumentOutOfRangeException(nameof(consultation.Type), consultation.Type, "Unsupported consultation type.")
+        };
+    }
+#endregion
+
+#region Expert Consultation History
     public async Task<PagingResponse<ExpertConsultationResponse>> GetExpertConsultationsAsync(Guid expertId, MyConsultationsQueryRequest query)
     {
         var results = new List<ExpertConsultationResponse>();
@@ -535,7 +513,9 @@ public class ConsultationService : IConsultationService
         // Sort + paginate
         return BuildPagingResponse(results, query.PageNumber, query.PageSize, c => c.StartTime);
     }
+#endregion
 
+#region User Consultation History
     public async Task<PagingResponse<MyConsultationResponse>> GetMyConsultationsAsync(Guid userId, MyConsultationsQueryRequest query)
     {
         var results = new List<MyConsultationResponse>();
@@ -624,7 +604,9 @@ public class ConsultationService : IConsultationService
         // Sort + paginate
         return BuildPagingResponse(results, query.PageNumber, query.PageSize, c => c.StartTime);
     }
+#endregion
 
+#region Shared Parsing Helpers
     private static ConsultationStatus? ParseConsultationStatusFilter(string? status)
     {
         if (string.IsNullOrWhiteSpace(status))
@@ -659,7 +641,130 @@ public class ConsultationService : IConsultationService
             _ => throw new ArgumentOutOfRangeException(paramName, type, "Unsupported consultation type.")
         };
     }
+#endregion
 
+#region Admin Consultation Mapping Helpers
+    private async Task<AdminConsultationResponse> BuildScheduledAdminConsultationDetailAsync(Consultation consultation)
+    {
+        var booking = await _unitOfWork.GetRepository<ConsultationBooking>().FirstOrDefaultAsync(
+            predicate: b => b.ConsultationId == consultation.Id,
+            include: q => q
+                .Include(b => b.User)
+                .Include(b => b.Expert)
+                .Include(b => b.TimeSlot));
+
+        if (booking == null)
+        {
+            _logger.LogWarning(
+                "Scheduled consultation {ConsultationId} has no associated ConsultationBooking. Admin detail booking fields will be null.",
+                consultation.Id);
+
+            return MapScheduledAdminConsultationResponse(consultation);
+        }
+
+        return MapScheduledAdminConsultationResponse(consultation, booking);
+    }
+
+    private async Task<AdminConsultationResponse> BuildEmergencyAdminConsultationDetailAsync(Consultation consultation)
+    {
+        var request = await _unitOfWork.GetRepository<ConsultationPingRequest>().FirstOrDefaultAsync(
+            predicate: p => p.ConsultationId == consultation.Id,
+            include: q => q
+                .Include(p => p.Rescuer)
+                .Include(p => p.Expert));
+
+        var price = await ResolveEmergencyPriceAsync(consultation.Id, request?.Id);
+
+        if (request == null)
+        {
+            _logger.LogWarning(
+                "Emergency consultation {ConsultationId} has no associated ConsultationPingRequest. Admin detail emergency request fields will be null.",
+                consultation.Id);
+
+            return MapEmergencyAdminConsultationResponse(consultation, price);
+        }
+
+        return MapEmergencyAdminConsultationResponse(consultation, price, request);
+    }
+
+    private static AdminConsultationResponse MapScheduledAdminConsultationResponse(
+        Consultation consultation,
+        ConsultationBooking? booking = null)
+    {
+        var response = consultation.Adapt<AdminConsultationResponse>();
+
+        if (booking == null)
+        {
+            return response;
+        }
+
+        booking.Adapt(response);
+        response.Type = consultation.Type.ToString();
+        response.Status = consultation.Status.ToString();
+        return response;
+    }
+
+    private static AdminConsultationResponse MapEmergencyAdminConsultationResponse(
+        Consultation consultation,
+        decimal? price,
+        ConsultationPingRequest? request = null)
+    {
+        var response = consultation.Adapt<AdminConsultationResponse>();
+
+        response.Price = price;
+
+        if (request == null)
+        {
+            return response;
+        }
+
+        request.Adapt(response);
+        response.Type = consultation.Type.ToString();
+        response.Status = consultation.Status.ToString();
+        return response;
+    }
+
+    private async Task<decimal?> ResolveEmergencyPriceAsync(Guid consultationId, Guid? requestId)
+    {
+        if (requestId.HasValue)
+        {
+            var consultationPayment = await _unitOfWork.GetRepository<Transaction>().FirstOrDefaultAsync(
+                predicate: t => t.TransactionType == TransactionType.ConsultationPayment
+                    && t.ReferenceId == requestId.Value,
+                orderBy: q => q.OrderByDescending(t => t.CreatedAt));
+
+            if (consultationPayment != null)
+            {
+                return consultationPayment.Amount;
+            }
+        }
+
+        var expertPayout = await _unitOfWork.GetRepository<Transaction>().FirstOrDefaultAsync(
+            predicate: t => t.TransactionType == TransactionType.ExpertPayout
+                && t.ReferenceId == consultationId,
+            orderBy: q => q.OrderByDescending(t => t.CreatedAt));
+
+        return expertPayout?.Amount;
+    }
+
+    private static decimal? ResolveEmergencyPrice(
+        Guid consultationId,
+        Guid? requestId,
+        IReadOnlyDictionary<Guid, decimal> paymentLookup,
+        IReadOnlyDictionary<Guid, decimal> payoutLookup)
+    {
+        if (requestId.HasValue && paymentLookup.TryGetValue(requestId.Value, out var paymentAmount))
+        {
+            return paymentAmount;
+        }
+
+        return payoutLookup.TryGetValue(consultationId, out var payoutAmount)
+            ? payoutAmount
+            : null;
+    }
+#endregion
+
+#region Generic Paging Helper
     private static PagingResponse<T> BuildPagingResponse<T>(
         IEnumerable<T> items,
         int pageNumber,
@@ -687,4 +792,5 @@ public class ConsultationService : IConsultationService
             }
         };
     }
+#endregion
 }

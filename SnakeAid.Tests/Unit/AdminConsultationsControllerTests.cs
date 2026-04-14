@@ -41,6 +41,21 @@ public class AdminConsultationsControllerTests
     }
 
     [Fact]
+    public void GetConsultationById_ActionShouldExposeGuidRouteAndResponseMetadata()
+    {
+        var method = typeof(AdminConsultationsController).GetMethod(nameof(AdminConsultationsController.GetConsultationById));
+
+        Assert.NotNull(method);
+
+        var httpGet = Assert.Single(method!.GetCustomAttributes(typeof(HttpGetAttribute), inherit: true).Cast<HttpGetAttribute>());
+        Assert.Equal("{consultationId:guid}", httpGet.Template);
+
+        var produces = Assert.Single(method.GetCustomAttributes(typeof(ProducesResponseTypeAttribute), inherit: true).Cast<ProducesResponseTypeAttribute>());
+        Assert.Equal(StatusCodes.Status200OK, produces.StatusCode);
+        Assert.Equal(typeof(ApiResponse<AdminConsultationResponse>), produces.Type);
+    }
+
+    [Fact]
     public async Task GetAllConsultations_ShouldReturnSuccessEnvelope()
     {
         var expected = new PagingResponse<AdminConsultationResponse>
@@ -102,5 +117,55 @@ public class AdminConsultationsControllerTests
         Assert.NotNull(response.Data);
         Assert.Single(response.Data!.Items);
         Assert.Equal(1, response.Data.Meta.TotalItems);
+    }
+
+    [Fact]
+    public async Task GetConsultationById_ShouldReturnSuccessEnvelope()
+    {
+        var consultationId = Guid.NewGuid();
+        var expected = new AdminConsultationResponse
+        {
+            ConsultationId = consultationId,
+            Type = "Scheduled",
+            Status = "Completed",
+            UserId = Guid.NewGuid(),
+            ExpertId = Guid.NewGuid(),
+            BookingId = Guid.NewGuid(),
+            BookingStatus = "Completed",
+            StartTime = DateTime.UtcNow
+        };
+
+        var service = new Mock<IConsultationService>();
+        service.Setup(s => s.GetConsultationByIdForAdminAsync(consultationId))
+            .ReturnsAsync(expected);
+
+        var mapper = new Mock<IMapper>();
+        var httpContextAccessor = new HttpContextAccessor
+        {
+            HttpContext = new DefaultHttpContext
+            {
+                User = new ClaimsPrincipal(new ClaimsIdentity(
+                [
+                    new Claim(ClaimTypes.NameIdentifier, Guid.NewGuid().ToString()),
+                    new Claim(ClaimTypes.Role, "Admin")
+                ], "Test"))
+            }
+        };
+
+        var controller = new AdminConsultationsController(
+            service.Object,
+            NullLogger<AdminConsultationsController>.Instance,
+            httpContextAccessor,
+            mapper.Object);
+
+        var result = await controller.GetConsultationById(consultationId);
+
+        var ok = Assert.IsType<OkObjectResult>(result.Result);
+        var response = Assert.IsType<ApiResponse<AdminConsultationResponse>>(ok.Value);
+
+        Assert.True(response.IsSuccess);
+        Assert.NotNull(response.Data);
+        Assert.Equal(consultationId, response.Data!.ConsultationId);
+        Assert.Equal("Completed", response.Data.BookingStatus);
     }
 }
