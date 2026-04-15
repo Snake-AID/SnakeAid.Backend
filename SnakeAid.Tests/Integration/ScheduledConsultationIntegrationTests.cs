@@ -126,6 +126,84 @@ public class ScheduledConsultationIntegrationTests
     }
 
     [Fact]
+    public async Task EndConsultationAsync_ShouldSendRoomExpiring_AndDeleteRoom_AndCompleteConsultation()
+    {
+        var userId = Guid.NewGuid();
+        var expertId = Guid.NewGuid();
+        var slotId = Guid.NewGuid();
+        var consultationId = Guid.NewGuid();
+        var bookingId = Guid.NewGuid();
+
+        await using var db = CreateDbContext();
+        await SeedUserAndExpertAsync(db, userId, expertId);
+
+        db.ExpertTimeSlots.Add(new ExpertTimeSlot
+        {
+            Id = slotId,
+            ExpertId = expertId,
+            StartTime = new DateTime(2026, 3, 10, 8, 0, 0, DateTimeKind.Utc),
+            EndTime = new DateTime(2026, 3, 10, 8, 30, 0, DateTimeKind.Utc),
+            Status = TimeSlotStatus.Reserved
+        });
+
+        db.Consultations.Add(new Consultation
+        {
+            Id = consultationId,
+            CallerId = userId,
+            CalleeId = expertId,
+            RoomId = $"consultation-{consultationId}",
+            StartTime = new DateTime(2026, 3, 10, 8, 0, 0, DateTimeKind.Utc),
+            Status = ConsultationStatus.Ongoing,
+            Type = ConsultationType.Scheduled
+        });
+
+        db.ConsultationBookings.Add(new ConsultationBooking
+        {
+            Id = bookingId,
+            UserId = userId,
+            ExpertId = expertId,
+            TimeSlotId = slotId,
+            ConsultationId = consultationId,
+            Price = 150_000m,
+            BookedAt = DateTime.UtcNow,
+            PaymentDeadline = DateTime.UtcNow.AddMinutes(15),
+            Status = BookingStatus.Confirmed
+        });
+
+        await db.SaveChangesAsync();
+
+        var hub = new SpyHubContext();
+        var liveKit = new SpyLiveKitService();
+        var consultationService = new ConsultationService(
+            new UnitOfWork<SnakeAidDbContext>(db),
+            new FakeConsultationPaymentService(),
+            NullLogger<ConsultationService>.Instance,
+            hub,
+            liveKit);
+
+        await consultationService.EndConsultationAsync(consultationId, userId);
+
+        var hubCall = Assert.Single(hub.SendCalls);
+        Assert.Equal($"consultation:{consultationId}", hubCall.GroupName);
+        Assert.Equal("RoomExpiring", hubCall.Method);
+        var payload = hubCall.Args[0]!;
+        Assert.Equal(consultationId, (Guid)payload.GetType().GetProperty("ConsultationId")!.GetValue(payload)!);
+        Assert.Equal("participant_ended", (string)payload.GetType().GetProperty("Reason")!.GetValue(payload)!);
+
+        var deletedRoom = Assert.Single(liveKit.DeletedRoomNames);
+        Assert.Equal($"consultation-{consultationId}", deletedRoom);
+
+        var consultation = await db.Consultations.FirstAsync(c => c.Id == consultationId);
+        var booking = await db.ConsultationBookings.FirstAsync(b => b.Id == bookingId);
+        var slot = await db.ExpertTimeSlots.FirstAsync(s => s.Id == slotId);
+
+        Assert.Equal(ConsultationStatus.Completed, consultation.Status);
+        Assert.NotNull(consultation.EndTime);
+        Assert.Equal(BookingStatus.Completed, booking.Status);
+        Assert.Equal(TimeSlotStatus.Booked, slot.Status);
+    }
+
+    [Fact]
     public async Task CreateConsultationReviewAsync_ShouldCreateFeedback_AndUpdateExpertRating()
     {
         var userId = Guid.NewGuid();
@@ -211,6 +289,58 @@ public class ScheduledConsultationIntegrationTests
         }
     }
 
+    private sealed class SpyHubContext : IHubContext<ConsultationHub>
+    {
+        public List<SendCall> SendCalls { get; } = new();
+        public IHubClients Clients { get; }
+        public IGroupManager Groups => throw new NotImplementedException();
+
+        public SpyHubContext()
+        {
+            Clients = new SpyHubClients(SendCalls);
+        }
+
+        internal sealed record SendCall(string GroupName, string Method, object?[] Args);
+
+        private sealed class SpyHubClients : IHubClients
+        {
+            private readonly List<SendCall> _sendCalls;
+
+            public SpyHubClients(List<SendCall> sendCalls)
+            {
+                _sendCalls = sendCalls;
+            }
+
+            public IClientProxy All => new SpyClientProxy("all", _sendCalls);
+            public IClientProxy AllExcept(IReadOnlyList<string> excludedConnectionIds) => new SpyClientProxy("all-except", _sendCalls);
+            public IClientProxy Client(string connectionId) => new SpyClientProxy(connectionId, _sendCalls);
+            public IClientProxy Clients(IReadOnlyList<string> connectionIds) => new SpyClientProxy("clients", _sendCalls);
+            public IClientProxy Group(string groupName) => new SpyClientProxy(groupName, _sendCalls);
+            public IClientProxy GroupExcept(string groupName, IReadOnlyList<string> excludedConnectionIds) => new SpyClientProxy(groupName, _sendCalls);
+            public IClientProxy Groups(IReadOnlyList<string> groupNames) => new SpyClientProxy("groups", _sendCalls);
+            public IClientProxy User(string userId) => new SpyClientProxy(userId, _sendCalls);
+            public IClientProxy Users(IReadOnlyList<string> userIds) => new SpyClientProxy("users", _sendCalls);
+        }
+
+        private sealed class SpyClientProxy : IClientProxy
+        {
+            private readonly string _groupName;
+            private readonly List<SendCall> _sendCalls;
+
+            public SpyClientProxy(string groupName, List<SendCall> sendCalls)
+            {
+                _groupName = groupName;
+                _sendCalls = sendCalls;
+            }
+
+            public Task SendCoreAsync(string method, object?[] args, CancellationToken cancellationToken = default)
+            {
+                _sendCalls.Add(new SendCall(_groupName, method, args));
+                return Task.CompletedTask;
+            }
+        }
+    }
+
     private sealed class NoOpLiveKitService : ILiveKitService
     {
         public string GenerateAccessToken(string identity, string roomName, VideoGrants grants, string? metadata = null, TimeSpan? ttl = null)
@@ -219,6 +349,25 @@ public class ScheduledConsultationIntegrationTests
             => Task.FromResult(new RoomInfoResponse());
         public Task DeleteRoomAsync(string roomName, CancellationToken cancellationToken = default)
             => Task.CompletedTask;
+        public Task<List<RoomInfoResponse>> ListRoomsAsync(CancellationToken cancellationToken = default)
+            => Task.FromResult(new List<RoomInfoResponse>());
+        public LiveKitWebhookPayload? ValidateWebhook(string body, string authorizationHeader)
+            => null;
+    }
+
+    private sealed class SpyLiveKitService : ILiveKitService
+    {
+        public List<string> DeletedRoomNames { get; } = new();
+
+        public string GenerateAccessToken(string identity, string roomName, VideoGrants grants, string? metadata = null, TimeSpan? ttl = null)
+            => string.Empty;
+        public Task<RoomInfoResponse> CreateRoomAsync(string roomName, int maxParticipants = 2, int emptyTimeoutSeconds = 600, CancellationToken cancellationToken = default)
+            => Task.FromResult(new RoomInfoResponse());
+        public Task DeleteRoomAsync(string roomName, CancellationToken cancellationToken = default)
+        {
+            DeletedRoomNames.Add(roomName);
+            return Task.CompletedTask;
+        }
         public Task<List<RoomInfoResponse>> ListRoomsAsync(CancellationToken cancellationToken = default)
             => Task.FromResult(new List<RoomInfoResponse>());
         public LiveKitWebhookPayload? ValidateWebhook(string body, string authorizationHeader)

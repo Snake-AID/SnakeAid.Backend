@@ -1,4 +1,5 @@
 using Mapster;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using SnakeAid.Core.Domains;
@@ -10,6 +11,7 @@ using SnakeAid.Core.Responses.Consultation;
 using SnakeAid.Core.Responses.UserFeedback;
 using SnakeAid.Repository.Data;
 using SnakeAid.Repository.Interfaces;
+using SnakeAid.Service.Hubs;
 using SnakeAid.Service.Interfaces;
 
 namespace SnakeAid.Service.Implements;
@@ -19,6 +21,8 @@ public class ConsultationService : IConsultationService
     private readonly IUnitOfWork<SnakeAidDbContext> _unitOfWork;
     private readonly IConsultationPaymentService _consultationPaymentService;
     private readonly ILogger<ConsultationService> _logger;
+    private readonly IHubContext<ConsultationHub>? _hubContext;
+    private readonly ILiveKitService? _liveKitService;
 
 #region Constructor
     static ConsultationService()
@@ -29,11 +33,15 @@ public class ConsultationService : IConsultationService
     public ConsultationService(
         IUnitOfWork<SnakeAidDbContext> unitOfWork,
         IConsultationPaymentService consultationPaymentService,
-        ILogger<ConsultationService> logger)
+        ILogger<ConsultationService> logger,
+        IHubContext<ConsultationHub>? hubContext = null,
+        ILiveKitService? liveKitService = null)
     {
         _unitOfWork = unitOfWork;
         _consultationPaymentService = consultationPaymentService;
         _logger = logger;
+        _hubContext = hubContext;
+        _liveKitService = liveKitService;
     }
 #endregion
 
@@ -58,6 +66,57 @@ public class ConsultationService : IConsultationService
         if (consultation.Status == ConsultationStatus.Completed)
         {
             return;
+        }
+
+        var roomName = string.IsNullOrWhiteSpace(consultation.RoomId)
+            ? $"consultation-{consultationId}"
+            : consultation.RoomId;
+
+        if (_hubContext != null)
+        {
+            try
+            {
+                await _hubContext.Clients.Group($"consultation:{consultationId}")
+                    .SendAsync("RoomExpiring", new
+                    {
+                        ConsultationId = consultationId,
+                        Reason = "participant_ended"
+                    });
+
+                _logger.LogInformation(
+                    "Sent RoomExpiring signal for manually ended consultation {ConsultationId}, RoomId={RoomId}",
+                    consultationId,
+                    roomName);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(
+                    ex,
+                    "Failed to send RoomExpiring signal for manually ended consultation {ConsultationId}, RoomId={RoomId}",
+                    consultationId,
+                    roomName);
+            }
+        }
+
+        if (_liveKitService != null)
+        {
+            try
+            {
+                await _liveKitService.DeleteRoomAsync(roomName);
+
+                _logger.LogInformation(
+                    "Deleted LiveKit room for manually ended consultation {ConsultationId}, RoomId={RoomId}",
+                    consultationId,
+                    roomName);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(
+                    ex,
+                    "Failed to delete LiveKit room for manually ended consultation {ConsultationId}, RoomId={RoomId}",
+                    consultationId,
+                    roomName);
+            }
         }
 
         consultation.Status = ConsultationStatus.Completed;
