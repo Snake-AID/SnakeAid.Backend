@@ -1,4 +1,4 @@
-namespace SnakeAid.Service.Hubs.Contracts;
+namespace SnakeAid.Core.Constants;
 
 public static class ConsultationRealtimeEvents
 {

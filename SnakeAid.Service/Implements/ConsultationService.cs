@@ -2,6 +2,7 @@ using Mapster;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using SnakeAid.Core.Constants;
 using SnakeAid.Core.Domains;
 using SnakeAid.Core.Exceptions;
 using SnakeAid.Core.Mappings;
@@ -12,7 +13,6 @@ using SnakeAid.Core.Responses.UserFeedback;
 using SnakeAid.Repository.Data;
 using SnakeAid.Repository.Interfaces;
 using SnakeAid.Service.Hubs;
-using SnakeAid.Service.Hubs.Contracts;
 using SnakeAid.Service.Interfaces;
 
 namespace SnakeAid.Service.Implements;
