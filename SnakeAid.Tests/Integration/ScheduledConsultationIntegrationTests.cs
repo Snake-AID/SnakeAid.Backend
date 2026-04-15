@@ -126,7 +126,7 @@ public class ScheduledConsultationIntegrationTests
     }
 
     [Fact]
-    public async Task EndConsultationAsync_ShouldSendRoomExpiring_AndDeleteRoom_AndCompleteConsultation()
+    public async Task EndConsultationAsync_ShouldSendConsultationCallEnded_AndDeleteRoom_AndCompleteConsultation()
     {
         var userId = Guid.NewGuid();
         var expertId = Guid.NewGuid();
@@ -185,10 +185,10 @@ public class ScheduledConsultationIntegrationTests
 
         var hubCall = Assert.Single(hub.SendCalls);
         Assert.Equal($"consultation:{consultationId}", hubCall.GroupName);
-        Assert.Equal("RoomExpiring", hubCall.Method);
+        Assert.Equal(ConsultationRealtimeEvents.ConsultationCallEnded, hubCall.Method);
         var payload = hubCall.Args[0]!;
         Assert.Equal(consultationId, (Guid)payload.GetType().GetProperty("ConsultationId")!.GetValue(payload)!);
-        Assert.Equal("participant_ended", (string)payload.GetType().GetProperty("Reason")!.GetValue(payload)!);
+        Assert.Equal(ConsultationRealtimeEvents.ConsultationCallEndReasons.ParticipantEnded, (string)payload.GetType().GetProperty("Reason")!.GetValue(payload)!);
 
         var deletedRoom = Assert.Single(liveKit.DeletedRoomNames);
         Assert.Equal($"consultation-{consultationId}", deletedRoom);

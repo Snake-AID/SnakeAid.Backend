@@ -218,24 +218,24 @@ public class BookingService : IBookingService
 
             try
             {
-                // Step 1: Send RoomExpiring signal via SignalR (best-effort)
+                // Step 1: Send ConsultationCallEnded signal via SignalR (best-effort)
                 try
                 {
                     await _hubContext.Clients.Group($"consultation:{consultationId}")
-                        .SendAsync("RoomExpiring", new
+                        .SendAsync(ConsultationRealtimeEvents.ConsultationCallEnded, new
                         {
                             ConsultationId = consultationId,
-                            Reason = "slot_elapsed"
+                            Reason = ConsultationRealtimeEvents.ConsultationCallEndReasons.Timeout
                         }, cancellationToken);
 
                     _logger.LogInformation(
-                        "Sent RoomExpiring signal for consultation {ConsultationId}, RoomId={RoomId}, StartTime={StartTime}, ExpiryAction={ExpiryAction}",
+                        "Sent ConsultationCallEnded signal for consultation {ConsultationId}, RoomId={RoomId}, StartTime={StartTime}, ExpiryAction={ExpiryAction}",
                         consultationId, roomName, booking.Consultation?.StartTime, "room_expiring_signal_sent");
                 }
                 catch (Exception ex)
                 {
                     _logger.LogWarning(ex,
-                        "Failed to send RoomExpiring signal for consultation {ConsultationId}, RoomId={RoomId}, StartTime={StartTime}, ExpiryAction={ExpiryAction}",
+                        "Failed to send ConsultationCallEnded signal for consultation {ConsultationId}, RoomId={RoomId}, StartTime={StartTime}, ExpiryAction={ExpiryAction}",
                         consultationId, roomName, booking.Consultation?.StartTime, "room_expiring_signal_failed");
                 }
 
@@ -323,24 +323,24 @@ public class BookingService : IBookingService
 
             try
             {
-                // Step 1: Send RoomExpiring signal via SignalR (best-effort)
+                // Step 1: Send ConsultationCallEnded signal via SignalR (best-effort)
                 try
                 {
                     await _hubContext.Clients.Group($"consultation:{consultation.Id}")
-                        .SendAsync("RoomExpiring", new
+                        .SendAsync(ConsultationRealtimeEvents.ConsultationCallEnded, new
                         {
                             ConsultationId = consultation.Id,
-                            Reason = "slot_elapsed"
+                            Reason = ConsultationRealtimeEvents.ConsultationCallEndReasons.Timeout
                         }, cancellationToken);
 
                     _logger.LogInformation(
-                        "Sent RoomExpiring signal for emergency consultation {ConsultationId}, RoomId={RoomId}, StartTime={StartTime}, ExpiryAction={ExpiryAction}",
+                        "Sent ConsultationCallEnded signal for emergency consultation {ConsultationId}, RoomId={RoomId}, StartTime={StartTime}, ExpiryAction={ExpiryAction}",
                         consultation.Id, roomName, consultation.StartTime, "room_expiring_signal_sent");
                 }
                 catch (Exception ex)
                 {
                     _logger.LogWarning(ex,
-                        "Failed to send RoomExpiring signal for emergency consultation {ConsultationId}, RoomId={RoomId}, StartTime={StartTime}, ExpiryAction={ExpiryAction}",
+                        "Failed to send ConsultationCallEnded signal for emergency consultation {ConsultationId}, RoomId={RoomId}, StartTime={StartTime}, ExpiryAction={ExpiryAction}",
                         consultation.Id, roomName, consultation.StartTime, "room_expiring_signal_failed");
                 }
 

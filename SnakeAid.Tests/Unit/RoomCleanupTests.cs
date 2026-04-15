@@ -18,7 +18,7 @@ namespace SnakeAid.Tests.Unit;
 
 public class RoomCleanupTests
 {
-    #region 8.1 — Order: RoomExpiring signal + DeleteRoom BEFORE status update
+    #region 8.1 — Order: ConsultationCallEnded signal + DeleteRoom BEFORE status update
 
     [Fact]
     public async Task AutoCompleteScheduled_SendsSignalAndDeletesRoom_BeforeStatusUpdate()
@@ -41,11 +41,11 @@ public class RoomCleanupTests
         await sut.AutoCompleteElapsedScheduledConsultationsAsync();
 
         // Assert — signal and delete must appear before commit (which persists status)
-        var signalIdx = operationLog.IndexOf("signal:RoomExpiring");
+        var signalIdx = operationLog.IndexOf($"signal:{ConsultationRealtimeEvents.ConsultationCallEnded}");
         var deleteIdx = operationLog.IndexOf("delete_room");
         var commitIdx = operationLog.IndexOf("commit");
 
-        Assert.True(signalIdx >= 0, "RoomExpiring signal was not sent");
+        Assert.True(signalIdx >= 0, "ConsultationCallEnded signal was not sent");
         Assert.True(deleteIdx >= 0, "DeleteRoomAsync was not called");
         Assert.True(commitIdx >= 0, "CommitAsync was not called");
         Assert.True(signalIdx < commitIdx, "Signal must be sent BEFORE commit");
@@ -124,7 +124,7 @@ public class RoomCleanupTests
 
     #endregion
 
-    #region 8.4 — RoomExpiring signal payload: consultationId + reason="slot_elapsed"
+    #region 8.4 — ConsultationCallEnded signal payload: consultationId + reason=\"timeout\"
 
     [Fact]
     public async Task AutoCompleteScheduled_SignalPayload_ContainsCorrectFields()
@@ -142,7 +142,7 @@ public class RoomCleanupTests
         // Assert
         var call = Assert.Single(hub.SendCalls);
         Assert.Equal($"consultation:{consultationId}", call.GroupName);
-        Assert.Equal("RoomExpiring", call.Method);
+        Assert.Equal(ConsultationRealtimeEvents.ConsultationCallEnded, call.Method);
 
         // The payload is an anonymous object; use reflection to verify fields
         var payload = call.Args[0]!;
@@ -151,7 +151,7 @@ public class RoomCleanupTests
         Assert.NotNull(cidProp);
         Assert.NotNull(reasonProp);
         Assert.Equal(consultationId, (Guid)cidProp.GetValue(payload)!);
-        Assert.Equal("slot_elapsed", (string)reasonProp.GetValue(payload)!);
+        Assert.Equal(ConsultationRealtimeEvents.ConsultationCallEndReasons.Timeout, (string)reasonProp.GetValue(payload)!);
     }
 
     #endregion

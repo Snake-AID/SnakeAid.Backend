@@ -77,14 +77,14 @@ public class ConsultationService : IConsultationService
             try
             {
                 await _hubContext.Clients.Group($"consultation:{consultationId}")
-                    .SendAsync("RoomExpiring", new
+                    .SendAsync(ConsultationRealtimeEvents.ConsultationCallEnded, new
                     {
                         ConsultationId = consultationId,
-                        Reason = "participant_ended"
+                        Reason = ConsultationRealtimeEvents.ConsultationCallEndReasons.ParticipantEnded
                     });
 
                 _logger.LogInformation(
-                    "Sent RoomExpiring signal for manually ended consultation {ConsultationId}, RoomId={RoomId}",
+                    "Sent ConsultationCallEnded signal for manually ended consultation {ConsultationId}, RoomId={RoomId}",
                     consultationId,
                     roomName);
             }
@@ -92,7 +92,7 @@ public class ConsultationService : IConsultationService
             {
                 _logger.LogWarning(
                     ex,
-                    "Failed to send RoomExpiring signal for manually ended consultation {ConsultationId}, RoomId={RoomId}",
+                    "Failed to send ConsultationCallEnded signal for manually ended consultation {ConsultationId}, RoomId={RoomId}",
                     consultationId,
                     roomName);
             }
