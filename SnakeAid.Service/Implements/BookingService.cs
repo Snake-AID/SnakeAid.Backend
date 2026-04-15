@@ -8,6 +8,7 @@ using SnakeAid.Core.Responses.Consultation;
 using SnakeAid.Repository.Data;
 using SnakeAid.Repository.Interfaces;
 using SnakeAid.Service.Hubs;
+using SnakeAid.Service.Hubs.Contracts;
 using SnakeAid.Service.Interfaces;
 
 namespace SnakeAid.Service.Implements;

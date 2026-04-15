@@ -11,6 +11,7 @@ using SnakeAid.Core.Responses.PayOs;
 using SnakeAid.Repository.Data;
 using SnakeAid.Repository.Implements;
 using SnakeAid.Service.Hubs;
+using SnakeAid.Service.Hubs.Contracts;
 using SnakeAid.Service.Implements;
 using SnakeAid.Service.Interfaces;
 using System.Reflection;
