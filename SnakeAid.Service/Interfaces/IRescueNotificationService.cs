@@ -16,7 +16,7 @@ namespace SnakeAid.Service.Interfaces
 
         Task NotifyRescuerDeclinedAsync(string rescuerId, RejectRescueResponse declinedData);
 
-        Task NotifyRequestCancelledAsync(string rescuerId, Guid requestId);
+        Task NotifyRequestCancelledAsync(string rescuerId, Guid requestId, string? cancelReason = null);
 
         Task NotifyRequestExpiredAsync(string rescuerId, Guid requestId);
 

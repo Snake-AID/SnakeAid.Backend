@@ -236,12 +236,11 @@ namespace SnakeAid.Api
                 {
                     options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
                     options.JsonSerializerOptions.Converters.Add(new SnakeAid.Core.Converters.PointJsonConverter());
+                    options.JsonSerializerOptions.Converters.Add(new SnakeAid.Core.Converters.GuidNullableConverter());
 
                     // Handle circular references in JSON serialization
                     options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
                 });
-
-                builder.Services.AddControllers();
 
                 // Add Razor Pages for lightweight UI admin pages
                 builder.Services.AddRazorPages();

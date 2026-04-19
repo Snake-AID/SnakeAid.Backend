@@ -2,6 +2,12 @@
 
 Tài liệu này mô tả toàn bộ **luồng sự kiện realtime** hiện đang hoạt động trong hệ thống: từ lúc member tạo SOS, tới lúc operator dispatch, rescuer nhận/không nhận, và operator được báo.
 
+## Cập nhật contract mới (2026-04-14)
+
+- Đã chuẩn hóa reason code cho luồng `RequestCancelled` để client parse ổn định.
+- Tài liệu tích hợp chi tiết cho Flutter rescuer app và FE operator:
+  - `docs/sos-dispatch-cancellation-reason-contract.md`
+
 ---
 
 ## 1) Khi member tạo SOS (incident mới)

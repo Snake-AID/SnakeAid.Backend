@@ -45,6 +45,8 @@ namespace SnakeAid.Api.Controllers
         [SwaggerResponse(200, "Create successful", typeof(ApiResponse<CreateIncidentResponse>))]
         [SwaggerResponse(400, "Member profile not found")]
         [SwaggerResponse(422, "Validation error")]
+        [Authorize]
+        [ValidateModel]
         public async Task<IActionResult> CreateSnakebiteIncident([FromBody] CreateIncidentRequest request)
         {
             var userId = GetCurrentUserId();
@@ -144,6 +146,7 @@ namespace SnakeAid.Api.Controllers
         [SwaggerResponse(200, "Symptom report updated successfully", typeof(ApiResponse<UpdateSymptomReportResponse>))]
         [SwaggerResponse(404, "Incident not found")]
         [SwaggerResponse(422, "Validation error")]
+        [Authorize]
         public async Task<IActionResult> UpdateSymptomReport(Guid incidentId, [FromBody] UpdateSymptomReportRequest request)
         {
             var result = await _incidentService.UpdateSymptomReportAsync(incidentId, request);
@@ -155,6 +158,7 @@ namespace SnakeAid.Api.Controllers
         [SwaggerResponse(200, "Incident cancelled successfully", typeof(ApiResponse<CreateIncidentResponse>))]
         [SwaggerResponse(404, "Incident not found")]
         [SwaggerResponse(422, "Validation error")]
+        [Authorize]
         public async Task<IActionResult> CancelIncident(Guid incidentId, [FromBody] CancelIncidentRequest request)
         {
             var result = await _incidentService.CancelIncidentAsync(incidentId, request);
@@ -202,6 +206,7 @@ namespace SnakeAid.Api.Controllers
 
         [HttpGet("user/{userId}")]
         [SwaggerOperation(Summary = "Get User Incidents", Description = "Retrieve all incidents associated with a specific user (status filter is optional)")]
+        [Authorize]
         public async Task<IActionResult> GetUserIncidents([FromQuery] SnakebiteIncidentStatus? status, [FromQuery] int page = 1, [FromQuery] int pageSize = 10)
         {
             var userId = GetCurrentUserId();
@@ -282,6 +287,7 @@ namespace SnakeAid.Api.Controllers
         [SwaggerOperation(Summary = "Confirm Incident", Description = "Confirm incident after operator contact. Returns 409 on concurrency conflict.")]
         [SwaggerResponse(200, "Incident confirmed", typeof(ApiResponse<CreateIncidentResponse>))]
         [SwaggerResponse(409, "Incident updated by another operator")]
+        [Authorize(Roles = "Operator")]
         public async Task<IActionResult> ConfirmIncident(Guid incidentId)
         {
             var operatorId = GetCurrentUserId();
@@ -297,6 +303,7 @@ namespace SnakeAid.Api.Controllers
         [SwaggerResponse(200, "Incident marked as false alarm", typeof(ApiResponse<CreateIncidentResponse>))]
         [SwaggerResponse(404, "Incident not found")]
         [SwaggerResponse(409, "Incident updated by another operator")]
+        [Authorize(Roles = "Operator")]
         public async Task<IActionResult> MarkFalseAlarm(Guid incidentId, [FromBody] MarkFalseAlarmRequest request)
         {
             var operatorId = GetCurrentUserId();
@@ -312,6 +319,7 @@ namespace SnakeAid.Api.Controllers
         [SwaggerResponse(200, "No answer recorded", typeof(ApiResponse<CreateIncidentResponse>))]
         [SwaggerResponse(404, "Incident not found")]
         [SwaggerResponse(409, "Incident updated by another operator")]
+        [Authorize(Roles = "Operator")]
         public async Task<IActionResult> ReportNoAnswer(Guid incidentId, [FromBody] ReportNoAnswerRequest request)
         {
             var operatorId = GetCurrentUserId();
@@ -326,6 +334,7 @@ namespace SnakeAid.Api.Controllers
         [SwaggerOperation(Summary = "Dispatch Incident", Description = "Dispatch incident to a rescuer. Returns 409 on concurrency conflict.")]
         [SwaggerResponse(200, "Incident dispatched", typeof(ApiResponse<CreateIncidentResponse>))]
         [SwaggerResponse(409, "Incident updated by another operator")]
+        [Authorize(Roles = "Operator")]
         public async Task<IActionResult> DispatchIncident(Guid incidentId, [FromBody] DispatchIncidentRequest request)
         {
             var operatorId = GetCurrentUserId();
@@ -341,6 +350,7 @@ namespace SnakeAid.Api.Controllers
         [SwaggerResponse(200, "Dispatch request cancelled", typeof(ApiResponse<RejectRescueResponse>))]
         [SwaggerResponse(404, "Dispatch request not found")]
         [SwaggerResponse(409, "Dispatch request is not pending or updated by another process")]
+        [Authorize(Roles = "Operator")]
         public async Task<IActionResult> CancelDispatchRequest(Guid requestId)
         {
             var operatorId = GetCurrentUserId();
@@ -358,6 +368,7 @@ namespace SnakeAid.Api.Controllers
         [SwaggerOperation(Summary = "Get Dispatch Requests for Incident", Description = "Retrieve all dispatch requests for a specific incident (by incidentId).")]
         [SwaggerResponse(200, "Dispatch requests retrieved", typeof(ApiResponse<IEnumerable<DispatchRequestResponse>>))]
         [SwaggerResponse(404, "Incident not found")]
+        [Authorize(Roles = "Operator, Admin")]
         public async Task<IActionResult> GetDispatchRequests(Guid incidentId)
         {
             var result = await _incidentService.GetDispatchRequestsAsync(incidentId);

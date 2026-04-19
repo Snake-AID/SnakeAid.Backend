@@ -33,7 +33,7 @@ public class MediaController : BaseController<MediaController>
 
     [HttpPost("upload-image")]
     [Consumes("multipart/form-data")]
-    [ValidateFile(maxSizeInMB: 5, allowedExtensions: new[] { ".jpg", ".jpeg", ".png", ".gif" }, formFieldName: "file")]
+    [ValidateFile(maxSizeInMB: 5, allowedExtensions: new[] { ".jpg", ".jpeg", ".png", ".gif", ".webp" }, formFieldName: "file")]
     public async Task<IActionResult> UploadImage([FromForm] UploadImageRequest request, CancellationToken ct)
     {
         var result = await _cloudinaryService.UploadImageAsync(request.File, User, request.Domain, ct);
@@ -59,7 +59,7 @@ public class MediaController : BaseController<MediaController>
     /// <returns>ReportMedia with ID and URL for detection</returns>
     [HttpPost("report")]
     [Consumes("multipart/form-data")]
-    [ValidateFile(maxSizeInMB: 5, allowedExtensions: new[] { ".jpg", ".jpeg", ".png", ".gif" }, formFieldName: "file")]
+    [ValidateFile(maxSizeInMB: 5, allowedExtensions: new[] { ".jpg", ".jpeg", ".png", ".gif", ".webp" }, formFieldName: "file")]
     [SwaggerOperation(
         Summary = "Upload report media",
         Description = "Upload image for reports and create ReportMedia entity for AI detection")]

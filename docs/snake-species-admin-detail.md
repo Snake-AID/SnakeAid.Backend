@@ -74,9 +74,52 @@ GET /api/snake-species/{id}/region-mappings
     "behaviors": ["Dựng đứng khi bị đe dọa"],
     "habitat": "Đồng ruộng, bờ kênh"
   },
+  "baseFirstAidGuideline": {
+    "id": 2,
+    "name": "Neurotoxic Snake First Aid",
+    "content": {
+      "steps": [{ "text": "Giữ yên nạn nhân", "mediaUrl": null }],
+      "dos": [{ "text": "Gọi cấp cứu ngay lập tức", "mediaUrl": null }],
+      "donts": [{ "text": "Không chích hút nọc độc", "mediaUrl": null }],
+      "notes": ["Next-step depends on venom type."]
+    },
+    "type": "VenomType",
+    "summary": "First aid guideline for neurotoxic venom"
+  },
+  "effectiveFirstAidGuideline": {
+    "steps": [{ "text": "Giữ yên nạn nhân", "mediaUrl": null },{ "text": "Xử lý bổ sung override", "mediaUrl": null }],
+    "dos": [ ... ],
+    "donts": [ ... ],
+    "notes": [ ... ]
+  },
   "firstAidGuidelineOverride": { ... }
 }
 ```
+
+### Thay đổi contract mới
+
+- Thêm `baseFirstAidGuideline`:
+  - Đây là first aid guideline gốc lấy từ `VenomType.FirstAidGuideline` theo `PrimaryVenomType`.
+  - FE dùng để hiển thị nguồn base guideline hiện đang áp dụng cho loài rắn.
+- Thêm `effectiveFirstAidGuideline`:
+  - Đây là nội dung first aid đã được merge bởi backend từ base guideline và `firstAidGuidelineOverride`.
+  - FE có thể dùng để preview kết quả cuối cùng cho admin.
+- Giữ nguyên `firstAidGuidelineOverride`:
+  - Chỉ là phần cấu hình override riêng của loài rắn.
+  - FE cần hiển thị rõ đây là “override config”, không phải là full guideline.
+
+### FE xử lý giao diện
+
+- Render 3 section riêng:
+  1. `Base first aid` từ `baseFirstAidGuideline`
+  2. `Override` từ `firstAidGuidelineOverride`
+  3. `Effective first aid` từ `effectiveFirstAidGuideline`
+- Nếu `firstAidGuidelineOverride` null:
+  - Hiển thị nút/gợi ý “Không có override, đang dùng base guideline.”
+- Nếu `effectiveFirstAidGuideline` null nhưng `baseFirstAidGuideline` có giá trị:
+  - Hiển thị “Chỉ có base guideline, chưa có override.”
+- Nếu cả 2 đều null:
+  - Hiển thị “Chưa có first aid guideline cho loài rắn này.”
 
 ### `PUT /api/snake-species/{id}`
 

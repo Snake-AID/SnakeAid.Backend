@@ -403,6 +403,7 @@ public class StatisticService : IStatisticService
             .Where(t => t.CreatedAt.HasValue
                         && t.CreatedAt.Value >= fromDate
                         && t.CreatedAt.Value < toExclusive
+                        && (t.PaymentMethod != "PayOS" || !string.IsNullOrEmpty(t.ExternalTransactionId))
                         && types.Contains(t.TransactionType))
             .Select(t => new TransactionLite
             {

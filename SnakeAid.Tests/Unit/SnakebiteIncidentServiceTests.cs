@@ -298,7 +298,7 @@ public class SnakebiteIncidentServiceTests
 
         _operatorRealtimeMock.Verify(n => n.NotifyIncidentCancelledAsync(incidentId, reason), Times.Once);
         _missionNotificationMock.Verify(n => n.NotifyMissionCancelledAsync(incidentId, rescuerId, reason), Times.Once);
-        _rescueNotificationMock.Verify(n => n.NotifyRequestCancelledAsync(It.IsAny<string>(), It.IsAny<Guid>()), Times.Never);
+        _rescueNotificationMock.Verify(n => n.NotifyRequestCancelledAsync(It.IsAny<string>(), It.IsAny<Guid>(), It.IsAny<string>()), Times.Never);
     }
 
     [Fact]
@@ -390,7 +390,7 @@ public class SnakebiteIncidentServiceTests
         foreach (var request in pendingRequests)
         {
             _rescueNotificationMock.Verify(n =>
-                n.NotifyRequestCancelledAsync(request.RescuerId.ToString(), request.Id),
+                n.NotifyRequestCancelledAsync(request.RescuerId.ToString(), request.Id, reason),
                 Times.Once);
         }
 

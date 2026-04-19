@@ -8,11 +8,12 @@ public static class SystemSettingKeys
     public const string CatchingBasePrice = "Catching:BasePrice";
     public const string CatchingAdditionalSnakePrice = "Catching:AdditionalSnakePrice";
     public const string CatchingFallbackEstimatedPrice = "Catching:FallbackEstimatedPrice";
+    public const string CatchingPricePerKilomenter = "Catching:PricePerKilomenter";
     public const string ConsultationPlatformFeePercent = "Consultation:PlatformFeePercent";
 
     public const string PricingCenterLatitude = "Center:Latitude";
     public const string PricingCenterLongitude = "Center:Longitude";
-    public const string LocationIqPricePerKilometer = "LocationIq:PricePerKilometer";
+    public const string LegacyLocationIqPricePerKilometer = "LocationIq:PricePerKilometer";
 
     public const string TreatmentFacilitySearchRadiusMeters = "TreatmentFacility:SearchRadiusMeters";
 

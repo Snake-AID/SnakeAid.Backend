@@ -30,8 +30,8 @@ namespace SnakeAid.Service.Implements
         private readonly IRescuerOnlineStatusService _rescuerOnlineStatusService;
         private readonly ISnakeCatchingRequestNotificationService _snakeCatchingRequestNotificationService;
 
-        private const decimal CATCHING_BASE_PRICE = 500000;
-        private const decimal ADDITIONAL_SNAKE_PRICE = 100000;
+        private const decimal CATCHING_BASE_PRICE = 4000;
+        private const decimal ADDITIONAL_SNAKE_PRICE = 1000;
 
         public SnakeCatchingMissionService(
             IUnitOfWork<SnakeAidDbContext> unitOfWork,
