@@ -7,14 +7,39 @@ public class GuidNullableConverter : JsonConverter<Guid?>
 {
     public override Guid? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
     {
+        if (reader.TokenType == JsonTokenType.Null)
+        {
+            return null;
+        }
+
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Unexpected token parsing GUID. Expected string or null, got {reader.TokenType}.");
+        }
+
         var value = reader.GetString();
-        if (string.IsNullOrEmpty(value)) return null;
-        if (Guid.TryParse(value, out var guid)) return guid;
-        throw new ArgumentException($"Invalid GUID format: {value}");
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        if (Guid.TryParse(value, out var guid))
+        {
+            return guid;
+        }
+
+        throw new JsonException($"Invalid GUID format: {value}");
     }
 
     public override void Write(Utf8JsonWriter writer, Guid? value, JsonSerializerOptions options)
     {
-        writer.WriteStringValue(value.Value.ToString());
+        if (value.HasValue)
+        {
+            writer.WriteStringValue(value.Value.ToString());
+        }
+        else
+        {
+            writer.WriteNullValue();
+        }
     }
 }

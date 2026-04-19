@@ -51,12 +51,14 @@ namespace SnakeAid.Core.Responses.SnakeSpecies
 
     public class VenomInfo
     {
+        public int Id { get; set; }
         public string VenomType { get; set; }
         public string Description { get; set; }
     }
 
     public class AntivenomInfo
     {
+        public int Id { get; set; }
         public string AntivenomName { get; set; }
         public string Manufacturer { get; set; }
         public string Effectiveness { get; set; }

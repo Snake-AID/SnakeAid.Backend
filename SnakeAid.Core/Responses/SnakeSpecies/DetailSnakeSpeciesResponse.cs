@@ -1,4 +1,5 @@
 ﻿using SnakeAid.Core.Domains;
+using SnakeAid.Core.Responses.FirstAidGuideline;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
@@ -37,6 +38,10 @@ namespace SnakeAid.Core.Responses.SnakeSpecies
 
 
         public List<SymptomTimeline>? SymptomsByTime { get; set; }
+
+        public FirstAidGuidelineResponse? BaseFirstAidGuideline { get; set; }
+
+        public FirstAidContent? EffectiveFirstAidGuideline { get; set; }
 
         public FirstAidOverride? FirstAidGuidelineOverride { get; set; }
 

@@ -1012,7 +1012,7 @@ public class SnakebiteAndMissionFlowIntegrationTests
         public Task NotifyRescuerAcceptedAsync(string rescuerId, AcceptRescueResponse acceptedData) => Task.CompletedTask;
         public Task NotifyRescuerDeclinedAsync(string rescuerId, RejectRescueResponse declinedData) => Task.CompletedTask;
 
-        public Task NotifyRequestCancelledAsync(string rescuerId, Guid requestId)
+        public Task NotifyRequestCancelledAsync(string rescuerId, Guid requestId, string? cancelReason = null)
         {
             RequestCancelledCalls.Add((rescuerId, requestId));
             return Task.CompletedTask;

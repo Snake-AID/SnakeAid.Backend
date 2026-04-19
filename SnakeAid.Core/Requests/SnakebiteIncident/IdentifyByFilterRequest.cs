@@ -13,23 +13,23 @@ public class IdentifyByFilterRequest
     /// Danh sách option IDs mà user đã chọn (từ questionnaire)
     /// VD: [1, 5, 9, 12]
     /// </summary>
-    [Required]
-    [MinLength(1, ErrorMessage = "At least one answer is required")]
+    // [Required]
+    // [MinLength(1, ErrorMessage = "At least one answer is required")]
     public List<int> SelectedOptionIds { get; set; } = new();
-    
+
     /// <summary>
     /// Snake species ID mà user chọn cuối cùng từ filtered results
     /// </summary>
     [Required(ErrorMessage = "Selected snake species ID is required")]
     public int SelectedSnakeSpeciesId { get; set; }
-    
+
     /// <summary>
     /// Match score của snake được chọn (số đáp án khớp)
     /// Frontend tính toán và gửi lên để lưu vào database
     /// </summary>
-    [Range(0, int.MaxValue)]
+    // [Range(0, int.MaxValue)]
     public int MatchScore { get; set; }
-    
+
     /// <summary>
     /// Match percentage (MatchScore / TotalAnswered * 100)
     /// Frontend tính toán và gửi lên để lưu vào database

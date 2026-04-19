@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.Logging;
 using SnakeAid.Api.Hubs;
+using SnakeAid.Core.Constants;
 using SnakeAid.Core.Exceptions;
 using SnakeAid.Core.Messages.Notifications;
 using SnakeAid.Core.Requests.Notification;
@@ -73,19 +74,25 @@ namespace SnakeAid.Api.Services
                 connId => _hubContext.Clients.Client(connId).SendAsync("RequestDeclined", declinedData),
                 new { RescuerId = rescuerId, Data = declinedData });
 
-        public async Task NotifyRequestCancelledAsync(string rescuerId, Guid requestId)
+        public async Task NotifyRequestCancelledAsync(string rescuerId, Guid requestId, string? cancelReason = null)
             => await SafeExecuteAsync(async () =>
             {
+                var reasonCode = string.IsNullOrWhiteSpace(cancelReason)
+                    ? DispatchRequestCancelReasonCodes.CancelledByMember
+                    : cancelReason;
+                var message = BuildCancelledMessage(reasonCode);
+
                 if (ConnectedRescuers.TryGetValue(rescuerId, out var connectionId))
                 {
-                    await _hubContext.Clients.Client(connectionId).SendAsync("RequestCancelled", new { RequestId = requestId, Message = "Yêu cầu đã bị hủy bởi người dùng." });
+                    await _hubContext.Clients.Client(connectionId).SendAsync("RequestCancelled", new { RequestId = requestId, ReasonCode = reasonCode, Message = message });
                 }
 
                 var payload = new RescuerRequestNotificationPayload
                 {
                     RequestId = requestId,
                     RescuerId = Guid.Parse(rescuerId),
-                    Message = "Yêu cầu đã bị hủy bởi người dùng."
+                    ReasonCode = reasonCode,
+                    Message = message
                 };
                 await _hubContext.Clients.Group("Monitors").SendAsync("RequestCancelled", payload);
                 await PublishRescuerNotificationAsync(rescuerId, "RequestCancelled", payload);
@@ -262,6 +269,16 @@ namespace SnakeAid.Api.Services
                 AcceptRescueResponse p => p.Message,
                 RejectRescueResponse p => p.Message,
                 _ => null
+            };
+
+        private static string BuildCancelledMessage(string reasonCode)
+            => reasonCode switch
+            {
+                DispatchRequestCancelReasonCodes.CancelledByRedispatch
+                    => "Yêu cầu đã bị hủy vì điều phối viên đã điều phối cho cứu hộ viên khác.",
+                DispatchRequestCancelReasonCodes.CancelledByOperator
+                    => "Yêu cầu đã bị hủy bởi điều phối viên.",
+                _ => "Nhiệm vụ đã bị hủy bởi người dùng."
             };
 
         #endregion

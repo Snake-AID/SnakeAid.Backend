@@ -18,6 +18,7 @@ public class RescuerRequestNotificationPayload
 {
     public Guid RequestId { get; set; }
     public Guid RescuerId { get; set; }
+    public string? ReasonCode { get; set; }
     public string? Message { get; set; }
 }
 

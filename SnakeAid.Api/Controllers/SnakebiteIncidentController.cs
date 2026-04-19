@@ -46,6 +46,7 @@ namespace SnakeAid.Api.Controllers
         [SwaggerResponse(400, "Member profile not found")]
         [SwaggerResponse(422, "Validation error")]
         [Authorize]
+        [ValidateModel]
         public async Task<IActionResult> CreateSnakebiteIncident([FromBody] CreateIncidentRequest request)
         {
             var userId = GetCurrentUserId();

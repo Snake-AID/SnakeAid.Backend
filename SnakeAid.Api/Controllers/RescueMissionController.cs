@@ -18,7 +18,7 @@ namespace SnakeAid.Api.Controllers
 {
     [Route("api/rescue-missions")]
     [ApiController]
-    // [Authorize]
+    [Authorize]
     public class RescueMissionController : BaseController<RescueMissionController>
     {
         private readonly ISnakeRescueMissionService _missionService;
@@ -52,6 +52,7 @@ namespace SnakeAid.Api.Controllers
             Used before rescuer starts moving to location.")]
         [SwaggerResponse(200, "Mission details retrieved successfully", typeof(ApiResponse<DetailRescueMissionResponse>))]
         [SwaggerResponse(404, "Mission not found")]
+        [Authorize(Roles = "Rescuer, Admin")]
         public async Task<IActionResult> GetMissionDetails(
             Guid missionId,
             [FromQuery] double? rescuerLat = null,
@@ -112,6 +113,7 @@ namespace SnakeAid.Api.Controllers
         [SwaggerResponse(200, "Mission started successfully")]
         [SwaggerResponse(400, "Invalid status transition")]
         [SwaggerResponse(404, "Mission not found")]
+        [Authorize(Roles = "Rescuer")]
         public async Task<IActionResult> StartMission(Guid missionId)
         {
             await _missionService.UpdateMissionStatusAsync(missionId, RescueMissionStatus.EnRoute);
@@ -128,6 +130,7 @@ namespace SnakeAid.Api.Controllers
         [SwaggerResponse(200, "Arrival marked successfully")]
         [SwaggerResponse(400, "Invalid status transition")]
         [SwaggerResponse(404, "Mission not found")]
+        [Authorize(Roles = "Rescuer")]
         public async Task<IActionResult> ArriveAtLocation(Guid missionId)
         {
             await _missionService.UpdateMissionStatusAsync(missionId, RescueMissionStatus.RescuerArrived);
@@ -160,6 +163,7 @@ namespace SnakeAid.Api.Controllers
         [SwaggerResponse(200, "Mission completed successfully", typeof(ApiResponse<object>))]
         [SwaggerResponse(400, "Invalid request or evidence validation failed", typeof(ApiResponse<object>))]
         [SwaggerResponse(404, "Mission not found")]
+        [Authorize(Roles = "Rescuer")]
         public async Task<IActionResult> CompleteMission(
             Guid missionId,
             [FromBody] CompleteMissionRequest request)
@@ -179,6 +183,7 @@ namespace SnakeAid.Api.Controllers
         [SwaggerResponse(200, "Mission aborted, new session created", typeof(ApiResponse<object>))]
         [SwaggerResponse(400, "Invalid status transition or missing reason", typeof(ApiResponse<object>))]
         [SwaggerResponse(404, "Mission not found")]
+        [Authorize(Roles = "Rescuer")]
         public async Task<IActionResult> AbortMission(
             Guid missionId,
             [FromBody] AbortMissionRequest request)
@@ -199,6 +204,7 @@ namespace SnakeAid.Api.Controllers
         [SwaggerResponse(200, "Mission cancelled", typeof(ApiResponse<object>))]
         [SwaggerResponse(400, "Invalid status transition - can only cancel during Preparing phase", typeof(ApiResponse<object>))]
         [SwaggerResponse(404, "Mission not found")]
+        [Authorize(Roles = "User")]
         public async Task<IActionResult> CancelMission(
             Guid missionId,
             [FromBody] CancelMissionRequest request)
@@ -210,11 +216,11 @@ namespace SnakeAid.Api.Controllers
         [HttpPatch("{missionId}/hospital-transfer")]
         [SwaggerOperation(
             Summary = "Transfer Mission to Hospital (User)",
-            Description = "User transfers the mission to a hospital before rescuer goes en route (Preparing → HospitalTransfer). Incident is set to HospitalTransfer. No new session is created.")]
+            Description = "Rescuer reports hospital transfer needed for the patient with hospital info")]
         [SwaggerResponse(200, "Mission transferred to hospital", typeof(ApiResponse<HospitalTransferPricingResponse>))]
         [SwaggerResponse(400, "Invalid status transition - can only transfer during Preparing phase", typeof(ApiResponse<object>))]
         [SwaggerResponse(404, "Mission not found")]
-        [Authorize]
+        [Authorize(Roles = "Rescuer")]
         public async Task<IActionResult> TransferToHospital(
             Guid missionId,
             [FromBody] ReportHospitalTransferRequest request)

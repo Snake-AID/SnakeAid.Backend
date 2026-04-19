@@ -10,10 +10,12 @@ using SnakeAid.Core.Domains;
 using SnakeAid.Core.Exceptions;
 using SnakeAid.Core.Requests.LibraryMedia;
 using SnakeAid.Core.Requests.SnakeSpecies;
+using SnakeAid.Core.Responses.FirstAidGuideline;
 using SnakeAid.Core.Responses.SnakeSpecies;
 using SnakeAid.Core.Utils;
 using SnakeAid.Repository.Data;
 using SnakeAid.Repository.Interfaces;
+using SnakeAid.Service.Extensions;
 using SnakeAid.Service.Interfaces;
 
 namespace SnakeAid.Service.Implements
@@ -71,6 +73,7 @@ namespace SnakeAid.Service.Implements
                                 .ThenInclude(sa => sa.Antivenom)
                             .Include(s => s.SpeciesVenoms)
                                 .ThenInclude(sv => sv.VenomType)
+                                    .ThenInclude(vt => vt.FirstAidGuideline)
                     );
 
                 if (snakeSpecies == null)
@@ -147,11 +150,13 @@ namespace SnakeAid.Service.Implements
                     } : null,
                     Venoms = s.SpeciesVenoms.Select(sv => new Core.Responses.SnakeSpecies.VenomInfo
                     {
+                        Id = sv.VenomTypeId,
                         VenomType = sv.VenomType?.Name ?? "Unknown",
                         Description = sv.VenomType?.Description ?? ""
                     }).ToList(),
                     Antivenoms = s.SpeciesAntivenoms.Select(sa => new Core.Responses.SnakeSpecies.AntivenomInfo
                     {
+                        Id = sa.AntivenomId,
                         AntivenomName = sa.Antivenom?.Name ?? "Unknown",
                         Manufacturer = sa.Antivenom?.Manufacturer ?? "",
                         Effectiveness = sa.Antivenom?.Description ?? ""
@@ -451,7 +456,8 @@ namespace SnakeAid.Service.Implements
                         .Include(s => s.SpeciesAntivenoms)
                             .ThenInclude(sa => sa.Antivenom)
                         .Include(s => s.SpeciesVenoms)
-                            .ThenInclude(sv => sv.VenomType),
+                            .ThenInclude(sv => sv.VenomType)
+                                .ThenInclude(vt => vt.FirstAidGuideline),
                     cancellationToken: ct);
 
             if (snakeSpecies == null)
@@ -472,6 +478,7 @@ namespace SnakeAid.Service.Implements
             response.Venoms = snakeSpecies.SpeciesVenoms
                 .Select(sv => new VenomInfo
                 {
+                    Id = sv.VenomTypeId,
                     VenomType = sv.VenomType?.Name ?? "Unknown",
                     Description = sv.VenomType?.Description ?? string.Empty
                 })
@@ -479,13 +486,42 @@ namespace SnakeAid.Service.Implements
             response.Antivenoms = snakeSpecies.SpeciesAntivenoms
                 .Select(sa => new AntivenomInfo
                 {
+                    Id = sa.AntivenomId,
                     AntivenomName = sa.Antivenom?.Name ?? "Unknown",
                     Manufacturer = sa.Antivenom?.Manufacturer ?? string.Empty,
                     Effectiveness = sa.Antivenom?.Description ?? string.Empty
                 })
                 .ToList();
 
+            response.BaseFirstAidGuideline = GetBaseFirstAidGuidelineResponse(snakeSpecies);
+            response.EffectiveFirstAidGuideline = snakeSpecies.GetMergedFirstAidContent();
+
             return response;
+        }
+
+        private static FirstAidGuidelineResponse? GetBaseFirstAidGuidelineResponse(SnakeSpecies snakeSpecies)
+        {
+            if (snakeSpecies.SpeciesVenoms == null || !snakeSpecies.SpeciesVenoms.Any())
+            {
+                return null;
+            }
+
+            if (snakeSpecies.PrimaryVenomType.HasValue)
+            {
+                var primaryVenomTypeId = (int)snakeSpecies.PrimaryVenomType.Value + 1;
+                var primaryVenom = snakeSpecies.SpeciesVenoms
+                    .FirstOrDefault(sv => sv.VenomTypeId == primaryVenomTypeId);
+
+                if (primaryVenom?.VenomType?.FirstAidGuideline != null)
+                {
+                    return primaryVenom.VenomType.FirstAidGuideline.Adapt<FirstAidGuidelineResponse>();
+                }
+            }
+
+            var anyVenomWithGuideline = snakeSpecies.SpeciesVenoms
+                .FirstOrDefault(sv => sv.VenomType?.FirstAidGuideline != null);
+
+            return anyVenomWithGuideline?.VenomType?.FirstAidGuideline?.Adapt<FirstAidGuidelineResponse>();
         }
 
         private async Task ValidateSnakeSpeciesUniquenessAsync(string scientificName, string? slug, int? excludeId, CancellationToken ct)

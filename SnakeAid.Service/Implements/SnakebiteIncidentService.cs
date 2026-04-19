@@ -2,6 +2,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using SnakeAid.Core.Constants;
 using SnakeAid.Core.Domains;
 using SnakeAid.Core.Exceptions;
 using SnakeAid.Core.Requests;
@@ -220,6 +221,8 @@ namespace SnakeAid.Service.Implements
                 DateTime dispatchedAt = DateTime.UtcNow;
                 double incidentLatitude = 0;
                 double incidentLongitude = 0;
+                var autoCancelledRequestNotifies = new List<(string RescuerId, Guid RequestId, string CancelReason)>();
+                const string autoCancelledReason = DispatchRequestCancelReasonCodes.CancelledByRedispatch;
 
                 var response = await _unitOfWork.ExecuteInTransactionAsync(async () =>
                 {
@@ -259,7 +262,7 @@ namespace SnakeAid.Service.Implements
 
                     if (hasDeclinedIncident)
                     {
-                        throw new ConflictException("Rescuer already declined this incident and is excluded from re-dispatch.");
+                        throw new BadRequestException("Rescuer already declined this incident and is excluded from re-dispatch.");
                     }
 
                     var hasAbortedMission = await _unitOfWork.GetRepository<RescueMission>().CreateBaseQuery(asNoTracking: true)
@@ -270,7 +273,7 @@ namespace SnakeAid.Service.Implements
 
                     if (hasAbortedMission)
                     {
-                        throw new ConflictException("Rescuer already aborted this incident and is excluded from re-dispatch.");
+                        throw new BadRequestException("Rescuer already aborted this incident and is excluded from re-dispatch.");
                     }
 
                     if (!rescuer.IsOnline)
@@ -295,17 +298,24 @@ namespace SnakeAid.Service.Implements
                         throw new BadRequestException("Rescuer is not currently on shift.");
                     }
 
-                    // // Ensure only one active pending dispatch request exists per incident
-                    // var existingPendingRequests = await _unitOfWork.GetRepository<RescuerRequest>().GetListAsync(
-                    //     predicate: r => r.IncidentId == incidentId && r.Status == RescueRequestStatus.Pending);
+                    // Ensure only one active pending dispatch request remains for the newly selected rescuer.
+                    var existingPendingRequests = await _unitOfWork.GetRepository<RescuerRequest>().GetListAsync(
+                        predicate: r => r.IncidentId == incidentId
+                                        && r.Status == RescueRequestStatus.Pending
+                                        && r.RescuerId != rescuer.AccountId);
 
-                    // foreach (var pending in existingPendingRequests)
-                    // {
-                    //     pending.Status = RescueRequestStatus.Cancelled;
-                    //     pending.ResponseAt = DateTime.UtcNow;
-                    //     pending.DeclineReason = "Auto-cancelled due to new dispatch request.";
-                    //     _unitOfWork.GetRepository<RescuerRequest>().Update(pending);
-                    // }
+                    foreach (var pending in existingPendingRequests)
+                    {
+                        pending.Status = RescueRequestStatus.Cancelled;
+                        pending.ResponseAt = DateTime.UtcNow;
+                        pending.DeclineReason = DispatchRequestCancelReasonCodes.CancelledByRedispatch;
+                        _unitOfWork.GetRepository<RescuerRequest>().Update(pending);
+
+                        autoCancelledRequestNotifies.Add((
+                            pending.RescuerId.ToString(),
+                            pending.Id,
+                            autoCancelledReason));
+                    }
 
                     var dispatchRequest = new RescuerRequest
                     {
@@ -344,6 +354,11 @@ namespace SnakeAid.Service.Implements
                     Longitude = incidentLongitude,
                     Message = "Điều phối viên vừa gửi yêu cầu cứu hộ mới đến bạn. Vui lòng kiểm tra và phản hồi yêu cầu trong thời gian sớm nhất."
                 });
+
+                foreach (var (cancelledRescuerId, cancelledRequestId, cancelReason) in autoCancelledRequestNotifies)
+                {
+                    await _rescueNotificationService.NotifyRequestCancelledAsync(cancelledRescuerId, cancelledRequestId, cancelReason);
+                }
 
                 // Notify operators that we've successfully dispatched the request to a rescuer.
                 await _operatorRealtimeNotificationService.NotifyDispatchRequestedAsync(incidentId, rescuerId, operatorId);
@@ -555,7 +570,7 @@ namespace SnakeAid.Service.Implements
                         throw new NotFoundException("Dispatch request not found.");
 
                     if (request.Status != RescueRequestStatus.Pending)
-                        throw new ConflictException("Dispatch request is not in a pending state.");
+                        throw new BadRequestException("Dispatch request is not in a pending state.");
 
                     var incident = request.Incident;
                     if (incident == null)
@@ -567,7 +582,7 @@ namespace SnakeAid.Service.Implements
                     // Mark as cancelled
                     request.Status = RescueRequestStatus.Cancelled;
                     request.ResponseAt = DateTime.UtcNow;
-                    request.DeclineReason = "Cancelled by Operator";
+                    request.DeclineReason = DispatchRequestCancelReasonCodes.CancelledByOperator;
                     _unitOfWork.GetRepository<RescuerRequest>().Update(request);
 
                     // Return incident to Verified so operator can dispatch again
@@ -587,7 +602,10 @@ namespace SnakeAid.Service.Implements
                 });
 
                 // Notify rescuer (caller) that the request has been cancelled
-                await _rescueNotificationService.NotifyRequestCancelledAsync(rescuerId.ToString(), requestId);
+                await _rescueNotificationService.NotifyRequestCancelledAsync(
+                    rescuerId.ToString(),
+                    requestId,
+                    DispatchRequestCancelReasonCodes.CancelledByOperator);
 
                 // Notify operators that the dispatch was cancelled
                 await _operatorRealtimeNotificationService.NotifyRescuerDeclinedAsync(incident.Id, rescuerId, "Cancelled by Operator");
@@ -696,7 +714,7 @@ namespace SnakeAid.Service.Implements
                     {
                         req.Status = RescueRequestStatus.Cancelled;
                         req.ResponseAt = DateTime.UtcNow;
-                        req.DeclineReason = cancelReason;
+                        req.DeclineReason = DispatchRequestCancelReasonCodes.CancelledByMember;
                         _unitOfWork.GetRepository<RescuerRequest>().Update(req);
 
                         pendingNotifies.Add((req.RescuerId.ToString(), req.Id));
@@ -717,7 +735,10 @@ namespace SnakeAid.Service.Implements
                 // Notify any rescuer who had a pending dispatch request
                 foreach (var (rescuerId, requestId) in pendingNotifies)
                 {
-                    await _rescueNotificationService.NotifyRequestCancelledAsync(rescuerId, requestId);
+                    await _rescueNotificationService.NotifyRequestCancelledAsync(
+                        rescuerId,
+                        requestId,
+                        DispatchRequestCancelReasonCodes.CancelledByMember);
                 }
 
                 // If there was an active mission, notify via mission hub as well

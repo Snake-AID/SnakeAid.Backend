@@ -12,9 +12,9 @@ using SnakeAid.Core.Utils;
 
 namespace SnakeAid.Api.Controllers
 {
-    // [Authorize(Roles = "Admin")]
     [Route("api/shifts")]
     [ApiController]
+    [Authorize]
     public class ShiftController : BaseController<ShiftController>
     {
         private readonly IShiftService _shiftService;
@@ -53,6 +53,7 @@ namespace SnakeAid.Api.Controllers
         [SwaggerOperation(Summary = "Create Work Shift", Description = "Create a new shift template")]
         [SwaggerResponse(200, "Created", typeof(ApiResponse<WorkShiftResponse>))]
         [SwaggerResponse(400, "Bad Request", typeof(ApiResponse<object>))]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> CreateWorkShift([FromBody] CreateWorkShiftRequest request)
         {
             var result = await _shiftService.CreateWorkShiftAsync(request);
@@ -65,6 +66,7 @@ namespace SnakeAid.Api.Controllers
         [SwaggerResponse(200, "Updated", typeof(ApiResponse<WorkShiftResponse>))]
         [SwaggerResponse(404, "Work shift not found")]
         [SwaggerResponse(400, "Bad Request", typeof(ApiResponse<object>))]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> UpdateWorkShift(Guid id, [FromBody] UpdateWorkShiftRequest request)
         {
             var result = await _shiftService.UpdateWorkShiftAsync(id, request);
@@ -76,6 +78,7 @@ namespace SnakeAid.Api.Controllers
         [SwaggerResponse(200, "Deleted", typeof(ApiResponse<bool>))]
         [SwaggerResponse(404, "Work shift not found")]
         [SwaggerResponse(400, "Bad Request", typeof(ApiResponse<object>))]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> DeleteWorkShift(Guid id)
         {
             var result = await _shiftService.DeleteWorkShiftAsync(id);
@@ -88,6 +91,7 @@ namespace SnakeAid.Api.Controllers
         [SwaggerResponse(200, "Assigned", typeof(ApiResponse<ShiftAssignmentResponse>))]
         [SwaggerResponse(404, "Work shift not found")]
         [SwaggerResponse(400, "Bad Request", typeof(ApiResponse<object>))]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> AssignShift(Guid id, [FromBody] AssignWorkShiftRequest request)
         {
             var result = await _shiftService.AssignWorkShiftAsync(id, request);
@@ -100,6 +104,7 @@ namespace SnakeAid.Api.Controllers
         [SwaggerResponse(200, "Assigned", typeof(ApiResponse<List<ShiftAssignmentResponse>>))]
         [SwaggerResponse(404, "Work shift not found")]
         [SwaggerResponse(400, "Bad Request", typeof(ApiResponse<object>))]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> AssignShiftBulk(Guid id, [FromBody] AssignWorkShiftBulkRequest request)
         {
             var result = await _shiftService.AssignWorkShiftBulkAsync(id, request);
@@ -111,6 +116,7 @@ namespace SnakeAid.Api.Controllers
         [SwaggerResponse(200, "Checked in", typeof(ApiResponse<ShiftAssignmentResponse>))]
         [SwaggerResponse(404, "Shift assignment not found")]
         [SwaggerResponse(400, "Bad Request", typeof(ApiResponse<object>))]
+        [Authorize(Roles = "Admin, Rescuer")]
         public async Task<IActionResult> CheckInAssignment(Guid assignmentId)
         {
             var result = await _shiftService.CheckInAssignmentAsync(assignmentId);
@@ -122,6 +128,7 @@ namespace SnakeAid.Api.Controllers
         [SwaggerResponse(200, "Checked out", typeof(ApiResponse<ShiftAssignmentResponse>))]
         [SwaggerResponse(404, "Shift assignment not found")]
         [SwaggerResponse(400, "Bad Request", typeof(ApiResponse<object>))]
+        [Authorize(Roles = "Admin, Rescuer")]
         public async Task<IActionResult> CheckOutAssignment(Guid assignmentId)
         {
             var result = await _shiftService.CheckOutAssignmentAsync(assignmentId);
@@ -159,6 +166,7 @@ namespace SnakeAid.Api.Controllers
         [SwaggerResponse(200, "Updated", typeof(ApiResponse<ShiftAssignmentResponse>))]
         [SwaggerResponse(404, "Shift assignment not found")]
         [SwaggerResponse(400, "Bad Request", typeof(ApiResponse<object>))]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> UpdateAssignment(Guid assignmentId, [FromBody] UpdateShiftAssignmentRequest request)
         {
             var result = await _shiftService.UpdateShiftAssignmentAsync(assignmentId, request);
@@ -169,6 +177,7 @@ namespace SnakeAid.Api.Controllers
         [SwaggerOperation(Summary = "Delete Shift Assignment", Description = "Remove a rescuer from a shift assignment")]
         [SwaggerResponse(200, "Deleted", typeof(ApiResponse<bool>))]
         [SwaggerResponse(404, "Shift assignment not found")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> DeleteAssignment(Guid assignmentId)
         {
             var result = await _shiftService.DeleteShiftAssignmentAsync(assignmentId);
@@ -178,6 +187,7 @@ namespace SnakeAid.Api.Controllers
         [HttpGet("rescuer/{id}/my-assignments-today")]
         [SwaggerOperation(Summary = "Get My Shift Assignments for Today", Description = "Retrieve shift assignments for the logged-in rescuer for the current day")]
         [SwaggerResponse(200, "Success", typeof(ApiResponse<List<ShiftAssignmentResponse>>))]
+        [Authorize(Roles = "Admin, Rescuer")]
         public async Task<IActionResult> GetMyAssignmentsToday(Guid id)
         {
             var today = AppTime.TodayLocalDate;
