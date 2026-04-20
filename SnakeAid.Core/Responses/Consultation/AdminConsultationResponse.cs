@@ -1,3 +1,5 @@
+using SnakeAid.Core.Domains;
+
 namespace SnakeAid.Core.Responses.Consultation;
 
 public class AdminConsultationResponse
@@ -19,7 +21,7 @@ public class AdminConsultationResponse
     public DateTime? BookedAt { get; set; }
     public DateTime? PaymentDeadline { get; set; }
     public DateTime? CancelledAt { get; set; }
-    public string? CancellationReason { get; set; }
+    public ConsultationBookingCancellationReason? CancellationReason { get; set; }
     public Guid? EmergencyRequestId { get; set; }
     public string? EmergencyRequestStatus { get; set; }
     public DateTime? RequestedAt { get; set; }

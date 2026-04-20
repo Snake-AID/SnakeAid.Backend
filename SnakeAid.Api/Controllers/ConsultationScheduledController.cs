@@ -51,4 +51,15 @@ public class ConsultationScheduledController : BaseController<ConsultationSchedu
         var result = await _bookingService.GetExpertBookingsAsync(expertId);
         return Ok(ApiResponseBuilder.BuildSuccessResponse(result));
     }
+
+    [HttpPost("{bookingId:guid}/cancel")]
+    [Authorize(Roles = "User,Expert")]
+    public async Task<ActionResult<ApiResponse<ConsultationBookingResponse>>> CancelScheduledBooking(
+        Guid bookingId,
+        CancellationToken cancellationToken)
+    {
+        var actorId = GetCurrentUserId();
+        var result = await _bookingService.CancelScheduledBookingAsync(actorId, bookingId, cancellationToken);
+        return Ok(ApiResponseBuilder.BuildSuccessResponse(result, "Scheduled booking cancelled successfully."));
+    }
 }

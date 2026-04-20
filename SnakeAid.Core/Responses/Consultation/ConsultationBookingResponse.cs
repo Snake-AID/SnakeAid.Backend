@@ -14,6 +14,8 @@ public class ConsultationBookingResponse
     public DateTime BookedAt { get; set; }
     public DateTime? PaymentDeadline { get; set; }
     public BookingStatus Status { get; set; }
+    public DateTime? CancelledAt { get; set; }
+    public ConsultationBookingCancellationReason? CancellationReason { get; set; }
     public string? ProblemDescription { get; set; }
     public Guid TimeSlotId { get; set; }
     public DateTime SlotStartTime { get; set; }

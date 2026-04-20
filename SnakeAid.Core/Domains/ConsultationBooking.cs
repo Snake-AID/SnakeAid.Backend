@@ -37,7 +37,7 @@ namespace SnakeAid.Core.Domains
 
         public DateTime? CancelledAt { get; set; }
 
-        public string? CancellationReason { get; set; }
+        public ConsultationBookingCancellationReason? CancellationReason { get; set; }
 
         [ForeignKey(nameof(Consultation))]
         public Guid? ConsultationId { get; set; }
@@ -66,5 +66,13 @@ namespace SnakeAid.Core.Domains
         Expired = 4,
         Completed = 5
 
+    }
+
+    public enum ConsultationBookingCancellationReason
+    {
+        CancelledByMember = 1,
+        CancelledByExpert = 2,
+        CancelledByAdmin = 3,
+        CancelledBySystem = 4
     }
 }

@@ -39,6 +39,17 @@ public interface IConsultationPaymentService
         string reason,
         CancellationToken cancellationToken = default);
 
+    Task<bool> RefundScheduledBookingAsync(
+        Guid bookingId,
+        Guid receiverId,
+        string reason,
+        CancellationToken cancellationToken = default);
+
+    Task<bool> CancelPendingScheduledBookingPaymentAsync(
+        Guid bookingId,
+        string reason,
+        CancellationToken cancellationToken = default);
+
     Task<int> ExpireEmergencyRequestsAsync(CancellationToken cancellationToken = default);
 
     Task<bool> SettleConsultationEscrowAsync(
