@@ -105,6 +105,41 @@ When completed successfully:
         }
 
         /// <summary>
+        /// Mark mission as uncompleted - transition to MissionUncompleted
+        /// Requires reason and at least one evidence media in snake catching request
+        /// Automatically updates the request status to Completed
+        /// </summary>
+        [HttpPatch("{missionId}/uncomplete")]
+        [SwaggerOperation(
+            Summary = "Uncomplete Mission",
+            Description = @"Mark the snake catching mission as uncompleted (Arrived → MissionUncompleted).
+
+Requirements:
+- Mission must be in Arrived status
+- Reason is required
+- SnakeCatchingRequest must have at least one evidence media uploaded
+
+When uncompleted successfully:
+- Mission status is updated to MissionUncompleted
+- CancellationReason is set to the provided reason
+- CompletedAt timestamp is set
+- SnakeCatchingRequest status is automatically updated to Completed")]
+        [SwaggerResponse(200, "Mission marked as uncompleted successfully", typeof(ApiResponse<SnakeCatchingMissionDetailResponse>))]
+        [SwaggerResponse(400, "Invalid status transition, missing reason, or missing evidence media")]
+        [SwaggerResponse(403, "Not authorized")]
+        [SwaggerResponse(404, "Mission not found")]
+        public async Task<IActionResult> UncompleteMission(
+            Guid missionId,
+            [FromBody] UncompleteSnakeCatchingMissionRequest request)
+        {
+            var rescuerId = GetCurrentUserId();
+            var result = await _missionService.UncompleteMissionAsync(rescuerId, missionId, request);
+            return Ok(ApiResponseBuilder.BuildSuccessResponse(
+                result,
+                "Mission marked as uncompleted. Request marked as completed."));
+        }
+
+        /// <summary>
         /// Abort mission - transition to MissionAborted
         /// Can only abort when mission status is Preparing or EnRoute
         /// </summary>
