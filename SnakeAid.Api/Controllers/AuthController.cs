@@ -120,6 +120,24 @@ public class AuthController : BaseController<AuthController>
     }
 
     /// <summary>
+    /// Change current user's password
+    /// </summary>
+    [Authorize]
+    [HttpPost("change-password")]
+    [ValidateModel]
+    [SwaggerOperation(Summary = "Change password", Description = "Change password with new password and confirmation")]
+    [SwaggerResponse(200, "Password changed successfully")]
+    [SwaggerResponse(400, "Validation error or password policy violation")]
+    [SwaggerResponse(401, "Unauthorized")]
+    [SwaggerResponse(404, "User not found")]
+    public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordRequest request)
+    {
+        var userId = GetCurrentUserId();
+        await _authService.ChangePasswordAsync(userId, request);
+        return Ok(ApiResponseBuilder.BuildSuccessResponse("Password changed successfully."));
+    }
+
+    /// <summary>
     /// Verify account with OTP
     /// </summary>
     [HttpPost("verify-account")]
