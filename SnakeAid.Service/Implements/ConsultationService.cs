@@ -187,6 +187,16 @@ public class ConsultationService : IConsultationService
             throw new BusinessException($"Cannot report expert absence when consultation status is {consultation.Status}.");
         }
 
+        if (request == null || request.CustomerReport == null)
+        {
+            throw new BusinessException("Customer report is required.");
+        }
+
+        if (request.CustomerReport.Length > 2000)
+        {
+            throw new BusinessException("Customer report must be at most 2000 characters.");
+        }
+
         var normalizedReport = request.CustomerReport.Trim();
         if (string.IsNullOrWhiteSpace(normalizedReport))
         {
