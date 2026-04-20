@@ -34,6 +34,11 @@ namespace SnakeAid.Core.Domains
         [Required]
         public ConsultationType Type { get; set; }
 
+        [MaxLength(2000)]
+        public string? CustomerReport { get; set; }
+
+        public DateTime? CustomerReportSubmittedAt { get; set; }
+
 
         public Account Caller { get; set; }
         public Account Callee { get; set; }

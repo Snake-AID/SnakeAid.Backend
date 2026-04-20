@@ -149,6 +149,73 @@ public class ConsultationService : IConsultationService
         await _unitOfWork.CommitAsync();
         await _consultationPaymentService.SettleConsultationEscrowAsync(consultationId);
     }
+
+    public async Task<MyConsultationResponse> ReportExpertAbsentAsync(Guid consultationId, Guid memberId, ReportExpertAbsentRequest request)
+    {
+        var consultation = await _unitOfWork.GetRepository<Consultation>().FirstOrDefaultAsync(
+            predicate: c => c.Id == consultationId,
+            include: q => q.Include(c => c.Callee),
+            asNoTracking: false);
+
+        if (consultation == null)
+        {
+            throw new NotFoundException("Consultation not found.");
+        }
+
+        if (consultation.CallerId != memberId)
+        {
+            throw new ForbiddenException("Only the member of this consultation can report expert absence.");
+        }
+
+        if (consultation.Type != ConsultationType.Scheduled)
+        {
+            throw new BusinessException("Only scheduled consultations support expert absence reporting.");
+        }
+
+        if (consultation.StartTime > DateTime.UtcNow)
+        {
+            throw new BusinessException("Expert absence can only be reported after the consultation start time.");
+        }
+
+        if (!string.IsNullOrWhiteSpace(consultation.CustomerReport))
+        {
+            throw new ConflictException("Expert absence has already been reported for this consultation.");
+        }
+
+        if (consultation.Status is ConsultationStatus.Cancelled or ConsultationStatus.Completed or ConsultationStatus.AllAbsent or ConsultationStatus.UserAbsent)
+        {
+            throw new BusinessException($"Cannot report expert absence when consultation status is {consultation.Status}.");
+        }
+
+        if (request == null || request.CustomerReport == null)
+        {
+            throw new BusinessException("Customer report is required.");
+        }
+
+        if (request.CustomerReport.Length > 2000)
+        {
+            throw new BusinessException("Customer report must be at most 2000 characters.");
+        }
+
+        var normalizedReport = request.CustomerReport.Trim();
+        if (string.IsNullOrWhiteSpace(normalizedReport))
+        {
+            throw new BusinessException("Customer report is required.");
+        }
+
+        consultation.CustomerReport = normalizedReport;
+        consultation.CustomerReportSubmittedAt = DateTime.UtcNow;
+        consultation.Status = ConsultationStatus.ExpertAbsent;
+
+        _unitOfWork.GetRepository<Consultation>().Update(consultation);
+        await _unitOfWork.CommitAsync();
+
+        var booking = await _unitOfWork.GetRepository<ConsultationBooking>().FirstOrDefaultAsync(
+            predicate: b => b.ConsultationId == consultationId,
+            include: q => q.Include(b => b.TimeSlot));
+
+        return BuildMyConsultationResponse(consultation, booking);
+    }
 #endregion
 
 #region Consultation Feedback
@@ -599,22 +666,7 @@ public class ConsultationService : IConsultationService
 
             foreach (var b in bookings)
             {
-                results.Add(new MyConsultationResponse
-                {
-                    ConsultationId = b.ConsultationId!.Value,
-                    Type = "Scheduled",
-                    Status = b.Consultation!.Status.ToString(),
-                    ExpertId = b.ExpertId,
-                    ExpertName = b.Expert?.FullName,
-                    RoomId = b.Consultation.RoomId,
-                    StartTime = b.Consultation.StartTime,
-                    EndTime = b.Consultation.EndTime,
-                    Price = b.Price,
-                    ProblemDescription = b.ProblemDescription,
-                    BookingId = b.Id,
-                    SlotStartTime = b.TimeSlot?.StartTime,
-                    SlotEndTime = b.TimeSlot?.EndTime
-                });
+                results.Add(BuildMyConsultationResponse(b.Consultation!, b));
             }
         }
 
@@ -656,7 +708,9 @@ public class ConsultationService : IConsultationService
                     StartTime = consultation.StartTime,
                     EndTime = consultation.EndTime,
                     EmergencyRequestId = p.Id,
-                    Price = transactionLookup.TryGetValue(p.Id, out var amount) ? amount : null
+                    Price = transactionLookup.TryGetValue(p.Id, out var amount) ? amount : null,
+                    CustomerReport = consultation.CustomerReport,
+                    CustomerReportSubmittedAt = consultation.CustomerReportSubmittedAt
                 });
             }
         }
@@ -667,6 +721,30 @@ public class ConsultationService : IConsultationService
 #endregion
 
 #region Shared Parsing Helpers
+    private static MyConsultationResponse BuildMyConsultationResponse(
+        Consultation consultation,
+        ConsultationBooking? booking = null)
+    {
+        return new MyConsultationResponse
+        {
+            ConsultationId = consultation.Id,
+            Type = consultation.Type.ToString(),
+            Status = consultation.Status.ToString(),
+            ExpertId = consultation.CalleeId,
+            ExpertName = consultation.Callee?.FullName ?? booking?.Expert?.FullName,
+            RoomId = consultation.RoomId,
+            StartTime = consultation.StartTime,
+            EndTime = consultation.EndTime,
+            Price = booking?.Price,
+            ProblemDescription = booking?.ProblemDescription,
+            CustomerReport = consultation.CustomerReport,
+            CustomerReportSubmittedAt = consultation.CustomerReportSubmittedAt,
+            BookingId = booking?.Id,
+            SlotStartTime = booking?.TimeSlot?.StartTime,
+            SlotEndTime = booking?.TimeSlot?.EndTime
+        };
+    }
+
     private static ConsultationStatus? ParseConsultationStatusFilter(string? status)
     {
         if (string.IsNullOrWhiteSpace(status))

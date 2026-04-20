@@ -107,6 +107,8 @@ public class AdminConsultationHistoryIntegrationTests : IDisposable
         Assert.Equal("Completed", item.BookingStatus);
         Assert.Equal(new DateTime(2026, 4, 8, 8, 0, 0, DateTimeKind.Utc), item.BookedAt);
         Assert.Equal(new DateTime(2026, 4, 9, 7, 45, 0, DateTimeKind.Utc), item.PaymentDeadline);
+        Assert.Equal("Expert was absent.", item.CustomerReport);
+        Assert.Equal(new DateTime(2026, 4, 9, 8, 10, 0, DateTimeKind.Utc), item.CustomerReportSubmittedAt);
         Assert.Null(item.EmergencyRequestId);
         Assert.Equal(new DateTime(2026, 4, 9, 8, 0, 0, DateTimeKind.Utc), item.SlotStartTime);
         Assert.Equal(new DateTime(2026, 4, 9, 8, 30, 0, DateTimeKind.Utc), item.SlotEndTime);
@@ -221,6 +223,8 @@ public class AdminConsultationHistoryIntegrationTests : IDisposable
         Assert.Null(result.CancelledAt);
         Assert.Null(result.CancellationReason);
         Assert.Equal("Snakebite on arm", result.ProblemDescription);
+        Assert.Equal("Expert was absent.", result.CustomerReport);
+        Assert.Equal(new DateTime(2026, 4, 9, 8, 10, 0, DateTimeKind.Utc), result.CustomerReportSubmittedAt);
         Assert.Equal(new DateTime(2026, 4, 9, 8, 0, 0, DateTimeKind.Utc), result.SlotStartTime);
         Assert.Equal(new DateTime(2026, 4, 9, 8, 30, 0, DateTimeKind.Utc), result.SlotEndTime);
         Assert.Null(result.EmergencyRequestId);
@@ -305,7 +309,9 @@ public class AdminConsultationHistoryIntegrationTests : IDisposable
                 StartTime = new DateTime(2026, 4, 9, 8, 0, 0, DateTimeKind.Utc),
                 EndTime = new DateTime(2026, 4, 9, 8, 30, 0, DateTimeKind.Utc),
                 Status = ConsultationStatus.Completed,
-                Type = ConsultationType.Scheduled
+                Type = ConsultationType.Scheduled,
+                CustomerReport = "Expert was absent.",
+                CustomerReportSubmittedAt = new DateTime(2026, 4, 9, 8, 10, 0, DateTimeKind.Utc)
             },
             new Consultation
             {

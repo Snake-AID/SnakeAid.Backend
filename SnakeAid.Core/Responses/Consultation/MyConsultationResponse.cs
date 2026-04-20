@@ -12,6 +12,8 @@ public class MyConsultationResponse
     public DateTime? EndTime { get; set; }
     public decimal? Price { get; set; }
     public string? ProblemDescription { get; set; }
+    public string? CustomerReport { get; set; }
+    public DateTime? CustomerReportSubmittedAt { get; set; }
 
     // Scheduled-specific
     public Guid? BookingId { get; set; }
