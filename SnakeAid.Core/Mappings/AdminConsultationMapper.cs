@@ -18,7 +18,9 @@ namespace SnakeAid.Core.Mappings
                 .Map(dest => dest.ExpertName, src => src.Callee != null ? src.Callee.FullName : null)
                 .Map(dest => dest.RoomId, src => src.RoomId)
                 .Map(dest => dest.StartTime, src => src.StartTime)
-                .Map(dest => dest.EndTime, src => src.EndTime);
+                .Map(dest => dest.EndTime, src => src.EndTime)
+                .Map(dest => dest.CustomerReport, src => src.CustomerReport)
+                .Map(dest => dest.CustomerReportSubmittedAt, src => src.CustomerReportSubmittedAt);
 
             config.NewConfig<ConsultationBooking, AdminConsultationResponse>()
                 .Map(dest => dest.UserId, src => src.UserId)

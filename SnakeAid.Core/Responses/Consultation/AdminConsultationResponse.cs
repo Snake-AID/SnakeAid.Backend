@@ -16,6 +16,8 @@ public class AdminConsultationResponse
     public DateTime? EndTime { get; set; }
     public decimal? Price { get; set; }
     public string? ProblemDescription { get; set; }
+    public string? CustomerReport { get; set; }
+    public DateTime? CustomerReportSubmittedAt { get; set; }
     public Guid? BookingId { get; set; }
     public string? BookingStatus { get; set; }
     public DateTime? BookedAt { get; set; }

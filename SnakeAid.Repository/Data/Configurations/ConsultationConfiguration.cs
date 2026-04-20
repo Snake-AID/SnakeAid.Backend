@@ -19,6 +19,9 @@ namespace SnakeAid.Repository.Data.Configurations
                 .HasConversion<int>()
                 .IsRequired();
 
+            builder.Property(c => c.CustomerReport)
+                .HasMaxLength(2000);
+
             // Relationship: Consultation -> Account (Caller)
             builder.HasOne(c => c.Caller)
                 .WithMany()

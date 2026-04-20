@@ -43,6 +43,18 @@ public class ConsultationsController : BaseController<ConsultationsController>
         return Ok(ApiResponseBuilder.BuildSuccessResponse(result));
     }
 
+    [HttpPost("{consultationId:guid}/expert-absent-report")]
+    [Authorize(Roles = "User")]
+    [ProducesResponseType(typeof(ApiResponse<MyConsultationResponse>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<ApiResponse<MyConsultationResponse>>> ReportExpertAbsent(
+        Guid consultationId,
+        [FromBody] ReportExpertAbsentRequest request)
+    {
+        var memberId = GetCurrentUserId();
+        var result = await _consultationService.ReportExpertAbsentAsync(consultationId, memberId, request);
+        return Ok(ApiResponseBuilder.BuildSuccessResponse(result));
+    }
+
     [HttpPost("{consultationId:guid}/reviews")]
     [Authorize(Roles = "User")]
     public async Task<ActionResult<ApiResponse<UserFeedbackResponse>>> CreateReview(Guid consultationId, [FromBody] CreateConsultationReviewRequest request)
