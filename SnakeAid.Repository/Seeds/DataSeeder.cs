@@ -204,8 +204,8 @@ namespace SnakeAid.Repository.Seeds
                                 new FirstAidStep { Text = "Vận chuyển bằng cáng đến bệnh viện có máy lọc thận gấp.", MediaUrl = "https://png.pngtree.com/png-vector/20240216/ourmid/pngtree-flat-hospital-icon-building-vector-png-image_11740947.png" }
                             },
                             Dos = new List<FirstAidStep> {
-                                new FirstAidStep { Text = "Giữ ấm cơ thể nạn nhân", MediaUrl = "" },
-                                new FirstAidStep { Text = "Theo dõi màu nước tiểu", MediaUrl = "" }
+                                new FirstAidStep { Text = "Giữ ấm cơ thể nạn nhân", MediaUrl = "https://soyte.hatinh.gov.vn/upload/1000030/20171026/d0bca019233093f2fa529c90f6d50d2cha_than_nhiet.jpg" },
+                                new FirstAidStep { Text = "Theo dõi màu nước tiểu", MediaUrl = "https://scontent.fsgn19-1.fna.fbcdn.net/v/t39.30808-6/514204013_1253146056597709_5230047133732188240_n.jpg?_nc_cat=102&ccb=1-7&_nc_sid=7b2446&_nc_ohc=7eyBVafmLhcQ7kNvwF9F_9o&_nc_oc=AdppaWj3j9Af930liywg1rMAwKNxNImS00bkw-mxkh6R5ST6erCB7TDOqlt_EnLmwVY&_nc_zt=23&_nc_ht=scontent.fsgn19-1.fna&_nc_gid=PyA_ZY-F1M-6XgQyA_DRDQ&_nc_ss=7a389&oh=00_Af3BHOmiWYCr8s-wAZbmM3RknSuFxNYmsqvbPtxAw-DsTg&oe=69EB3D81" }
                             },
                             Donts = new List<FirstAidStep> {
                                 new FirstAidStep { Text = "Không vận động cơ bắp", MediaUrl = "https://lh5.googleusercontent.com/i8pGvoLht7TcUieukFfbJgxyhfSjBKKh6HgjaBdOG949U2qn7JdQ4HApvHFebdFG5zpP2nrNwCfESg2yzAqZXSXW_aOXRe_lnsSeBgfyTtIXbiIBOiTUj4kvlVcPiqFDY6xOz0w" },
@@ -1819,7 +1819,7 @@ namespace SnakeAid.Repository.Seeds
                         DisplayOrder = 1,
                         Category = SymptomCategory.Modifier,
                         IsCritical = true,
-                        AlertMessage = "⚠️ CẢNH BÁO: Trẻ em có cơ thể nhỏ, nọc độc lan nhanh và nguy hiểm gấp nhiều lần người lớn. Cần theo dõi sát!",
+                        AlertMessage = "CẢNH BÁO: Trẻ em có cơ thể nhỏ, nọc độc lan nhanh và nguy hiểm gấp nhiều lần người lớn. Cần theo dõi sát!",
                         Description = "Cơ thể trẻ nhỏ, tỷ lệ độc/cân nặng cao",
                         TimeScoresJson = JsonSerializer.Serialize(new List<TimeScorePoint> {
                             new TimeScorePoint { MinMinutes = 0, MaxMinutes = 1440, Score = 20 }
@@ -1928,7 +1928,7 @@ namespace SnakeAid.Repository.Seeds
                         DisplayOrder = 3,
                         Category = SymptomCategory.Modifier,
                         IsCritical = true,
-                        AlertMessage = "⚠️ VỊ TRÍ CỰC KỲ NGUY HIỂM! Gần não và đường thở. Có thể gây sưng phù nghẹt thở. Cần cấp cứu GẤP!",
+                        AlertMessage = "VỊ TRÍ CỰC KỲ NGUY HIỂM! Gần não và đường thở. Có thể gây sưng phù nghẹt thở. Cần cấp cứu GẤP!",
                         Description = "Vùng nguy hiểm nhất - gần hệ thần kinh trung ương",
                         TimeScoresJson = JsonSerializer.Serialize(new List<TimeScorePoint> {
                             new TimeScorePoint { MinMinutes = 0, MaxMinutes = 1440, Score = 30 }

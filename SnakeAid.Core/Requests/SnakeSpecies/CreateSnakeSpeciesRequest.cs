@@ -5,7 +5,7 @@ namespace SnakeAid.Core.Requests.SnakeSpecies;
 
 public class CreateSnakeSpeciesRequest
 {
-    [Required]
+    [Required(ErrorMessage = "Scientific Name is required")]
     [MaxLength(500)]
     public string ScientificName { get; set; } = string.Empty;
 
@@ -27,7 +27,7 @@ public class CreateSnakeSpeciesRequest
 
     public List<SymptomTimeline>? SymptomsByTime { get; set; }
 
-    public FirstAidOverride? FirstAidGuidelineOverride { get; set; }
+    public SnakeSpeciesFirstAidOverrideRequest? FirstAidGuidelineOverride { get; set; }
 
     [Range(0.0, 10.0)]
     public float RiskLevel { get; set; }
