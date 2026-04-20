@@ -404,6 +404,25 @@ namespace SnakeAid.Service.Implements
                         "Mission marked as uncompleted. MissionId: {MissionId}, RescuerId: {RescuerId}, RequestId: {RequestId}, Reason: {Reason}",
                         missionId, rescuerId, mission.SnakeCatchingRequestId, request.Reason);
 
+                    var requestInfo = await _unitOfWork.GetRepository<SnakeCatchingRequest>()
+                        .FirstOrDefaultAsync(
+                            selector: r => new { r.Id, r.UserId },
+                            predicate: r => r.Id == mission.SnakeCatchingRequestId);
+
+                    var rescuerName = await _unitOfWork.GetRepository<Account>()
+                        .FirstOrDefaultAsync(selector: a => a.FullName, predicate: a => a.Id == rescuerId);
+
+                    if (requestInfo != null)
+                    {
+                        await _snakeCatchingRequestNotificationService.NotifyMissionUncompletedAsync(
+                            requestInfo.Id,
+                            mission.Id,
+                            requestInfo.UserId,
+                            rescuerId,
+                            rescuerName,
+                            request.Reason);
+                    }
+
                     await mission.AttachReportMediaAsync(_unitOfWork, MediaReferenceType.SnakeCatchingMission);
                     return mission.Adapt<SnakeCatchingMissionDetailResponse>();
                 });

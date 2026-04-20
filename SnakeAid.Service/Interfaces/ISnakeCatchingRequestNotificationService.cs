@@ -65,6 +65,14 @@ namespace SnakeAid.Service.Interfaces
             string? rescuerName,
             decimal? actualCost);
 
+        Task NotifyMissionUncompletedAsync(
+            Guid requestId,
+            Guid missionId,
+            Guid memberUserId,
+            Guid rescuerUserId,
+            string? rescuerName,
+            string reason);
+
         Task NotifyMissionAbortedAsync(
             Guid requestId,
             Guid missionId,
