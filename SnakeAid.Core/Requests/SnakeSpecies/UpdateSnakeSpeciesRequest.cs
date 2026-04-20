@@ -25,7 +25,7 @@ public class UpdateSnakeSpeciesRequest
 
     public List<SymptomTimeline>? SymptomsByTime { get; set; }
 
-    public FirstAidOverride? FirstAidGuidelineOverride { get; set; }
+    public SnakeSpeciesFirstAidOverrideRequest? FirstAidGuidelineOverride { get; set; }
 
     [Range(0.0, 10.0)]
     public float? RiskLevel { get; set; }

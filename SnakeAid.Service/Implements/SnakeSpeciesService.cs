@@ -204,6 +204,10 @@ namespace SnakeAid.Service.Implements
                 throw new NotFoundException($"Library media with ID {request.MediaId} not found.");
             }
 
+            var firstAidOverride = request.FirstAidGuidelineOverride != null
+                ? await BuildFirstAidOverrideAsync(request.FirstAidGuidelineOverride, ct)
+                : null;
+
             var entity = new SnakeSpecies
             {
                 ScientificName = scientificName,
@@ -215,7 +219,7 @@ namespace SnakeAid.Service.Implements
                 PrimaryVenomType = request.PrimaryVenomType,
                 Identification = request.Identification,
                 SymptomsByTime = request.SymptomsByTime,
-                FirstAidGuidelineOverride = request.FirstAidGuidelineOverride,
+                FirstAidGuidelineOverride = firstAidOverride,
                 RiskLevel = request.RiskLevel,
                 IsVenomous = request.IsVenomous,
                 IsActive = request.IsActive,
@@ -312,7 +316,7 @@ namespace SnakeAid.Service.Implements
 
             if (request.FirstAidGuidelineOverride != null)
             {
-                entity.FirstAidGuidelineOverride = request.FirstAidGuidelineOverride;
+                entity.FirstAidGuidelineOverride = await BuildFirstAidOverrideAsync(request.FirstAidGuidelineOverride, ct);
             }
 
             if (request.RiskLevel.HasValue)
@@ -522,6 +526,67 @@ namespace SnakeAid.Service.Implements
                 .FirstOrDefault(sv => sv.VenomType?.FirstAidGuideline != null);
 
             return anyVenomWithGuideline?.VenomType?.FirstAidGuideline?.Adapt<FirstAidGuidelineResponse>();
+        }
+
+        private async Task<FirstAidOverride> BuildFirstAidOverrideAsync(SnakeSpeciesFirstAidOverrideRequest request, CancellationToken ct)
+        {
+            var mediaIds = new HashSet<Guid>();
+            void collect(IEnumerable<SnakeSpeciesFirstAidStepRequest>? steps)
+            {
+                if (steps == null) return;
+                foreach (var step in steps)
+                {
+                    if (step?.MediaId.HasValue == true)
+                    {
+                        mediaIds.Add(step.MediaId.Value);
+                    }
+                }
+            }
+
+            collect(request.Content.Steps);
+            collect(request.Content.Dos);
+            collect(request.Content.Donts);
+
+            var mediaById = new Dictionary<Guid, LibraryMedia>();
+            if (mediaIds.Any())
+            {
+                var mediaList = await _unitOfWork.GetRepository<LibraryMedia>()
+                    .GetListAsync(predicate: m => mediaIds.Contains(m.Id), cancellationToken: ct);
+
+                mediaById = mediaList.ToDictionary(m => m.Id);
+                var missingIds = mediaIds.Except(mediaById.Keys).ToList();
+                if (missingIds.Any())
+                {
+                    throw new NotFoundException($"One or more first-aid media IDs were not found: {string.Join(", ", missingIds)}");
+                }
+            }
+
+            FirstAidStep MapStep(SnakeSpeciesFirstAidStepRequest step)
+            {
+                var mediaUrl = step.MediaUrl ?? string.Empty;
+                if (step.MediaId.HasValue && mediaById.TryGetValue(step.MediaId.Value, out var libraryMedia))
+                {
+                    mediaUrl = libraryMedia.MediaUrl;
+                }
+
+                return new FirstAidStep
+                {
+                    Text = step.Text,
+                    MediaUrl = mediaUrl
+                };
+            }
+
+            return new FirstAidOverride
+            {
+                Mode = request.Mode,
+                Content = new FirstAidContent
+                {
+                    Steps = request.Content.Steps?.Select(MapStep).ToList() ?? new List<FirstAidStep>(),
+                    Dos = request.Content.Dos?.Select(MapStep).ToList() ?? new List<FirstAidStep>(),
+                    Donts = request.Content.Donts?.Select(MapStep).ToList() ?? new List<FirstAidStep>(),
+                    Notes = request.Content.Notes ?? new List<string>()
+                }
+            };
         }
 
         private async Task ValidateSnakeSpeciesUniquenessAsync(string scientificName, string? slug, int? excludeId, CancellationToken ct)
