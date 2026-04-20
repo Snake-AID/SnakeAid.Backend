@@ -33,6 +33,7 @@ public class SnakeCatchingMissionControllerTests
     [InlineData(nameof(SnakeCatchingMissionController.StartMission), "{missionId}/start")]
     [InlineData(nameof(SnakeCatchingMissionController.MarkAsArrived), "{missionId}/arrived")]
     [InlineData(nameof(SnakeCatchingMissionController.CompleteMission), "{missionId}/complete")]
+    [InlineData(nameof(SnakeCatchingMissionController.UncompleteMission), "{missionId}/uncomplete")]
     [InlineData(nameof(SnakeCatchingMissionController.AbortMission), "{missionId}/abort")]
     public void Actions_ShouldUseExpectedHttpPatchRoute(string actionName, string template)
     {
@@ -146,10 +147,37 @@ public class SnakeCatchingMissionControllerTests
         service.Verify(s => s.AbortMissionAsync(rescuerId, missionId, request), Times.Once);
     }
 
+    [Fact]
+    public async Task UncompleteMission_ShouldUseCurrentUserAndReturnSuccessEnvelope()
+    {
+        var rescuerId = Guid.NewGuid();
+        var missionId = Guid.NewGuid();
+        var request = new UncompleteSnakeCatchingMissionRequest { Reason = "Không bắt được do điều kiện hiện trường" };
+        var expected = CreateMissionResponse(missionId, rescuerId, CatchingMissionStatus.MissionUncompleted, cancellationReason: request.Reason);
+
+        var service = new Mock<ISnakeCatchingMissionService>();
+        service.Setup(s => s.UncompleteMissionAsync(rescuerId, missionId, request)).ReturnsAsync(expected);
+
+        var controller = CreateController(service.Object, rescuerId);
+
+        var result = await controller.UncompleteMission(missionId, request);
+
+        var ok = Assert.IsType<OkObjectResult>(result);
+        var response = Assert.IsType<ApiResponse<SnakeCatchingMissionDetailResponse>>(ok.Value);
+
+        Assert.True(response.IsSuccess);
+        Assert.Equal("Mission marked as uncompleted. Request marked as completed.", response.Message);
+        Assert.Equal(CatchingMissionStatus.MissionUncompleted, response.Data!.Status);
+        Assert.Equal(request.Reason, response.Data.CancellationReason);
+
+        service.Verify(s => s.UncompleteMissionAsync(rescuerId, missionId, request), Times.Once);
+    }
+
     [Theory]
     [InlineData("start")]
     [InlineData("arrived")]
     [InlineData("complete")]
+    [InlineData("uncomplete")]
     [InlineData("abort")]
     public async Task Actions_ShouldThrowUnauthorizedException_WhenNoUserIdClaim(string actionName)
     {
@@ -162,6 +190,7 @@ public class SnakeCatchingMissionControllerTests
             "start" => controller.StartMission(missionId, new UpdateMissionStatusRequest()),
             "arrived" => controller.MarkAsArrived(missionId, new UpdateMissionStatusRequest()),
             "complete" => controller.CompleteMission(missionId, new UpdateMissionStatusRequest()),
+            "uncomplete" => controller.UncompleteMission(missionId, new UncompleteSnakeCatchingMissionRequest { Reason = "R" }),
             _ => controller.AbortMission(missionId, new AbortSnakeCatchingMissionRequest { Reason = "R" })
         };
 
@@ -171,6 +200,7 @@ public class SnakeCatchingMissionControllerTests
         service.Verify(s => s.StartMissionAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<UpdateMissionStatusRequest>()), Times.Never);
         service.Verify(s => s.MarkAsArrivedAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<UpdateMissionStatusRequest>()), Times.Never);
         service.Verify(s => s.CompleteMissionAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<UpdateMissionStatusRequest>()), Times.Never);
+        service.Verify(s => s.UncompleteMissionAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<UncompleteSnakeCatchingMissionRequest>()), Times.Never);
         service.Verify(s => s.AbortMissionAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<AbortSnakeCatchingMissionRequest>()), Times.Never);
     }
 
@@ -178,6 +208,7 @@ public class SnakeCatchingMissionControllerTests
     [InlineData("start", "bad-request")]
     [InlineData("arrived", "not-found")]
     [InlineData("complete", "unexpected")]
+    [InlineData("uncomplete", "bad-request")]
     [InlineData("abort", "bad-request")]
     public async Task Actions_ShouldPropagateServiceExceptions(string actionName, string exceptionType)
     {
@@ -204,6 +235,9 @@ public class SnakeCatchingMissionControllerTests
             case "complete":
                 service.Setup(s => s.CompleteMissionAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<UpdateMissionStatusRequest>())).ThrowsAsync(ex);
                 break;
+            case "uncomplete":
+                service.Setup(s => s.UncompleteMissionAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<UncompleteSnakeCatchingMissionRequest>())).ThrowsAsync(ex);
+                break;
             case "abort":
                 service.Setup(s => s.AbortMissionAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<AbortSnakeCatchingMissionRequest>())).ThrowsAsync(ex);
                 break;
@@ -216,6 +250,7 @@ public class SnakeCatchingMissionControllerTests
             "start" => controller.StartMission(missionId, new UpdateMissionStatusRequest()),
             "arrived" => controller.MarkAsArrived(missionId, new UpdateMissionStatusRequest()),
             "complete" => controller.CompleteMission(missionId, new UpdateMissionStatusRequest()),
+            "uncomplete" => controller.UncompleteMission(missionId, new UncompleteSnakeCatchingMissionRequest { Reason = "R" }),
             _ => controller.AbortMission(missionId, new AbortSnakeCatchingMissionRequest { Reason = "R" })
         };
 

@@ -351,6 +351,89 @@ namespace SnakeAid.Service.Implements
             }
         }
 
+        public async Task<SnakeCatchingMissionDetailResponse> UncompleteMissionAsync(
+            Guid rescuerId,
+            Guid missionId,
+            UncompleteSnakeCatchingMissionRequest request)
+        {
+            try
+            {
+                return await _unitOfWork.ExecuteInTransactionAsync(async () =>
+                {
+                    var mission = await _unitOfWork.GetRepository<SnakeCatchingMission>().FirstOrDefaultAsync(
+                        predicate: m => m.Id == missionId && m.RescuerId == rescuerId,
+                        include: q => q.Include(m => m.SnakeCatchingRequest));
+
+                    if (mission == null)
+                    {
+                        throw new NotFoundException("Mission not found or you don't have permission to access it.");
+                    }
+
+                    if (mission.Status != CatchingMissionStatus.Arrived)
+                    {
+                        throw new BadRequestException($"Cannot mark mission as uncompleted. Current status: {mission.Status}. Mission must be in Arrived status.");
+                    }
+
+                    var hasEvidence = await _unitOfWork.GetRepository<ReportMedia>()
+                        .ExistsAsync(m => m.ReferenceId == mission.SnakeCatchingRequestId
+                            && m.ReferenceType == MediaReferenceType.SnakeCatchingRequest
+                            && m.Purpose == MediaPurpose.Evidence);
+
+                    if (!hasEvidence)
+                    {
+                        throw new BadRequestException("Cannot mark mission as uncompleted. SnakeCatchingRequest must have at least one evidence media.");
+                    }
+
+                    mission.Status = CatchingMissionStatus.MissionUncompleted;
+                    mission.CancellationReason = request.Reason;
+                    mission.CompletedAt = DateTime.UtcNow;
+                    _unitOfWork.GetRepository<SnakeCatchingMission>().Update(mission);
+
+                    var catchingRequest = await _unitOfWork.GetRepository<SnakeCatchingRequest>()
+                        .FirstOrDefaultAsync(predicate: r => r.Id == mission.SnakeCatchingRequestId);
+
+                    if (catchingRequest != null)
+                    {
+                        catchingRequest.Status = RequestStatus.Completed;
+                        _unitOfWork.GetRepository<SnakeCatchingRequest>().Update(catchingRequest);
+                    }
+
+                    await _unitOfWork.CommitAsync();
+
+                    _logger.LogInformation(
+                        "Mission marked as uncompleted. MissionId: {MissionId}, RescuerId: {RescuerId}, RequestId: {RequestId}, Reason: {Reason}",
+                        missionId, rescuerId, mission.SnakeCatchingRequestId, request.Reason);
+
+                    var requestInfo = await _unitOfWork.GetRepository<SnakeCatchingRequest>()
+                        .FirstOrDefaultAsync(
+                            selector: r => new { r.Id, r.UserId },
+                            predicate: r => r.Id == mission.SnakeCatchingRequestId);
+
+                    var rescuerName = await _unitOfWork.GetRepository<Account>()
+                        .FirstOrDefaultAsync(selector: a => a.FullName, predicate: a => a.Id == rescuerId);
+
+                    if (requestInfo != null)
+                    {
+                        await _snakeCatchingRequestNotificationService.NotifyMissionUncompletedAsync(
+                            requestInfo.Id,
+                            mission.Id,
+                            requestInfo.UserId,
+                            rescuerId,
+                            rescuerName,
+                            request.Reason);
+                    }
+
+                    await mission.AttachReportMediaAsync(_unitOfWork, MediaReferenceType.SnakeCatchingMission);
+                    return mission.Adapt<SnakeCatchingMissionDetailResponse>();
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error uncompleting mission: {Message}", ex.Message);
+                throw;
+            }
+        }
+
         public async Task<SnakeCatchingMissionDetailResponse> AbortMissionAsync(
             Guid rescuerId,
             Guid missionId,

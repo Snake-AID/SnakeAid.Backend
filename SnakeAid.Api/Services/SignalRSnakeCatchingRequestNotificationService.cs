@@ -246,6 +246,47 @@ namespace SnakeAid.Api.Services
                 });
             }, "SnakeCatchingMissionCompleted", requestId);
 
+        public Task NotifyMissionUncompletedAsync(
+            Guid requestId,
+            Guid missionId,
+            Guid memberUserId,
+            Guid rescuerUserId,
+            string? rescuerName,
+            string reason)
+            => SafeExecuteAsync(async () =>
+            {
+                var payload = new
+                {
+                    RequestId = requestId,
+                    MissionId = missionId,
+                    RescuerUserId = rescuerUserId,
+                    RescuerName = rescuerName,
+                    Reason = reason
+                };
+
+                await _hubContext.Clients.Group(OperatorGroup).SendAsync("SnakeCatchingMissionUncompleted", payload);
+                await _hubContext.Clients.User(memberUserId.ToString()).SendAsync("SnakeCatchingMissionUncompleted", payload);
+                await _hubContext.Clients.User(rescuerUserId.ToString()).SendAsync("SnakeCatchingMissionUncompleted", payload);
+
+                await _notificationQueueService.PublishAsync(new NotificationMessage
+                {
+                    UserId = memberUserId,
+                    Title = "Nhiệm vụ chưa hoàn thành",
+                    Body = $"{rescuerName ?? "Cứu hộ viên"} báo cáo chưa thể hoàn thành nhiệm vụ. Lý do: {reason}",
+                    Type = "SNAKE_CATCHING_MISSION_UNCOMPLETED",
+                    Data = BuildEntityData(requestId, missionId)
+                });
+
+                await _notificationQueueService.BroadcastAsync(new AdminBroadcastNotificationRequest
+                {
+                    Title = "Nhiệm vụ bắt rắn chưa hoàn thành",
+                    Body = $"Nhiệm vụ #{missionId} của đơn #{requestId} được đánh dấu chưa hoàn thành. Lý do: {reason}",
+                    Type = "SNAKE_CATCHING_MISSION_UNCOMPLETED",
+                    TargetRoles = new List<AccountRole> { AccountRole.Operator },
+                    Data = BuildEntityData(requestId, missionId)
+                });
+            }, "SnakeCatchingMissionUncompleted", requestId);
+
         public Task NotifyMissionAbortedAsync(
             Guid requestId,
             Guid missionId,
