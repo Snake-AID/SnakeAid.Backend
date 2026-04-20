@@ -456,6 +456,50 @@ public class AuthService : IAuthService
         };
     }
 
+    public async Task ChangePasswordAsync(Guid userId, ChangePasswordRequest request)
+    {
+        if (request == null)
+        {
+            throw new BadRequestException("Change password request body is required.");
+        }
+
+        if (!string.Equals(request.NewPassword, request.ConfirmPassword, StringComparison.Ordinal))
+        {
+            throw new BadRequestException("Confirm password does not match new password.");
+        }
+
+        var user = await _userManager.FindByIdAsync(userId.ToString());
+        if (user == null)
+        {
+            throw new NotFoundException("User not found.");
+        }
+
+        IdentityResult result;
+        var hasPassword = await _userManager.HasPasswordAsync(user);
+
+        if (hasPassword)
+        {
+            var resetToken = await _userManager.GeneratePasswordResetTokenAsync(user);
+            result = await _userManager.ResetPasswordAsync(user, resetToken, request.NewPassword);
+        }
+        else
+        {
+            result = await _userManager.AddPasswordAsync(user, request.NewPassword);
+        }
+
+        if (!result.Succeeded)
+        {
+            var errorMessages = string.Join("; ", result.Errors.Select(e => e.Description));
+            throw new BadRequestException($"Change password failed: {errorMessages}");
+        }
+
+        // Force re-login by removing current refresh token after password change.
+        await _userManager.RemoveAuthenticationTokenAsync(user, RefreshTokenProvider, RefreshTokenName);
+        await _userManager.RemoveAuthenticationTokenAsync(user, RefreshTokenProvider, RefreshTokenExpiryName);
+
+        _logger.LogInformation("Password changed successfully for user: {UserId}", userId);
+    }
+
     #endregion
 
     #region Private Methods
