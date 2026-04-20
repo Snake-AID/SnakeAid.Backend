@@ -116,6 +116,8 @@ public class BookingService : IBookingService
                     BookedAt = booking.BookedAt,
                     PaymentDeadline = booking.PaymentDeadline,
                     Status = booking.Status,
+                    CancelledAt = booking.CancelledAt,
+                    CancellationReason = booking.CancellationReason,
                     ProblemDescription = booking.ProblemDescription,
                     TimeSlotId = booking.TimeSlotId,
                     SlotStartTime = slot.StartTime,
@@ -137,6 +139,82 @@ public class BookingService : IBookingService
         }
     }
 
+    public async Task<ConsultationBookingResponse> CancelScheduledBookingAsync(
+        Guid actorId,
+        Guid bookingId,
+        CancellationToken cancellationToken = default)
+    {
+        return await _unitOfWork.ExecuteInTransactionAsync(async () =>
+        {
+            var bookingRepo = _unitOfWork.GetRepository<ConsultationBooking>();
+            var booking = await bookingRepo.FirstOrDefaultAsync(
+                predicate: b => b.Id == bookingId,
+                include: q => q
+                    .Include(b => b.User)
+                    .Include(b => b.Expert)
+                    .Include(b => b.TimeSlot)
+                    .Include(b => b.Consultation),
+                asNoTracking: false,
+                cancellationToken: cancellationToken);
+
+            if (booking == null)
+            {
+                throw new NotFoundException("Consultation booking was not found.");
+            }
+
+            var cancellationReason = ResolveCancellationReason(actorId, booking);
+            var now = DateTime.UtcNow;
+            if (booking.TimeSlot.StartTime <= now)
+            {
+                throw new ConflictException("This scheduled booking has already started and can no longer be cancelled.");
+            }
+
+            if (booking.Status != BookingStatus.PendingPayment && booking.Status != BookingStatus.Confirmed)
+            {
+                throw new ConflictException("Consultation booking is no longer cancellable.");
+            }
+
+            if (booking.Status == BookingStatus.PendingPayment)
+            {
+                await _consultationPaymentService.CancelPendingScheduledBookingPaymentAsync(
+                    booking.Id,
+                    "Scheduled booking cancelled before payment confirmation.",
+                    cancellationToken);
+            }
+            else if (cancellationReason == ConsultationBookingCancellationReason.CancelledByExpert)
+            {
+                var refunded = await _consultationPaymentService.RefundScheduledBookingAsync(
+                    booking.Id,
+                    booking.UserId,
+                    "Scheduled consultation refunded after expert cancellation.",
+                    cancellationToken);
+
+                if (!refunded)
+                {
+                    throw new ConflictException("Scheduled consultation refund has already been processed.");
+                }
+            }
+
+            booking.Status = BookingStatus.Cancelled;
+            booking.CancelledAt = now;
+            booking.CancellationReason = cancellationReason;
+            bookingRepo.Update(booking);
+
+            if (booking.Consultation != null)
+            {
+                booking.Consultation.Status = ConsultationStatus.Cancelled;
+                _unitOfWork.GetRepository<Consultation>().Update(booking.Consultation);
+            }
+
+            booking.TimeSlot.Status = TimeSlotStatus.Available;
+            _unitOfWork.GetRepository<ExpertTimeSlot>().Update(booking.TimeSlot);
+
+            await _unitOfWork.CommitAsync();
+
+            return MapBookingResponse(booking);
+        });
+    }
+
     public async Task<IEnumerable<ConsultationBookingResponse>> GetMyBookingsAsync(Guid userId)
     {
         var bookings = await _unitOfWork.GetRepository<ConsultationBooking>().GetListAsync(
@@ -144,24 +222,7 @@ public class BookingService : IBookingService
             orderBy: q => q.OrderByDescending(b => b.BookedAt),
             include: q => q.Include(b => b.Expert).Include(b => b.TimeSlot).Include(b => b.Consultation));
 
-        return bookings.Select(booking => new ConsultationBookingResponse
-        {
-            Id = booking.Id,
-            UserId = booking.UserId,
-            UserName = booking.User?.FullName,
-            ExpertId = booking.ExpertId,
-            ExpertName = booking.Expert?.FullName,
-            Price = booking.Price,
-            BookedAt = booking.BookedAt,
-            PaymentDeadline = booking.PaymentDeadline,
-            Status = booking.Status,
-            ProblemDescription = booking.ProblemDescription,
-            TimeSlotId = booking.TimeSlotId,
-            SlotStartTime = booking.TimeSlot.StartTime,
-            SlotEndTime = booking.TimeSlot.EndTime,
-            ConsultationId = booking.ConsultationId,
-            RoomId = booking.Consultation?.RoomId
-        });
+        return bookings.Select(MapBookingResponse);
     }
 
     public async Task<IEnumerable<ConsultationBookingResponse>> GetExpertBookingsAsync(Guid expertId)
@@ -177,24 +238,7 @@ public class BookingService : IBookingService
                 .Include(b => b.TimeSlot)
                 .Include(b => b.Consultation));
 
-        return bookings.Select(booking => new ConsultationBookingResponse
-        {
-            Id = booking.Id,
-            UserId = booking.UserId,
-            UserName = booking.User?.FullName,
-            ExpertId = booking.ExpertId,
-            ExpertName = booking.Expert?.FullName,
-            Price = booking.Price,
-            BookedAt = booking.BookedAt,
-            PaymentDeadline = booking.PaymentDeadline,
-            Status = booking.Status,
-            ProblemDescription = booking.ProblemDescription,
-            TimeSlotId = booking.TimeSlotId,
-            SlotStartTime = booking.TimeSlot.StartTime,
-            SlotEndTime = booking.TimeSlot.EndTime,
-            ConsultationId = booking.ConsultationId,
-            RoomId = booking.Consultation?.RoomId
-        });
+        return bookings.Select(MapBookingResponse);
     }
 
     public async Task<int> AutoCompleteElapsedScheduledConsultationsAsync(CancellationToken cancellationToken = default)
@@ -393,5 +437,44 @@ public class BookingService : IBookingService
         _logger.LogInformation("Auto-complete emergency consultations sweep completed. Total rooms processed: {CompletedCount}", completedCount);
 
         return completedCount;
+    }
+
+    private static ConsultationBookingCancellationReason ResolveCancellationReason(Guid actorId, ConsultationBooking booking)
+    {
+        if (booking.UserId == actorId)
+        {
+            return ConsultationBookingCancellationReason.CancelledByMember;
+        }
+
+        if (booking.ExpertId == actorId)
+        {
+            return ConsultationBookingCancellationReason.CancelledByExpert;
+        }
+
+        throw new ForbiddenException("You are not allowed to cancel this booking.");
+    }
+
+    private static ConsultationBookingResponse MapBookingResponse(ConsultationBooking booking)
+    {
+        return new ConsultationBookingResponse
+        {
+            Id = booking.Id,
+            UserId = booking.UserId,
+            UserName = booking.User?.FullName,
+            ExpertId = booking.ExpertId,
+            ExpertName = booking.Expert?.FullName,
+            Price = booking.Price,
+            BookedAt = booking.BookedAt,
+            PaymentDeadline = booking.PaymentDeadline,
+            Status = booking.Status,
+            CancelledAt = booking.CancelledAt,
+            CancellationReason = booking.CancellationReason,
+            ProblemDescription = booking.ProblemDescription,
+            TimeSlotId = booking.TimeSlotId,
+            SlotStartTime = booking.TimeSlot.StartTime,
+            SlotEndTime = booking.TimeSlot.EndTime,
+            ConsultationId = booking.ConsultationId,
+            RoomId = booking.Consultation?.RoomId
+        };
     }
 }

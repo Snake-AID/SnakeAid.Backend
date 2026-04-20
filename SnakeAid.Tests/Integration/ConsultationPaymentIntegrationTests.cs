@@ -337,6 +337,141 @@ public class ConsultationPaymentIntegrationTests
     }
 
     [Fact]
+    public async Task RefundScheduledBookingAsync_ShouldRefundEscrowToMember()
+    {
+        var userId = Guid.NewGuid();
+        var expertId = Guid.NewGuid();
+        var bookingId = Guid.NewGuid();
+        var consultationId = Guid.NewGuid();
+        var slotId = Guid.NewGuid();
+
+        await using var db = CreateDbContext();
+        await SeedAccountsAsync(db, userId, expertId);
+        await SeedWalletsAsync(db, userId, expertId, 0m, 0m);
+
+        db.ExpertTimeSlots.Add(new ExpertTimeSlot
+        {
+            Id = slotId,
+            ExpertId = expertId,
+            StartTime = DateTime.UtcNow.AddHours(1),
+            EndTime = DateTime.UtcNow.AddHours(1.5),
+            Status = TimeSlotStatus.Reserved,
+            Version = 0
+        });
+
+        db.Consultations.Add(new Consultation
+        {
+            Id = consultationId,
+            CallerId = userId,
+            CalleeId = expertId,
+            RoomId = $"consultation-{consultationId:N}",
+            StartTime = DateTime.UtcNow.AddHours(1),
+            Status = ConsultationStatus.Scheduled,
+            Type = ConsultationType.Scheduled
+        });
+
+        db.ConsultationBookings.Add(new ConsultationBooking
+        {
+            Id = bookingId,
+            UserId = userId,
+            ExpertId = expertId,
+            Price = 150_000m,
+            BookedAt = DateTime.UtcNow,
+            PaymentDeadline = DateTime.UtcNow.AddMinutes(15),
+            Status = BookingStatus.Confirmed,
+            TimeSlotId = slotId,
+            ConsultationId = consultationId
+        });
+
+        db.Set<Transaction>().Add(new Transaction
+        {
+            Id = Guid.NewGuid(),
+            UserId = userId,
+            ReferenceId = bookingId,
+            Amount = 150_000m,
+            Currency = "VND",
+            TransactionType = TransactionType.ConsultationPayment,
+            PaymentMethod = "Wallet",
+            ExternalTransactionId = "seed-payment",
+            Description = "Scheduled consultation payment",
+            CreatedAt = DateTime.UtcNow
+        });
+
+        await db.SaveChangesAsync();
+
+        var service = CreatePaymentService(db);
+        var refunded = await service.RefundScheduledBookingAsync(bookingId, userId, "Expert cancelled.");
+
+        Assert.True(refunded);
+
+        var userWallet = await db.Set<Wallet>().FirstAsync(w => w.UserId == userId);
+        Assert.Equal(150_000m, userWallet.Balance);
+        Assert.NotNull(await db.Set<Transaction>().FirstOrDefaultAsync(t => t.ReferenceId == bookingId && t.TransactionType == TransactionType.ConsultationRefund));
+        Assert.Equal(0m, await GetConsultationEscrowAvailableByPaymentReferenceAsync(db, bookingId));
+    }
+
+    [Fact]
+    public async Task CancelPendingScheduledBookingPaymentAsync_ShouldDeletePendingPayOsTransaction()
+    {
+        var userId = Guid.NewGuid();
+        var expertId = Guid.NewGuid();
+        var bookingId = Guid.NewGuid();
+        var consultationId = Guid.NewGuid();
+        var slotId = Guid.NewGuid();
+
+        await using var db = CreateDbContext();
+        await SeedAccountsAsync(db, userId, expertId);
+        await SeedWalletsAsync(db, userId, expertId, 500_000m, 0m);
+
+        db.ExpertTimeSlots.Add(new ExpertTimeSlot
+        {
+            Id = slotId,
+            ExpertId = expertId,
+            StartTime = DateTime.UtcNow.AddHours(1),
+            EndTime = DateTime.UtcNow.AddHours(1.5),
+            Status = TimeSlotStatus.Reserved,
+            Version = 0
+        });
+
+        db.Consultations.Add(new Consultation
+        {
+            Id = consultationId,
+            CallerId = userId,
+            CalleeId = expertId,
+            RoomId = $"consultation-{consultationId:N}",
+            StartTime = DateTime.UtcNow.AddHours(1),
+            Status = ConsultationStatus.Scheduled,
+            Type = ConsultationType.Scheduled
+        });
+
+        db.ConsultationBookings.Add(new ConsultationBooking
+        {
+            Id = bookingId,
+            UserId = userId,
+            ExpertId = expertId,
+            Price = 150_000m,
+            BookedAt = DateTime.UtcNow,
+            PaymentDeadline = DateTime.UtcNow.AddMinutes(15),
+            Status = BookingStatus.PendingPayment,
+            TimeSlotId = slotId,
+            ConsultationId = consultationId
+        });
+
+        await db.SaveChangesAsync();
+
+        var service = CreatePaymentService(db, paymentGateway: new FakePaymentGateway());
+        await service.PayScheduledBookingAsync(userId, bookingId, new ProcessConsultationPaymentRequest
+        {
+            PaymentMethod = ConsultationPaymentMethod.PayOs
+        });
+
+        var cancelled = await service.CancelPendingScheduledBookingPaymentAsync(bookingId, "Booking cancelled.");
+
+        Assert.True(cancelled);
+        Assert.Null(await db.Set<Transaction>().FirstOrDefaultAsync(t => t.ReferenceId == bookingId && t.TransactionType == TransactionType.ConsultationPayment));
+    }
+
+    [Fact]
     public async Task SettleConsultationEscrowAsync_ShouldBeIdempotent()
     {
         var userId = Guid.NewGuid();
@@ -973,6 +1108,8 @@ public class ConsultationPaymentIntegrationTests
             modelBuilder.Entity<ConsultationBooking>(entity =>
             {
                 entity.HasKey(b => b.Id);
+                entity.Property(b => b.Status).HasConversion<int>();
+                entity.Property(b => b.CancellationReason).HasConversion<int?>();
                 entity.Property(b => b.Version)
                     .IsConcurrencyToken()
                     .ValueGeneratedNever()

@@ -9,6 +9,7 @@ namespace SnakeAid.Service.Interfaces;
 public interface IBookingService
 {
     Task<ConsultationBookingResponse> CreateScheduledBookingAsync(Guid userId, CreateConsultationBookingRequest request);
+    Task<ConsultationBookingResponse> CancelScheduledBookingAsync(Guid actorId, Guid bookingId, CancellationToken cancellationToken = default);
     Task<IEnumerable<ConsultationBookingResponse>> GetMyBookingsAsync(Guid userId);
     Task<IEnumerable<ConsultationBookingResponse>> GetExpertBookingsAsync(Guid expertId);
     Task<int> AutoCompleteElapsedScheduledConsultationsAsync(CancellationToken cancellationToken = default);
