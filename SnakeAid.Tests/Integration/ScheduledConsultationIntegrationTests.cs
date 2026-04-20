@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.SignalR;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
+using SnakeAid.Core.Constants;
 using SnakeAid.Core.Domains;
 using SnakeAid.Core.Requests.Consultation;
 using SnakeAid.Core.Requests.LiveKit;
@@ -25,6 +26,8 @@ public class ScheduledConsultationIntegrationTests
         var userId = Guid.NewGuid();
         var expertId = Guid.NewGuid();
         var slotId = Guid.NewGuid();
+        var slotStart = DateTime.UtcNow.AddHours(2);
+        var slotEnd = slotStart.AddMinutes(30);
 
         await using var db = CreateDbContext();
         await SeedUserAndExpertAsync(db, userId, expertId);
@@ -32,8 +35,8 @@ public class ScheduledConsultationIntegrationTests
         {
             Id = slotId,
             ExpertId = expertId,
-            StartTime = new DateTime(2026, 3, 10, 8, 0, 0, DateTimeKind.Utc),
-            EndTime = new DateTime(2026, 3, 10, 8, 30, 0, DateTimeKind.Utc),
+            StartTime = slotStart,
+            EndTime = slotEnd,
             Status = TimeSlotStatus.Available
         });
         await db.SaveChangesAsync();
@@ -126,6 +129,283 @@ public class ScheduledConsultationIntegrationTests
     }
 
     [Fact]
+    public async Task EndConsultationAsync_ShouldSendConsultationCallEnded_AndDeleteRoom_AndCompleteConsultation()
+    {
+        var userId = Guid.NewGuid();
+        var expertId = Guid.NewGuid();
+        var slotId = Guid.NewGuid();
+        var consultationId = Guid.NewGuid();
+        var bookingId = Guid.NewGuid();
+
+        await using var db = CreateDbContext();
+        await SeedUserAndExpertAsync(db, userId, expertId);
+
+        db.ExpertTimeSlots.Add(new ExpertTimeSlot
+        {
+            Id = slotId,
+            ExpertId = expertId,
+            StartTime = new DateTime(2026, 3, 10, 8, 0, 0, DateTimeKind.Utc),
+            EndTime = new DateTime(2026, 3, 10, 8, 30, 0, DateTimeKind.Utc),
+            Status = TimeSlotStatus.Reserved
+        });
+
+        db.Consultations.Add(new Consultation
+        {
+            Id = consultationId,
+            CallerId = userId,
+            CalleeId = expertId,
+            RoomId = $"consultation-{consultationId}",
+            StartTime = new DateTime(2026, 3, 10, 8, 0, 0, DateTimeKind.Utc),
+            Status = ConsultationStatus.Ongoing,
+            Type = ConsultationType.Scheduled
+        });
+
+        db.ConsultationBookings.Add(new ConsultationBooking
+        {
+            Id = bookingId,
+            UserId = userId,
+            ExpertId = expertId,
+            TimeSlotId = slotId,
+            ConsultationId = consultationId,
+            Price = 150_000m,
+            BookedAt = DateTime.UtcNow,
+            PaymentDeadline = DateTime.UtcNow.AddMinutes(15),
+            Status = BookingStatus.Confirmed
+        });
+
+        await db.SaveChangesAsync();
+
+        var hub = new SpyHubContext();
+        var liveKit = new SpyLiveKitService();
+        var consultationService = new ConsultationService(
+            new UnitOfWork<SnakeAidDbContext>(db),
+            new FakeConsultationPaymentService(),
+            NullLogger<ConsultationService>.Instance,
+            hub,
+            liveKit);
+
+        await consultationService.EndConsultationAsync(consultationId, userId);
+
+        var hubCall = Assert.Single(hub.SendCalls);
+        Assert.Equal($"consultation:{consultationId}", hubCall.GroupName);
+        Assert.Equal(ConsultationRealtimeEvents.ConsultationCallEnded, hubCall.Method);
+        var payload = hubCall.Args[0]!;
+        Assert.Equal(consultationId, (Guid)payload.GetType().GetProperty("ConsultationId")!.GetValue(payload)!);
+        Assert.Equal(ConsultationRealtimeEvents.ConsultationCallEndReasons.ParticipantEnded, (string)payload.GetType().GetProperty("Reason")!.GetValue(payload)!);
+
+        var deletedRoom = Assert.Single(liveKit.DeletedRoomNames);
+        Assert.Equal($"consultation-{consultationId}", deletedRoom);
+
+        var consultation = await db.Consultations.FirstAsync(c => c.Id == consultationId);
+        var booking = await db.ConsultationBookings.FirstAsync(b => b.Id == bookingId);
+        var slot = await db.ExpertTimeSlots.FirstAsync(s => s.Id == slotId);
+
+        Assert.Equal(ConsultationStatus.Completed, consultation.Status);
+        Assert.NotNull(consultation.EndTime);
+        Assert.Equal(BookingStatus.Completed, booking.Status);
+        Assert.Equal(TimeSlotStatus.Booked, slot.Status);
+    }
+
+    [Fact]
+    public async Task CancelScheduledBookingAsync_ByMember_ShouldCancelPendingBooking_AndReleaseSlot()
+    {
+        var userId = Guid.NewGuid();
+        var expertId = Guid.NewGuid();
+        var slotId = Guid.NewGuid();
+        var consultationId = Guid.NewGuid();
+        var bookingId = Guid.NewGuid();
+
+        await using var db = CreateDbContext();
+        await SeedUserAndExpertAsync(db, userId, expertId);
+
+        db.ExpertTimeSlots.Add(new ExpertTimeSlot
+        {
+            Id = slotId,
+            ExpertId = expertId,
+            StartTime = DateTime.UtcNow.AddHours(2),
+            EndTime = DateTime.UtcNow.AddHours(2.5),
+            Status = TimeSlotStatus.Reserved
+        });
+
+        db.Consultations.Add(new Consultation
+        {
+            Id = consultationId,
+            CallerId = userId,
+            CalleeId = expertId,
+            RoomId = $"consultation-{consultationId}",
+            StartTime = DateTime.UtcNow.AddHours(2),
+            Status = ConsultationStatus.Scheduled,
+            Type = ConsultationType.Scheduled
+        });
+
+        db.ConsultationBookings.Add(new ConsultationBooking
+        {
+            Id = bookingId,
+            UserId = userId,
+            ExpertId = expertId,
+            TimeSlotId = slotId,
+            ConsultationId = consultationId,
+            Price = 150_000m,
+            BookedAt = DateTime.UtcNow,
+            PaymentDeadline = DateTime.UtcNow.AddMinutes(15),
+            Status = BookingStatus.PendingPayment
+        });
+
+        await db.SaveChangesAsync();
+
+        var paymentService = new FakeConsultationPaymentService();
+        var bookingService = new BookingService(
+            new UnitOfWork<SnakeAidDbContext>(db),
+            paymentService,
+            new NoOpHubContext(),
+            new NoOpLiveKitService(),
+            NullLogger<BookingService>.Instance);
+
+        var response = await bookingService.CancelScheduledBookingAsync(userId, bookingId);
+
+        Assert.Equal(BookingStatus.Cancelled, response.Status);
+        Assert.Equal(ConsultationBookingCancellationReason.CancelledByMember, response.CancellationReason);
+        Assert.Equal([bookingId], paymentService.CancelledPendingBookingIds);
+        Assert.Empty(paymentService.RefundedBookingIds);
+
+        var booking = await db.ConsultationBookings.FirstAsync(b => b.Id == bookingId);
+        var slot = await db.ExpertTimeSlots.FirstAsync(s => s.Id == slotId);
+        var consultation = await db.Consultations.FirstAsync(c => c.Id == consultationId);
+
+        Assert.Equal(BookingStatus.Cancelled, booking.Status);
+        Assert.Equal(ConsultationBookingCancellationReason.CancelledByMember, booking.CancellationReason);
+        Assert.NotNull(booking.CancelledAt);
+        Assert.Equal(TimeSlotStatus.Available, slot.Status);
+        Assert.Equal(ConsultationStatus.Cancelled, consultation.Status);
+    }
+
+    [Fact]
+    public async Task CancelScheduledBookingAsync_ByExpert_ShouldRefundConfirmedBooking()
+    {
+        var userId = Guid.NewGuid();
+        var expertId = Guid.NewGuid();
+        var slotId = Guid.NewGuid();
+        var consultationId = Guid.NewGuid();
+        var bookingId = Guid.NewGuid();
+
+        await using var db = CreateDbContext();
+        await SeedUserAndExpertAsync(db, userId, expertId);
+
+        db.ExpertTimeSlots.Add(new ExpertTimeSlot
+        {
+            Id = slotId,
+            ExpertId = expertId,
+            StartTime = DateTime.UtcNow.AddHours(3),
+            EndTime = DateTime.UtcNow.AddHours(3.5),
+            Status = TimeSlotStatus.Reserved
+        });
+
+        db.Consultations.Add(new Consultation
+        {
+            Id = consultationId,
+            CallerId = userId,
+            CalleeId = expertId,
+            RoomId = $"consultation-{consultationId}",
+            StartTime = DateTime.UtcNow.AddHours(3),
+            Status = ConsultationStatus.Scheduled,
+            Type = ConsultationType.Scheduled
+        });
+
+        db.ConsultationBookings.Add(new ConsultationBooking
+        {
+            Id = bookingId,
+            UserId = userId,
+            ExpertId = expertId,
+            TimeSlotId = slotId,
+            ConsultationId = consultationId,
+            Price = 150_000m,
+            BookedAt = DateTime.UtcNow,
+            PaymentDeadline = DateTime.UtcNow.AddMinutes(15),
+            Status = BookingStatus.Confirmed
+        });
+
+        await db.SaveChangesAsync();
+
+        var paymentService = new FakeConsultationPaymentService();
+        var bookingService = new BookingService(
+            new UnitOfWork<SnakeAidDbContext>(db),
+            paymentService,
+            new NoOpHubContext(),
+            new NoOpLiveKitService(),
+            NullLogger<BookingService>.Instance);
+
+        var response = await bookingService.CancelScheduledBookingAsync(expertId, bookingId);
+
+        Assert.Equal(BookingStatus.Cancelled, response.Status);
+        Assert.Equal(ConsultationBookingCancellationReason.CancelledByExpert, response.CancellationReason);
+        Assert.Equal([bookingId], paymentService.RefundedBookingIds);
+        Assert.Empty(paymentService.CancelledPendingBookingIds);
+    }
+
+    [Fact]
+    public async Task CancelScheduledBookingAsync_ByMember_ShouldSettleConfirmedBookingWithoutRefund()
+    {
+        var userId = Guid.NewGuid();
+        var expertId = Guid.NewGuid();
+        var slotId = Guid.NewGuid();
+        var consultationId = Guid.NewGuid();
+        var bookingId = Guid.NewGuid();
+
+        await using var db = CreateDbContext();
+        await SeedUserAndExpertAsync(db, userId, expertId);
+
+        db.ExpertTimeSlots.Add(new ExpertTimeSlot
+        {
+            Id = slotId,
+            ExpertId = expertId,
+            StartTime = DateTime.UtcNow.AddHours(3),
+            EndTime = DateTime.UtcNow.AddHours(3.5),
+            Status = TimeSlotStatus.Reserved
+        });
+
+        db.Consultations.Add(new Consultation
+        {
+            Id = consultationId,
+            CallerId = userId,
+            CalleeId = expertId,
+            RoomId = $"consultation-{consultationId}",
+            StartTime = DateTime.UtcNow.AddHours(3),
+            Status = ConsultationStatus.Scheduled,
+            Type = ConsultationType.Scheduled
+        });
+
+        db.ConsultationBookings.Add(new ConsultationBooking
+        {
+            Id = bookingId,
+            UserId = userId,
+            ExpertId = expertId,
+            TimeSlotId = slotId,
+            ConsultationId = consultationId,
+            Price = 150_000m,
+            BookedAt = DateTime.UtcNow,
+            PaymentDeadline = DateTime.UtcNow.AddMinutes(15),
+            Status = BookingStatus.Confirmed
+        });
+
+        await db.SaveChangesAsync();
+
+        var paymentService = new FakeConsultationPaymentService();
+        var bookingService = new BookingService(
+            new UnitOfWork<SnakeAidDbContext>(db),
+            paymentService,
+            new NoOpHubContext(),
+            new NoOpLiveKitService(),
+            NullLogger<BookingService>.Instance);
+
+        var response = await bookingService.CancelScheduledBookingAsync(userId, bookingId);
+
+        Assert.Equal(BookingStatus.Cancelled, response.Status);
+        Assert.Equal(ConsultationBookingCancellationReason.CancelledByMember, response.CancellationReason);
+        Assert.Equal([consultationId], paymentService.SettledConsultationIds);
+        Assert.Empty(paymentService.RefundedBookingIds);
+    }
+
+    [Fact]
     public async Task CreateConsultationReviewAsync_ShouldCreateFeedback_AndUpdateExpertRating()
     {
         var userId = Guid.NewGuid();
@@ -169,6 +449,8 @@ public class ScheduledConsultationIntegrationTests
     private sealed class FakeConsultationPaymentService : IConsultationPaymentService
     {
         public List<Guid> SettledConsultationIds { get; } = new();
+        public List<Guid> RefundedBookingIds { get; } = new();
+        public List<Guid> CancelledPendingBookingIds { get; } = new();
 
         public Task<ConsultationPaymentResponse> ConfirmConsultationPaymentAsync(Guid transactionId, CancellationToken cancellationToken = default) => throw new NotImplementedException();
         public Task<PayOsWebhookResponse> ConfirmConsultationPaymentByOrderCodeAsync(long orderCode, CancellationToken cancellationToken = default) => throw new NotImplementedException();
@@ -177,6 +459,16 @@ public class ScheduledConsultationIntegrationTests
         public Task<ConsultationPaymentResponse> PayEmergencyRequestAsync(Guid userId, Guid requestId, ProcessConsultationPaymentRequest request, CancellationToken cancellationToken = default) => throw new NotImplementedException();
         public Task<PayOsWebhookResponse> ProcessConsultationWebhookAsync(string rawPayload, CancellationToken cancellationToken = default) => throw new NotImplementedException();
         public Task<bool> RefundEmergencyEscrowAsync(Guid requestId, string reason, CancellationToken cancellationToken = default) => Task.FromResult(false);
+        public Task<bool> RefundScheduledBookingAsync(Guid bookingId, Guid receiverId, string reason, CancellationToken cancellationToken = default)
+        {
+            RefundedBookingIds.Add(bookingId);
+            return Task.FromResult(true);
+        }
+        public Task<bool> CancelPendingScheduledBookingPaymentAsync(Guid bookingId, string reason, CancellationToken cancellationToken = default)
+        {
+            CancelledPendingBookingIds.Add(bookingId);
+            return Task.FromResult(true);
+        }
         public Task<int> ExpireEmergencyRequestsAsync(CancellationToken cancellationToken = default) => Task.FromResult(0);
         public Task<bool> SettleConsultationEscrowAsync(Guid consultationId, CancellationToken cancellationToken = default)
         {
@@ -211,6 +503,58 @@ public class ScheduledConsultationIntegrationTests
         }
     }
 
+    private sealed class SpyHubContext : IHubContext<ConsultationHub>
+    {
+        public List<SendCall> SendCalls { get; } = new();
+        public IHubClients Clients { get; }
+        public IGroupManager Groups => throw new NotImplementedException();
+
+        public SpyHubContext()
+        {
+            Clients = new SpyHubClients(SendCalls);
+        }
+
+        internal sealed record SendCall(string GroupName, string Method, object?[] Args);
+
+        private sealed class SpyHubClients : IHubClients
+        {
+            private readonly List<SendCall> _sendCalls;
+
+            public SpyHubClients(List<SendCall> sendCalls)
+            {
+                _sendCalls = sendCalls;
+            }
+
+            public IClientProxy All => new SpyClientProxy("all", _sendCalls);
+            public IClientProxy AllExcept(IReadOnlyList<string> excludedConnectionIds) => new SpyClientProxy("all-except", _sendCalls);
+            public IClientProxy Client(string connectionId) => new SpyClientProxy(connectionId, _sendCalls);
+            public IClientProxy Clients(IReadOnlyList<string> connectionIds) => new SpyClientProxy("clients", _sendCalls);
+            public IClientProxy Group(string groupName) => new SpyClientProxy(groupName, _sendCalls);
+            public IClientProxy GroupExcept(string groupName, IReadOnlyList<string> excludedConnectionIds) => new SpyClientProxy(groupName, _sendCalls);
+            public IClientProxy Groups(IReadOnlyList<string> groupNames) => new SpyClientProxy("groups", _sendCalls);
+            public IClientProxy User(string userId) => new SpyClientProxy(userId, _sendCalls);
+            public IClientProxy Users(IReadOnlyList<string> userIds) => new SpyClientProxy("users", _sendCalls);
+        }
+
+        private sealed class SpyClientProxy : IClientProxy
+        {
+            private readonly string _groupName;
+            private readonly List<SendCall> _sendCalls;
+
+            public SpyClientProxy(string groupName, List<SendCall> sendCalls)
+            {
+                _groupName = groupName;
+                _sendCalls = sendCalls;
+            }
+
+            public Task SendCoreAsync(string method, object?[] args, CancellationToken cancellationToken = default)
+            {
+                _sendCalls.Add(new SendCall(_groupName, method, args));
+                return Task.CompletedTask;
+            }
+        }
+    }
+
     private sealed class NoOpLiveKitService : ILiveKitService
     {
         public string GenerateAccessToken(string identity, string roomName, VideoGrants grants, string? metadata = null, TimeSpan? ttl = null)
@@ -219,6 +563,25 @@ public class ScheduledConsultationIntegrationTests
             => Task.FromResult(new RoomInfoResponse());
         public Task DeleteRoomAsync(string roomName, CancellationToken cancellationToken = default)
             => Task.CompletedTask;
+        public Task<List<RoomInfoResponse>> ListRoomsAsync(CancellationToken cancellationToken = default)
+            => Task.FromResult(new List<RoomInfoResponse>());
+        public LiveKitWebhookPayload? ValidateWebhook(string body, string authorizationHeader)
+            => null;
+    }
+
+    private sealed class SpyLiveKitService : ILiveKitService
+    {
+        public List<string> DeletedRoomNames { get; } = new();
+
+        public string GenerateAccessToken(string identity, string roomName, VideoGrants grants, string? metadata = null, TimeSpan? ttl = null)
+            => string.Empty;
+        public Task<RoomInfoResponse> CreateRoomAsync(string roomName, int maxParticipants = 2, int emptyTimeoutSeconds = 600, CancellationToken cancellationToken = default)
+            => Task.FromResult(new RoomInfoResponse());
+        public Task DeleteRoomAsync(string roomName, CancellationToken cancellationToken = default)
+        {
+            DeletedRoomNames.Add(roomName);
+            return Task.CompletedTask;
+        }
         public Task<List<RoomInfoResponse>> ListRoomsAsync(CancellationToken cancellationToken = default)
             => Task.FromResult(new List<RoomInfoResponse>());
         public LiveKitWebhookPayload? ValidateWebhook(string body, string authorizationHeader)
@@ -357,6 +720,8 @@ public class ScheduledConsultationIntegrationTests
             modelBuilder.Entity<ConsultationBooking>(entity =>
             {
                 entity.HasKey(b => b.Id);
+                entity.Property(b => b.Status).HasConversion<int>();
+                entity.Property(b => b.CancellationReason).HasConversion<int?>();
                 entity.Property(b => b.Version)
                     .IsConcurrencyToken()
                     .ValueGeneratedNever()

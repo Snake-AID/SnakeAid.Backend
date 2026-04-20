@@ -40,4 +40,9 @@ public interface IAuthService
     /// Verify account with OTP and activate user
     /// </summary>
     Task<VerifyAccountResponse> VerifyAccountAsync(VerifyAccountRequest request);
+
+    /// <summary>
+    /// Change current user's password
+    /// </summary>
+    Task ChangePasswordAsync(Guid userId, ChangePasswordRequest request);
 }

@@ -19,7 +19,7 @@ Unit tests kiểm chứng hành vi room cleanup khi consultation hết giờ: th
 
 ### 8.1 — Thứ tự: Signal + DeleteRoom TRƯỚC status update
 
-Verify `AutoCompleteElapsedScheduledConsultationsAsync` gửi `RoomExpiring` signal và gọi `DeleteRoomAsync` TRƯỚC KHI `CommitAsync` (persist status change). Dùng operation log để track thứ tự.
+Verify `AutoCompleteElapsedScheduledConsultationsAsync` gửi `ConsultationCallEnded` signal và gọi `DeleteRoomAsync` TRƯỚC KHI `CommitAsync` (persist status change). Dùng operation log để track thứ tự.
 
 ### 8.2 — Emergency: status Completed + EndTime
 
@@ -29,9 +29,9 @@ Verify `AutoCompleteElapsedEmergencyConsultationsAsync` set `Status = Completed`
 
 Verify `SettleConsultationEscrowAsync` được gọi đúng một lần cho mỗi consultation hoàn tất. Test cả scheduled (2 bookings) và emergency (2 consultations).
 
-### 8.4 — RoomExpiring signal payload
+### 8.4 — ConsultationCallEnded signal payload
 
-Verify payload chứa đúng `ConsultationId` (Guid) và `Reason = "slot_elapsed"`. Dùng reflection để kiểm tra anonymous object.
+Verify payload chứa đúng `ConsultationId` (Guid) và `Reason = "timeout"`. Dùng reflection để kiểm tra anonymous object.
 
 ### 8.5 — DeleteRoomAsync room name format
 

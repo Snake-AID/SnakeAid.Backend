@@ -92,6 +92,58 @@ public class SnakeCatchingPaymentServiceTests
         _requestRepoMock.Verify(r => r.Update(It.Is<SnakeCatchingRequest>(req => req.Id == TestRequestId && req.Status == RequestStatus.Completed)), Times.Once);
     }
 
+    [Theory]
+    [InlineData(RequestStatus.Pending)]
+    [InlineData(RequestStatus.Confirmed)]
+    [InlineData(RequestStatus.Assigned)]
+    public async Task CreatePaymentLink_AllowsCatchingPayment_ForPendingConfirmedAndAssignedStatuses(RequestStatus status)
+    {
+        var requestEntity = CreateRequest(status, TestUserId);
+        var insertedTransactions = new List<Transaction>();
+
+        SetupRequestRepo(requestEntity);
+        SetupTransactionRepo(existingTransaction: null);
+        _transactionRepoMock
+            .Setup(r => r.InsertAsync(It.IsAny<Transaction>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Transaction tx, CancellationToken _) =>
+            {
+                insertedTransactions.Add(tx);
+                return tx;
+            });
+
+        _paymentGatewayMock
+            .Setup(g => g.CreatePaymentLinkAsync(It.IsAny<PayOsCreatePaymentRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((PayOsCreatePaymentRequest req, CancellationToken _) => new PayOsPaymentLinkResult
+            {
+                Success = true,
+                OrderCode = req.OrderCode,
+                PaymentLinkId = "plink-test",
+                CheckoutUrl = "https://payos.test/checkout",
+                Amount = req.Amount,
+                Status = "PENDING",
+                Currency = "VND"
+            });
+
+        var response = await _service.CreateSnakeCatchingPaymentLinkAsync(
+            new CreateSnakeCatchingPaymentRequest
+            {
+                SnakeCatchingRequestId = TestRequestId,
+                Amount = 200_000m,
+                Description = "test",
+                TransactionType = TransactionType.CatchingPayment
+            },
+            TestUserId,
+            CancellationToken.None);
+
+        Assert.Equal(TestRequestId, response.SnakeCatchingRequestId);
+        Assert.Equal(200_000m, response.Amount);
+        Assert.Equal("Pending", response.Status);
+        Assert.Equal("https://payos.test/checkout", response.CheckoutUrl);
+        Assert.Equal("plink-test", response.PaymentLinkId);
+        Assert.Single(insertedTransactions);
+        Assert.Equal(TransactionType.CatchingPayment, insertedTransactions[0].TransactionType);
+    }
+
     [Fact]
     public async Task ConfirmSnakeCatchingPayment_RecordsPayOsRevenueWithoutLegacyEscrowArtifacts()
     {

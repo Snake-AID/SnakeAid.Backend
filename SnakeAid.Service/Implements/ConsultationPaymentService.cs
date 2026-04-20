@@ -208,25 +208,121 @@ public class ConsultationPaymentService : IConsultationPaymentService
         });
     }
 
+    public async Task<bool> RefundScheduledBookingAsync(
+        Guid bookingId,
+        Guid receiverId,
+        string reason,
+        CancellationToken cancellationToken = default)
+    {
+        return await _unitOfWork.ExecuteInTransactionAsync(async () =>
+        {
+            var booking = await _unitOfWork.GetRepository<ConsultationBooking>().FirstOrDefaultAsync(
+                predicate: b => b.Id == bookingId,
+                asNoTracking: true,
+                cancellationToken: cancellationToken);
+
+            if (booking == null)
+            {
+                throw new NotFoundException("Consultation booking was not found.");
+            }
+
+            if (receiverId != booking.UserId)
+            {
+                throw new ValidationException("Scheduled booking refunds must be sent to the booking owner.");
+            }
+
+            var existingRefund = await FindTransactionAsync(bookingId, TransactionType.ConsultationRefund, cancellationToken);
+            if (existingRefund != null)
+            {
+                return false;
+            }
+
+            var paymentTransaction = await RequireSuccessfulConsultationPaymentAsync(bookingId, cancellationToken);
+            await RefundFromEscrowAsync(booking.UserId, bookingId, paymentTransaction.Amount, reason, cancellationToken);
+            return true;
+        });
+    }
+
+    public async Task<bool> CancelPendingScheduledBookingPaymentAsync(
+        Guid bookingId,
+        string reason,
+        CancellationToken cancellationToken = default)
+    {
+        var pendingOrderCode = 0L;
+        var shouldCancelGatewayLink = false;
+
+        var cancelled = await _unitOfWork.ExecuteInTransactionAsync(async () =>
+        {
+            var paymentTransaction = await FindTransactionAsync(bookingId, TransactionType.ConsultationPayment, cancellationToken);
+            if (paymentTransaction == null)
+            {
+                return false;
+            }
+
+            if (!string.IsNullOrWhiteSpace(paymentTransaction.ExternalTransactionId))
+            {
+                throw new ConflictException(
+                    $"Scheduled booking payment has already been confirmed with external transaction '{paymentTransaction.ExternalTransactionId}'.");
+            }
+
+            if (!string.Equals(paymentTransaction.PaymentMethod, "PayOS", StringComparison.OrdinalIgnoreCase))
+            {
+                _unitOfWork.GetRepository<Transaction>().Delete(paymentTransaction);
+                return true;
+            }
+
+            pendingOrderCode = ExtractOrderCodeFromDescription(paymentTransaction.Description);
+            shouldCancelGatewayLink = pendingOrderCode > 0;
+            _unitOfWork.GetRepository<Transaction>().Delete(paymentTransaction);
+            return true;
+        });
+
+        if (cancelled && shouldCancelGatewayLink)
+        {
+            try
+            {
+                await _paymentGateway.CancelPaymentLinkAsync(pendingOrderCode, reason, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(
+                    ex,
+                    "Failed to cancel PayOS link {OrderCode} for scheduled booking {BookingId}",
+                    pendingOrderCode,
+                    bookingId);
+            }
+        }
+
+        return cancelled;
+    }
+
     public async Task<int> ExpireEmergencyRequestsAsync(CancellationToken cancellationToken = default)
     {
         var now = DateTime.UtcNow;
         var pendingRequests = await _unitOfWork.GetRepository<ConsultationPingRequest>().GetListAsync(
-            predicate: p => p.Status == ConsultationPingStatus.PendingExpertResponse
-                && p.ExpiresAt.HasValue
-                && p.ExpiresAt.Value <= now,
+            predicate: p =>
+                (p.Status == ConsultationPingStatus.PendingExpertResponse
+                 || p.Status == ConsultationPingStatus.PendingPayment)
+                && (
+                    (p.ExpiresAt.HasValue && p.ExpiresAt.Value <= now)
+                    || (!p.ExpiresAt.HasValue && p.RequestedAt <= now.Add(-EmergencyRequestTtl))
+                ),
             asNoTracking: false,
             cancellationToken: cancellationToken);
 
         var expiredCount = 0;
         foreach (var ping in pendingRequests)
         {
+            var shouldRefund = ping.Status == ConsultationPingStatus.PendingExpertResponse;
             ping.Status = ConsultationPingStatus.Expired;
             ping.RespondedAt = now;
             _unitOfWork.GetRepository<ConsultationPingRequest>().Update(ping);
             await _unitOfWork.CommitAsync();
 
-            await RefundEmergencyEscrowAsync(ping.Id, "Emergency consultation request expired.", cancellationToken);
+            if (shouldRefund)
+            {
+                await RefundEmergencyEscrowAsync(ping.Id, "Emergency consultation request expired.", cancellationToken);
+            }
             await _notificationService.NotifyEmergencyRequestStatusChangedAsync(
                 ping.Id,
                 new
@@ -711,17 +807,6 @@ public class ConsultationPaymentService : IConsultationPaymentService
             var payerUserId = transaction.UserId
                 ?? throw new ConflictException("Consultation payment transaction is missing payer user ownership.");
 
-            var escrowTransfer = await MoveMoneyToEscrowAsync(
-                payerUserId,
-                transaction.ReferenceId,
-                transaction.Amount,
-                TransactionType.ConsultationPayment,
-                "Consultation payment via PayOS",
-                "PayOS",
-                transaction.ExternalTransactionId,
-                cancellationToken,
-                skipExistingPaymentInsert: true);
-
             var booking = await _unitOfWork.GetRepository<ConsultationBooking>().FirstOrDefaultAsync(
                 predicate: b => b.Id == transaction.ReferenceId,
                 include: q => q.Include(b => b.Consultation),
@@ -734,6 +819,17 @@ public class ConsultationPaymentService : IConsultationPaymentService
                 {
                     throw new ConflictException("Consultation booking is no longer waiting for payment.");
                 }
+
+                var escrowTransfer = await MoveMoneyToEscrowAsync(
+                    payerUserId,
+                    transaction.ReferenceId,
+                    transaction.Amount,
+                    TransactionType.ConsultationPayment,
+                    "Consultation payment via PayOS",
+                    "PayOS",
+                    transaction.ExternalTransactionId,
+                    cancellationToken,
+                    skipExistingPaymentInsert: true);
 
                 booking.Status = BookingStatus.Confirmed;
                 _unitOfWork.GetRepository<ConsultationBooking>().Update(booking);
@@ -775,6 +871,17 @@ public class ConsultationPaymentService : IConsultationPaymentService
                 throw new ConflictException("Emergency consultation request is no longer waiting for payment.");
             }
 
+            var emergencyEscrowTransfer = await MoveMoneyToEscrowAsync(
+                payerUserId,
+                transaction.ReferenceId,
+                transaction.Amount,
+                TransactionType.ConsultationPayment,
+                "Consultation payment via PayOS",
+                "PayOS",
+                transaction.ExternalTransactionId,
+                cancellationToken,
+                skipExistingPaymentInsert: true);
+
             var requestedAt = DateTime.UtcNow;
             var expiresAt = requestedAt.Add(EmergencyRequestTtl);
             ping.RequestedAt = requestedAt;
@@ -794,8 +901,8 @@ public class ConsultationPaymentService : IConsultationPaymentService
                     Currency = transaction.Currency,
                     PaymentMethod = ConsultationPaymentMethod.PayOs,
                     Status = "Escrowed",
-                    UserWalletBalanceAfter = escrowTransfer.UserWalletBalanceAfter,
-                    PaidAtUtc = escrowTransfer.ProcessedAtUtc,
+                    UserWalletBalanceAfter = emergencyEscrowTransfer.UserWalletBalanceAfter,
+                    PaidAtUtc = emergencyEscrowTransfer.ProcessedAtUtc,
                     Provider = "PayOS",
                     OrderCode = webhook.OrderCode,
                     PaymentLinkId = webhook.PaymentLinkId,

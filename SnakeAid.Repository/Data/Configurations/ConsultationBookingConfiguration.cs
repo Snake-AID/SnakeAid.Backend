@@ -15,6 +15,9 @@ namespace SnakeAid.Repository.Data.Configurations
                 .HasConversion<int>()
                 .IsRequired();
 
+            builder.Property(b => b.CancellationReason)
+                .HasConversion<int?>();
+
             builder.Property(b => b.ProblemDescription)
                 .HasMaxLength(2000);
 
