@@ -194,6 +194,22 @@ public class BookingService : IBookingService
                     throw new ConflictException("Scheduled consultation refund has already been processed.");
                 }
             }
+            else
+            {
+                if (!booking.ConsultationId.HasValue)
+                {
+                    throw new ConflictException("Confirmed scheduled booking is missing its consultation reference.");
+                }
+
+                var settled = await _consultationPaymentService.SettleConsultationEscrowAsync(
+                    booking.ConsultationId.Value,
+                    cancellationToken);
+
+                if (!settled)
+                {
+                    throw new ConflictException("Scheduled consultation escrow has already been released.");
+                }
+            }
 
             booking.Status = BookingStatus.Cancelled;
             booking.CancelledAt = now;

@@ -226,6 +226,11 @@ public class ConsultationPaymentService : IConsultationPaymentService
                 throw new NotFoundException("Consultation booking was not found.");
             }
 
+            if (receiverId != booking.UserId)
+            {
+                throw new ValidationException("Scheduled booking refunds must be sent to the booking owner.");
+            }
+
             var existingRefund = await FindTransactionAsync(bookingId, TransactionType.ConsultationRefund, cancellationToken);
             if (existingRefund != null)
             {
@@ -233,7 +238,7 @@ public class ConsultationPaymentService : IConsultationPaymentService
             }
 
             var paymentTransaction = await RequireSuccessfulConsultationPaymentAsync(bookingId, cancellationToken);
-            await RefundFromEscrowAsync(receiverId, bookingId, paymentTransaction.Amount, reason, cancellationToken);
+            await RefundFromEscrowAsync(booking.UserId, bookingId, paymentTransaction.Amount, reason, cancellationToken);
             return true;
         });
     }
@@ -256,7 +261,8 @@ public class ConsultationPaymentService : IConsultationPaymentService
 
             if (!string.IsNullOrWhiteSpace(paymentTransaction.ExternalTransactionId))
             {
-                return false;
+                throw new ConflictException(
+                    $"Scheduled booking payment has already been confirmed with external transaction '{paymentTransaction.ExternalTransactionId}'.");
             }
 
             if (!string.Equals(paymentTransaction.PaymentMethod, "PayOS", StringComparison.OrdinalIgnoreCase))

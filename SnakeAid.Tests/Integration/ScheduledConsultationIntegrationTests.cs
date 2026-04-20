@@ -343,6 +343,69 @@ public class ScheduledConsultationIntegrationTests
     }
 
     [Fact]
+    public async Task CancelScheduledBookingAsync_ByMember_ShouldSettleConfirmedBookingWithoutRefund()
+    {
+        var userId = Guid.NewGuid();
+        var expertId = Guid.NewGuid();
+        var slotId = Guid.NewGuid();
+        var consultationId = Guid.NewGuid();
+        var bookingId = Guid.NewGuid();
+
+        await using var db = CreateDbContext();
+        await SeedUserAndExpertAsync(db, userId, expertId);
+
+        db.ExpertTimeSlots.Add(new ExpertTimeSlot
+        {
+            Id = slotId,
+            ExpertId = expertId,
+            StartTime = DateTime.UtcNow.AddHours(3),
+            EndTime = DateTime.UtcNow.AddHours(3.5),
+            Status = TimeSlotStatus.Reserved
+        });
+
+        db.Consultations.Add(new Consultation
+        {
+            Id = consultationId,
+            CallerId = userId,
+            CalleeId = expertId,
+            RoomId = $"consultation-{consultationId}",
+            StartTime = DateTime.UtcNow.AddHours(3),
+            Status = ConsultationStatus.Scheduled,
+            Type = ConsultationType.Scheduled
+        });
+
+        db.ConsultationBookings.Add(new ConsultationBooking
+        {
+            Id = bookingId,
+            UserId = userId,
+            ExpertId = expertId,
+            TimeSlotId = slotId,
+            ConsultationId = consultationId,
+            Price = 150_000m,
+            BookedAt = DateTime.UtcNow,
+            PaymentDeadline = DateTime.UtcNow.AddMinutes(15),
+            Status = BookingStatus.Confirmed
+        });
+
+        await db.SaveChangesAsync();
+
+        var paymentService = new FakeConsultationPaymentService();
+        var bookingService = new BookingService(
+            new UnitOfWork<SnakeAidDbContext>(db),
+            paymentService,
+            new NoOpHubContext(),
+            new NoOpLiveKitService(),
+            NullLogger<BookingService>.Instance);
+
+        var response = await bookingService.CancelScheduledBookingAsync(userId, bookingId);
+
+        Assert.Equal(BookingStatus.Cancelled, response.Status);
+        Assert.Equal(ConsultationBookingCancellationReason.CancelledByMember, response.CancellationReason);
+        Assert.Equal([consultationId], paymentService.SettledConsultationIds);
+        Assert.Empty(paymentService.RefundedBookingIds);
+    }
+
+    [Fact]
     public async Task CreateConsultationReviewAsync_ShouldCreateFeedback_AndUpdateExpertRating()
     {
         var userId = Guid.NewGuid();
