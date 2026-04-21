@@ -17,7 +17,7 @@ namespace SnakeAid.Tests.Unit;
 public class WalletWithdrawServiceTests
 {
     [Fact]
-    public async Task CreateWithdrawalRequestAsync_ShouldCreatePendingWithdrawal_AndAdminBroadcast()
+    public async Task CreateWithdrawalRequestAsync_ShouldCreatePendingWithdrawal_DeductWallet_CreateInitiatedTransaction_AndAdminBroadcast()
     {
         var userId = Guid.NewGuid();
 
@@ -41,7 +41,12 @@ public class WalletWithdrawServiceTests
         Assert.Equal(100_000m, withdrawal.Amount);
 
         var wallet = await db.Wallets.FirstAsync(w => w.UserId == userId);
-        Assert.Equal(500_000m, wallet.Balance);
+        Assert.Equal(400_000m, wallet.Balance);
+
+        var transaction = await db.Transactions.SingleAsync(t =>
+            t.ReferenceId == withdrawal.Id &&
+            t.TransactionType == TransactionType.WithdrawalInitiated);
+        Assert.Equal(100_000m, transaction.Amount);
 
         var broadcast = Assert.Single(notifications.BroadcastRequests);
         Assert.Equal("WITHDRAWAL_REQUEST_CREATED", broadcast.Type);
@@ -100,7 +105,7 @@ public class WalletWithdrawServiceTests
     }
 
     [Fact]
-    public async Task CancelWithdrawalAsync_ShouldRejectPendingWithdrawal_AndAdminBroadcast()
+    public async Task CancelWithdrawalAsync_ShouldRejectPendingWithdrawal_RefundWallet_AndAdminBroadcast()
     {
         var userId = Guid.NewGuid();
         var withdrawalId = Guid.NewGuid();
@@ -129,20 +134,28 @@ public class WalletWithdrawServiceTests
         Assert.Equal(WalletWithdrawStatus.Rejected, result.Status);
         Assert.Equal("Cancelled by user", result.RejectionReason);
 
+        var refreshedWallet = await db.Wallets.FirstAsync(w => w.UserId == userId);
+        Assert.Equal(600_000m, refreshedWallet.Balance);
+
+        var transaction = await db.Transactions.SingleAsync(t =>
+            t.ReferenceId == withdrawalId &&
+            t.TransactionType == TransactionType.WithdrawalRefund);
+        Assert.Equal(100_000m, transaction.Amount);
+
         var broadcast = Assert.Single(notifications.BroadcastRequests);
         Assert.Equal("WITHDRAWAL_CANCELLED", broadcast.Type);
         Assert.Equal(withdrawalId.ToString(), broadcast.Data?["withdrawalId"]);
     }
 
     [Fact]
-    public async Task ApproveWithdrawalAsync_ShouldDeductWallet_CreateTransaction_AndUserNotification()
+    public async Task ApproveWithdrawalAsync_ShouldKeepWalletUnchanged_AndUserNotification()
     {
         var userId = Guid.NewGuid();
         var adminUserId = Guid.NewGuid();
         var withdrawalId = Guid.NewGuid();
 
         await using var db = CreateDbContext();
-        var wallet = await SeedWalletWithUserAsync(db, userId, 500_000m);
+        var wallet = await SeedWalletWithUserAsync(db, userId, 400_000m);
         await SeedAccountAsync(db, adminUserId, AccountRole.Admin);
 
         db.WalletWithdraws.Add(new WalletWithdraw
@@ -170,11 +183,7 @@ public class WalletWithdrawServiceTests
 
         var refreshedWallet = await db.Wallets.FirstAsync(w => w.UserId == userId);
         Assert.Equal(400_000m, refreshedWallet.Balance);
-
-        var transaction = await db.Transactions.SingleAsync(t =>
-            t.ReferenceId == withdrawalId &&
-            t.TransactionType == TransactionType.WalletWithdraw);
-        Assert.Equal(100_000m, transaction.Amount);
+        Assert.Empty(await db.Transactions.Where(t => t.ReferenceId == withdrawalId).ToListAsync());
 
         var notification = Assert.Single(notifications.PublishedMessages);
         Assert.Equal(userId, notification.UserId);
@@ -183,7 +192,53 @@ public class WalletWithdrawServiceTests
     }
 
     [Fact]
-    public async Task FailWithdrawalAsync_ShouldRefundWallet_ClearQr_CreateAdjustment_AndUserNotification()
+    public async Task RejectWithdrawalAsync_ShouldRefundPendingWithdrawal_CreateRefund_AndUserNotification()
+    {
+        var userId = Guid.NewGuid();
+        var adminUserId = Guid.NewGuid();
+        var withdrawalId = Guid.NewGuid();
+
+        await using var db = CreateDbContext();
+        var wallet = await SeedWalletWithUserAsync(db, userId, 400_000m);
+        await SeedAccountAsync(db, adminUserId, AccountRole.Admin);
+
+        db.WalletWithdraws.Add(new WalletWithdraw
+        {
+            Id = withdrawalId,
+            UserId = userId,
+            WalletId = wallet.Id,
+            Amount = 100_000m,
+            BankAccount = "123456789",
+            BankName = "Vietcombank",
+            AccountHolderName = "Nguyen Van A",
+            BankBin = "970436",
+            Status = WalletWithdrawStatus.Pending
+        });
+        await db.SaveChangesAsync();
+
+        var notifications = new RecordingNotificationQueueService();
+        var service = CreateService(db, notifications);
+
+        var result = await service.RejectWithdrawalAsync(withdrawalId, adminUserId, "Invalid bank account", "Mismatch");
+
+        Assert.Equal(WalletWithdrawStatus.Rejected, result.Status);
+        Assert.Equal("Invalid bank account", result.RejectionReason);
+
+        var refreshedWallet = await db.Wallets.FirstAsync(w => w.UserId == userId);
+        Assert.Equal(500_000m, refreshedWallet.Balance);
+
+        var transaction = await db.Transactions.SingleAsync(t =>
+            t.ReferenceId == withdrawalId &&
+            t.TransactionType == TransactionType.WithdrawalRefund);
+        Assert.Equal(100_000m, transaction.Amount);
+
+        var notification = Assert.Single(notifications.PublishedMessages);
+        Assert.Equal("WITHDRAWAL_REJECTED", notification.Type);
+        Assert.Equal("Invalid bank account", notification.Data?["reason"]);
+    }
+
+    [Fact]
+    public async Task FailWithdrawalAsync_ShouldRefundWallet_ClearQr_CreateRefund_AndUserNotification()
     {
         var userId = Guid.NewGuid();
         var adminUserId = Guid.NewGuid();
@@ -224,7 +279,7 @@ public class WalletWithdrawServiceTests
 
         var transaction = await db.Transactions.SingleAsync(t =>
             t.ReferenceId == withdrawalId &&
-            t.TransactionType == TransactionType.AdminAdjustment);
+            t.TransactionType == TransactionType.WithdrawalRefund);
         Assert.Equal(100_000m, transaction.Amount);
 
         var notification = Assert.Single(notifications.PublishedMessages);

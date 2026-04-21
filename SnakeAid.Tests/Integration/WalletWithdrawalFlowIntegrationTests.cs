@@ -51,7 +51,7 @@ public class WalletWithdrawalFlowIntegrationTests
         Assert.Equal(400_000m, wallet.Balance);
 
         var withdrawTransactions = await db.Transactions
-            .Where(t => t.ReferenceId == created.Id && t.TransactionType == TransactionType.WalletWithdraw)
+            .Where(t => t.ReferenceId == created.Id && t.TransactionType == TransactionType.WithdrawalInitiated)
             .ToListAsync();
         Assert.Single(withdrawTransactions);
 
@@ -96,11 +96,60 @@ public class WalletWithdrawalFlowIntegrationTests
 
         var adjustment = await db.Transactions.SingleAsync(t =>
             t.ReferenceId == created.Id &&
-            t.TransactionType == TransactionType.AdminAdjustment);
+            t.TransactionType == TransactionType.WithdrawalRefund);
         Assert.Equal(100_000m, adjustment.Amount);
+
+        var initiated = await db.Transactions.SingleAsync(t =>
+            t.ReferenceId == created.Id &&
+            t.TransactionType == TransactionType.WithdrawalInitiated);
+        Assert.Equal(100_000m, initiated.Amount);
 
         Assert.Single(notifications.BroadcastRequests);
         Assert.Equal(2, notifications.PublishedMessages.Count);
+    }
+
+    [Fact]
+    public async Task CreateRejectAsync_ShouldRefundBalance_AndPersistRejectedState()
+    {
+        var userId = Guid.NewGuid();
+        var adminUserId = Guid.NewGuid();
+
+        await using var db = CreateDbContext();
+        await SeedAccountAsync(db, userId, AccountRole.User);
+        await SeedAccountAsync(db, adminUserId, AccountRole.Admin);
+        await SeedWalletAsync(db, userId, 500_000m);
+
+        var notifications = new RecordingNotificationQueueService();
+        var service = CreateService(db, notifications);
+
+        var created = await service.CreateWithdrawalRequestAsync(
+            userId,
+            100_000m,
+            "123456789",
+            "Vietcombank",
+            "Nguyen Van A",
+            "970436");
+        var rejected = await service.RejectWithdrawalAsync(created.Id, adminUserId, "Bank account invalid", "Name mismatch");
+
+        Assert.Equal(WalletWithdrawStatus.Rejected, rejected.Status);
+
+        var persisted = await db.WalletWithdraws.SingleAsync(w => w.Id == created.Id);
+        Assert.Equal(WalletWithdrawStatus.Rejected, persisted.Status);
+        Assert.Equal("Bank account invalid", persisted.RejectionReason);
+
+        var wallet = await db.Wallets.SingleAsync(w => w.UserId == userId);
+        Assert.Equal(500_000m, wallet.Balance);
+
+        var transactions = await db.Transactions
+            .Where(t => t.ReferenceId == created.Id)
+            .OrderBy(t => t.TransactionType)
+            .ToListAsync();
+        Assert.Equal(2, transactions.Count);
+        Assert.Contains(transactions, t => t.TransactionType == TransactionType.WithdrawalInitiated);
+        Assert.Contains(transactions, t => t.TransactionType == TransactionType.WithdrawalRefund);
+
+        Assert.Single(notifications.BroadcastRequests);
+        Assert.Single(notifications.PublishedMessages);
     }
 
     private static WalletWithdrawService CreateService(
