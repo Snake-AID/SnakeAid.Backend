@@ -170,6 +170,26 @@ public class ConsultationMessageHistoryIntegrationTests : IDisposable
         Assert.NotNull(item.AttachmentUrl);
     }
 
+    [Fact]
+    public async Task GetConsultationMessageHistoryAsync_InvalidPagingValues_ShouldClampSafely()
+    {
+        var result = await _service.GetConsultationMessageHistoryAsync(
+            _completedConsultationId,
+            _memberId,
+            false,
+            new ConsultationMessageHistoryQueryRequest
+            {
+                PageNumber = 0,
+                PageSize = 0
+            });
+
+        Assert.Equal(1, result.Meta.CurrentPage);
+        Assert.Equal(10, result.Meta.PageSize);
+        Assert.Equal(5, result.Meta.TotalItems);
+        Assert.Equal(1, result.Meta.TotalPages);
+        Assert.Equal(5, result.Items.Count());
+    }
+
     public void Dispose()
     {
         _db.Dispose();

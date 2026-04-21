@@ -244,17 +244,20 @@ public class ConsultationService : IConsultationService
         }
 
         var messageRepo = _unitOfWork.GetRepository<ChatMessage>();
-        var allMessages = await messageRepo.GetListAsync(
-            predicate: m => m.ConsultationId == consultationId,
-            orderBy: q => q
-                .OrderByDescending(m => m.SentAt)
-                .ThenByDescending(m => m.Id));
+        var (normalizedPageNumber, normalizedPageSize) = NormalizePaging(pageNumber: query.PageNumber, pageSize: query.PageSize);
 
-        return BuildNewestFirstPagingResponse(
-            allMessages,
-            query.PageNumber,
-            query.PageSize,
-            message => new ConsultationMessageHistoryItemResponse
+        var newestFirstQuery = messageRepo
+            .CreateBaseQuery()
+            .Where(m => m.ConsultationId == consultationId)
+            .OrderByDescending(m => m.SentAt)
+            .ThenByDescending(m => m.Id);
+
+        var totalItems = await newestFirstQuery.CountAsync();
+
+        var pageItems = await newestFirstQuery
+            .Skip((normalizedPageNumber - 1) * normalizedPageSize)
+            .Take(normalizedPageSize)
+            .Select(message => new ConsultationMessageHistoryItemResponse
             {
                 Id = message.Id,
                 ConsultationId = message.ConsultationId,
@@ -262,7 +265,14 @@ public class ConsultationService : IConsultationService
                 Content = message.Content ?? string.Empty,
                 AttachmentUrl = message.AttachmentUrl,
                 SentAt = message.SentAt
-            },
+            })
+            .ToListAsync();
+
+        return BuildNewestFirstPagingResponse(
+            pageItems,
+            totalItems,
+            normalizedPageNumber,
+            normalizedPageSize,
             item => item.SentAt,
             item => item.Id);
     }
@@ -837,34 +847,37 @@ public class ConsultationService : IConsultationService
             or ConsultationStatus.AllAbsent;
     }
 
-    private static PagingResponse<TResult> BuildNewestFirstPagingResponse<TSource, TResult, TOrderKey>(
-        IEnumerable<TSource> newestFirstItems,
+    private static (int pageNumber, int pageSize) NormalizePaging(int pageNumber, int pageSize)
+    {
+        var normalizedPageNumber = pageNumber < 1 ? 1 : pageNumber;
+        var normalizedPageSize = pageSize < 1 ? 10 : pageSize;
+        return (normalizedPageNumber, normalizedPageSize);
+    }
+
+    private static PagingResponse<TItem> BuildNewestFirstPagingResponse<TItem, TOrderKey>(
+        IEnumerable<TItem> newestFirstPageItems,
+        int totalItems,
         int pageNumber,
         int pageSize,
-        Func<TSource, TResult> selector,
-        Func<TResult, DateTime> ascendingOrderSelector,
-        Func<TResult, TOrderKey> tieBreakerSelector)
+        Func<TItem, DateTime> ascendingOrderSelector,
+        Func<TItem, TOrderKey> tieBreakerSelector)
     {
-        var materialized = newestFirstItems.ToList();
-        var totalItems = materialized.Count;
+        var (normalizedPageNumber, normalizedPageSize) = NormalizePaging(pageNumber, pageSize);
 
-        var pageItems = materialized
-            .Skip((pageNumber - 1) * pageSize)
-            .Take(pageSize)
-            .Select(selector)
+        var pageItems = newestFirstPageItems
             .OrderBy(ascendingOrderSelector)
             .ThenBy(tieBreakerSelector)
             .ToList();
 
-        return new PagingResponse<TResult>
+        return new PagingResponse<TItem>
         {
             Items = pageItems,
             Meta = new PaginationMeta
             {
-                CurrentPage = pageNumber,
-                PageSize = pageSize,
+                CurrentPage = normalizedPageNumber,
+                PageSize = normalizedPageSize,
                 TotalItems = totalItems,
-                TotalPages = (int)Math.Ceiling(totalItems / (double)pageSize)
+                TotalPages = (int)Math.Ceiling(totalItems / (double)normalizedPageSize)
             }
         };
     }
