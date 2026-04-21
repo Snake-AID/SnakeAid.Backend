@@ -10,6 +10,7 @@ namespace SnakeAid.Service.Interfaces;
 public interface IConsultationService
 {
     Task EndConsultationAsync(Guid consultationId, Guid actorId);
+    Task<PagingResponse<ConsultationMessageHistoryItemResponse>> GetConsultationMessageHistoryAsync(Guid consultationId, Guid actorId, bool isAdmin, ConsultationMessageHistoryQueryRequest query);
     Task<MyConsultationResponse> ReportExpertAbsentAsync(Guid consultationId, Guid memberId, ReportExpertAbsentRequest request);
     Task<UserFeedbackResponse> CreateConsultationReviewAsync(Guid consultationId, Guid raterId, CreateConsultationReviewRequest request);
     Task<UserFeedbackResponse?> GetConsultationReviewAsync(Guid consultationId, Guid actorId);

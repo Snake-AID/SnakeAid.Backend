@@ -219,6 +219,69 @@ public class ConsultationService : IConsultationService
 #endregion
 
 #region Consultation Feedback
+    public async Task<PagingResponse<ConsultationMessageHistoryItemResponse>> GetConsultationMessageHistoryAsync(
+        Guid consultationId,
+        Guid actorId,
+        bool isAdmin,
+        ConsultationMessageHistoryQueryRequest query)
+    {
+        var consultation = await _unitOfWork.GetRepository<Consultation>().FirstOrDefaultAsync(
+            predicate: c => c.Id == consultationId);
+
+        if (consultation == null)
+        {
+            throw new NotFoundException("Consultation not found.");
+        }
+
+        if (!isAdmin && consultation.CallerId != actorId && consultation.CalleeId != actorId)
+        {
+            throw new ForbiddenException("You are not allowed to access this consultation message history.");
+        }
+
+        if (!IsTerminalMessageHistoryStatus(consultation.Status))
+        {
+            throw new BusinessException($"Consultation message history is available only for terminal consultations. Current status is {consultation.Status}.");
+        }
+
+        var messageRepo = _unitOfWork.GetRepository<ChatMessage>();
+        var totalItems = await messageRepo.CountAsync(m => m.ConsultationId == consultationId);
+
+        var descendingPage = await messageRepo.GetListAsync(
+            predicate: m => m.ConsultationId == consultationId,
+            orderBy: q => q
+                .OrderByDescending(m => m.SentAt)
+                .ThenByDescending(m => m.Id),
+            take: query.PageSize * query.PageNumber);
+
+        var pageItems = descendingPage
+            .Skip((query.PageNumber - 1) * query.PageSize)
+            .Take(query.PageSize)
+            .OrderBy(m => m.SentAt)
+            .ThenBy(m => m.Id)
+            .Select(m => new ConsultationMessageHistoryItemResponse
+            {
+                Id = m.Id,
+                ConsultationId = m.ConsultationId,
+                SenderId = m.SenderId,
+                Content = m.Content ?? string.Empty,
+                AttachmentUrl = m.AttachmentUrl,
+                SentAt = m.SentAt
+            })
+            .ToList();
+
+        return new PagingResponse<ConsultationMessageHistoryItemResponse>
+        {
+            Items = pageItems,
+            Meta = new PaginationMeta
+            {
+                CurrentPage = query.PageNumber,
+                PageSize = query.PageSize,
+                TotalItems = totalItems,
+                TotalPages = (int)Math.Ceiling(totalItems / (double)query.PageSize)
+            }
+        };
+    }
+
     public async Task<UserFeedbackResponse> CreateConsultationReviewAsync(Guid consultationId, Guid raterId, CreateConsultationReviewRequest request)
     {
         var consultation = await _unitOfWork.GetRepository<Consultation>().FirstOrDefaultAsync(
@@ -778,6 +841,14 @@ public class ConsultationService : IConsultationService
             ConsultationType.Emergency => (false, true),
             _ => throw new ArgumentOutOfRangeException(paramName, type, "Unsupported consultation type.")
         };
+    }
+
+    private static bool IsTerminalMessageHistoryStatus(ConsultationStatus status)
+    {
+        return status is ConsultationStatus.Completed
+            or ConsultationStatus.UserAbsent
+            or ConsultationStatus.ExpertAbsent
+            or ConsultationStatus.AllAbsent;
     }
 #endregion
 

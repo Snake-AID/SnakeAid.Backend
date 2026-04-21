@@ -16,6 +16,73 @@ namespace SnakeAid.Tests.Unit;
 public class ConsultationsControllerTests
 {
     [Fact]
+    public void GetMessageHistory_ActionShouldExposeRouteAndResponseMetadata()
+    {
+        var method = typeof(ConsultationsController).GetMethod(nameof(ConsultationsController.GetMessageHistory));
+
+        Assert.NotNull(method);
+
+        var httpGet = Assert.Single(method!.GetCustomAttributes(typeof(HttpGetAttribute), inherit: true).Cast<HttpGetAttribute>());
+        Assert.Equal("{consultationId:guid}/messages-history", httpGet.Template);
+
+        Assert.Empty(method.GetCustomAttributes(typeof(AuthorizeAttribute), inherit: true).Cast<AuthorizeAttribute>());
+
+        var produces = Assert.Single(method.GetCustomAttributes(typeof(ProducesResponseTypeAttribute), inherit: true).Cast<ProducesResponseTypeAttribute>());
+        Assert.Equal(StatusCodes.Status200OK, produces.StatusCode);
+        Assert.Equal(typeof(ApiResponse<PagingResponse<ConsultationMessageHistoryItemResponse>>), produces.Type);
+    }
+
+    [Fact]
+    public async Task GetMessageHistory_ShouldReturnSuccessEnvelope()
+    {
+        var consultationId = Guid.NewGuid();
+        var actorId = Guid.NewGuid();
+        var expected = new PagingResponse<ConsultationMessageHistoryItemResponse>
+        {
+            Items =
+            [
+                new ConsultationMessageHistoryItemResponse
+                {
+                    Id = Guid.NewGuid(),
+                    ConsultationId = consultationId,
+                    SenderId = actorId,
+                    Content = "hello",
+                    SentAt = DateTime.UtcNow
+                }
+            ],
+            Meta = new PaginationMeta
+            {
+                CurrentPage = 1,
+                PageSize = 50,
+                TotalItems = 1,
+                TotalPages = 1
+            }
+        };
+
+        var service = new Mock<IConsultationService>();
+        service.Setup(s => s.GetConsultationMessageHistoryAsync(
+                consultationId,
+                actorId,
+                false,
+                It.IsAny<ConsultationMessageHistoryQueryRequest>()))
+            .ReturnsAsync(expected);
+
+        var controller = BuildController(service.Object, actorId);
+
+        var result = await controller.GetMessageHistory(
+            consultationId,
+            new ConsultationMessageHistoryQueryRequest { PageNumber = 1, PageSize = 50 });
+
+        var ok = Assert.IsType<OkObjectResult>(result.Result);
+        var response = Assert.IsType<ApiResponse<PagingResponse<ConsultationMessageHistoryItemResponse>>>(ok.Value);
+
+        Assert.True(response.IsSuccess);
+        Assert.NotNull(response.Data);
+        Assert.Single(response.Data!.Items);
+        Assert.Equal(1, response.Data.Meta.CurrentPage);
+    }
+
+    [Fact]
     public void ReportExpertAbsent_ActionShouldExposeUserRouteAndResponseMetadata()
     {
         var method = typeof(ConsultationsController).GetMethod(nameof(ConsultationsController.ReportExpertAbsent));
@@ -72,7 +139,7 @@ public class ConsultationsControllerTests
         Assert.NotNull(response.Data.CustomerReportSubmittedAt);
     }
 
-    private static ConsultationsController BuildController(IConsultationService service, Guid userId)
+    private static ConsultationsController BuildController(IConsultationService service, Guid userId, string role = "User")
     {
         var mapper = new Mock<IMapper>();
         var httpContextAccessor = new HttpContextAccessor
@@ -82,7 +149,7 @@ public class ConsultationsControllerTests
                 User = new ClaimsPrincipal(new ClaimsIdentity(
                 [
                     new Claim(ClaimTypes.NameIdentifier, userId.ToString()),
-                    new Claim(ClaimTypes.Role, "User")
+                    new Claim(ClaimTypes.Role, role)
                 ], "Test"))
             }
         };

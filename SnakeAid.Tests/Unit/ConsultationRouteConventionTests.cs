@@ -13,6 +13,7 @@ public class ConsultationRouteConventionTests
     [InlineData(typeof(ConsultationScheduledController), "GetExpertBookings", "/api/experts/me/consultations/scheduled")]
     [InlineData(typeof(ConsultationPaymentsController), "PayScheduledBooking", "/api/consultations/scheduled/{bookingId:guid}/payments")]
     [InlineData(typeof(ConsultationPaymentsController), "PayEmergencyRequest", "/api/consultations/instant/{requestId:guid}/payments")]
+    [InlineData(typeof(ConsultationsController), "GetMessageHistory", "{consultationId:guid}/messages-history")]
     [InlineData(typeof(ConsultationsController), "ReportExpertAbsent", "{consultationId:guid}/expert-absent-report")]
     [InlineData(typeof(ConsultationInstantController), "CreateEmergencyConsultationRequest", null)]
     public void ConsultationRoutes_ShouldMatchApprovedConvention(Type controllerType, string methodName, string? expectedTemplate)

@@ -2,6 +2,7 @@ using MapsterMapper;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SnakeAid.Core.Meta;
+using SnakeAid.Core.Domains;
 using SnakeAid.Core.Requests.Consultation;
 using SnakeAid.Core.Responses.Consultation;
 using SnakeAid.Core.Responses.UserFeedback;
@@ -32,6 +33,19 @@ public class ConsultationsController : BaseController<ConsultationsController>
         var actorId = GetCurrentUserId();
         await _consultationService.EndConsultationAsync(consultationId, actorId);
         return Ok(ApiResponseBuilder.BuildSuccessResponse("Consultation ended successfully."));
+    }
+
+    [HttpGet("{consultationId:guid}/messages-history")]
+    [ProducesResponseType(typeof(ApiResponse<PagingResponse<ConsultationMessageHistoryItemResponse>>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<ApiResponse<PagingResponse<ConsultationMessageHistoryItemResponse>>>> GetMessageHistory(
+        Guid consultationId,
+        [FromQuery] ConsultationMessageHistoryQueryRequest query)
+    {
+        var actorId = GetCurrentUserId();
+        var role = GetCurrentUserRole();
+        var isAdmin = role.Equals(AccountRole.Admin.ToString(), StringComparison.OrdinalIgnoreCase);
+        var result = await _consultationService.GetConsultationMessageHistoryAsync(consultationId, actorId, isAdmin, query);
+        return Ok(ApiResponseBuilder.BuildSuccessResponse(result));
     }
 
     [HttpGet("/api/users/me/consultations")]
