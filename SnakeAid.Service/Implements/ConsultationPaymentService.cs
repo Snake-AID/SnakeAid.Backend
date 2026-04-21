@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.RegularExpressions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -419,7 +420,7 @@ public class ConsultationPaymentService : IConsultationPaymentService
         ProcessConsultationPaymentRequest request,
         CancellationToken cancellationToken)
     {
-        return await _unitOfWork.ExecuteInTransactionAsync(async () =>
+        var response = await _unitOfWork.ExecuteInTransactionAsync(async () =>
         {
             var bookingRepo = _unitOfWork.GetRepository<ConsultationBooking>();
             var booking = await bookingRepo.FirstOrDefaultAsync(
@@ -478,6 +479,25 @@ public class ConsultationPaymentService : IConsultationPaymentService
                 ExternalTransactionId = transfer.ExternalTransactionId
             };
         });
+
+        if (_notificationQueueService != null)
+        {
+            await _notificationQueueService.PublishAsync(new NotificationMessage
+            {
+                UserId = userId,
+                Title = "Thanh toán thành công",
+                Body = $"Bạn đã thanh toán thành công {FormatVnd(response.Amount)} cho buổi tư vấn đặt trước bằng ví SnakeAid.",
+                Type = "CONSULTATION_PAYMENT_SUCCESS",
+                Data = new Dictionary<string, string>
+                {
+                    ["bookingId"] = response.ReferenceId.ToString(),
+                    ["transactionId"] = response.TransactionId.ToString(),
+                    ["paymentMethod"] = "Wallet"
+                }
+            }, cancellationToken);
+        }
+
+        return response;
     }
 
     private async Task<ConsultationPaymentResponse> PayEmergencyRequestWithWalletAsync(
@@ -574,6 +594,23 @@ public class ConsultationPaymentService : IConsultationPaymentService
                 requestedAt,
                 expiresAt
             });
+
+        if (_notificationQueueService != null)
+        {
+            await _notificationQueueService.PublishAsync(new NotificationMessage
+            {
+                UserId = userId,
+                Title = "Thanh toán thành công",
+                Body = $"Bạn đã thanh toán thành công {FormatVnd(response.Amount)} cho yêu cầu tư vấn khẩn cấp bằng ví SnakeAid.",
+                Type = "CONSULTATION_PAYMENT_SUCCESS",
+                Data = new Dictionary<string, string>
+                {
+                    ["requestId"] = response.ReferenceId.ToString(),
+                    ["transactionId"] = response.TransactionId.ToString(),
+                    ["paymentMethod"] = "Wallet"
+                }
+            }, cancellationToken);
+        }
 
         return response;
     }
@@ -794,7 +831,8 @@ public class ConsultationPaymentService : IConsultationPaymentService
                 var confirmedResponse = await BuildConfirmedResponseAsync(transaction, cancellationToken);
                 return new ConfirmedPayOsContext
                 {
-                    Response = confirmedResponse
+                    Response = confirmedResponse,
+                    IsNewlyConfirmed = false
                 };
             }
 
@@ -853,6 +891,8 @@ public class ConsultationPaymentService : IConsultationPaymentService
                         PaymentLinkId = webhook.PaymentLinkId,
                         ExternalTransactionId = transaction.ExternalTransactionId
                     },
+                    UserId = payerUserId,
+                    IsNewlyConfirmed = true
                 };
             }
 
@@ -910,7 +950,9 @@ public class ConsultationPaymentService : IConsultationPaymentService
                 },
                 ExpertId = ping.ExpertId,
                 RequestedAt = requestedAt,
-                ExpiresAt = expiresAt
+                ExpiresAt = expiresAt,
+                UserId = payerUserId,
+                IsNewlyConfirmed = true
             };
         });
 
@@ -926,6 +968,28 @@ public class ConsultationPaymentService : IConsultationPaymentService
                     requestedAt = context.RequestedAt,
                     expiresAt = context.ExpiresAt
                 });
+        }
+
+        if (context.IsNewlyConfirmed && _notificationQueueService != null)
+        {
+            var consultationType = context.Response.ReferenceType == ConsultationPaymentReferenceType.ScheduledBooking
+                ? "cho buổi tư vấn đặt trước"
+                : "cho yêu cầu tư vấn khẩn cấp";
+
+            await _notificationQueueService.PublishAsync(new NotificationMessage
+            {
+                UserId = context.UserId,
+                Title = "Thanh toán thành công",
+                Body = $"Bạn đã thanh toán thành công {FormatVnd(context.Response.Amount)} {consultationType} qua PayOS.",
+                Type = "CONSULTATION_PAYMENT_SUCCESS",
+                Data = new Dictionary<string, string>
+                {
+                    ["referenceId"] = context.Response.ReferenceId.ToString(),
+                    ["transactionId"] = context.Response.TransactionId.ToString(),
+                    ["paymentMethod"] = "PayOS",
+                    ["referenceType"] = context.Response.ReferenceType.ToString()
+                }
+            }, cancellationToken);
         }
 
         return new PayOsProcessResult { Response = context.Response };
@@ -1032,6 +1096,11 @@ public class ConsultationPaymentService : IConsultationPaymentService
             OrderCode = ExtractOrderCodeFromDescription(transaction.Description),
             ExternalTransactionId = transaction.ExternalTransactionId
         };
+    }
+
+    private static string FormatVnd(decimal amount)
+    {
+        return amount.ToString("N0", CultureInfo.GetCultureInfo("vi-VN")) + " ₫";
     }
 
     private static PayOsWebhookResponse BuildWebhookSuccessResponse(ConsultationPaymentResponse response)
@@ -1459,5 +1528,7 @@ public class ConsultationPaymentService : IConsultationPaymentService
         public Guid? ExpertId { get; init; }
         public DateTime RequestedAt { get; init; }
         public DateTime ExpiresAt { get; init; }
+        public bool IsNewlyConfirmed { get; init; }
+        public Guid UserId { get; init; }
     }
 }

@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.RegularExpressions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -5,6 +6,7 @@ using Microsoft.Extensions.Options;
 using SnakeAid.Core.Domains;
 using SnakeAid.Core.Requests.PayOs;
 using SnakeAid.Core.Responses.PayOs;
+using SnakeAid.Core.Messages.Notifications;
 using SnakeAid.Core.Settings;
 using SnakeAid.Repository.Data;
 using SnakeAid.Repository.Interfaces;
@@ -19,6 +21,7 @@ public class SnakeCatchingPaymentService : ISnakeCatchingPaymentService
     private readonly IPaymentGateway _paymentGateway;
     private readonly IUnitOfWork _unitOfWork;
     private readonly ILogger<SnakeCatchingPaymentService> _logger;
+    private readonly INotificationQueueService? _notificationQueueService;
     private const string DefaultItemName = "Snake Catching Service";
     private const string LogPrefix = "[SnakeCatchingPaymentService]";
     private static readonly Regex OrderCodeRegex = new($@"^{PayOsPaymentFlowPrefixes.SnakeCatching}(\d+)", RegexOptions.Compiled);
@@ -27,11 +30,13 @@ public class SnakeCatchingPaymentService : ISnakeCatchingPaymentService
         IPaymentGateway paymentGateway,
         IUnitOfWork unitOfWork,
         IOptions<PayOsOptions> options,
-        ILogger<SnakeCatchingPaymentService> logger)
+        ILogger<SnakeCatchingPaymentService> logger,
+        INotificationQueueService? notificationQueueService = null)
     {
         _paymentGateway = paymentGateway;
         _unitOfWork = unitOfWork;
         _logger = logger;
+        _notificationQueueService = notificationQueueService;
     }
 
     public async Task<SnakeCatchingPaymentResponse> CreateSnakeCatchingPaymentLinkAsync(
@@ -152,6 +157,17 @@ public class SnakeCatchingPaymentService : ISnakeCatchingPaymentService
             }
 
             await _unitOfWork.CommitAsync();
+
+            if (_notificationQueueService != null)
+            {
+                await _notificationQueueService.PublishAsync(BuildSnakeCatchingPaymentSuccessNotification(
+                    currentUserId,
+                    request.SnakeCatchingRequestId,
+                    transfer.TransactionId,
+                    request.Amount,
+                    "Wallet",
+                    request.TransactionType), cancellationToken);
+            }
 
             _logger.LogInformation("{Prefix} Wallet payment completed successfully. UserTransactionId={UserTransactionId}, OrderCode={OrderCode}",
                 LogPrefix, transfer.TransactionId, orderCode);
@@ -577,7 +593,7 @@ public class SnakeCatchingPaymentService : ISnakeCatchingPaymentService
                 OrderCode = orderCode,
                 Amount = linkInfo.Amount,
                 PaymentLinkId = linkInfo.Id,
-                TransactionReference = $"MANUAL-{transactionId}",
+                TransactionReference = $"{PayOsPaymentFlowPrefixes.SnakeCatching}MANUAL-{transactionId:N}",
                 TransactionDateTime = DateTime.UtcNow
             };
 
@@ -764,6 +780,46 @@ public class SnakeCatchingPaymentService : ISnakeCatchingPaymentService
         }
     }
 
+    private static string FormatVnd(decimal amount)
+    {
+        return amount.ToString("N0", CultureInfo.GetCultureInfo("vi-VN")) + " ₫";
+    }
+
+    private static NotificationMessage BuildSnakeCatchingPaymentSuccessNotification(
+        Guid userId,
+        Guid requestId,
+        Guid transactionId,
+        decimal amount,
+        string paymentMethod,
+        TransactionType transactionType)
+    {
+        var isDeposit = transactionType == TransactionType.CatchingDeposit;
+        var paymentSource = string.Equals(paymentMethod, "Wallet", StringComparison.OrdinalIgnoreCase)
+            ? "qua ví SnakeAid"
+            : "qua PayOS";
+        var title = isDeposit ? "Đặt cọc thành công" : "Thanh toán thành công";
+        var body = isDeposit
+            ? $"Bạn đã đặt cọc thành công {FormatVnd(amount)} {paymentSource} cho đơn bắt rắn #{requestId}. Vui lòng chờ nhân viên hoàn thành nhiệm vụ và thanh toán phần còn lại."
+            : $"Bạn đã thanh toán thành công {FormatVnd(amount)} {paymentSource} cho đơn bắt rắn #{requestId}. Đơn đã hoàn tất.";
+        var type = isDeposit ? "SNAKE_CATCHING_DEPOSIT_SUCCESS" : "SNAKE_CATCHING_PAYMENT_SUCCESS";
+
+        return new NotificationMessage
+        {
+            UserId = userId,
+            Title = title,
+            Body = body,
+            Type = type,
+            Data = new Dictionary<string, string>
+            {
+                ["requestId"] = requestId.ToString(),
+                ["transactionId"] = transactionId.ToString(),
+                ["paymentMethod"] = paymentMethod,
+                ["transactionType"] = transactionType.ToString(),
+                ["paymentStage"] = isDeposit ? "deposit" : "final"
+            }
+        };
+    }
+
     private async Task<decimal> GetRefundableSnakeCatchingRevenueAsync(
         Guid requestId,
         CancellationToken cancellationToken)
@@ -882,6 +938,17 @@ public class SnakeCatchingPaymentService : ISnakeCatchingPaymentService
             }
 
             await _unitOfWork.CommitAsync();
+
+            if (_notificationQueueService != null && transaction.UserId.HasValue && transaction.UserId.Value != Guid.Empty && webhook.Success)
+            {
+                await _notificationQueueService.PublishAsync(BuildSnakeCatchingPaymentSuccessNotification(
+                    transaction.UserId.Value,
+                    transaction.ReferenceId,
+                    transaction.Id,
+                    transaction.Amount,
+                    "PayOS",
+                    transaction.TransactionType), cancellationToken);
+            }
 
             _logger.LogInformation("{Prefix}{SourceTag} Webhook processing completed. TransactionId={TransactionId}, Success={Success}",
                 LogPrefix, sourceTag, transactionId, webhook.Success);

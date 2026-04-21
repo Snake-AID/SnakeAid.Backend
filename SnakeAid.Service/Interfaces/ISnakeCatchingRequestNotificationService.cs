@@ -70,6 +70,7 @@ namespace SnakeAid.Service.Interfaces
             Guid missionId,
             Guid memberUserId,
             Guid rescuerUserId,
+            Guid? operatorUserId,
             string? rescuerName,
             string? reason);
     }

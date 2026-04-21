@@ -100,8 +100,8 @@ namespace SnakeAid.Api.Services
                 await _notificationQueueService.PublishAsync(new NotificationMessage
                 {
                     UserId = userId,
-                    Title = "Yêu cầu đã được xác nhận",
-                    Body = $"Yêu cầu #{requestId} đã được xác nhận.",
+                    Title = "Yêu cầu bắt rắn đã được xác nhận",
+                    Body = $"Yêu cầu bắt rắn #{requestId} đã được xác nhận.",
                     Type = "SNAKE_CATCHING_REQUEST_CONFIRMED",
                     Data = BuildEntityData(requestId)
                 });
@@ -234,6 +234,17 @@ namespace SnakeAid.Api.Services
             decimal? actualCost)
             => SafeExecuteAsync(async () =>
             {
+                await _hubContext.Clients.Group(OperatorGroup).SendAsync("SnakeCatchingMissionCompleted", new
+                {
+                    RequestId = requestId,
+                    MissionId = missionId,
+                    MemberUserId = memberUserId,
+                    RescuerUserId = rescuerUserId,
+                    RescuerName = rescuerName,
+                    ActualCost = actualCost,
+                    CompletedAt = DateTime.UtcNow
+                });
+
                 await _notificationQueueService.PublishAsync(new NotificationMessage
                 {
                     UserId = memberUserId,
@@ -251,6 +262,7 @@ namespace SnakeAid.Api.Services
             Guid missionId,
             Guid memberUserId,
             Guid rescuerUserId,
+            Guid? operatorUserId,
             string? rescuerName,
             string? reason)
             => SafeExecuteAsync(async () =>
@@ -262,6 +274,17 @@ namespace SnakeAid.Api.Services
                     Body = $"{rescuerName ?? "Cứu hộ viên"} không thể tiếp tục nhiệm vụ. Đợi SnakeAid đang tìm người thay thế.",
                     Type = "SNAKE_CATCHING_MISSION_ABORTED",
                     Data = BuildEntityData(requestId, missionId)
+                });
+
+                await _hubContext.Clients.Group(OperatorGroup).SendAsync("SnakeCatchingMissionAborted", new
+                {
+                    RequestId = requestId,
+                    MissionId = missionId,
+                    RescuerId = rescuerUserId,
+                    OperatorUserId = operatorUserId,
+                    RescuerName = rescuerName,
+                    Reason = reason,
+                    UpdatedAt = DateTime.UtcNow
                 });
 
                 await _notificationQueueService.BroadcastAsync(new AdminBroadcastNotificationRequest

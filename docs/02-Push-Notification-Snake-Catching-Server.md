@@ -161,7 +161,7 @@ Tài liệu này là **đặc tả kỹ thuật cho phía server** — mô tả 
 
 ### [PN-09] Thanh toán dịch vụ thành công (Round 2)
 
-**Trigger:** Xác nhận thanh toán khi transactionType == `CatchingPayment` thành công → trạng thái `Completed`  
+**Trigger:** Xác nhận thanh toán cuối cùng khi transactionType == `CatchingPayment` thành công → trạng thái `Completed`  
 **notificationType (Member):** `SNAKE_CATCHING_PAYMENT_SUCCESS`  
 **notificationType (Rescuer):** `SNAKE_CATCHING_PAYMENT_CONFIRMED`
 
@@ -169,6 +169,8 @@ Tài liệu này là **đặc tả kỹ thuật cho phía server** — mô tả 
 |---|---|---|
 | 👤 Member | `✅ Đơn hoàn tất` | `Cảm ơn bạn đã sử dụng SnakeAid! Đơn #{requestId} đã hoàn tất. Đừng quên đánh giá dịch vụ để giúp chúng tôi cải thiện.` |
 | 🦺 Rescuer | `💰 Thanh toán xác nhận` | `Khách hàng đã thanh toán cho nhiệm vụ #{missionId}. Nhiệm vụ đã kết thúc chính thức. Cảm ơn bạn!` |
+
+> **Ghi chú:** Notification data sẽ bao gồm `paymentMethod` = `Wallet` hoặc `PayOS` để client biết thanh toán được thực hiện qua ví app hay PayOS. Nếu là đặt cọc, `paymentStage` = `deposit`; nếu là thanh toán cuối, `paymentStage` = `final`.
 
 ---
 
