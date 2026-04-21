@@ -5,6 +5,7 @@ using SnakeAid.Api.Services;
 using SnakeAid.Core.Domains;
 using SnakeAid.Repository.Data;
 using SnakeAid.Repository.Interfaces;
+using SnakeAid.Service.Interfaces;
 using System;
 using System.Linq;
 using System.Security.Claims;
@@ -21,13 +22,16 @@ namespace SnakeAid.Api.Hubs
         private static readonly bool EnablePresenceSelfHealing = false;
 
         private readonly IUnitOfWork<SnakeAidDbContext> _unitOfWork;
+        private readonly IExpertOnlineStatusService _expertOnlineStatusService;
         private readonly ILogger<ExpertHub> _logger;
 
         public ExpertHub(
             IUnitOfWork<SnakeAidDbContext> unitOfWork,
+            IExpertOnlineStatusService expertOnlineStatusService,
             ILogger<ExpertHub> logger)
         {
             _unitOfWork = unitOfWork;
+            _expertOnlineStatusService = expertOnlineStatusService;
             _logger = logger;
         }
 
@@ -37,7 +41,7 @@ namespace SnakeAid.Api.Hubs
             var expertId = GetCurrentExpertId();
 
             SignalRExpertEmergencyNotificationService.AddConnection(expertId.ToString(), Context.ConnectionId);
-            var statusChanged = await SetExpertOnlineFlagAsync(expertId, true);
+            var statusChanged = await _expertOnlineStatusService.SetOnlineAsync(expertId.ToString());
             if (statusChanged)
             {
                 await BroadcastExpertPresenceChangedAsync(expertId, true);
@@ -53,6 +57,36 @@ namespace SnakeAid.Api.Hubs
                 ExpertId = expertId,
                 ConnectionId = Context.ConnectionId,
                 Message = "Expert connected successfully."
+            });
+        }
+
+        public async Task LeaveAsExpert()
+        {
+            EnsureRoleOrThrow("Expert");
+            var expertId = GetCurrentExpertId();
+
+            var trackedExpertId = SignalRExpertEmergencyNotificationService.FindExpertIdByConnection(Context.ConnectionId);
+            if (!string.IsNullOrWhiteSpace(trackedExpertId))
+            {
+                SignalRExpertEmergencyNotificationService.RemoveConnection(trackedExpertId);
+            }
+
+            var statusChanged = await _expertOnlineStatusService.SetOfflineAsync(expertId.ToString());
+            if (statusChanged)
+            {
+                await BroadcastExpertPresenceChangedAsync(expertId, false);
+            }
+
+            _logger.LogInformation(
+                "Expert {ExpertId} left ExpertHub availability with connection {ConnectionId}",
+                expertId,
+                Context.ConnectionId);
+
+            await Clients.Caller.SendAsync("LeftAsExpert", new
+            {
+                ExpertId = expertId,
+                ConnectionId = Context.ConnectionId,
+                Message = "Expert switched to offline successfully."
             });
         }
 
@@ -115,7 +149,7 @@ namespace SnakeAid.Api.Hubs
             if (!string.IsNullOrWhiteSpace(expertIdText) && Guid.TryParse(expertIdText, out var expertId))
             {
                 SignalRExpertEmergencyNotificationService.RemoveConnection(expertIdText);
-                var statusChanged = await SetExpertOnlineFlagAsync(expertId, false);
+                var statusChanged = await _expertOnlineStatusService.SetOfflineAsync(expertIdText);
                 if (statusChanged)
                 {
                     await BroadcastExpertPresenceChangedAsync(expertId, false);
@@ -152,30 +186,6 @@ namespace SnakeAid.Api.Hubs
             {
                 throw new HubException($"This action requires role: {role}.");
             }
-        }
-
-        private async Task<bool> SetExpertOnlineFlagAsync(Guid expertId, bool isOnline)
-        {
-            var profileRepo = _unitOfWork.GetRepository<ExpertProfile>();
-            var profile = await profileRepo.FirstOrDefaultAsync(
-                predicate: p => p.AccountId == expertId,
-                asNoTracking: false);
-
-            if (profile == null)
-            {
-                _logger.LogWarning("Expert profile not found while setting online status. ExpertId={ExpertId}", expertId);
-                return false;
-            }
-
-            if (profile.IsOnline == isOnline)
-            {
-                return false;
-            }
-
-            profile.IsOnline = isOnline;
-            profileRepo.Update(profile);
-            await _unitOfWork.CommitAsync();
-            return true;
         }
 
         private Task BroadcastExpertPresenceChangedAsync(Guid expertId, bool isOnline)
