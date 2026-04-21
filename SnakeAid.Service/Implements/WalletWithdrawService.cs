@@ -62,14 +62,7 @@ namespace SnakeAid.Service.Implements
                         throw new NotFoundException($"Wallet not found for user with ID: {userId}");
                     }
 
-                    var pendingAmounts = await _unitOfWork.Context.Set<WalletWithdraw>()
-                        .Where(w => w.UserId == userId && w.Status == WalletWithdrawStatus.Pending)
-                        .Select(w => w.Amount)
-                        .ToListAsync();
-                    var pendingAmount = pendingAmounts.Sum();
-
-                    var availableBalance = wallet.Balance - pendingAmount;
-                    if (availableBalance < amount)
+                    if (wallet.Balance < amount)
                     {
                         throw new ConflictException(
                             "Insufficient wallet balance",
@@ -110,6 +103,10 @@ namespace SnakeAid.Service.Implements
                         CreatedAt = DateTime.UtcNow
                     };
 
+                    wallet.Balance -= amount;
+
+                    await _unitOfWork.GetRepository<Transaction>().InsertAsync(
+                        CreateWithdrawalInitiatedTransaction(withdrawal));
                     await _unitOfWork.GetRepository<WalletWithdraw>().InsertAsync(withdrawal);
                     await _unitOfWork.CommitAsync();
                     await transaction.CommitAsync();
@@ -160,6 +157,7 @@ namespace SnakeAid.Service.Implements
                 var trackedWithdrawal = await _unitOfWork.GetRepository<WalletWithdraw>()
                     .FirstOrDefaultAsync(
                         predicate: w => w.Id == withdrawalId,
+                        include: q => q.Include(w => w.Wallet),
                         asNoTracking: false);
 
                 if (trackedWithdrawal == null)
@@ -183,9 +181,12 @@ namespace SnakeAid.Service.Implements
                         WithdrawalErrorCodes.WithdrawalInvalidStatus);
                 }
 
+                trackedWithdrawal.Wallet.Balance += trackedWithdrawal.Amount;
                 trackedWithdrawal.Status = WalletWithdrawStatus.Rejected;
                 trackedWithdrawal.RejectionReason = "Cancelled by user";
                 trackedWithdrawal.ProcessedAt = DateTime.UtcNow;
+                await _unitOfWork.GetRepository<Transaction>().InsertAsync(
+                    CreateWithdrawalRefundTransaction(trackedWithdrawal, "Withdrawal cancelled by user"));
 
                 return trackedWithdrawal;
             });
@@ -236,13 +237,6 @@ namespace SnakeAid.Service.Implements
                         WithdrawalErrorCodes.WithdrawalBankBinMissing);
                 }
 
-                if (trackedWithdrawal.Wallet.Balance < trackedWithdrawal.Amount)
-                {
-                    throw new ConflictException(
-                        "Insufficient wallet balance to approve withdrawal",
-                        WithdrawalErrorCodes.WithdrawalInsufficientBalance);
-                }
-
                 var (payload, imageBase64) = _vietQrAdapter.GenerateQr(
                     trackedWithdrawal.BankBin,
                     trackedWithdrawal.BankAccount,
@@ -250,7 +244,6 @@ namespace SnakeAid.Service.Implements
                     trackedWithdrawal.Amount,
                     $"Withdrawal {trackedWithdrawal.Id}");
 
-                trackedWithdrawal.Wallet.Balance -= trackedWithdrawal.Amount;
                 trackedWithdrawal.Status = WalletWithdrawStatus.Approved;
                 trackedWithdrawal.ProcessedByAdminId = adminUserId;
                 trackedWithdrawal.AdminNotes = NormalizeText(adminNotes);
@@ -258,7 +251,6 @@ namespace SnakeAid.Service.Implements
                 trackedWithdrawal.VietQrImageBase64 = imageBase64;
                 trackedWithdrawal.ProcessedAt = DateTime.UtcNow;
 
-                await _unitOfWork.GetRepository<Transaction>().InsertAsync(CreateWithdrawalTransaction(trackedWithdrawal));
                 return trackedWithdrawal;
             });
 
@@ -298,12 +290,9 @@ namespace SnakeAid.Service.Implements
                         WithdrawalErrorCodes.WithdrawalInvalidStatus);
                 }
 
-                if (trackedWithdrawal.Status == WalletWithdrawStatus.Approved)
-                {
-                    trackedWithdrawal.Wallet.Balance += trackedWithdrawal.Amount;
-                    await _unitOfWork.GetRepository<Transaction>().InsertAsync(
-                        CreateWithdrawalRefundTransaction(trackedWithdrawal, "Withdrawal rejected after approval"));
-                }
+                trackedWithdrawal.Wallet.Balance += trackedWithdrawal.Amount;
+                await _unitOfWork.GetRepository<Transaction>().InsertAsync(
+                    CreateWithdrawalRefundTransaction(trackedWithdrawal, "Withdrawal rejected"));
 
                 trackedWithdrawal.Status = WalletWithdrawStatus.Rejected;
                 trackedWithdrawal.ProcessedByAdminId = adminUserId;
@@ -407,7 +396,7 @@ namespace SnakeAid.Service.Implements
                 trackedWithdrawal.ProcessedAt = DateTime.UtcNow;
 
                 await _unitOfWork.GetRepository<Transaction>().InsertAsync(
-                    CreateWithdrawalRefundTransaction(trackedWithdrawal, "Withdrawal failed after approval"));
+                    CreateWithdrawalRefundTransaction(trackedWithdrawal, "Withdrawal failed"));
                 return trackedWithdrawal;
             });
 
@@ -608,7 +597,7 @@ namespace SnakeAid.Service.Implements
             return data;
         }
 
-        private static Transaction CreateWithdrawalTransaction(WalletWithdraw withdrawal)
+        private static Transaction CreateWithdrawalInitiatedTransaction(WalletWithdraw withdrawal)
         {
             return new Transaction
             {
@@ -616,8 +605,8 @@ namespace SnakeAid.Service.Implements
                 UserId = withdrawal.UserId,
                 ReferenceId = withdrawal.Id,
                 Amount = withdrawal.Amount,
-                TransactionType = TransactionType.WalletWithdraw,
-                Description = $"Wallet withdrawal approved to {withdrawal.BankName} - {withdrawal.BankAccount}",
+                TransactionType = TransactionType.WithdrawalInitiated,
+                Description = $"Withdrawal initiated to {withdrawal.BankName} - {withdrawal.BankAccount}",
                 CreatedAt = DateTime.UtcNow
             };
         }
@@ -630,7 +619,7 @@ namespace SnakeAid.Service.Implements
                 UserId = withdrawal.UserId,
                 ReferenceId = withdrawal.Id,
                 Amount = withdrawal.Amount,
-                TransactionType = TransactionType.AdminAdjustment,
+                TransactionType = TransactionType.WithdrawalRefund,
                 Description = description,
                 CreatedAt = DateTime.UtcNow
             };

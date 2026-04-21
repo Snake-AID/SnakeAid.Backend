@@ -71,6 +71,8 @@ namespace SnakeAid.Core.Domains
         PlatformFee = 30,            // Platform commission -> ReferenceId = ConsultationId
         WalletTopup = 31,            // User nạp tiền
         WalletWithdraw = 32,         // User rút tiền
-        AdminAdjustment = 33         // Admin điều chỉnh
+        AdminAdjustment = 33,        // Admin điều chỉnh
+        WithdrawalInitiated = 34,    // User tạo yêu cầu rút tiền, trừ số dư ví
+        WithdrawalRefund = 35        // Hoàn tiền withdrawal về ví
     }
 }
