@@ -23,6 +23,7 @@ public class ConsultationMessageHistoryIntegrationTests : IDisposable
     private readonly Guid _adminId = Guid.NewGuid();
     private readonly Guid _outsiderId = Guid.NewGuid();
     private readonly Guid _completedConsultationId = Guid.NewGuid();
+    private readonly Guid _cancelledConsultationId = Guid.NewGuid();
     private readonly Guid _expertAbsentConsultationId = Guid.NewGuid();
     private readonly Guid _ongoingConsultationId = Guid.NewGuid();
 
@@ -104,6 +105,23 @@ public class ConsultationMessageHistoryIntegrationTests : IDisposable
             });
 
         Assert.Equal(2, result.Items.Count());
+    }
+
+    [Fact]
+    public async Task GetConsultationMessageHistoryAsync_CancelledConsultation_ShouldReturnHistory()
+    {
+        var result = await _service.GetConsultationMessageHistoryAsync(
+            _cancelledConsultationId,
+            _memberId,
+            false,
+            new ConsultationMessageHistoryQueryRequest
+            {
+                PageNumber = 1,
+                PageSize = 10
+            });
+
+        var item = Assert.Single(result.Items);
+        Assert.Equal("cancelled-msg-1", item.Content);
     }
 
     [Fact]
@@ -191,6 +209,17 @@ public class ConsultationMessageHistoryIntegrationTests : IDisposable
             },
             new Consultation
             {
+                Id = _cancelledConsultationId,
+                CallerId = _memberId,
+                CalleeId = _expertId,
+                RoomId = "room-cancelled",
+                StartTime = DateTime.UtcNow.AddHours(-4),
+                EndTime = DateTime.UtcNow.AddHours(-3),
+                Status = ConsultationStatus.Cancelled,
+                Type = ConsultationType.Scheduled
+            },
+            new Consultation
+            {
                 Id = _ongoingConsultationId,
                 CallerId = _memberId,
                 CalleeId = _expertId,
@@ -251,6 +280,14 @@ public class ConsultationMessageHistoryIntegrationTests : IDisposable
                 Content = string.Empty,
                 AttachmentUrl = "https://example.com/attachment.jpg",
                 SentAt = baseTime.AddMinutes(10)
+            },
+            new ChatMessage
+            {
+                Id = Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"),
+                ConsultationId = _cancelledConsultationId,
+                SenderId = _memberId,
+                Content = "cancelled-msg-1",
+                SentAt = baseTime.AddMinutes(11)
             });
 
         _db.SaveChanges();

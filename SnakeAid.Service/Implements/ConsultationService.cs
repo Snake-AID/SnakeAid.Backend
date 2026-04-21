@@ -830,7 +830,8 @@ public class ConsultationService : IConsultationService
 
     private static bool IsTerminalMessageHistoryStatus(ConsultationStatus status)
     {
-        return status is ConsultationStatus.Completed
+        return status is ConsultationStatus.Cancelled
+            or ConsultationStatus.Completed
             or ConsultationStatus.UserAbsent
             or ConsultationStatus.ExpertAbsent
             or ConsultationStatus.AllAbsent;
