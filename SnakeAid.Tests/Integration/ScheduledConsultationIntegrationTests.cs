@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using SnakeAid.Core.Constants;
 using SnakeAid.Core.Domains;
+using SnakeAid.Core.Messages.Notifications;
 using SnakeAid.Core.Requests.Consultation;
 using SnakeAid.Core.Requests.LiveKit;
 using SnakeAid.Core.Responses.Consultation;
@@ -46,6 +47,7 @@ public class ScheduledConsultationIntegrationTests
             new FakeConsultationPaymentService(),
             new NoOpHubContext(),
             new NoOpLiveKitService(),
+            new RecordingNotificationQueueService(),
             NullLogger<BookingService>.Instance);
         var response = await bookingService.CreateScheduledBookingAsync(userId, new CreateConsultationBookingRequest
         {
@@ -254,11 +256,13 @@ public class ScheduledConsultationIntegrationTests
         await db.SaveChangesAsync();
 
         var paymentService = new FakeConsultationPaymentService();
+        var notifications = new RecordingNotificationQueueService();
         var bookingService = new BookingService(
             new UnitOfWork<SnakeAidDbContext>(db),
             paymentService,
             new NoOpHubContext(),
             new NoOpLiveKitService(),
+            notifications,
             NullLogger<BookingService>.Instance);
 
         var response = await bookingService.CancelScheduledBookingAsync(userId, bookingId);
@@ -267,6 +271,7 @@ public class ScheduledConsultationIntegrationTests
         Assert.Equal(ConsultationBookingCancellationReason.CancelledByMember, response.CancellationReason);
         Assert.Equal([bookingId], paymentService.CancelledPendingBookingIds);
         Assert.Empty(paymentService.RefundedBookingIds);
+        Assert.Empty(notifications.PublishedMessages);
 
         var booking = await db.ConsultationBookings.FirstAsync(b => b.Id == bookingId);
         var slot = await db.ExpertTimeSlots.FirstAsync(s => s.Id == slotId);
@@ -327,11 +332,13 @@ public class ScheduledConsultationIntegrationTests
         await db.SaveChangesAsync();
 
         var paymentService = new FakeConsultationPaymentService();
+        var notifications = new RecordingNotificationQueueService();
         var bookingService = new BookingService(
             new UnitOfWork<SnakeAidDbContext>(db),
             paymentService,
             new NoOpHubContext(),
             new NoOpLiveKitService(),
+            notifications,
             NullLogger<BookingService>.Instance);
 
         var response = await bookingService.CancelScheduledBookingAsync(expertId, bookingId);
@@ -340,6 +347,16 @@ public class ScheduledConsultationIntegrationTests
         Assert.Equal(ConsultationBookingCancellationReason.CancelledByExpert, response.CancellationReason);
         Assert.Equal([bookingId], paymentService.RefundedBookingIds);
         Assert.Empty(paymentService.CancelledPendingBookingIds);
+
+        var notification = Assert.Single(notifications.PublishedMessages);
+        Assert.Equal(userId, notification.UserId);
+        Assert.Equal("Lịch tư vấn đã bị chuyên gia hủy", notification.Title);
+        Assert.Equal("Chuyên gia đã hủy lịch tư vấn của bạn. Vui lòng kiểm tra lại lịch hẹn trong ứng dụng.", notification.Body);
+        Assert.Equal("CONSULTATION_SCHEDULED_BOOKING_CANCELLED_BY_EXPERT", notification.Type);
+        Assert.NotNull(notification.Data);
+        Assert.Equal(bookingId.ToString(), notification.Data!["bookingId"]);
+        Assert.Equal(consultationId.ToString(), notification.Data["consultationId"]);
+        Assert.Equal(expertId.ToString(), notification.Data["expertId"]);
     }
 
     [Fact]
@@ -390,11 +407,13 @@ public class ScheduledConsultationIntegrationTests
         await db.SaveChangesAsync();
 
         var paymentService = new FakeConsultationPaymentService();
+        var notifications = new RecordingNotificationQueueService();
         var bookingService = new BookingService(
             new UnitOfWork<SnakeAidDbContext>(db),
             paymentService,
             new NoOpHubContext(),
             new NoOpLiveKitService(),
+            notifications,
             NullLogger<BookingService>.Instance);
 
         var response = await bookingService.CancelScheduledBookingAsync(userId, bookingId);
@@ -403,6 +422,7 @@ public class ScheduledConsultationIntegrationTests
         Assert.Equal(ConsultationBookingCancellationReason.CancelledByMember, response.CancellationReason);
         Assert.Equal([consultationId], paymentService.SettledConsultationIds);
         Assert.Empty(paymentService.RefundedBookingIds);
+        Assert.Empty(notifications.PublishedMessages);
     }
 
     [Fact]
@@ -475,6 +495,28 @@ public class ScheduledConsultationIntegrationTests
             SettledConsultationIds.Add(consultationId);
             return Task.FromResult(true);
         }
+    }
+
+    private sealed class RecordingNotificationQueueService : INotificationQueueService
+    {
+        public List<NotificationMessage> PublishedMessages { get; } = [];
+
+        public Task PublishAsync(NotificationMessage message, CancellationToken cancellationToken = default)
+        {
+            PublishedMessages.Add(message);
+            return Task.CompletedTask;
+        }
+
+        public Task PublishBulkAsync(
+            IEnumerable<NotificationMessage> messages,
+            IEnumerable<AppNotification> appNotifications,
+            CancellationToken cancellationToken = default)
+            => throw new NotImplementedException();
+
+        public Task<int> BroadcastAsync(
+            SnakeAid.Core.Requests.Notification.AdminBroadcastNotificationRequest request,
+            CancellationToken cancellationToken = default)
+            => throw new NotImplementedException();
     }
 
     private sealed class NoOpHubContext : IHubContext<ConsultationHub>

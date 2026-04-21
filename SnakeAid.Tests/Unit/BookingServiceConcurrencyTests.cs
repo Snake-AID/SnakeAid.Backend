@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using SnakeAid.Core.Exceptions;
+using SnakeAid.Core.Messages.Notifications;
 using SnakeAid.Core.Requests.Consultation;
 using SnakeAid.Core.Requests.LiveKit;
 using SnakeAid.Core.Responses.Consultation;
@@ -25,6 +26,7 @@ public class BookingServiceConcurrencyTests
             new NoOpConsultationPaymentService(),
             new NoOpHubContext(),
             new NoOpLiveKitService(),
+            new NoOpNotificationQueueService(),
             NullLogger<BookingService>.Instance);
         var request = new CreateConsultationBookingRequest { TimeSlotId = Guid.NewGuid() };
 
@@ -104,5 +106,22 @@ public class BookingServiceConcurrencyTests
             => Task.FromResult(new List<RoomInfoResponse>());
         public LiveKitWebhookPayload? ValidateWebhook(string body, string authorizationHeader)
             => null;
+    }
+
+    private sealed class NoOpNotificationQueueService : INotificationQueueService
+    {
+        public Task PublishAsync(NotificationMessage message, CancellationToken cancellationToken = default)
+            => Task.CompletedTask;
+
+        public Task PublishBulkAsync(
+            IEnumerable<NotificationMessage> messages,
+            IEnumerable<SnakeAid.Core.Domains.AppNotification> appNotifications,
+            CancellationToken cancellationToken = default)
+            => Task.CompletedTask;
+
+        public Task<int> BroadcastAsync(
+            SnakeAid.Core.Requests.Notification.AdminBroadcastNotificationRequest request,
+            CancellationToken cancellationToken = default)
+            => Task.FromResult(0);
     }
 }

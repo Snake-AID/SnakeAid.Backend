@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging;
 using SnakeAid.Core.Constants;
 using SnakeAid.Core.Domains;
 using SnakeAid.Core.Exceptions;
+using SnakeAid.Core.Messages.Notifications;
 using SnakeAid.Core.Requests.Consultation;
 using SnakeAid.Core.Responses.Consultation;
 using SnakeAid.Repository.Data;
@@ -19,19 +20,25 @@ public class BookingService : IBookingService
     private readonly IConsultationPaymentService _consultationPaymentService;
     private readonly IHubContext<ConsultationHub> _hubContext;
     private readonly ILiveKitService _liveKitService;
+    private readonly INotificationQueueService _notificationQueueService;
     private readonly ILogger<BookingService> _logger;
+    private const string ExpertCancelledBookingNotificationTitle = "Lịch tư vấn đã bị chuyên gia hủy";
+    private const string ExpertCancelledBookingNotificationBody = "Chuyên gia đã hủy lịch tư vấn của bạn. Vui lòng kiểm tra lại lịch hẹn trong ứng dụng.";
+    private const string ExpertCancelledBookingNotificationType = "CONSULTATION_SCHEDULED_BOOKING_CANCELLED_BY_EXPERT";
 
     public BookingService(
         IUnitOfWork<SnakeAidDbContext> unitOfWork,
         IConsultationPaymentService consultationPaymentService,
         IHubContext<ConsultationHub> hubContext,
         ILiveKitService liveKitService,
+        INotificationQueueService notificationQueueService,
         ILogger<BookingService> logger)
     {
         _unitOfWork = unitOfWork;
         _consultationPaymentService = consultationPaymentService;
         _hubContext = hubContext;
         _liveKitService = liveKitService;
+        _notificationQueueService = notificationQueueService;
         _logger = logger;
     }
 
@@ -226,6 +233,11 @@ public class BookingService : IBookingService
             _unitOfWork.GetRepository<ExpertTimeSlot>().Update(booking.TimeSlot);
 
             await _unitOfWork.CommitAsync();
+
+            if (cancellationReason == ConsultationBookingCancellationReason.CancelledByExpert)
+            {
+                await TryPublishExpertCancelledBookingNotificationAsync(booking, cancellationToken);
+            }
 
             return MapBookingResponse(booking);
         });
@@ -468,6 +480,49 @@ public class BookingService : IBookingService
         }
 
         throw new ForbiddenException("You are not allowed to cancel this booking.");
+    }
+
+    private async Task TryPublishExpertCancelledBookingNotificationAsync(
+        ConsultationBooking booking,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            await _notificationQueueService.PublishAsync(new NotificationMessage
+            {
+                UserId = booking.UserId,
+                Title = ExpertCancelledBookingNotificationTitle,
+                Body = ExpertCancelledBookingNotificationBody,
+                Type = ExpertCancelledBookingNotificationType,
+                Data = BuildExpertCancelledBookingNotificationData(booking)
+            }, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(
+                ex,
+                "Failed to publish expert-cancel scheduled booking notification for bookingId={BookingId}, userId={UserId}",
+                booking.Id,
+                booking.UserId);
+        }
+    }
+
+    private static Dictionary<string, string> BuildExpertCancelledBookingNotificationData(ConsultationBooking booking)
+    {
+        var data = new Dictionary<string, string>
+        {
+            ["bookingId"] = booking.Id.ToString(),
+            ["userId"] = booking.UserId.ToString(),
+            ["expertId"] = booking.ExpertId.ToString(),
+            ["cancellationReason"] = ConsultationBookingCancellationReason.CancelledByExpert.ToString()
+        };
+
+        if (booking.ConsultationId.HasValue)
+        {
+            data["consultationId"] = booking.ConsultationId.Value.ToString();
+        }
+
+        return data;
     }
 
     private static ConsultationBookingResponse MapBookingResponse(ConsultationBooking booking)

@@ -10,6 +10,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using SnakeAid.Api.Controllers;
 using SnakeAid.Core.Domains;
+using SnakeAid.Core.Messages.Notifications;
 using SnakeAid.Core.Meta;
 using SnakeAid.Core.Requests.Consultation;
 using SnakeAid.Core.Requests.LiveKit;
@@ -141,6 +142,7 @@ public class ConsultationBookingsControllerIntegrationTests
             new FakeConsultationPaymentService(),
             new NoOpHubContext(),
             new NoOpLiveKitService(),
+            new RecordingNotificationQueueService(),
             NullLogger<BookingService>.Instance);
 
         var controller = BuildController(bookingService, expertId, "Expert");
@@ -242,6 +244,22 @@ public class ConsultationBookingsControllerIntegrationTests
         public Task<bool> CancelPendingScheduledBookingPaymentAsync(Guid bookingId, string reason, CancellationToken cancellationToken = default) => Task.FromResult(false);
         public Task<int> ExpireEmergencyRequestsAsync(CancellationToken cancellationToken = default) => Task.FromResult(0);
         public Task<bool> SettleConsultationEscrowAsync(Guid consultationId, CancellationToken cancellationToken = default) => Task.FromResult(true);
+    }
+
+    private sealed class RecordingNotificationQueueService : INotificationQueueService
+    {
+        public Task PublishAsync(NotificationMessage message, CancellationToken cancellationToken = default) => Task.CompletedTask;
+
+        public Task PublishBulkAsync(
+            IEnumerable<NotificationMessage> messages,
+            IEnumerable<AppNotification> appNotifications,
+            CancellationToken cancellationToken = default)
+            => throw new NotImplementedException();
+
+        public Task<int> BroadcastAsync(
+            SnakeAid.Core.Requests.Notification.AdminBroadcastNotificationRequest request,
+            CancellationToken cancellationToken = default)
+            => throw new NotImplementedException();
     }
 
     private sealed class NoOpHubContext : IHubContext<ConsultationHub>
