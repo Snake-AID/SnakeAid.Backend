@@ -244,42 +244,27 @@ public class ConsultationService : IConsultationService
         }
 
         var messageRepo = _unitOfWork.GetRepository<ChatMessage>();
-        var totalItems = await messageRepo.CountAsync(m => m.ConsultationId == consultationId);
-
-        var descendingPage = await messageRepo.GetListAsync(
+        var allMessages = await messageRepo.GetListAsync(
             predicate: m => m.ConsultationId == consultationId,
             orderBy: q => q
                 .OrderByDescending(m => m.SentAt)
-                .ThenByDescending(m => m.Id),
-            take: query.PageSize * query.PageNumber);
+                .ThenByDescending(m => m.Id));
 
-        var pageItems = descendingPage
-            .Skip((query.PageNumber - 1) * query.PageSize)
-            .Take(query.PageSize)
-            .OrderBy(m => m.SentAt)
-            .ThenBy(m => m.Id)
-            .Select(m => new ConsultationMessageHistoryItemResponse
+        return BuildNewestFirstPagingResponse(
+            allMessages,
+            query.PageNumber,
+            query.PageSize,
+            message => new ConsultationMessageHistoryItemResponse
             {
-                Id = m.Id,
-                ConsultationId = m.ConsultationId,
-                SenderId = m.SenderId,
-                Content = m.Content ?? string.Empty,
-                AttachmentUrl = m.AttachmentUrl,
-                SentAt = m.SentAt
-            })
-            .ToList();
-
-        return new PagingResponse<ConsultationMessageHistoryItemResponse>
-        {
-            Items = pageItems,
-            Meta = new PaginationMeta
-            {
-                CurrentPage = query.PageNumber,
-                PageSize = query.PageSize,
-                TotalItems = totalItems,
-                TotalPages = (int)Math.Ceiling(totalItems / (double)query.PageSize)
-            }
-        };
+                Id = message.Id,
+                ConsultationId = message.ConsultationId,
+                SenderId = message.SenderId,
+                Content = message.Content ?? string.Empty,
+                AttachmentUrl = message.AttachmentUrl,
+                SentAt = message.SentAt
+            },
+            item => item.SentAt,
+            item => item.Id);
     }
 
     public async Task<UserFeedbackResponse> CreateConsultationReviewAsync(Guid consultationId, Guid raterId, CreateConsultationReviewRequest request)
@@ -849,6 +834,38 @@ public class ConsultationService : IConsultationService
             or ConsultationStatus.UserAbsent
             or ConsultationStatus.ExpertAbsent
             or ConsultationStatus.AllAbsent;
+    }
+
+    private static PagingResponse<TResult> BuildNewestFirstPagingResponse<TSource, TResult, TOrderKey>(
+        IEnumerable<TSource> newestFirstItems,
+        int pageNumber,
+        int pageSize,
+        Func<TSource, TResult> selector,
+        Func<TResult, DateTime> ascendingOrderSelector,
+        Func<TResult, TOrderKey> tieBreakerSelector)
+    {
+        var materialized = newestFirstItems.ToList();
+        var totalItems = materialized.Count;
+
+        var pageItems = materialized
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .Select(selector)
+            .OrderBy(ascendingOrderSelector)
+            .ThenBy(tieBreakerSelector)
+            .ToList();
+
+        return new PagingResponse<TResult>
+        {
+            Items = pageItems,
+            Meta = new PaginationMeta
+            {
+                CurrentPage = pageNumber,
+                PageSize = pageSize,
+                TotalItems = totalItems,
+                TotalPages = (int)Math.Ceiling(totalItems / (double)pageSize)
+            }
+        };
     }
 #endregion
 
