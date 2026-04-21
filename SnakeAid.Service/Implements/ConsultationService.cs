@@ -219,6 +219,64 @@ public class ConsultationService : IConsultationService
 #endregion
 
 #region Consultation Feedback
+    public async Task<PagingResponse<ConsultationMessageHistoryItemResponse>> GetConsultationMessageHistoryAsync(
+        Guid consultationId,
+        Guid actorId,
+        bool isAdmin,
+        ConsultationMessageHistoryQueryRequest query)
+    {
+        var consultation = await _unitOfWork.GetRepository<Consultation>().FirstOrDefaultAsync(
+            predicate: c => c.Id == consultationId);
+
+        if (consultation == null)
+        {
+            throw new NotFoundException("Consultation not found.");
+        }
+
+        if (!isAdmin && consultation.CallerId != actorId && consultation.CalleeId != actorId)
+        {
+            throw new ForbiddenException("You are not allowed to access this consultation message history.");
+        }
+
+        if (!IsTerminalMessageHistoryStatus(consultation.Status))
+        {
+            throw new BusinessException($"Consultation message history is available only for terminal consultations. Current status is {consultation.Status}.");
+        }
+
+        var messageRepo = _unitOfWork.GetRepository<ChatMessage>();
+        var (normalizedPageNumber, normalizedPageSize) = NormalizePaging(pageNumber: query.PageNumber, pageSize: query.PageSize);
+
+        var newestFirstQuery = messageRepo
+            .CreateBaseQuery()
+            .Where(m => m.ConsultationId == consultationId)
+            .OrderByDescending(m => m.SentAt)
+            .ThenByDescending(m => m.Id);
+
+        var totalItems = await newestFirstQuery.CountAsync();
+
+        var pageItems = await newestFirstQuery
+            .Skip((normalizedPageNumber - 1) * normalizedPageSize)
+            .Take(normalizedPageSize)
+            .Select(message => new ConsultationMessageHistoryItemResponse
+            {
+                Id = message.Id,
+                ConsultationId = message.ConsultationId,
+                SenderId = message.SenderId,
+                Content = message.Content ?? string.Empty,
+                AttachmentUrl = message.AttachmentUrl,
+                SentAt = message.SentAt
+            })
+            .ToListAsync();
+
+        return BuildNewestFirstPagingResponse(
+            pageItems,
+            totalItems,
+            normalizedPageNumber,
+            normalizedPageSize,
+            item => item.SentAt,
+            item => item.Id);
+    }
+
     public async Task<UserFeedbackResponse> CreateConsultationReviewAsync(Guid consultationId, Guid raterId, CreateConsultationReviewRequest request)
     {
         var consultation = await _unitOfWork.GetRepository<Consultation>().FirstOrDefaultAsync(
@@ -777,6 +835,50 @@ public class ConsultationService : IConsultationService
             ConsultationType.Scheduled => (true, false),
             ConsultationType.Emergency => (false, true),
             _ => throw new ArgumentOutOfRangeException(paramName, type, "Unsupported consultation type.")
+        };
+    }
+
+    private static bool IsTerminalMessageHistoryStatus(ConsultationStatus status)
+    {
+        return status is ConsultationStatus.Cancelled
+            or ConsultationStatus.Completed
+            or ConsultationStatus.UserAbsent
+            or ConsultationStatus.ExpertAbsent
+            or ConsultationStatus.AllAbsent;
+    }
+
+    private static (int pageNumber, int pageSize) NormalizePaging(int pageNumber, int pageSize)
+    {
+        var normalizedPageNumber = pageNumber < 1 ? 1 : pageNumber;
+        var normalizedPageSize = pageSize < 1 ? 10 : pageSize;
+        return (normalizedPageNumber, normalizedPageSize);
+    }
+
+    private static PagingResponse<TItem> BuildNewestFirstPagingResponse<TItem, TOrderKey>(
+        IEnumerable<TItem> newestFirstPageItems,
+        int totalItems,
+        int pageNumber,
+        int pageSize,
+        Func<TItem, DateTime> ascendingOrderSelector,
+        Func<TItem, TOrderKey> tieBreakerSelector)
+    {
+        var (normalizedPageNumber, normalizedPageSize) = NormalizePaging(pageNumber, pageSize);
+
+        var pageItems = newestFirstPageItems
+            .OrderBy(ascendingOrderSelector)
+            .ThenBy(tieBreakerSelector)
+            .ToList();
+
+        return new PagingResponse<TItem>
+        {
+            Items = pageItems,
+            Meta = new PaginationMeta
+            {
+                CurrentPage = normalizedPageNumber,
+                PageSize = normalizedPageSize,
+                TotalItems = totalItems,
+                TotalPages = (int)Math.Ceiling(totalItems / (double)normalizedPageSize)
+            }
         };
     }
 #endregion
