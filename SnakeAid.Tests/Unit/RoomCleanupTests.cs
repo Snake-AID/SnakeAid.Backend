@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using SnakeAid.Core.Constants;
 using SnakeAid.Core.Domains;
+using SnakeAid.Core.Messages.Notifications;
 using SnakeAid.Core.Requests.Consultation;
 using SnakeAid.Core.Requests.LiveKit;
 using SnakeAid.Core.Responses.Consultation;
@@ -390,6 +391,7 @@ public class RoomCleanupTests
             payment ?? new SpyPaymentService(),
             hub ?? new SpyHubContext(),
             liveKit ?? new SpyLiveKitService(),
+            new SpyNotificationQueueService(),
             NullLogger<BookingService>.Instance);
     }
 
@@ -624,6 +626,28 @@ public class RoomCleanupTests
         public Task<RoomInfoResponse> CreateRoomAsync(string roomName, int maxParticipants = 2, int emptyTimeoutSeconds = 600, CancellationToken cancellationToken = default) => Task.FromResult(new RoomInfoResponse());
         public Task<List<RoomInfoResponse>> ListRoomsAsync(CancellationToken cancellationToken = default) => Task.FromResult(new List<RoomInfoResponse>());
         public LiveKitWebhookPayload? ValidateWebhook(string body, string authorizationHeader) => null;
+    }
+
+    private sealed class SpyNotificationQueueService : INotificationQueueService
+    {
+        public List<NotificationMessage> PublishedMessages { get; } = new();
+
+        public Task PublishAsync(NotificationMessage message, CancellationToken cancellationToken = default)
+        {
+            PublishedMessages.Add(message);
+            return Task.CompletedTask;
+        }
+
+        public Task PublishBulkAsync(
+            IEnumerable<NotificationMessage> messages,
+            IEnumerable<AppNotification> appNotifications,
+            CancellationToken cancellationToken = default)
+            => Task.CompletedTask;
+
+        public Task<int> BroadcastAsync(
+            SnakeAid.Core.Requests.Notification.AdminBroadcastNotificationRequest request,
+            CancellationToken cancellationToken = default)
+            => Task.FromResult(0);
     }
 
     /// <summary>
