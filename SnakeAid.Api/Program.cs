@@ -164,8 +164,7 @@ namespace SnakeAid.Api
                     x.UsingRabbitMq((context, cfg) =>
                     {
                         var rabbitSection = builder.Configuration.GetSection("RabbitMq");
-                        // var host = rabbitSection["Host"] ?? "rabbitmq";
-                        var host = "localhost";
+                        var host = rabbitSection["Host"] ?? "rabbitmq";
                         var virtualHost = rabbitSection["VirtualHost"] ?? "/";
                         var username = rabbitSection["Username"] ?? "admin";
                         var password = rabbitSection["Password"] ?? "password";
