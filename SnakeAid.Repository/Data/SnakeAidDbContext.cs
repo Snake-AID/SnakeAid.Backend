@@ -9,6 +9,7 @@ using Microsoft.EntityFrameworkCore.ChangeTracking;
 using NetTopologySuite.Geometries;
 using System.Text.Json;
 using SnakeAid.Core.Domains;
+using SnakeAid.Core.Utils;
 
 namespace SnakeAid.Repository.Data
 {
@@ -99,13 +100,39 @@ namespace SnakeAid.Repository.Data
         public override int SaveChanges()
         {
             UpdateTimestamps();
+            SanitizeTrackedStrings();
             return base.SaveChanges();
         }
 
         public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
         {
             UpdateTimestamps();
+            SanitizeTrackedStrings();
             return base.SaveChangesAsync(cancellationToken);
+        }
+
+        private void SanitizeTrackedStrings()
+        {
+            var entries = ChangeTracker
+                .Entries()
+                .Where(e => e.State == EntityState.Added || e.State == EntityState.Modified);
+
+            foreach (var entry in entries)
+            {
+                foreach (var property in entry.Properties.Where(p =>
+                             p.Metadata.ClrType == typeof(string)
+                             && !p.Metadata.IsShadowProperty()
+                             && (entry.State == EntityState.Added || p.IsModified)))
+                {
+                    var currentValue = property.CurrentValue as string;
+                    if (currentValue is null || currentValue.IndexOf('\0') < 0)
+                    {
+                        continue;
+                    }
+
+                    property.CurrentValue = StringNormalizer.RemoveNullCharacters(currentValue);
+                }
+            }
         }
 
         private void UpdateTimestamps()

@@ -43,6 +43,16 @@ namespace SnakeAid.Core.Utils
 
     public static class StringNormalizer
     {
+        public static string? RemoveNullCharacters(string? input)
+        {
+            if (input == null || input.IndexOf('\0') < 0)
+            {
+                return input;
+            }
+
+            return input.Replace("\0", string.Empty);
+        }
+
         public static string NormalizeForComparison(string? input)
         {
             if (string.IsNullOrWhiteSpace(input))

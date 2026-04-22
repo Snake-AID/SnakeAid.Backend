@@ -71,6 +71,76 @@ public class ScheduledConsultationIntegrationTests
     }
 
     [Fact]
+    public async Task CreateScheduledBookingAsync_ShouldRemoveNullCharacters_FromProblemDescription()
+    {
+        var userId = Guid.NewGuid();
+        var expertId = Guid.NewGuid();
+        var slotId = Guid.NewGuid();
+        var slotStart = DateTime.UtcNow.AddHours(2);
+        var slotEnd = slotStart.AddMinutes(30);
+
+        await using var db = CreateDbContext();
+        await SeedUserAndExpertAsync(db, userId, expertId);
+        db.ExpertTimeSlots.Add(new ExpertTimeSlot
+        {
+            Id = slotId,
+            ExpertId = expertId,
+            StartTime = slotStart,
+            EndTime = slotEnd,
+            Status = TimeSlotStatus.Available
+        });
+        await db.SaveChangesAsync();
+
+        var bookingService = new BookingService(
+            new UnitOfWork<SnakeAidDbContext>(db),
+            new FakeConsultationPaymentService(),
+            new NoOpHubContext(),
+            new NoOpLiveKitService(),
+            new RecordingNotificationQueueService(),
+            NullLogger<BookingService>.Instance);
+
+        var response = await bookingService.CreateScheduledBookingAsync(userId, new CreateConsultationBookingRequest
+        {
+            TimeSlotId = slotId,
+            ProblemDescription = "Need\0urgent guidance\0."
+        });
+
+        Assert.Equal("Need\0urgent guidance\0.", response.ProblemDescription);
+
+        var booking = await db.ConsultationBookings.FirstAsync(b => b.Id == response.Id);
+        Assert.Equal("Needurgent guidance.", booking.ProblemDescription);
+    }
+
+    [Fact]
+    public async Task SaveChangesAsync_ShouldRemoveNullCharacters_FromAllTrackedStringProperties()
+    {
+        var userId = Guid.NewGuid();
+        var expertId = Guid.NewGuid();
+        var consultationId = Guid.NewGuid();
+
+        await using var db = CreateDbContext();
+        await SeedUserAndExpertAsync(db, userId, expertId);
+
+        db.Consultations.Add(new Consultation
+        {
+            Id = consultationId,
+            CallerId = userId,
+            CalleeId = expertId,
+            RoomId = "room\0-123",
+            StartTime = DateTime.UtcNow.AddHours(1),
+            Status = ConsultationStatus.Scheduled,
+            Type = ConsultationType.Scheduled,
+            CustomerReport = "Bad\0payload"
+        });
+
+        await db.SaveChangesAsync();
+
+        var consultation = await db.Consultations.FirstAsync(c => c.Id == consultationId);
+        Assert.Equal("room-123", consultation.RoomId);
+        Assert.Equal("Badpayload", consultation.CustomerReport);
+    }
+
+    [Fact]
     public async Task EndConsultationAsync_ShouldCompleteConsultation_AndBooking_AndMarkSlotBooked()
     {
         var userId = Guid.NewGuid();
