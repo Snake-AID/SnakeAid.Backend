@@ -210,8 +210,9 @@ namespace SnakeAid.Api.Controllers
             [FromBody] CancelSnakeCatchingRequestRequest request)
         {
             var userId = GetCurrentUserId();
+            var userRole = GetCurrentUserRole();
 
-            var result = await _snakeCatchingRequestService.CancelSnakeCatchingRequestAsync(userId, requestId, request);
+            var result = await _snakeCatchingRequestService.CancelSnakeCatchingRequestAsync(userId, userRole, requestId, request);
 
             return Ok(ApiResponseBuilder.BuildSuccessResponse(
                 result,

@@ -861,6 +861,7 @@ namespace SnakeAid.Service.Implements
 
         public async Task<DetailSnakeCatchingRequestResponse> CancelSnakeCatchingRequestAsync(
             Guid userId,
+            string userRole,
             Guid requestId,
             CancelSnakeCatchingRequestRequest request)
         {
@@ -884,8 +885,10 @@ namespace SnakeAid.Service.Implements
                         throw new NotFoundException($"Snake catching request with ID {requestId} not found.");
                     }
 
-                    // Validate that the user is the owner of the request
-                    if (snakeCatchingRequest.UserId != userId)
+                    var isOperator = string.Equals(userRole, "Operator", StringComparison.OrdinalIgnoreCase);
+
+                    // Only request owner or operator can cancel.
+                    if (!isOperator && snakeCatchingRequest.UserId != userId)
                     {
                         throw new BadRequestException("You are not authorized to cancel this request.");
                     }

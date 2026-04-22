@@ -288,6 +288,7 @@ public class SnakeCatchingRequestControllerTests
     public async Task CancelSnakeCatchingRequest_ShouldUseCurrentUserAndReturnSuccessMessage()
     {
         var userId = Guid.NewGuid();
+        var userRole = "Member";
         var requestId = Guid.NewGuid();
         var request = new CancelSnakeCatchingRequestRequest { Reason = "Changed plan" };
 
@@ -302,7 +303,7 @@ public class SnakeCatchingRequestControllerTests
         };
 
         var service = new Mock<ISnakeCatchingRequestService>();
-        service.Setup(s => s.CancelSnakeCatchingRequestAsync(userId, requestId, request)).ReturnsAsync(expected);
+        service.Setup(s => s.CancelSnakeCatchingRequestAsync(userId, userRole, requestId, request)).ReturnsAsync(expected);
 
         var controller = CreateController(service.Object, userId);
 
@@ -315,7 +316,7 @@ public class SnakeCatchingRequestControllerTests
         Assert.Equal("Snake catching request cancelled successfully.", response.Message);
         Assert.Equal(RequestStatus.Cancelled, response.Data!.Status);
 
-        service.Verify(s => s.CancelSnakeCatchingRequestAsync(userId, requestId, request), Times.Once);
+        service.Verify(s => s.CancelSnakeCatchingRequestAsync(userId, userRole, requestId, request), Times.Once);
     }
 
     [Fact]
@@ -327,7 +328,7 @@ public class SnakeCatchingRequestControllerTests
         var ex = await Assert.ThrowsAsync<UnauthorizedException>(() => controller.CancelSnakeCatchingRequest(Guid.NewGuid(), new CancelSnakeCatchingRequestRequest { Reason = "R" }));
 
         Assert.Equal("User ID not found in token", ex.Message);
-        service.Verify(s => s.CancelSnakeCatchingRequestAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancelSnakeCatchingRequestRequest>()), Times.Never);
+        service.Verify(s => s.CancelSnakeCatchingRequestAsync(It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<Guid>(), It.IsAny<CancelSnakeCatchingRequestRequest>()), Times.Never);
     }
 
     [Theory]
@@ -373,7 +374,7 @@ public class SnakeCatchingRequestControllerTests
                 service.Setup(s => s.GetDetailAsync(It.IsAny<Guid>())).ThrowsAsync(ex);
                 break;
             case "cancel":
-                service.Setup(s => s.CancelSnakeCatchingRequestAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancelSnakeCatchingRequestRequest>())).ThrowsAsync(ex);
+                service.Setup(s => s.CancelSnakeCatchingRequestAsync(It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<Guid>(), It.IsAny<CancelSnakeCatchingRequestRequest>())).ThrowsAsync(ex);
                 break;
         }
 
