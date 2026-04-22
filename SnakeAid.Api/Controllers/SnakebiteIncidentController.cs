@@ -159,6 +159,7 @@ namespace SnakeAid.Api.Controllers
         [SwaggerResponse(404, "Incident not found")]
         [SwaggerResponse(422, "Validation error")]
         [Authorize]
+        [ValidateModel]
         public async Task<IActionResult> CancelIncident(Guid incidentId, [FromBody] CancelIncidentRequest request)
         {
             var result = await _incidentService.CancelIncidentAsync(incidentId, request);

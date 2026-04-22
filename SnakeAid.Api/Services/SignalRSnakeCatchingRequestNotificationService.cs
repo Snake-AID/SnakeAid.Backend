@@ -225,14 +225,29 @@ namespace SnakeAid.Api.Services
                 });
             }, "SnakeCatchingRescuerArrived", requestId);
 
-        public Task NotifyMissionCompletedAsync(
+        public async Task NotifyMissionCompletedAsync(
             Guid requestId,
             Guid missionId,
             Guid memberUserId,
             Guid rescuerUserId,
             string? rescuerName,
             decimal? actualCost)
-            => SafeExecuteAsync(async () =>
+        {
+            await SafeExecuteAsync(async () =>
+            {
+                await _notificationQueueService.PublishAsync(new NotificationMessage
+                {
+                    UserId = memberUserId,
+                    Title = "Nhiệm vụ hoàn thành - Cần thanh toán",
+                    Body = actualCost.HasValue
+                        ? $"{rescuerName ?? "Cứu hộ viên"} đã hoàn thành. Phí dịch vụ: {actualCost.Value:N0} VND."
+                        : $"{rescuerName ?? "Cứu hộ viên"} đã hoàn thành nhiệm vụ. Vui lòng thanh toán để kết thúc.",
+                    Type = "SNAKE_CATCHING_MISSION_COMPLETED",
+                    Data = BuildEntityData(requestId, missionId)
+                });
+            }, "SnakeCatchingMissionCompletedQueue", requestId);
+
+            await SafeExecuteAsync(async () =>
             {
                 await _hubContext.Clients.Group(OperatorGroup).SendAsync("SnakeCatchingMissionCompleted", new
                 {
@@ -244,18 +259,8 @@ namespace SnakeAid.Api.Services
                     ActualCost = actualCost,
                     CompletedAt = DateTime.UtcNow
                 });
-
-                await _notificationQueueService.PublishAsync(new NotificationMessage
-                {
-                    UserId = memberUserId,
-                    Title = "Nhiệm vụ hoàn thành - Cần thanh toán",
-                    Body = actualCost.HasValue
-                        ? $"{rescuerName ?? "Cứu hộ viên"} đã hoàn thành. Phí dịch vụ: {actualCost.Value:N0} VND."
-                        : $"{rescuerName ?? "Cứu hộ viên"} đã hoàn thành nhiệm vụ. Vui lòng thanh toán để kết thúc.",
-                    Type = "SNAKE_CATCHING_MISSION_COMPLETED",
-                    Data = BuildEntityData(requestId, missionId)
-                });
             }, "SnakeCatchingMissionCompleted", requestId);
+        }
 
         public Task NotifyMissionAbortedAsync(
             Guid requestId,

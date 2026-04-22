@@ -158,16 +158,19 @@ public class SnakeCatchingPaymentService : ISnakeCatchingPaymentService
 
             await _unitOfWork.CommitAsync();
 
-            if (_notificationQueueService != null)
-            {
-                await _notificationQueueService.PublishAsync(BuildSnakeCatchingPaymentSuccessNotification(
+            await TryPublishPaymentSuccessNotificationAsync(
+                BuildSnakeCatchingPaymentSuccessNotification(
                     currentUserId,
                     request.SnakeCatchingRequestId,
                     transfer.TransactionId,
                     request.Amount,
                     "Wallet",
-                    request.TransactionType), cancellationToken);
-            }
+                    request.TransactionType),
+                cancellationToken,
+                "wallet snake catching payment",
+                currentUserId,
+                request.SnakeCatchingRequestId,
+                transfer.TransactionId);
 
             _logger.LogInformation("{Prefix} Wallet payment completed successfully. UserTransactionId={UserTransactionId}, OrderCode={OrderCode}",
                 LogPrefix, transfer.TransactionId, orderCode);
@@ -820,6 +823,37 @@ public class SnakeCatchingPaymentService : ISnakeCatchingPaymentService
         };
     }
 
+    private async Task TryPublishPaymentSuccessNotificationAsync(
+        NotificationMessage notification,
+        CancellationToken cancellationToken,
+        string paymentSource,
+        Guid userId,
+        Guid requestId,
+        Guid transactionId)
+    {
+        if (_notificationQueueService == null)
+        {
+            return;
+        }
+
+        try
+        {
+            await _notificationQueueService.PublishAsync(notification, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(
+                ex,
+                "{Prefix} Failed to publish {PaymentSource} success notification. UserId={UserId}, RequestId={RequestId}, TransactionId={TransactionId}, NotificationType={NotificationType}",
+                LogPrefix,
+                paymentSource,
+                userId,
+                requestId,
+                transactionId,
+                notification.Type);
+        }
+    }
+
     private async Task<decimal> GetRefundableSnakeCatchingRevenueAsync(
         Guid requestId,
         CancellationToken cancellationToken)
@@ -939,15 +973,21 @@ public class SnakeCatchingPaymentService : ISnakeCatchingPaymentService
 
             await _unitOfWork.CommitAsync();
 
-            if (_notificationQueueService != null && transaction.UserId.HasValue && transaction.UserId.Value != Guid.Empty && webhook.Success)
+            if (transaction.UserId.HasValue && transaction.UserId.Value != Guid.Empty && webhook.Success)
             {
-                await _notificationQueueService.PublishAsync(BuildSnakeCatchingPaymentSuccessNotification(
+                await TryPublishPaymentSuccessNotificationAsync(
+                    BuildSnakeCatchingPaymentSuccessNotification(
+                        transaction.UserId.Value,
+                        transaction.ReferenceId,
+                        transaction.Id,
+                        transaction.Amount,
+                        "PayOS",
+                        transaction.TransactionType),
+                    cancellationToken,
+                    "PayOS snake catching payment",
                     transaction.UserId.Value,
                     transaction.ReferenceId,
-                    transaction.Id,
-                    transaction.Amount,
-                    "PayOS",
-                    transaction.TransactionType), cancellationToken);
+                    transaction.Id);
             }
 
             _logger.LogInformation("{Prefix}{SourceTag} Webhook processing completed. TransactionId={TransactionId}, Success={Success}",

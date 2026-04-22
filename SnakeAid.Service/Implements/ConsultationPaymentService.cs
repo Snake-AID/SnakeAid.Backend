@@ -339,9 +339,8 @@ public class ConsultationPaymentService : IConsultationPaymentService
                     roomId = (string?)null
                 });
 
-            if (_notificationQueueService != null)
-            {
-                await _notificationQueueService.PublishAsync(new NotificationMessage
+            await TryPublishNotificationAsync(
+                new NotificationMessage
                 {
                     UserId = ping.RescuerId,
                     Title = "Yêu cầu tư vấn khẩn cấp đã hết hạn",
@@ -352,8 +351,10 @@ public class ConsultationPaymentService : IConsultationPaymentService
                         ["requestId"] = ping.Id.ToString(),
                         ["consultationId"] = ping.ConsultationId.ToString()
                     }
-                }, cancellationToken);
-            }
+                },
+                cancellationToken,
+                "expiring emergency consultation request",
+                ping.RescuerId);
 
             expiredCount++;
         }
@@ -480,9 +481,8 @@ public class ConsultationPaymentService : IConsultationPaymentService
             };
         });
 
-        if (_notificationQueueService != null)
-        {
-            await _notificationQueueService.PublishAsync(new NotificationMessage
+        await TryPublishNotificationAsync(
+            new NotificationMessage
             {
                 UserId = userId,
                 Title = "Thanh toán thành công",
@@ -494,8 +494,10 @@ public class ConsultationPaymentService : IConsultationPaymentService
                     ["transactionId"] = response.TransactionId.ToString(),
                     ["paymentMethod"] = "Wallet"
                 }
-            }, cancellationToken);
-        }
+            },
+            cancellationToken,
+            "publishing scheduled consultation wallet payment success notification",
+            userId);
 
         return response;
     }
@@ -595,9 +597,8 @@ public class ConsultationPaymentService : IConsultationPaymentService
                 expiresAt
             });
 
-        if (_notificationQueueService != null)
-        {
-            await _notificationQueueService.PublishAsync(new NotificationMessage
+        await TryPublishNotificationAsync(
+            new NotificationMessage
             {
                 UserId = userId,
                 Title = "Thanh toán thành công",
@@ -609,8 +610,10 @@ public class ConsultationPaymentService : IConsultationPaymentService
                     ["transactionId"] = response.TransactionId.ToString(),
                     ["paymentMethod"] = "Wallet"
                 }
-            }, cancellationToken);
-        }
+            },
+            cancellationToken,
+            "publishing emergency consultation wallet payment success notification",
+            userId);
 
         return response;
     }
@@ -970,26 +973,30 @@ public class ConsultationPaymentService : IConsultationPaymentService
                 });
         }
 
-        if (context.IsNewlyConfirmed && _notificationQueueService != null)
+        if (context.IsNewlyConfirmed)
         {
             var consultationType = context.Response.ReferenceType == ConsultationPaymentReferenceType.ScheduledBooking
                 ? "cho buổi tư vấn đặt trước"
                 : "cho yêu cầu tư vấn khẩn cấp";
 
-            await _notificationQueueService.PublishAsync(new NotificationMessage
-            {
-                UserId = context.UserId,
-                Title = "Thanh toán thành công",
-                Body = $"Bạn đã thanh toán thành công {FormatVnd(context.Response.Amount)} {consultationType} qua PayOS.",
-                Type = "CONSULTATION_PAYMENT_SUCCESS",
-                Data = new Dictionary<string, string>
+            await TryPublishNotificationAsync(
+                new NotificationMessage
                 {
-                    ["referenceId"] = context.Response.ReferenceId.ToString(),
-                    ["transactionId"] = context.Response.TransactionId.ToString(),
-                    ["paymentMethod"] = "PayOS",
-                    ["referenceType"] = context.Response.ReferenceType.ToString()
-                }
-            }, cancellationToken);
+                    UserId = context.UserId,
+                    Title = "Thanh toán thành công",
+                    Body = $"Bạn đã thanh toán thành công {FormatVnd(context.Response.Amount)} {consultationType} qua PayOS.",
+                    Type = "CONSULTATION_PAYMENT_SUCCESS",
+                    Data = new Dictionary<string, string>
+                    {
+                        ["referenceId"] = context.Response.ReferenceId.ToString(),
+                        ["transactionId"] = context.Response.TransactionId.ToString(),
+                        ["paymentMethod"] = "PayOS",
+                        ["referenceType"] = context.Response.ReferenceType.ToString()
+                    }
+                },
+                cancellationToken,
+                "publishing consultation PayOS payment success notification",
+                context.UserId);
         }
 
         return new PayOsProcessResult { Response = context.Response };
@@ -1509,6 +1516,33 @@ public class ConsultationPaymentService : IConsultationPaymentService
 
         await _unitOfWork.GetRepository<Wallet>().InsertAsync(wallet);
         return wallet;
+    }
+
+    private async Task TryPublishNotificationAsync(
+        NotificationMessage notification,
+        CancellationToken cancellationToken,
+        string context,
+        Guid? userId = null)
+    {
+        if (_notificationQueueService == null)
+        {
+            return;
+        }
+
+        try
+        {
+            await _notificationQueueService.PublishAsync(notification, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(
+                ex,
+                "{Context} failed in {Service}. UserId={UserId}, NotificationType={NotificationType}",
+                context,
+                nameof(ConsultationPaymentService),
+                userId ?? notification.UserId,
+                notification.Type);
+        }
     }
 
     private sealed class PendingPayOsTransactionContext

@@ -319,21 +319,26 @@ public class WalletTopupService : IWalletTopupService
             return BuildSuccessResponse(transaction, webhook.OrderCode);
         });
 
-        if (shouldNotify && _notificationQueueService != null && userId != Guid.Empty)
+        if (shouldNotify && userId != Guid.Empty)
         {
-            await _notificationQueueService.PublishAsync(new NotificationMessage
-            {
-                UserId = userId,
-                Title = "Nạp ví thành công",
-                Body = $"Bạn đã nạp thành công {FormatVnd(transactionAmount)} vào ví qua PayOS.",
-                Type = "WALLET_TOPUP_SUCCESS",
-                Data = new Dictionary<string, string>
+            await TryPublishNotificationAsync(
+                new NotificationMessage
                 {
-                    ["orderCode"] = response.OrderCode.ToString(),
-                    ["transactionId"] = response.TransactionId.ToString(),
-                    ["paymentMethod"] = "PayOS"
-                }
-            }, cancellationToken);
+                    UserId = userId,
+                    Title = "Nạp ví thành công",
+                    Body = $"Bạn đã nạp thành công {FormatVnd(transactionAmount)} vào ví qua PayOS.",
+                    Type = "WALLET_TOPUP_SUCCESS",
+                    Data = new Dictionary<string, string>
+                    {
+                        ["orderCode"] = response.OrderCode.ToString(),
+                        ["transactionId"] = response.TransactionId.ToString(),
+                        ["paymentMethod"] = "PayOS"
+                    }
+                },
+                cancellationToken,
+                userId,
+                response.OrderCode,
+                response.TransactionId);
         }
 
         return response;
@@ -463,6 +468,35 @@ public class WalletTopupService : IWalletTopupService
         return match.Success && long.TryParse(match.Groups[1].Value, out var orderCode)
             ? orderCode
             : 0;
+    }
+
+    private async Task TryPublishNotificationAsync(
+        NotificationMessage notification,
+        CancellationToken cancellationToken,
+        Guid userId,
+        long orderCode,
+        Guid? transactionId)
+    {
+        if (_notificationQueueService == null)
+        {
+            return;
+        }
+
+        try
+        {
+            await _notificationQueueService.PublishAsync(notification, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(
+                ex,
+                "{Prefix} Failed to publish wallet top-up notification. UserId={UserId}, OrderCode={OrderCode}, TransactionId={TransactionId}, NotificationType={NotificationType}",
+                LogPrefix,
+                userId,
+                orderCode,
+                transactionId,
+                notification.Type);
+        }
     }
 
     private static bool IsPaymentLinkPaid(PayOsLinkInformation linkInfo)
