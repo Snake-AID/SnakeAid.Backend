@@ -28,6 +28,9 @@ namespace SnakeAid.Core.Domains
         [Required]
         public MediaPurpose Purpose { get; set; }
 
+        [Timestamp]
+        public uint Version { get; set; }
+
 
         // Upload batch info (để group các ảnh upload cùng lúc)
         public Guid? UploadBatchId { get; set; }

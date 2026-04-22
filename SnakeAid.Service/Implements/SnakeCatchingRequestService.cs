@@ -150,7 +150,18 @@ namespace SnakeAid.Service.Implements
                             if (existingMedia == null)
                                 throw new BadRequestException($"Media with ID {mediaId} not found.");
 
+                            if (existingMedia.ReferenceType != MediaReferenceType.SnakeCatchingRequest)
+                            {
+                                throw new ConflictException($"Media with ID {mediaId} is not uploaded for snake catching requests.");
+                            }
+
+                            if (existingMedia.ReferenceId.HasValue && existingMedia.ReferenceId.Value != newRequest.Id)
+                            {
+                                throw new ConflictException($"Media with ID {mediaId} is already attached to another request.");
+                            }
+
                             existingMedia.ReferenceId = newRequest.Id;
+                            existingMedia.ReferenceType = MediaReferenceType.SnakeCatchingRequest;
 
                             _unitOfWork.GetRepository<ReportMedia>().Update(existingMedia);
                         }
@@ -335,6 +346,11 @@ namespace SnakeAid.Service.Implements
                     response.User?.PhoneNumber);
 
                 return response;
+            }
+            catch (DbUpdateConcurrencyException ex)
+            {
+                _logger.LogWarning(ex, "Report media changed while creating snake catching request for user {UserId}.", userId);
+                throw new ConflictException("One or more media items were updated by another request. Please reload and try again.");
             }
             catch (Exception ex)
             {

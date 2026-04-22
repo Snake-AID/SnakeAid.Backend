@@ -283,36 +283,44 @@ public class SnakeAIService : ISnakeAIService
     /// <inheritdoc />
     public async Task<SnakeDetectionResponse> DetectFromReportMediaAsync(Guid reportMediaId, CancellationToken ct = default)
     {
-        // 1. Health check
-        if (!await IsHealthyAsync())
+        try
         {
-            _logger.LogWarning("SnakeAI server is unavailable");
-            throw new ApiException("Snake detection server is currently unavailable. Please try again later.",
-                System.Net.HttpStatusCode.ServiceUnavailable);
+            // 1. Health check
+            if (!await IsHealthyAsync())
+            {
+                _logger.LogWarning("SnakeAI server is unavailable");
+                throw new ApiException("Snake detection server is currently unavailable. Please try again later.",
+                    System.Net.HttpStatusCode.ServiceUnavailable);
+            }
+
+            // 2. Validate ReportMedia exists
+            var reportMedia = await _unitOfWork.GetRepository<ReportMedia>()
+                .FirstOrDefaultAsync(
+                    predicate: m => m.Id == reportMediaId,
+                    cancellationToken: ct);
+
+            if (reportMedia == null)
+            {
+                _logger.LogWarning("ReportMedia not found: {MediaId}", reportMediaId);
+                throw new NotFoundException("ReportMedia not found.");
+            }
+
+            // 3. Call detection with imageUrl and commit the transaction
+            var result = await DetectAsync(reportMedia.MediaUrl, reportMediaId, ct);
+
+            // 4. Commit all changes (SnakeAIRecognitionResult + ReportMedia updates)
+            await _unitOfWork.CommitAsync();
+
+            _logger.LogInformation("Detection completed and saved for ReportMedia {MediaId}, RecognitionResult {ResultId}",
+                reportMediaId, result.RecognitionResultId);
+
+            return result;
         }
-
-        // 2. Validate ReportMedia exists
-        var reportMedia = await _unitOfWork.GetRepository<ReportMedia>()
-            .FirstOrDefaultAsync(
-                predicate: m => m.Id == reportMediaId,
-                cancellationToken: ct);
-
-        if (reportMedia == null)
+        catch (DbUpdateConcurrencyException ex)
         {
-            _logger.LogWarning("ReportMedia not found: {MediaId}", reportMediaId);
-            throw new NotFoundException("ReportMedia not found.");
+            _logger.LogWarning(ex, "Report media {MediaId} changed while saving AI detection results.", reportMediaId);
+            throw new ConflictException("Report media was updated by another operation. Please reload and try again.");
         }
-
-        // 3. Call detection with imageUrl and commit the transaction
-        var result = await DetectAsync(reportMedia.MediaUrl, reportMediaId, ct);
-
-        // 4. Commit all changes (SnakeAIRecognitionResult + ReportMedia updates)
-        await _unitOfWork.CommitAsync();
-
-        _logger.LogInformation("Detection completed and saved for ReportMedia {MediaId}, RecognitionResult {ResultId}",
-            reportMediaId, result.RecognitionResultId);
-
-        return result;
     }
 
     /// <inheritdoc />

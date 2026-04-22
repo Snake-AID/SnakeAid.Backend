@@ -31,25 +31,28 @@ public class ExpertCertificateService : IExpertCertificateService
         CancellationToken cancellationToken = default)
     {
         ValidateCertificateDates(request.IssueDate, request.ExpiryDate);
-        var profile = await RequireExpertProfileAsync(expertId, false, cancellationToken);
-        var media = await ValidateAndLoadMediaAsync(request.ReportMediaIds, cancellationToken);
-
-        var certificate = new ExpertCertificate
+        var certificate = await ExecuteCertificateMutationAsync(async () =>
         {
-            Id = Guid.NewGuid(),
-            ExpertId = profile.AccountId,
-            CertificateName = request.CertificateName.Trim(),
-            IssuingOrganization = request.IssuingOrganization.Trim(),
-            IssueDate = request.IssueDate,
-            ExpiryDate = request.ExpiryDate,
-            VerificationStatus = VerificationStatus.Pending,
-            RejectionReason = string.Empty
-        };
+            var profile = await RequireExpertProfileAsync(expertId, false, cancellationToken);
+            var media = await ValidateAndLoadMediaAsync(request.ReportMediaIds, cancellationToken);
 
-        await _unitOfWork.GetRepository<ExpertCertificate>().InsertAsync(certificate, cancellationToken);
-        await SyncCertificateMediaAsync(certificate, media, cancellationToken);
-        await RecalculateExpertVerificationAsync(profile.AccountId, cancellationToken);
-        await _unitOfWork.CommitAsync();
+            var createdCertificate = new ExpertCertificate
+            {
+                Id = Guid.NewGuid(),
+                ExpertId = profile.AccountId,
+                CertificateName = request.CertificateName.Trim(),
+                IssuingOrganization = request.IssuingOrganization.Trim(),
+                IssueDate = request.IssueDate,
+                ExpiryDate = request.ExpiryDate,
+                VerificationStatus = VerificationStatus.Pending,
+                RejectionReason = string.Empty
+            };
+
+            await _unitOfWork.GetRepository<ExpertCertificate>().InsertAsync(createdCertificate, cancellationToken);
+            await SyncCertificateMediaAsync(createdCertificate, media, cancellationToken);
+            await RecalculateExpertVerificationAsync(profile.AccountId, cancellationToken);
+            return createdCertificate;
+        });
 
         await LoadMediaAsync(certificate, cancellationToken);
         _logger.LogInformation("Expert {ExpertId} created certificate {CertificateId}.", expertId, certificate.Id);
@@ -89,19 +92,22 @@ public class ExpertCertificateService : IExpertCertificateService
         CancellationToken cancellationToken = default)
     {
         ValidateCertificateDates(request.IssueDate, request.ExpiryDate);
-        var certificate = await RequireOwnedCertificateAsync(expertId, certificateId, false, cancellationToken);
-        var media = await ValidateAndLoadMediaAsync(request.ReportMediaIds, cancellationToken);
+        var certificate = await ExecuteCertificateMutationAsync(async () =>
+        {
+            var existingCertificate = await RequireOwnedCertificateAsync(expertId, certificateId, false, cancellationToken);
+            var media = await ValidateAndLoadMediaAsync(request.ReportMediaIds, cancellationToken);
 
-        certificate.CertificateName = request.CertificateName.Trim();
-        certificate.IssuingOrganization = request.IssuingOrganization.Trim();
-        certificate.IssueDate = request.IssueDate;
-        certificate.ExpiryDate = request.ExpiryDate;
-        certificate.VerificationStatus = VerificationStatus.Pending;
-        certificate.RejectionReason = string.Empty;
+            existingCertificate.CertificateName = request.CertificateName.Trim();
+            existingCertificate.IssuingOrganization = request.IssuingOrganization.Trim();
+            existingCertificate.IssueDate = request.IssueDate;
+            existingCertificate.ExpiryDate = request.ExpiryDate;
+            existingCertificate.VerificationStatus = VerificationStatus.Pending;
+            existingCertificate.RejectionReason = string.Empty;
 
-        await SyncCertificateMediaAsync(certificate, media, cancellationToken);
-        await RecalculateExpertVerificationAsync(expertId, cancellationToken);
-        await _unitOfWork.CommitAsync();
+            await SyncCertificateMediaAsync(existingCertificate, media, cancellationToken);
+            await RecalculateExpertVerificationAsync(expertId, cancellationToken);
+            return existingCertificate;
+        });
 
         await LoadMediaAsync(certificate, cancellationToken);
         _logger.LogInformation("Expert {ExpertId} updated certificate {CertificateId} and reset it to pending.", expertId, certificateId);
@@ -113,11 +119,13 @@ public class ExpertCertificateService : IExpertCertificateService
         Guid certificateId,
         CancellationToken cancellationToken = default)
     {
-        var certificate = await RequireOwnedCertificateAsync(expertId, certificateId, false, cancellationToken);
-        await DetachCertificateMediaAsync(certificate.Id, cancellationToken);
-        _unitOfWork.GetRepository<ExpertCertificate>().Delete(certificate);
-        await RecalculateExpertVerificationAsync(expertId, cancellationToken);
-        await _unitOfWork.CommitAsync();
+        await ExecuteCertificateMutationAsync(async () =>
+        {
+            var certificate = await RequireOwnedCertificateAsync(expertId, certificateId, false, cancellationToken);
+            await DetachCertificateMediaAsync(certificate.Id, cancellationToken);
+            _unitOfWork.GetRepository<ExpertCertificate>().Delete(certificate);
+            await RecalculateExpertVerificationAsync(expertId, cancellationToken);
+        });
     }
 
     public async Task<ExpertCertificateResponse> AdminCreateAsync(
@@ -126,32 +134,35 @@ public class ExpertCertificateService : IExpertCertificateService
     {
         ValidateCertificateDates(request.IssueDate, request.ExpiryDate);
         ValidateReviewState(request.VerificationStatus, request.RejectionReason);
-        var profile = await RequireExpertProfileAsync(request.ExpertId, false, cancellationToken);
-        var media = await ValidateAndLoadMediaAsync(request.ReportMediaIds, cancellationToken);
-
-        var certificate = new ExpertCertificate
+        var certificate = await ExecuteCertificateMutationAsync(async () =>
         {
-            Id = Guid.NewGuid(),
-            ExpertId = profile.AccountId,
-            CertificateName = request.CertificateName.Trim(),
-            IssuingOrganization = request.IssuingOrganization.Trim(),
-            IssueDate = request.IssueDate,
-            ExpiryDate = request.ExpiryDate,
-            VerificationStatus = request.VerificationStatus,
-            RejectionReason = request.VerificationStatus == VerificationStatus.Rejected
-                ? request.RejectionReason!.Trim()
-                : string.Empty
-        };
+            var profile = await RequireExpertProfileAsync(request.ExpertId, false, cancellationToken);
+            var media = await ValidateAndLoadMediaAsync(request.ReportMediaIds, cancellationToken);
 
-        await _unitOfWork.GetRepository<ExpertCertificate>().InsertAsync(certificate, cancellationToken);
-        await SyncCertificateMediaAsync(certificate, media, cancellationToken);
-        await RecalculateExpertVerificationAsync(profile.AccountId, cancellationToken);
-        await _unitOfWork.CommitAsync();
+            var createdCertificate = new ExpertCertificate
+            {
+                Id = Guid.NewGuid(),
+                ExpertId = profile.AccountId,
+                CertificateName = request.CertificateName.Trim(),
+                IssuingOrganization = request.IssuingOrganization.Trim(),
+                IssueDate = request.IssueDate,
+                ExpiryDate = request.ExpiryDate,
+                VerificationStatus = request.VerificationStatus,
+                RejectionReason = request.VerificationStatus == VerificationStatus.Rejected
+                    ? request.RejectionReason!.Trim()
+                    : string.Empty
+            };
+
+            await _unitOfWork.GetRepository<ExpertCertificate>().InsertAsync(createdCertificate, cancellationToken);
+            await SyncCertificateMediaAsync(createdCertificate, media, cancellationToken);
+            await RecalculateExpertVerificationAsync(profile.AccountId, cancellationToken);
+            return createdCertificate;
+        });
 
         await LoadMediaAsync(certificate, cancellationToken);
         _logger.LogInformation("Admin created certificate {CertificateId} for expert {ExpertId} with status {Status}.",
             certificate.Id,
-            profile.AccountId,
+            certificate.ExpertId,
             certificate.VerificationStatus);
         return MapResponse(certificate);
     }
@@ -203,21 +214,24 @@ public class ExpertCertificateService : IExpertCertificateService
         ValidateCertificateDates(request.IssueDate, request.ExpiryDate);
         ValidateReviewState(request.VerificationStatus, request.RejectionReason);
 
-        var certificate = await RequireCertificateAsync(certificateId, false, cancellationToken);
-        var media = await ValidateAndLoadMediaAsync(request.ReportMediaIds, cancellationToken);
+        var certificate = await ExecuteCertificateMutationAsync(async () =>
+        {
+            var existingCertificate = await RequireCertificateAsync(certificateId, false, cancellationToken);
+            var media = await ValidateAndLoadMediaAsync(request.ReportMediaIds, cancellationToken);
 
-        certificate.CertificateName = request.CertificateName.Trim();
-        certificate.IssuingOrganization = request.IssuingOrganization.Trim();
-        certificate.IssueDate = request.IssueDate;
-        certificate.ExpiryDate = request.ExpiryDate;
-        certificate.VerificationStatus = request.VerificationStatus;
-        certificate.RejectionReason = request.VerificationStatus == VerificationStatus.Rejected
-            ? request.RejectionReason!.Trim()
-            : string.Empty;
+            existingCertificate.CertificateName = request.CertificateName.Trim();
+            existingCertificate.IssuingOrganization = request.IssuingOrganization.Trim();
+            existingCertificate.IssueDate = request.IssueDate;
+            existingCertificate.ExpiryDate = request.ExpiryDate;
+            existingCertificate.VerificationStatus = request.VerificationStatus;
+            existingCertificate.RejectionReason = request.VerificationStatus == VerificationStatus.Rejected
+                ? request.RejectionReason!.Trim()
+                : string.Empty;
 
-        await SyncCertificateMediaAsync(certificate, media, cancellationToken);
-        await RecalculateExpertVerificationAsync(certificate.ExpertId, cancellationToken);
-        await _unitOfWork.CommitAsync();
+            await SyncCertificateMediaAsync(existingCertificate, media, cancellationToken);
+            await RecalculateExpertVerificationAsync(existingCertificate.ExpertId, cancellationToken);
+            return existingCertificate;
+        });
 
         await LoadMediaAsync(certificate, cancellationToken);
         return MapResponse(certificate);
@@ -227,11 +241,13 @@ public class ExpertCertificateService : IExpertCertificateService
         Guid certificateId,
         CancellationToken cancellationToken = default)
     {
-        var certificate = await RequireCertificateAsync(certificateId, false, cancellationToken);
-        await DetachCertificateMediaAsync(certificate.Id, cancellationToken);
-        _unitOfWork.GetRepository<ExpertCertificate>().Delete(certificate);
-        await RecalculateExpertVerificationAsync(certificate.ExpertId, cancellationToken);
-        await _unitOfWork.CommitAsync();
+        await ExecuteCertificateMutationAsync(async () =>
+        {
+            var certificate = await RequireCertificateAsync(certificateId, false, cancellationToken);
+            await DetachCertificateMediaAsync(certificate.Id, cancellationToken);
+            _unitOfWork.GetRepository<ExpertCertificate>().Delete(certificate);
+            await RecalculateExpertVerificationAsync(certificate.ExpertId, cancellationToken);
+        });
     }
 
     private async Task<ExpertProfile> RequireExpertProfileAsync(Guid expertId, bool asNoTracking, CancellationToken cancellationToken)
@@ -354,6 +370,32 @@ public class ExpertCertificateService : IExpertCertificateService
             .ThenBy(m => m.CreatedAt)
             .Select(m => m.MediaUrl)
             .FirstOrDefault() ?? string.Empty;
+    }
+
+    private async Task<T> ExecuteCertificateMutationAsync<T>(Func<Task<T>> operation)
+    {
+        try
+        {
+            return await _unitOfWork.ExecuteInTransactionAsync(operation);
+        }
+        catch (DbUpdateConcurrencyException ex)
+        {
+            _logger.LogWarning(ex, "Expert certificate media update conflicted with another operation.");
+            throw new ConflictException("Certificate media was updated by another request. Please reload and try again.");
+        }
+    }
+
+    private async Task ExecuteCertificateMutationAsync(Func<Task> operation)
+    {
+        try
+        {
+            await _unitOfWork.ExecuteInTransactionAsync(operation);
+        }
+        catch (DbUpdateConcurrencyException ex)
+        {
+            _logger.LogWarning(ex, "Expert certificate media update conflicted with another operation.");
+            throw new ConflictException("Certificate media was updated by another request. Please reload and try again.");
+        }
     }
 
     private async Task DetachCertificateMediaAsync(Guid certificateId, CancellationToken cancellationToken)

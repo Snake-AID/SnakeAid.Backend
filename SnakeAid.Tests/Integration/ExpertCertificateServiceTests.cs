@@ -2,9 +2,11 @@ using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using SnakeAid.Core.Domains;
+using SnakeAid.Core.Exceptions;
 using SnakeAid.Core.Requests.ExpertCertificate;
 using SnakeAid.Repository.Data;
 using SnakeAid.Repository.Implements;
+using SnakeAid.Repository.Interfaces;
 using SnakeAid.Service.Implements;
 using System.Reflection;
 
@@ -119,6 +121,23 @@ public class ExpertCertificateServiceTests
         Assert.True(profile.IsVerified);
     }
 
+    [Fact]
+    public async Task CreateMyAsync_ShouldTranslateConcurrencyConflicts_ToConflictException()
+    {
+        var service = new ExpertCertificateService(
+            new ConcurrencyThrowingUnitOfWork(),
+            NullLogger<ExpertCertificateService>.Instance);
+
+        await Assert.ThrowsAsync<ConflictException>(() => service.CreateMyAsync(Guid.NewGuid(), new CreateExpertCertificateRequest
+        {
+            CertificateName = "Clinical Toxicology",
+            IssuingOrganization = "SnakeAid",
+            IssueDate = new DateTime(2025, 5, 1, 0, 0, 0, DateTimeKind.Utc),
+            ExpiryDate = new DateTime(2028, 5, 1, 0, 0, 0, DateTimeKind.Utc),
+            ReportMediaIds = [Guid.NewGuid()]
+        }));
+    }
+
     private static ExpertCertificateService CreateService(SnakeAidDbContext db)
     {
         return new ExpertCertificateService(
@@ -163,6 +182,7 @@ public class ExpertCertificateServiceTests
             ReferenceId = referenceId,
             ReferenceType = MediaReferenceType.ExpertCertificate,
             Purpose = MediaPurpose.Evidence,
+            Version = 0,
             RequiresAIProcessing = false
         });
 
@@ -241,7 +261,30 @@ public class ExpertCertificateServiceTests
             {
                 entity.HasKey(m => m.Id);
                 entity.Ignore(m => m.AIRecognitionResults);
+                entity.Property(m => m.Version)
+                    .IsConcurrencyToken()
+                    .ValueGeneratedNever();
             });
         }
+    }
+
+    private sealed class ConcurrencyThrowingUnitOfWork : IUnitOfWork<SnakeAidDbContext>
+    {
+        public SnakeAidDbContext Context => throw new NotImplementedException();
+
+        public IGenericRepository<TEntity> GetRepository<TEntity>() where TEntity : class
+            => throw new NotImplementedException();
+
+        public Task<T> ExecuteInTransactionAsync<T>(Func<Task<T>> operation)
+            => throw new DbUpdateConcurrencyException("Simulated concurrency conflict.");
+
+        public Task ExecuteInTransactionAsync(Func<Task> operation)
+            => throw new DbUpdateConcurrencyException("Simulated concurrency conflict.");
+
+        public int Commit() => throw new NotImplementedException();
+        public Task<int> CommitAsync() => throw new NotImplementedException();
+        public Task RollbackAsync() => throw new NotImplementedException();
+        public void ClearChangeTracker() => throw new NotImplementedException();
+        public void Dispose() { }
     }
 }

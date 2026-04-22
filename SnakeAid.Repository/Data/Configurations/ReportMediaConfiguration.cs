@@ -10,6 +10,12 @@ namespace SnakeAid.Repository.Data.Configurations
         {
             builder.ToTable("ReportMedias");
 
+            builder.Property(m => m.Version)
+                .IsConcurrencyToken()
+                .ValueGeneratedOnAddOrUpdate()
+                .HasColumnType("xid")
+                .HasColumnName("xmin");
+
             // Enum conversions
             builder.Property(m => m.ReferenceType)
                 .HasConversion<int>()
