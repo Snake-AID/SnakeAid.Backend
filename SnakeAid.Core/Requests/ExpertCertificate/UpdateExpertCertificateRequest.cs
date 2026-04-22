@@ -17,6 +17,7 @@ public class UpdateExpertCertificateRequest
 
     public DateTime? ExpiryDate { get; set; }
 
+    [Required]
     [MinLength(1)]
     public List<Guid> ReportMediaIds { get; set; } = new();
 }
