@@ -1,12 +1,13 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 using System.Linq;
 using System.Threading.Tasks;
 
 namespace SnakeAid.Core.Domains
 {
-    public class ExpertCertificate : BaseEntity
+    public class ExpertCertificate : BaseEntity, IHasReportMedia
     {
         [Key]
         public Guid Id { get; set; }
@@ -34,6 +35,9 @@ namespace SnakeAid.Core.Domains
         public VerificationStatus VerificationStatus { get; set; } = VerificationStatus.Pending;
 
         public string RejectionReason { get; set; } = "";
+
+        [NotMapped]
+        public ICollection<ReportMedia> Media { get; set; } = new List<ReportMedia>();
     }
 
     public enum VerificationStatus
