@@ -128,7 +128,8 @@ namespace SnakeAid.Service.Implements
                             ConsultationFee = user.ExpertProfile.ConsultationFee,
                             EmergencyConsultationFee = user.ExpertProfile.EmergencyConsultationFee,
                             Rating = user.ExpertProfile.Rating,
-                            RatingCount = user.ExpertProfile.RatingCount
+                            RatingCount = user.ExpertProfile.RatingCount,
+                            IsVerified = user.ExpertProfile.IsVerified
                         },
                     RescuerProfile = user.RescuerProfile == null
                         ? null

@@ -160,6 +160,29 @@ public class MyProfileServiceTests
     }
 
     [Fact]
+    public async Task GetExpertProfileAsync_ShouldExposePersistedIsVerified()
+    {
+        var expertId = Guid.NewGuid();
+        await using var db = CreateDbContext();
+        await SeedAccountAsync(db, expertId, AccountRole.Expert);
+        db.ExpertProfiles.Add(new ExpertProfile
+        {
+            AccountId = expertId,
+            Biography = "Verified bio",
+            ConsultationFee = 100_000m,
+            EmergencyConsultationFee = 120_000m,
+            IsVerified = true
+        });
+        await db.SaveChangesAsync();
+
+        var service = CreateService(db);
+
+        var response = await service.GetExpertProfileAsync(expertId);
+
+        Assert.True(response.IsVerified);
+    }
+
+    [Fact]
     public void UpdateExpertProfileRequest_WithoutScheduledFee_ShouldFailModelValidation()
     {
         var request = new UpdateExpertProfileRequest

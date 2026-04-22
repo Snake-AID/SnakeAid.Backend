@@ -35,6 +35,9 @@ namespace SnakeAid.Core.Domains
         [Range(0, int.MaxValue)]
         public int RatingCount { get; set; } = 0;
 
+        [Required]
+        public bool IsVerified { get; set; } = false;
+
 
         // Navigation properties
         public Account Account { get; set; }

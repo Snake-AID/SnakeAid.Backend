@@ -49,7 +49,8 @@ namespace SnakeAid.Core.Domains
         SnakebiteIncident = 1,
         RescueMission = 2,
         SnakeCatchingRequest = 3,
-        SnakeCatchingMission = 4
+        SnakeCatchingMission = 4,
+        ExpertCertificate = 5
     }
 
     public enum MediaPurpose

@@ -20,6 +20,7 @@ public class ExpertMyProfileResponse
     public decimal EmergencyConsultationFee { get; set; }
     public decimal Rating { get; set; }
     public int RatingCount { get; set; }
+    public bool IsVerified { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
 }

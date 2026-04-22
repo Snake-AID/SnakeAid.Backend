@@ -271,7 +271,7 @@ namespace SnakeAid.Service.Implements
                     EmergencyConsultationFee = emergencyFee,
                     Rating = p.Rating,
                     RatingCount = p.RatingCount,
-                    IsVerified = false,
+                    IsVerified = p.IsVerified,
                     TotalConsultations = expertCompleted.Count,
                     AverageResponseTimeMinutes = averageResponseTimeMinutes,
                     SuccessRate = successRate,
