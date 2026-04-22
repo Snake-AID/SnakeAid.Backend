@@ -16,6 +16,7 @@ public interface IConsultationService
     Task<UserFeedbackResponse?> GetConsultationReviewAsync(Guid consultationId, Guid actorId);
     Task<AdminConsultationResponse> GetConsultationByIdForAdminAsync(Guid consultationId);
     Task<PagingResponse<AdminConsultationResponse>> GetAllConsultationsForAdminAsync(AdminConsultationsQueryRequest query);
+    Task<AdminConsultationResponse> ConfirmExpertAbsentHandledAsync(Guid consultationId);
     Task<PagingResponse<MyConsultationResponse>> GetMyConsultationsAsync(Guid userId, MyConsultationsQueryRequest query);
     Task<PagingResponse<ExpertConsultationResponse>> GetExpertConsultationsAsync(Guid expertId, MyConsultationsQueryRequest query);
 }
