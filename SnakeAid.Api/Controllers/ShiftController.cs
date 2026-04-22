@@ -184,14 +184,33 @@ namespace SnakeAid.Api.Controllers
             return Ok(ApiResponseBuilder.BuildSuccessResponse(result, "Shift assignment deleted successfully."));
         }
 
-        [HttpGet("rescuer/{id}/my-assignments-today")]
+        [HttpGet("rescuer/my-assignments-today")]
         [SwaggerOperation(Summary = "Get My Shift Assignments for Today", Description = "Retrieve shift assignments for the logged-in rescuer for the current day")]
         [SwaggerResponse(200, "Success", typeof(ApiResponse<List<ShiftAssignmentResponse>>))]
-        [Authorize(Roles = "Admin, Rescuer")]
-        public async Task<IActionResult> GetMyAssignmentsToday(Guid id)
+        [Authorize(Roles = "Rescuer")]
+        public async Task<IActionResult> GetMyAssignmentsToday()
         {
             var today = AppTime.TodayLocalDate;
-            var result = await _shiftService.GetAssignmentsByRescuerIdAsync(id, today);
+            var rescuerId = GetCurrentUserId();
+            var result = await _shiftService.GetAssignmentsByRescuerIdAsync(rescuerId, today);
+            return Ok(ApiResponseBuilder.BuildSuccessResponse(result));
+        }
+
+        [HttpGet("rescuer/assignments")]
+        [SwaggerOperation(Summary = "Get Rescuer Shift Assignments By Date Range", Description = "Retrieve shift assignments for a specific rescuer within a date range")]
+        [SwaggerResponse(200, "Success", typeof(ApiResponse<List<ShiftAssignmentResponse>>))]
+        [SwaggerResponse(400, "Bad Request", typeof(ApiResponse<object>))]
+        [Authorize(Roles = "Rescuer")]
+        public async Task<IActionResult> GetAssignmentsByRescuerIdRange([FromQuery] DateOnly? startDate, [FromQuery] DateOnly? endDate)
+        {
+            var rescuerId = GetCurrentUserId();
+
+            if (!startDate.HasValue || !endDate.HasValue)
+            {
+                return BadRequest(ApiResponseBuilder.BuildErrorResponse("Both startDate and endDate are required."));
+            }
+
+            var result = await _shiftService.GetAssignmentsByRescuerIdRangeAsync(rescuerId, startDate.Value, endDate.Value);
             return Ok(ApiResponseBuilder.BuildSuccessResponse(result));
         }
     }

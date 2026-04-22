@@ -49,6 +49,18 @@ namespace SnakeAid.Service.Implements
             _snakeCatchingRequestNotificationService = snakeCatchingRequestNotificationService;
         }
 
+        private async Task SafeNotifyAsync(Func<Task> notifyAction, string operationName)
+        {
+            try
+            {
+                await notifyAction();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Notification failed during {OperationName}: {Message}", operationName, ex.Message);
+            }
+        }
+
         public async Task<SnakeCatchingMissionDetailResponse> StartMissionAsync(
             Guid rescuerId,
             Guid missionId,
@@ -56,7 +68,7 @@ namespace SnakeAid.Service.Implements
         {
             try
             {
-                return await _unitOfWork.ExecuteInTransactionAsync(async () =>
+                var (response, requestId, memberUserId, rescuerName) = await _unitOfWork.ExecuteInTransactionAsync(async () =>
                 {
                     // Get mission
                     var mission = await _unitOfWork.GetRepository<SnakeCatchingMission>().FirstOrDefaultAsync(
@@ -100,20 +112,24 @@ namespace SnakeAid.Service.Implements
                     var rescuerName = await _unitOfWork.GetRepository<Account>()
                         .FirstOrDefaultAsync(selector: a => a.FullName, predicate: a => a.Id == rescuerId);
 
-                    if (requestInfo != null)
-                    {
-                        await _snakeCatchingRequestNotificationService.NotifyMissionEnRouteAsync(
-                            requestInfo.Id,
-                            mission.Id,
-                            requestInfo.UserId,
-                            rescuerId,
-                            rescuerName);
-                    }
-
                     await mission.AttachReportMediaAsync(_unitOfWork, MediaReferenceType.SnakeCatchingMission);
                     var response = mission.Adapt<SnakeCatchingMissionDetailResponse>();
-                    return response;
+                    return (response, requestInfo?.Id, requestInfo?.UserId, rescuerName);
                 });
+
+                if (requestId.HasValue && memberUserId.HasValue)
+                {
+                    await SafeNotifyAsync(
+                        () => _snakeCatchingRequestNotificationService.NotifyMissionEnRouteAsync(
+                            requestId.Value,
+                            missionId,
+                            memberUserId.Value,
+                            rescuerId,
+                            rescuerName),
+                        nameof(_snakeCatchingRequestNotificationService.NotifyMissionEnRouteAsync));
+                }
+
+                return response;
             }
             catch (Exception ex)
             {
@@ -129,7 +145,7 @@ namespace SnakeAid.Service.Implements
         {
             try
             {
-                return await _unitOfWork.ExecuteInTransactionAsync(async () =>
+                var (response, requestId, memberUserId, rescuerName) = await _unitOfWork.ExecuteInTransactionAsync(async () =>
                 {
                     // Get mission
                     var mission = await _unitOfWork.GetRepository<SnakeCatchingMission>().FirstOrDefaultAsync(
@@ -169,20 +185,24 @@ namespace SnakeAid.Service.Implements
                     var rescuerName = await _unitOfWork.GetRepository<Account>()
                         .FirstOrDefaultAsync(selector: a => a.FullName, predicate: a => a.Id == rescuerId);
 
-                    if (requestInfo != null)
-                    {
-                        await _snakeCatchingRequestNotificationService.NotifyMissionArrivedAsync(
-                            requestInfo.Id,
-                            mission.Id,
-                            requestInfo.UserId,
-                            rescuerId,
-                            rescuerName);
-                    }
-
                     await mission.AttachReportMediaAsync(_unitOfWork, MediaReferenceType.SnakeCatchingMission);
                     var response = mission.Adapt<SnakeCatchingMissionDetailResponse>();
-                    return response;
+                    return (response, requestInfo?.Id, requestInfo?.UserId, rescuerName);
                 });
+
+                if (requestId.HasValue && memberUserId.HasValue)
+                {
+                    await SafeNotifyAsync(
+                        () => _snakeCatchingRequestNotificationService.NotifyMissionArrivedAsync(
+                            requestId.Value,
+                            missionId,
+                            memberUserId.Value,
+                            rescuerId,
+                            rescuerName),
+                        nameof(_snakeCatchingRequestNotificationService.NotifyMissionArrivedAsync));
+                }
+
+                return response;
             }
             catch (Exception ex)
             {
@@ -201,7 +221,7 @@ namespace SnakeAid.Service.Implements
                 var basePrice = _systemSettingService.GetSetting(SystemSettingKeys.CatchingBasePrice, CATCHING_BASE_PRICE);
                 var additionalSnakePrice = _systemSettingService.GetSetting(SystemSettingKeys.CatchingAdditionalSnakePrice, ADDITIONAL_SNAKE_PRICE);
 
-                return await _unitOfWork.ExecuteInTransactionAsync(async () =>
+                var (response, requestId, memberUserId, rescuerName, actualCost) = await _unitOfWork.ExecuteInTransactionAsync(async () =>
                 {
                     // Get mission with related data
                     var mission = await _unitOfWork.GetRepository<SnakeCatchingMission>().FirstOrDefaultAsync(
@@ -275,8 +295,6 @@ namespace SnakeAid.Service.Implements
                         mission.Notes = request.Notes;
                     }
 
-
-
                     // Update mission first
                     _unitOfWork.GetRepository<SnakeCatchingMission>().Update(mission);
 
@@ -304,28 +322,14 @@ namespace SnakeAid.Service.Implements
                     var rescuerName = await _unitOfWork.GetRepository<Account>()
                         .FirstOrDefaultAsync(selector: a => a.FullName, predicate: a => a.Id == rescuerId);
 
-                    if (requestInfo != null)
-                    {
-                        await _snakeCatchingRequestNotificationService.NotifyMissionCompletedAsync(
-                            requestInfo.Id,
-                            mission.Id,
-                            requestInfo.UserId,
-                            rescuerId,
-                            rescuerName,
-                            mission.ActualCost);
-                    }
-
                     await mission.AttachReportMediaAsync(_unitOfWork, MediaReferenceType.SnakeCatchingMission);
-                    // Map to response with mission details
                     var response = mission.Adapt<SnakeCatchingMissionDetailResponse>();
 
-                    // Map catching environment if any
                     if (mission.CatchingEnvironment != null)
                     {
                         response.CatchingEnvironment = mission.CatchingEnvironment.Adapt<CatchingEnvironmentResponse>();
                     }
 
-                    // Map mission details if any
                     if (mission.MissionDetails != null && mission.MissionDetails.Any())
                     {
                         response.MissionDetails = mission.MissionDetails.Select(d => new CatchingMissionDetailResponse
@@ -341,8 +345,23 @@ namespace SnakeAid.Service.Implements
                         }).ToList();
                     }
 
-                    return response;
+                    return (response, requestInfo?.Id, requestInfo?.UserId, rescuerName, mission.ActualCost);
                 });
+
+                if (requestId.HasValue && memberUserId.HasValue)
+                {
+                    await SafeNotifyAsync(
+                        () => _snakeCatchingRequestNotificationService.NotifyMissionCompletedAsync(
+                            requestId.Value,
+                            missionId,
+                            memberUserId.Value,
+                            rescuerId,
+                            rescuerName,
+                            actualCost),
+                        nameof(_snakeCatchingRequestNotificationService.NotifyMissionCompletedAsync));
+                }
+
+                return response;
             }
             catch (Exception ex)
             {
@@ -441,7 +460,7 @@ namespace SnakeAid.Service.Implements
         {
             try
             {
-                return await _unitOfWork.ExecuteInTransactionAsync(async () =>
+                var (response, requestId, memberUserId, operatorUserId, rescuerName) = await _unitOfWork.ExecuteInTransactionAsync(async () =>
                 {
                     // Get mission with related request
                     var mission = await _unitOfWork.GetRepository<SnakeCatchingMission>().FirstOrDefaultAsync(
@@ -488,27 +507,32 @@ namespace SnakeAid.Service.Implements
 
                     var requestInfo = await _unitOfWork.GetRepository<SnakeCatchingRequest>()
                         .FirstOrDefaultAsync(
-                            selector: r => new { r.Id, r.UserId },
+                            selector: r => new { r.Id, r.UserId, r.HandlingOperatorId },
                             predicate: r => r.Id == mission.SnakeCatchingRequestId);
 
                     var rescuerName = await _unitOfWork.GetRepository<Account>()
                         .FirstOrDefaultAsync(selector: a => a.FullName, predicate: a => a.Id == rescuerId);
 
-                    if (requestInfo != null)
-                    {
-                        await _snakeCatchingRequestNotificationService.NotifyMissionAbortedAsync(
-                            requestInfo.Id,
-                            mission.Id,
-                            requestInfo.UserId,
-                            rescuerId,
-                            rescuerName,
-                            request.Reason);
-                    }
-
                     await mission.AttachReportMediaAsync(_unitOfWork, MediaReferenceType.SnakeCatchingMission);
                     var response = mission.Adapt<SnakeCatchingMissionDetailResponse>();
-                    return response;
+                    return (response, requestInfo?.Id, requestInfo?.UserId, requestInfo?.HandlingOperatorId, rescuerName);
                 });
+
+                if (requestId.HasValue && memberUserId.HasValue)
+                {
+                    await SafeNotifyAsync(
+                        () => _snakeCatchingRequestNotificationService.NotifyMissionAbortedAsync(
+                            requestId.Value,
+                            missionId,
+                            memberUserId.Value,
+                            rescuerId,
+                            operatorUserId,
+                            rescuerName,
+                            request.Reason),
+                        nameof(_snakeCatchingRequestNotificationService.NotifyMissionAbortedAsync));
+                }
+
+                return response;
             }
             catch (Exception ex)
             {

@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -9,6 +10,7 @@ using SnakeAid.Core.Enums;
 using SnakeAid.Core.Exceptions;
 using SnakeAid.Core.Requests.PayOs;
 using SnakeAid.Core.Responses.PayOs;
+using SnakeAid.Core.Messages.Notifications;
 using SnakeAid.Core.Requests.PayOS;
 using SnakeAid.Core.Responses.PayOS;
 using SnakeAid.Repository.Data;
@@ -24,15 +26,18 @@ public class SnakebiteIncidentPaymentService : ISnakebiteIncidentPaymentService
     private readonly IUnitOfWork<SnakeAidDbContext> _unitOfWork;
     private readonly IPaymentGateway _paymentGateway;
     private readonly ILogger<SnakebiteIncidentPaymentService> _logger;
+    private readonly INotificationQueueService? _notificationQueueService;
 
     public SnakebiteIncidentPaymentService(
         IUnitOfWork<SnakeAidDbContext> unitOfWork,
         IPaymentGateway paymentGateway,
-        ILogger<SnakebiteIncidentPaymentService> logger)
+        ILogger<SnakebiteIncidentPaymentService> logger,
+        INotificationQueueService? notificationQueueService = null)
     {
         _unitOfWork = unitOfWork;
         _paymentGateway = paymentGateway;
         _logger = logger;
+        _notificationQueueService = notificationQueueService;
     }
 
     public async Task<SnakebiteIncidentPaymentResponse> CreateSnakebiteIncidentPaymentLinkAsync(
@@ -42,7 +47,7 @@ public class SnakebiteIncidentPaymentService : ISnakebiteIncidentPaymentService
     {
         if (request.Amount <= 0)
         {
-            throw new ValidationException("Payment amount must be greater than 0.");
+            throw new BadRequestException("Payment amount must be greater than 0.");
         }
 
         var incident = await _unitOfWork.GetRepository<SnakebiteIncident>().FirstOrDefaultAsync(
@@ -63,24 +68,24 @@ public class SnakebiteIncidentPaymentService : ISnakebiteIncidentPaymentService
 
         if (incident.Status == SnakebiteIncidentStatus.Completed)
         {
-            throw new ConflictException("This incident has already been paid.");
+            throw new BadRequestException("This incident has already been paid.");
         }
 
         if (incident.Status != SnakebiteIncidentStatus.Finished)
         {
-            throw new ConflictException("Payment is allowed only after the rescue mission is completed.");
+            throw new BadRequestException("Payment is allowed only after the rescue mission is completed.");
         }
 
         var successfulMission = incident.Missions.FirstOrDefault(m => m.Status == RescueMissionStatus.MissionCompleted);
         if (successfulMission == null)
         {
-            throw new ConflictException("No completed mission was found for this incident.");
+            throw new BadRequestException("No completed mission was found for this incident.");
         }
 
         var expectedAmount = successfulMission.ActualCost ?? successfulMission.Price;
         if (request.Amount != expectedAmount)
         {
-            throw new ValidationException($"Payment amount must equal completed mission amount ({expectedAmount}).");
+            throw new BadRequestException($"Payment amount must equal completed mission amount ({expectedAmount}).");
         }
 
         var pendingTransaction = await PreparePendingPayOsTransactionAsync(
@@ -108,7 +113,7 @@ public class SnakebiteIncidentPaymentService : ISnakebiteIncidentPaymentService
                 await _unitOfWork.CommitAsync();
             }
 
-            throw new ValidationException("Payment link creation failed: " + (paymentLink.ErrorMessage ?? "Unknown error"));
+            throw new BadRequestException("Payment link creation failed: " + (paymentLink.ErrorMessage ?? "Unknown error"));
         }
 
         return new SnakebiteIncidentPaymentResponse
@@ -134,7 +139,7 @@ public class SnakebiteIncidentPaymentService : ISnakebiteIncidentPaymentService
     {
         if (request.Amount <= 0)
         {
-            throw new ValidationException("Payment amount must be greater than 0.");
+            throw new BadRequestException("Payment amount must be greater than 0.");
         }
 
         var incident = await _unitOfWork.GetRepository<SnakebiteIncident>().FirstOrDefaultAsync(
@@ -155,24 +160,24 @@ public class SnakebiteIncidentPaymentService : ISnakebiteIncidentPaymentService
 
         if (incident.Status == SnakebiteIncidentStatus.Completed)
         {
-            throw new ConflictException("This incident has already been paid.");
+            throw new BadRequestException("This incident has already been paid.");
         }
 
         if (incident.Status != SnakebiteIncidentStatus.Finished)
         {
-            throw new ConflictException("Payment is allowed only after the rescue mission is completed.");
+            throw new BadRequestException("Payment is allowed only after the rescue mission is completed.");
         }
 
         var successfulMission = incident.Missions.FirstOrDefault(m => m.Status == RescueMissionStatus.MissionCompleted);
         if (successfulMission == null)
         {
-            throw new ConflictException("No completed mission was found for this incident.");
+            throw new BadRequestException("No completed mission was found for this incident.");
         }
 
         var expectedAmount = successfulMission.ActualCost ?? successfulMission.Price;
         if (request.Amount != expectedAmount)
         {
-            throw new ValidationException($"Payment amount must equal completed mission amount ({expectedAmount}).");
+            throw new BadRequestException($"Payment amount must equal completed mission amount ({expectedAmount}).");
         }
 
         var transfer = await RecordSystemRevenuePaymentAsync(
@@ -188,6 +193,23 @@ public class SnakebiteIncidentPaymentService : ISnakebiteIncidentPaymentService
         _unitOfWork.GetRepository<SnakebiteIncident>().Update(incident);
 
         await _unitOfWork.CommitAsync();
+
+        if (_notificationQueueService != null)
+        {
+            await _notificationQueueService.PublishAsync(new NotificationMessage
+            {
+                UserId = currentUserId,
+                Title = "Thanh toán cứu hộ rắn cắn thành công",
+                Body = $"Bạn đã thanh toán thành công {FormatVnd(request.Amount)} cho cứu hộ rắn cắn bằng ví SnakeAid.",
+                Type = "SNAKEBITE_INCIDENT_PAYMENT_SUCCESS",
+                Data = new Dictionary<string, string>
+                {
+                    ["incidentId"] = request.SnakebiteIncidentId.ToString(),
+                    ["transactionId"] = transfer.TransactionId.ToString(),
+                    ["paymentMethod"] = "Wallet"
+                }
+            }, cancellationToken);
+        }
 
         return new SnakebiteIncidentPaymentResponse
         {
@@ -750,6 +772,23 @@ public class SnakebiteIncidentPaymentService : ISnakebiteIncidentPaymentService
 
         await _unitOfWork.CommitAsync();
 
+        if (_notificationQueueService != null && transaction.UserId != Guid.Empty)
+        {
+            await _notificationQueueService.PublishAsync(new NotificationMessage
+            {
+                UserId = transaction.UserId.Value,
+                Title = "Thanh toán cứu hộ rắn cắn thành công",
+                Body = $"Bạn đã thanh toán thành công {FormatVnd(transaction.Amount)} qua PayOS.",
+                Type = "SNAKEBITE_INCIDENT_PAYMENT_SUCCESS",
+                Data = new Dictionary<string, string>
+                {
+                    ["incidentId"] = transaction.ReferenceId.ToString(),
+                    ["transactionId"] = transaction.Id.ToString(),
+                    ["paymentMethod"] = "PayOS"
+                }
+            }, cancellationToken);
+        }
+
         return new PayOsWebhookResponse
         {
             Success = true,
@@ -762,6 +801,11 @@ public class SnakebiteIncidentPaymentService : ISnakebiteIncidentPaymentService
             TransactionReference = transaction.ExternalTransactionId,
             TransactionDateTime = transaction.CreatedAt
         };
+    }
+
+    private static string FormatVnd(decimal amount)
+    {
+        return amount.ToString("N0", CultureInfo.GetCultureInfo("vi-VN")) + " ₫";
     }
 
     private sealed class PendingPayOsTransactionContext

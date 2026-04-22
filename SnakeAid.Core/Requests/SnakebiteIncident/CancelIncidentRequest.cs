@@ -8,7 +8,8 @@ namespace SnakeAid.Core.Requests.SnakebiteIncident
 {
     public class CancelIncidentRequest
     {
-        [Required]
+        [Required(ErrorMessage = "Cancel Reason is required.")]
+        [MaxLength(1000, ErrorMessage = "Cancel Reason cannot exceed 1000 characters.")]
         public string Reason { get; set; } = string.Empty;
     }
 }

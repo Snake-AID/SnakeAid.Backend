@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.RegularExpressions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -338,9 +339,8 @@ public class ConsultationPaymentService : IConsultationPaymentService
                     roomId = (string?)null
                 });
 
-            if (_notificationQueueService != null)
-            {
-                await _notificationQueueService.PublishAsync(new NotificationMessage
+            await TryPublishNotificationAsync(
+                new NotificationMessage
                 {
                     UserId = ping.RescuerId,
                     Title = "Yêu cầu tư vấn khẩn cấp đã hết hạn",
@@ -351,8 +351,10 @@ public class ConsultationPaymentService : IConsultationPaymentService
                         ["requestId"] = ping.Id.ToString(),
                         ["consultationId"] = ping.ConsultationId.ToString()
                     }
-                }, cancellationToken);
-            }
+                },
+                cancellationToken,
+                "expiring emergency consultation request",
+                ping.RescuerId);
 
             expiredCount++;
         }
@@ -419,7 +421,7 @@ public class ConsultationPaymentService : IConsultationPaymentService
         ProcessConsultationPaymentRequest request,
         CancellationToken cancellationToken)
     {
-        return await _unitOfWork.ExecuteInTransactionAsync(async () =>
+        var response = await _unitOfWork.ExecuteInTransactionAsync(async () =>
         {
             var bookingRepo = _unitOfWork.GetRepository<ConsultationBooking>();
             var booking = await bookingRepo.FirstOrDefaultAsync(
@@ -478,6 +480,26 @@ public class ConsultationPaymentService : IConsultationPaymentService
                 ExternalTransactionId = transfer.ExternalTransactionId
             };
         });
+
+        await TryPublishNotificationAsync(
+            new NotificationMessage
+            {
+                UserId = userId,
+                Title = "Thanh toán thành công",
+                Body = $"Bạn đã thanh toán thành công {FormatVnd(response.Amount)} cho buổi tư vấn đặt trước bằng ví SnakeAid.",
+                Type = "CONSULTATION_PAYMENT_SUCCESS",
+                Data = new Dictionary<string, string>
+                {
+                    ["bookingId"] = response.ReferenceId.ToString(),
+                    ["transactionId"] = response.TransactionId.ToString(),
+                    ["paymentMethod"] = "Wallet"
+                }
+            },
+            cancellationToken,
+            "publishing scheduled consultation wallet payment success notification",
+            userId);
+
+        return response;
     }
 
     private async Task<ConsultationPaymentResponse> PayEmergencyRequestWithWalletAsync(
@@ -574,6 +596,24 @@ public class ConsultationPaymentService : IConsultationPaymentService
                 requestedAt,
                 expiresAt
             });
+
+        await TryPublishNotificationAsync(
+            new NotificationMessage
+            {
+                UserId = userId,
+                Title = "Thanh toán thành công",
+                Body = $"Bạn đã thanh toán thành công {FormatVnd(response.Amount)} cho yêu cầu tư vấn khẩn cấp bằng ví SnakeAid.",
+                Type = "CONSULTATION_PAYMENT_SUCCESS",
+                Data = new Dictionary<string, string>
+                {
+                    ["requestId"] = response.ReferenceId.ToString(),
+                    ["transactionId"] = response.TransactionId.ToString(),
+                    ["paymentMethod"] = "Wallet"
+                }
+            },
+            cancellationToken,
+            "publishing emergency consultation wallet payment success notification",
+            userId);
 
         return response;
     }
@@ -794,7 +834,8 @@ public class ConsultationPaymentService : IConsultationPaymentService
                 var confirmedResponse = await BuildConfirmedResponseAsync(transaction, cancellationToken);
                 return new ConfirmedPayOsContext
                 {
-                    Response = confirmedResponse
+                    Response = confirmedResponse,
+                    IsNewlyConfirmed = false
                 };
             }
 
@@ -853,6 +894,8 @@ public class ConsultationPaymentService : IConsultationPaymentService
                         PaymentLinkId = webhook.PaymentLinkId,
                         ExternalTransactionId = transaction.ExternalTransactionId
                     },
+                    UserId = payerUserId,
+                    IsNewlyConfirmed = true
                 };
             }
 
@@ -910,7 +953,9 @@ public class ConsultationPaymentService : IConsultationPaymentService
                 },
                 ExpertId = ping.ExpertId,
                 RequestedAt = requestedAt,
-                ExpiresAt = expiresAt
+                ExpiresAt = expiresAt,
+                UserId = payerUserId,
+                IsNewlyConfirmed = true
             };
         });
 
@@ -926,6 +971,32 @@ public class ConsultationPaymentService : IConsultationPaymentService
                     requestedAt = context.RequestedAt,
                     expiresAt = context.ExpiresAt
                 });
+        }
+
+        if (context.IsNewlyConfirmed)
+        {
+            var consultationType = context.Response.ReferenceType == ConsultationPaymentReferenceType.ScheduledBooking
+                ? "cho buổi tư vấn đặt trước"
+                : "cho yêu cầu tư vấn khẩn cấp";
+
+            await TryPublishNotificationAsync(
+                new NotificationMessage
+                {
+                    UserId = context.UserId,
+                    Title = "Thanh toán thành công",
+                    Body = $"Bạn đã thanh toán thành công {FormatVnd(context.Response.Amount)} {consultationType} qua PayOS.",
+                    Type = "CONSULTATION_PAYMENT_SUCCESS",
+                    Data = new Dictionary<string, string>
+                    {
+                        ["referenceId"] = context.Response.ReferenceId.ToString(),
+                        ["transactionId"] = context.Response.TransactionId.ToString(),
+                        ["paymentMethod"] = "PayOS",
+                        ["referenceType"] = context.Response.ReferenceType.ToString()
+                    }
+                },
+                cancellationToken,
+                "publishing consultation PayOS payment success notification",
+                context.UserId);
         }
 
         return new PayOsProcessResult { Response = context.Response };
@@ -1032,6 +1103,11 @@ public class ConsultationPaymentService : IConsultationPaymentService
             OrderCode = ExtractOrderCodeFromDescription(transaction.Description),
             ExternalTransactionId = transaction.ExternalTransactionId
         };
+    }
+
+    private static string FormatVnd(decimal amount)
+    {
+        return amount.ToString("N0", CultureInfo.GetCultureInfo("vi-VN")) + " ₫";
     }
 
     private static PayOsWebhookResponse BuildWebhookSuccessResponse(ConsultationPaymentResponse response)
@@ -1442,6 +1518,33 @@ public class ConsultationPaymentService : IConsultationPaymentService
         return wallet;
     }
 
+    private async Task TryPublishNotificationAsync(
+        NotificationMessage notification,
+        CancellationToken cancellationToken,
+        string context,
+        Guid? userId = null)
+    {
+        if (_notificationQueueService == null)
+        {
+            return;
+        }
+
+        try
+        {
+            await _notificationQueueService.PublishAsync(notification, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(
+                ex,
+                "{Context} failed in {Service}. UserId={UserId}, NotificationType={NotificationType}",
+                context,
+                nameof(ConsultationPaymentService),
+                userId ?? notification.UserId,
+                notification.Type);
+        }
+    }
+
     private sealed class PendingPayOsTransactionContext
     {
         public Guid TransactionId { get; init; }
@@ -1459,5 +1562,7 @@ public class ConsultationPaymentService : IConsultationPaymentService
         public Guid? ExpertId { get; init; }
         public DateTime RequestedAt { get; init; }
         public DateTime ExpiresAt { get; init; }
+        public bool IsNewlyConfirmed { get; init; }
+        public Guid UserId { get; init; }
     }
 }

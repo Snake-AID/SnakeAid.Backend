@@ -1,9 +1,11 @@
 using System.Security.Cryptography;
 using System.Text.RegularExpressions;
+using System.Globalization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using SnakeAid.Core.Domains;
+using SnakeAid.Core.Messages.Notifications;
 using SnakeAid.Core.Requests.Wallet;
 using SnakeAid.Core.Responses.PayOs;
 using SnakeAid.Core.Responses.Wallet;
@@ -21,6 +23,7 @@ public class WalletTopupService : IWalletTopupService
     private readonly IPaymentGateway _paymentGateway;
     private readonly IUnitOfWork _unitOfWork;
     private readonly ILogger<WalletTopupService> _logger;
+    private readonly INotificationQueueService? _notificationQueueService;
     private const string DefaultItemName = "Wallet Top-up";
     private const string LogPrefix = "[WalletTopup]";
     private static readonly Regex OrderCodeRegex = new($@"^{PayOsPaymentFlowPrefixes.Topup}(\d+)", RegexOptions.Compiled);
@@ -29,11 +32,13 @@ public class WalletTopupService : IWalletTopupService
         IPaymentGateway paymentGateway,
         IUnitOfWork unitOfWork,
         IOptions<PayOsOptions> options,
-        ILogger<WalletTopupService> logger)
+        ILogger<WalletTopupService> logger,
+        INotificationQueueService? notificationQueueService = null)
     {
         _paymentGateway = paymentGateway;
         _unitOfWork = unitOfWork;
         _logger = logger;
+        _notificationQueueService = notificationQueueService;
     }
 
     public async Task<CreateWalletTopupResponse> CreateWalletTopupAsync(
@@ -244,7 +249,10 @@ public class WalletTopupService : IWalletTopupService
         _logger.LogInformation("{Prefix} Processing confirmed wallet top-up. OrderCode={OrderCode}, TransactionRef={TransactionRef}",
             LogPrefix, webhook.OrderCode, webhook.TransactionReference);
 
-        return await _unitOfWork.ExecuteInTransactionAsync(async () =>
+        var shouldNotify = false;
+        var userId = Guid.Empty;
+        var transactionAmount = 0m;
+        var response = await _unitOfWork.ExecuteInTransactionAsync(async () =>
         {
             var transaction = await FindTransactionByOrderCodeAsync(webhook.OrderCode, true, cancellationToken);
             if (transaction == null)
@@ -275,8 +283,10 @@ public class WalletTopupService : IWalletTopupService
                 return BuildSuccessResponse(confirmedTransaction, webhook.OrderCode);
             }
 
-            var userId = transaction.UserId
+            userId = transaction.UserId
                 ?? throw new InvalidOperationException("Wallet top-up transaction is missing user ownership.");
+            transactionAmount = transaction.Amount;
+            shouldNotify = true;
 
             var userWallet = await _unitOfWork.GetRepository<Wallet>()
                 .FirstOrDefaultAsync(
@@ -308,6 +318,30 @@ public class WalletTopupService : IWalletTopupService
 
             return BuildSuccessResponse(transaction, webhook.OrderCode);
         });
+
+        if (shouldNotify && userId != Guid.Empty)
+        {
+            await TryPublishNotificationAsync(
+                new NotificationMessage
+                {
+                    UserId = userId,
+                    Title = "Nạp ví thành công",
+                    Body = $"Bạn đã nạp thành công {FormatVnd(transactionAmount)} vào ví qua PayOS.",
+                    Type = "WALLET_TOPUP_SUCCESS",
+                    Data = new Dictionary<string, string>
+                    {
+                        ["orderCode"] = response.OrderCode.ToString(),
+                        ["transactionId"] = response.TransactionId.ToString(),
+                        ["paymentMethod"] = "PayOS"
+                    }
+                },
+                cancellationToken,
+                userId,
+                response.OrderCode,
+                response.TransactionId);
+        }
+
+        return response;
     }
 
     private async Task<bool> TryMarkTransactionConfirmedAsync(
@@ -392,6 +426,11 @@ public class WalletTopupService : IWalletTopupService
         throw new InvalidOperationException("WalletTopupService requires IUnitOfWork<SnakeAidDbContext> for atomic confirmation updates.");
     }
 
+    private static string FormatVnd(decimal amount)
+    {
+        return amount.ToString("N0", CultureInfo.GetCultureInfo("vi-VN")) + " ₫";
+    }
+
     private static long GenerateOrderCode()
     {
         var timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
@@ -429,6 +468,35 @@ public class WalletTopupService : IWalletTopupService
         return match.Success && long.TryParse(match.Groups[1].Value, out var orderCode)
             ? orderCode
             : 0;
+    }
+
+    private async Task TryPublishNotificationAsync(
+        NotificationMessage notification,
+        CancellationToken cancellationToken,
+        Guid userId,
+        long orderCode,
+        Guid? transactionId)
+    {
+        if (_notificationQueueService == null)
+        {
+            return;
+        }
+
+        try
+        {
+            await _notificationQueueService.PublishAsync(notification, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(
+                ex,
+                "{Prefix} Failed to publish wallet top-up notification. UserId={UserId}, OrderCode={OrderCode}, TransactionId={TransactionId}, NotificationType={NotificationType}",
+                LogPrefix,
+                userId,
+                orderCode,
+                transactionId,
+                notification.Type);
+        }
     }
 
     private static bool IsPaymentLinkPaid(PayOsLinkInformation linkInfo)
