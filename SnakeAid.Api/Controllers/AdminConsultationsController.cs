@@ -42,4 +42,12 @@ public class AdminConsultationsController : BaseController<AdminConsultationsCon
         var result = await _consultationService.GetConsultationByIdForAdminAsync(consultationId);
         return Ok(ApiResponseBuilder.BuildSuccessResponse(result));
     }
+
+    [HttpPost("{consultationId:guid}/expert-absent/confirm-handled")]
+    [ProducesResponseType(typeof(ApiResponse<AdminConsultationResponse>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<ApiResponse<AdminConsultationResponse>>> ConfirmExpertAbsentHandled(Guid consultationId)
+    {
+        var result = await _consultationService.ConfirmExpertAbsentHandledAsync(consultationId);
+        return Ok(ApiResponseBuilder.BuildSuccessResponse(result, "Expert absent case marked as handled successfully."));
+    }
 }

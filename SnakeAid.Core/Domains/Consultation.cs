@@ -53,7 +53,8 @@ namespace SnakeAid.Core.Domains
         Cancelled = 3,
         UserAbsent = 4,
         ExpertAbsent = 5,
-        AllAbsent = 6
+        AllAbsent = 6,
+        ExpertAbsentHandled = 7
     }
 
     public enum ConsultationType
