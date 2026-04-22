@@ -66,6 +66,8 @@ namespace SnakeAid.Core.Responses.User
         public decimal Rating { get; set; }
 
         public int RatingCount { get; set; }
+
+        public bool IsVerified { get; set; }
     }
 
     public class AdminRescuerProfileResponse

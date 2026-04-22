@@ -213,6 +213,7 @@ public class MyProfileService : IMyProfileService
             EmergencyConsultationFee = profile.EmergencyConsultationFee ?? profile.ConsultationFee,
             Rating = profile.Rating,
             RatingCount = profile.RatingCount,
+            IsVerified = profile.IsVerified,
             CreatedAt = account.CreatedAt,
             UpdatedAt = account.UpdatedAt
         };
