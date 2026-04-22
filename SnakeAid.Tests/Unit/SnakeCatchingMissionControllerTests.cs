@@ -125,12 +125,13 @@ public class SnakeCatchingMissionControllerTests
     public async Task AbortMission_ShouldUseCurrentUserAndReturnSuccessEnvelope()
     {
         var rescuerId = Guid.NewGuid();
+        var userRole = "Rescuer";
         var missionId = Guid.NewGuid();
         var request = new AbortSnakeCatchingMissionRequest { Reason = "Unsafe condition" };
         var expected = CreateMissionResponse(missionId, rescuerId, CatchingMissionStatus.MissionAborted, cancellationReason: request.Reason);
 
         var service = new Mock<ISnakeCatchingMissionService>();
-        service.Setup(s => s.AbortMissionAsync(rescuerId, missionId, request)).ReturnsAsync(expected);
+        service.Setup(s => s.AbortMissionAsync(rescuerId, userRole, missionId, request)).ReturnsAsync(expected);
 
         var controller = CreateController(service.Object, rescuerId);
 
@@ -144,7 +145,7 @@ public class SnakeCatchingMissionControllerTests
         Assert.Equal(CatchingMissionStatus.MissionAborted, response.Data!.Status);
         Assert.Equal(request.Reason, response.Data.CancellationReason);
 
-        service.Verify(s => s.AbortMissionAsync(rescuerId, missionId, request), Times.Once);
+        service.Verify(s => s.AbortMissionAsync(rescuerId, userRole, missionId, request), Times.Once);
     }
 
     [Fact]
@@ -201,7 +202,7 @@ public class SnakeCatchingMissionControllerTests
         service.Verify(s => s.MarkAsArrivedAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<UpdateMissionStatusRequest>()), Times.Never);
         service.Verify(s => s.CompleteMissionAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<UpdateMissionStatusRequest>()), Times.Never);
         service.Verify(s => s.UncompleteMissionAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<UncompleteSnakeCatchingMissionRequest>()), Times.Never);
-        service.Verify(s => s.AbortMissionAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<AbortSnakeCatchingMissionRequest>()), Times.Never);
+        service.Verify(s => s.AbortMissionAsync(It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<Guid>(), It.IsAny<AbortSnakeCatchingMissionRequest>()), Times.Never);
     }
 
     [Theory]
@@ -239,7 +240,7 @@ public class SnakeCatchingMissionControllerTests
                 service.Setup(s => s.UncompleteMissionAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<UncompleteSnakeCatchingMissionRequest>())).ThrowsAsync(ex);
                 break;
             case "abort":
-                service.Setup(s => s.AbortMissionAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<AbortSnakeCatchingMissionRequest>())).ThrowsAsync(ex);
+                service.Setup(s => s.AbortMissionAsync(It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<Guid>(), It.IsAny<AbortSnakeCatchingMissionRequest>())).ThrowsAsync(ex);
                 break;
         }
 

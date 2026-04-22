@@ -894,17 +894,21 @@ namespace SnakeAid.Service.Implements
                     }
 
                     // Handle cancellation based on current status
-                    if (snakeCatchingRequest.Status == RequestStatus.Pending)
+                    if (snakeCatchingRequest.Status == RequestStatus.Pending
+                        || snakeCatchingRequest.Status == RequestStatus.Confirmed)
                     {
-                        // If status is Pending, simply change to Cancelled
+                        var previousStatus = snakeCatchingRequest.Status;
+
+                        // If status is Pending/Confirmed, simply change to Cancelled
                         snakeCatchingRequest.Status = RequestStatus.Cancelled;
                         snakeCatchingRequest.CancellationReason = request.Reason;
 
                         _unitOfWork.GetRepository<SnakeCatchingRequest>().Update(snakeCatchingRequest);
 
                         _logger.LogInformation(
-                            "Snake catching request {RequestId} cancelled from Pending status.",
-                            requestId);
+                            "Snake catching request {RequestId} cancelled from {RequestStatus} status.",
+                            requestId,
+                            previousStatus);
                     }
                     else if (snakeCatchingRequest.Status == RequestStatus.Assigned)
                     {
