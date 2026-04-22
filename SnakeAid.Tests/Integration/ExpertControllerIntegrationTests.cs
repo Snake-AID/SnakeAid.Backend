@@ -211,6 +211,28 @@ public class ExpertControllerIntegrationTests
         Assert.Equal(expensiveExpertId, items[1].AccountId);
     }
 
+    [Fact]
+    public async Task GetExperts_ShouldExposePersistedIsVerified()
+    {
+        var verifiedExpertId = Guid.NewGuid();
+        await using var db = CreateDbContext();
+        await SeedExpertAsync(db, verifiedExpertId, isVerified: true);
+
+        var service = new ExpertService(new UnitOfWork<SnakeAidDbContext>(db), NullLogger<ExpertService>.Instance);
+        var controller = BuildController(service, Guid.Empty, "User");
+
+        var result = await controller.GetExperts(new ExpertDirectoryQueryRequest
+        {
+            PageNumber = 1,
+            PageSize = 10
+        });
+
+        var ok = Assert.IsType<OkObjectResult>(result.Result);
+        var payload = Assert.IsType<ApiResponse<PagingResponse<ExpertProfileResponse>>>(ok.Value);
+        var item = Assert.Single(payload.Data!.Items);
+        Assert.True(item.IsVerified);
+    }
+
     private static ExpertController BuildController(ExpertService service, Guid userId, string role)
     {
         var controller = new ExpertController(service, null!);
@@ -250,6 +272,7 @@ public class ExpertControllerIntegrationTests
         decimal fee = 150_000m,
         decimal rating = 0m,
         int ratingCount = 0,
+        bool isVerified = false,
         string specializationName = "General")
     {
         db.Set<Account>().Add(new Account
@@ -271,7 +294,8 @@ public class ExpertControllerIntegrationTests
             ConsultationFee = fee,
             IsOnline = isOnline,
             Rating = rating,
-            RatingCount = ratingCount
+            RatingCount = ratingCount,
+            IsVerified = isVerified
         });
 
         var specialization = await db.Set<Specialization>().FirstOrDefaultAsync(s => s.Name == specializationName);
