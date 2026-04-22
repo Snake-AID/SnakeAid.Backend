@@ -501,5 +501,27 @@ namespace SnakeAid.Service.Implements
 
             return assignments.ToList();
         }
+
+        public async Task<List<ShiftAssignmentResponse>> GetAssignmentsByRescuerIdRangeAsync(Guid rescuerId, DateOnly startDate, DateOnly endDate)
+        {
+            if (endDate < startDate)
+            {
+                throw new BadRequestException("endDate must be greater than or equal to startDate.");
+            }
+
+            var rangeStart = startDate.ToDateTime(TimeOnly.MinValue);
+            var rangeEndExclusive = endDate.ToDateTime(TimeOnly.MinValue).AddDays(1);
+
+            var assignments = await _unitOfWork.GetRepository<ShiftAssignment>().GetListAsync(
+                predicate: a => a.RescuerId == rescuerId
+                                && a.ShiftStartLocal < rangeEndExclusive
+                                && a.ShiftEndLocal > rangeStart,
+                include: q => q
+                    .Include(a => a.Shift)
+                    .Include(a => a.Rescuer),
+                orderBy: q => q.OrderBy(a => a.ShiftStartLocal));
+
+            return assignments.Adapt<List<ShiftAssignmentResponse>>();
+        }
     }
 }

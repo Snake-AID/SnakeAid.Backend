@@ -194,5 +194,21 @@ namespace SnakeAid.Api.Controllers
             var result = await _shiftService.GetAssignmentsByRescuerIdAsync(id, today);
             return Ok(ApiResponseBuilder.BuildSuccessResponse(result));
         }
+
+        [HttpGet("rescuer/{id}/assignments")]
+        [SwaggerOperation(Summary = "Get Rescuer Shift Assignments By Date Range", Description = "Retrieve shift assignments for a specific rescuer within a date range")]
+        [SwaggerResponse(200, "Success", typeof(ApiResponse<List<ShiftAssignmentResponse>>))]
+        [SwaggerResponse(400, "Bad Request", typeof(ApiResponse<object>))]
+        [Authorize(Roles = "Admin, Rescuer")]
+        public async Task<IActionResult> GetAssignmentsByRescuerIdRange(Guid id, [FromQuery] DateOnly? startDate, [FromQuery] DateOnly? endDate)
+        {
+            if (!startDate.HasValue || !endDate.HasValue)
+            {
+                return BadRequest(ApiResponseBuilder.BuildErrorResponse("Both startDate and endDate are required."));
+            }
+
+            var result = await _shiftService.GetAssignmentsByRescuerIdRangeAsync(id, startDate.Value, endDate.Value);
+            return Ok(ApiResponseBuilder.BuildSuccessResponse(result));
+        }
     }
 }
