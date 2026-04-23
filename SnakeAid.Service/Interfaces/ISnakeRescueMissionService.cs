@@ -34,6 +34,8 @@ namespace SnakeAid.Service.Interfaces
         /// Get mission detail with calculated distance from rescuer location
         Task<DetailRescueMissionResponse> GetMissionDetailAsync(Guid missionId, double? rescuerLat, double? rescuerLng);
 
+        Task<ICollection<ListRescueMissionResponse>> GetRescuerMissionListAsync(Guid rescuerId, RescueMissionStatus? status);
+
         Task<HospitalTransferPricingResponse> ReportHospitalTransferAsync(
             Guid missionId,
             Guid rescuerId,

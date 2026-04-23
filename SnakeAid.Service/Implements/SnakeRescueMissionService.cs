@@ -808,6 +808,43 @@ namespace SnakeAid.Service.Implements
             }
         }
 
+        public Task<ICollection<ListRescueMissionResponse>> GetRescuerMissionListAsync(Guid rescuerId, RescueMissionStatus? status)
+        {
+            try
+            {
+                var repo = _unitOfWork.GetRepository<RescueMission>();
+                return repo.GetListAsync(
+                    selector: m => new ListRescueMissionResponse
+                    {
+                        Id = m.Id,
+                        IncidentId = m.IncidentId,
+                        RescuerId = m.RescuerId,
+                        Status = m.Status,
+                        Price = m.Price,
+                        ActualCost = m.ActualCost,
+                        CostFromCenter = m.CostFromCenter,
+                        DistanceFromCenterKm = m.DistanceFromCenterKm,
+                        CreatedAt = m.CreatedAt,
+                        UpdatedAt = m.UpdatedAt,
+                        StartedAt = m.StartedAt,
+                        ArrivedAt = m.ArrivedAt,
+                        CompletedAt = m.CompletedAt,
+                        Notes = m.Notes,
+                        IncidentStatus = m.Incident.Status,
+                        IncidentAddress = m.Incident.Address
+                    },
+                    predicate: m => m.RescuerId == rescuerId && (!status.HasValue || m.Status == status.Value),
+                    orderBy: q => q.OrderByDescending(m => m.CreatedAt),
+                    include: q => q.Include(m => m.Incident)
+                );
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving rescuer mission list for rescuer {RescuerId}: {Message}", rescuerId, ex.Message);
+                throw;
+            }
+        }
+
         public Task<PagedData<AdminRescueMissionSummaryResponse>> GetAdminMissionListAsync(
             IEnumerable<RescueMissionStatus>? statuses,
             DateTimeOffset? since,

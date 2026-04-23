@@ -83,6 +83,22 @@ namespace SnakeAid.Api.Controllers
             return Ok(ApiResponseBuilder.BuildSuccessResponse(result, "Admin rescue mission list retrieved."));
         }
 
+        /// <summary>
+        /// Get rescuer mission list for current authenticated rescuer
+        /// </summary>
+        [HttpGet("rescuer/list")]
+        [Authorize(Roles = "Rescuer")]
+        [SwaggerOperation(
+            Summary = "Get My Rescue Missions",
+            Description = "Retrieve the authenticated rescuer's rescue missions filtered by optional status. Omit status to return all missions assigned to the current rescuer.")]
+        [SwaggerResponse(200, "Rescue missions retrieved successfully", typeof(ApiResponse<List<ListRescueMissionResponse>>))]
+        public async Task<IActionResult> GetMyRescueMissionList([FromQuery] RescueMissionStatus? status = null)
+        {
+            var rescuerId = GetCurrentUserId();
+            var result = await _missionService.GetRescuerMissionListAsync(rescuerId, status);
+            return Ok(ApiResponseBuilder.BuildSuccessResponse(result, $"Retrieved {result.Count} rescue mission(s) successfully."));
+        }
+
         private static IEnumerable<RescueMissionStatus>? ParseMissionStatuses(string? csvStatuses)
         {
             if (string.IsNullOrWhiteSpace(csvStatuses))
