@@ -23,8 +23,7 @@ namespace SnakeAid.Core.Domains
         [StringLength(250)]
         public string IssuingOrganization { get; set; }
 
-        [Required]
-        public DateTime IssueDate { get; set; }
+        public DateTime? IssueDate { get; set; }
 
         public DateTime? ExpiryDate { get; set; }
 
@@ -34,6 +33,7 @@ namespace SnakeAid.Core.Domains
         [Required]
         public VerificationStatus VerificationStatus { get; set; } = VerificationStatus.Pending;
 
+        [StringLength(500)]
         public string RejectionReason { get; set; } = "";
 
         [NotMapped]
