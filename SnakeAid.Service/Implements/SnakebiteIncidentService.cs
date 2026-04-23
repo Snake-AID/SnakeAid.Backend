@@ -19,6 +19,7 @@ using SnakeAid.Service.Interfaces;
 using SnakeAid.Service.Extensions;
 using SnakeAid.Core.Responses.SnakeSpecies;
 using SnakeAid.Core.Meta;
+using SnakeAid.Core.Responses.UserFeedback;
 
 namespace SnakeAid.Service.Implements
 {
@@ -874,6 +875,31 @@ namespace SnakeAid.Service.Implements
                             && existingIncident.AIRecognitionResult != null)
                         {
                             responseData.IdentificationContext.AIConfidence = (float)existingIncident.AIRecognitionResult.Confidence;
+                        }
+                    }
+
+                    // Load feedbacks for this incident
+                    if (existingIncident.AssignedRescuerId.HasValue)
+                    {
+                        var feedbacks = await _unitOfWork.GetRepository<UserFeedback>().GetListAsync(
+                            predicate: f => f.TargetUserId == existingIncident.AssignedRescuerId.Value &&
+                                           f.ReferenceId == existingIncident.Id &&
+                                           f.Type == FeedbackType.Emergency,
+                            include: query => query
+                                .Include(f => f.Rater)
+                                .Include(f => f.TargetUser),
+                            orderBy: q => q.OrderByDescending(f => f.CreatedAt)
+                        );
+
+                        if (feedbacks != null && feedbacks.Any())
+                        {
+                            foreach (var feedback in feedbacks)
+                            {
+                                var feedbackResponse = feedback.Adapt<UserFeedbackResponse>();
+                                feedbackResponse.RaterName = feedback.Rater?.FullName;
+                                feedbackResponse.TargetUserName = feedback.TargetUser?.FullName;
+                                responseData.Feedbacks.Add(feedbackResponse);
+                            }
                         }
                     }
 

@@ -6,6 +6,7 @@ using SnakeAid.Core.Responses.MemberProfile;
 using SnakeAid.Core.Responses.RescueMission;
 using SnakeAid.Core.Responses.RescuerProfile;
 using SnakeAid.Core.Responses.SnakeSpecies;
+using SnakeAid.Core.Responses.UserFeedback;
 using System.ComponentModel.DataAnnotations;
 
 namespace SnakeAid.Core.Responses.SnakebiteIncident
@@ -55,6 +56,9 @@ namespace SnakeAid.Core.Responses.SnakebiteIncident
 
         /// Grouped media uploaded by each rescue mission for this incident.
         public List<RescueMissionMediaGroupResponse> RescueMissionMedia { get; set; } = new List<RescueMissionMediaGroupResponse>();
+
+        public List<UserFeedbackResponse> Feedbacks { get; set; } = new List<UserFeedbackResponse>();
+
     }
 
     public class RescueMissionMediaGroupResponse
