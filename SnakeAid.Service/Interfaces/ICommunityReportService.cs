@@ -10,5 +10,6 @@ namespace SnakeAid.Service.Interfaces
         Task<List<CommunityReportResponse>> GetCommunityReportsAsync(Guid currentUserId, string currentUserRole);
         Task<CommunityReportResponse> UpdateCommunityReportAsync(Guid id, UpdateCommunityReportRequest request, Guid currentUserId, string currentUserRole);
         Task DeleteCommunityReportAsync(Guid id, Guid currentUserId, string currentUserRole);
+        Task<List<CommunityReportResponse>> GetAllCommunityReportsAsync();
     }
 }

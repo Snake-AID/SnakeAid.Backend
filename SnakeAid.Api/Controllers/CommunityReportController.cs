@@ -85,5 +85,15 @@ namespace SnakeAid.Api.Controllers
             await _communityReportService.DeleteCommunityReportAsync(id, userId, userRole);
             return Ok(ApiResponseBuilder.BuildSuccessResponse(true, "Community report deleted successfully."));
         }
+
+        [HttpGet("all")]
+        [SwaggerOperation(Summary = "Get all community reports")]
+        [SwaggerResponse(200, "Success", typeof(ApiResponse<List<CommunityReportResponse>>))]
+        [Authorize]
+        public async Task<IActionResult> GetAllCommunityReports()
+        {
+            var result = await _communityReportService.GetAllCommunityReportsAsync();
+            return Ok(ApiResponseBuilder.BuildSuccessResponse(result));
+        }
     }
 }

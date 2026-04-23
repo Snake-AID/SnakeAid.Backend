@@ -96,6 +96,18 @@ namespace SnakeAid.Service.Implements
 
             return reports.Select(ToResponse).ToList();
         }
+        public async Task<List<CommunityReportResponse>> GetAllCommunityReportsAsync()
+        {
+            var reports = await _unitOfWork.GetRepository<CommunityReport>()
+                .GetListAsync(
+                    predicate: null,
+                    orderBy: query => query.OrderByDescending(r => r.CreatedAt),
+                    include: query => query.Include(r => r.User)
+                                           .Include(r => r.SnakeSpecies));
+
+            return reports.Select(ToResponse).ToList();
+        }
+
 
         public async Task<CommunityReportResponse> UpdateCommunityReportAsync(Guid id, UpdateCommunityReportRequest request, Guid currentUserId, string currentUserRole)
         {
