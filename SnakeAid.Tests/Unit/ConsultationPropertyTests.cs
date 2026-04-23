@@ -259,7 +259,8 @@ public class ConsultationPropertyTests
                 if (item.BookingId is not null) return false;
                 if (item.SlotStartTime is not null) return false;
                 if (item.SlotEndTime is not null) return false;
-                if (item.Price is not null) return false;
+                if (item.GrossPrice is not null) return false;
+                if (item.NetPrice is not null) return false;
             }
         }
 

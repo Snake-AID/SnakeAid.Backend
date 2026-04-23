@@ -624,7 +624,8 @@ public class ConsultationService : IConsultationService
                     RoomId = b.Consultation.RoomId,
                     StartTime = b.Consultation.StartTime,
                     EndTime = b.Consultation.EndTime,
-                    Price = b.Price,
+                    GrossPrice = b.Price,
+                    NetPrice = null,
                     BookingId = b.Id,
                     SlotStartTime = b.TimeSlot?.StartTime,
                     SlotEndTime = b.TimeSlot?.EndTime
@@ -642,16 +643,21 @@ public class ConsultationService : IConsultationService
                               && (!statusFilter.HasValue || p.Consultation!.Status == statusFilter.Value),
                 include: q => q.Include(p => p.Rescuer).Include(p => p.Consultation));
 
-            // Batch-fetch transactions for emergency consultations (single query, no N+1)
-            var emergencyConsultationIds = emergencyRequests.Where(p => p.ConsultationId.HasValue).Select(p => p.ConsultationId!.Value).ToList();
-            var emergencyTransactions = emergencyConsultationIds.Count > 0
-                ? await _unitOfWork.GetRepository<Transaction>().GetListAsync(
-                    predicate: t => t.TransactionType == TransactionType.ExpertPayout
-                                  && emergencyConsultationIds.Contains(t.ReferenceId))
-                : new List<Transaction>();
-            var transactionLookup = emergencyTransactions
-                .GroupBy(t => t.ReferenceId)
-                .ToDictionary(g => g.Key, g => g.OrderByDescending(t => t.CreatedAt).First().Amount);
+            var emergencyConsultationIds = emergencyRequests
+                .Where(p => p.ConsultationId.HasValue)
+                .Select(p => p.ConsultationId!.Value)
+                .Distinct()
+                .ToList();
+            var emergencyRequestIds = emergencyRequests
+                .Select(p => p.Id)
+                .Distinct()
+                .ToList();
+            var payoutLookup = await BuildLatestTransactionAmountLookupAsync(
+                emergencyConsultationIds,
+                TransactionType.ExpertPayout);
+            var paymentLookup = await BuildLatestTransactionAmountLookupAsync(
+                emergencyRequestIds,
+                TransactionType.ConsultationPayment);
 
             foreach (var p in emergencyRequests)
             {
@@ -669,7 +675,8 @@ public class ConsultationService : IConsultationService
                     RoomId = consultation.RoomId,
                     StartTime = consultation.StartTime,
                     EndTime = consultation.EndTime,
-                    Price = transactionLookup.TryGetValue(consultation.Id, out var amount) ? amount : null,
+                    GrossPrice = ResolveLookupAmount(paymentLookup, p.Id),
+                    NetPrice = ResolveLookupAmount(payoutLookup, consultation.Id),
                     EmergencyRequestId = p.Id
                 });
             }
@@ -700,7 +707,7 @@ public class ConsultationService : IConsultationService
                 if (hasBooking == null)
                 {
                     _logger.LogWarning(
-                        "Scheduled consultation {ConsultationId} has no associated ConsultationBooking. Price will be null.",
+                        "Scheduled consultation {ConsultationId} has no associated ConsultationBooking. GrossPrice will be null.",
                         c.Id);
 
                     results.Add(new ExpertConsultationResponse
@@ -713,9 +720,22 @@ public class ConsultationService : IConsultationService
                         RoomId = c.RoomId,
                         StartTime = c.StartTime,
                         EndTime = c.EndTime,
-                        Price = null
+                        GrossPrice = null,
+                        NetPrice = null
                     });
                 }
+            }
+        }
+
+        if (includeScheduled)
+        {
+            var scheduledPayoutLookup = await BuildLatestTransactionAmountLookupAsync(
+                results.Where(r => r.Type == "Scheduled").Select(r => r.ConsultationId).Distinct().ToList(),
+                TransactionType.ExpertPayout);
+
+            foreach (var scheduledResult in results.Where(r => r.Type == "Scheduled"))
+            {
+                scheduledResult.NetPrice = ResolveLookupAmount(scheduledPayoutLookup, scheduledResult.ConsultationId);
             }
         }
 
@@ -1025,6 +1045,31 @@ public class ConsultationService : IConsultationService
 
         return payoutLookup.TryGetValue(consultationId, out var payoutAmount)
             ? payoutAmount
+            : null;
+    }
+
+    private async Task<IReadOnlyDictionary<Guid, decimal>> BuildLatestTransactionAmountLookupAsync(
+        IReadOnlyCollection<Guid> referenceIds,
+        TransactionType transactionType)
+    {
+        if (referenceIds.Count == 0)
+        {
+            return new Dictionary<Guid, decimal>();
+        }
+
+        var transactions = await _unitOfWork.GetRepository<Transaction>().GetListAsync(
+            predicate: t => t.TransactionType == transactionType
+                         && referenceIds.Contains(t.ReferenceId));
+
+        return transactions
+            .GroupBy(t => t.ReferenceId)
+            .ToDictionary(g => g.Key, g => g.OrderByDescending(t => t.CreatedAt).First().Amount);
+    }
+
+    private static decimal? ResolveLookupAmount(IReadOnlyDictionary<Guid, decimal> lookup, Guid referenceId)
+    {
+        return lookup.TryGetValue(referenceId, out var amount)
+            ? amount
             : null;
     }
 #endregion
