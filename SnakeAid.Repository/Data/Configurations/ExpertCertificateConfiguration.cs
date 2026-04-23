@@ -22,8 +22,7 @@ namespace SnakeAid.Repository.Data.Configurations
                 .IsRequired(false);
 
             builder.Property(c => c.IssueDate)
-                .HasColumnType("timestamp with time zone")
-                .IsRequired(false);
+                .HasColumnType("timestamp with time zone");
 
             builder.Property(c => c.ExpiryDate)
                 .HasColumnType("timestamp with time zone")

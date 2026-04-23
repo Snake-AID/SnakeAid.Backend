@@ -23,7 +23,8 @@ namespace SnakeAid.Core.Domains
         [StringLength(250)]
         public string IssuingOrganization { get; set; }
 
-        public DateTime? IssueDate { get; set; }
+        [Required]
+        public DateTime IssueDate { get; set; }
 
         public DateTime? ExpiryDate { get; set; }
 
