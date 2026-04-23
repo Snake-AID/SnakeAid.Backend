@@ -49,10 +49,10 @@ public class OtpController : BaseController<OtpController>
     }
 
     /// <summary>
-    /// Validate and consume OTP
+    /// Validate OTP for a secured next step
     /// </summary>
     [HttpPost("validate")]
-    [SwaggerOperation(Summary = "Validate OTP", Description = "Validate and consume OTP code (OTP will be deleted after successful validation)")]
+    [SwaggerOperation(Summary = "Validate OTP", Description = "Validate OTP code and mark it as verified for the next secured action")]
     [SwaggerResponse(200, "OTP validated successfully", typeof(ApiResponse<ValidateOtpResponse>))]
     [SwaggerResponse(400, "Invalid OTP or validation error")]
     public async Task<IActionResult> ValidateOtp([FromBody] ValidateOtpRequest request)

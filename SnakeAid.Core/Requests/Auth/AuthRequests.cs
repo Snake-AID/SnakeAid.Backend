@@ -74,3 +74,23 @@ public class ChangePasswordRequest
     [Compare(nameof(NewPassword), ErrorMessage = "Confirm password does not match new password")]
     public string ConfirmPassword { get; set; } = string.Empty;
 }
+
+public class ForgotPasswordRequest
+{
+    [Required(ErrorMessage = "Email is required")]
+    [EmailAddress(ErrorMessage = "Invalid email format")]
+    public string Email { get; set; } = string.Empty;
+
+    [Required(ErrorMessage = "OTP is required")]
+    public string Otp { get; set; } = string.Empty;
+
+    [Required(ErrorMessage = "New password is required")]
+    [MinLength(8, ErrorMessage = "Password must be at least 8 characters")]
+    [RegularExpression(@"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^a-zA-Z0-9]).{8,}$",
+        ErrorMessage = "Password must contain uppercase, lowercase, number, and special character")]
+    public string NewPassword { get; set; } = string.Empty;
+
+    [Required(ErrorMessage = "Confirm password is required")]
+    [Compare(nameof(NewPassword), ErrorMessage = "Confirm password does not match new password")]
+    public string ConfirmPassword { get; set; } = string.Empty;
+}
