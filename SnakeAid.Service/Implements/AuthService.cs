@@ -214,19 +214,29 @@ public class AuthService : IAuthService
             throw new ForbiddenException("Account is inactive.");
         }
 
-        // Check password with lockout
-        var result = await _signInManager.CheckPasswordSignInAsync(user, request.Password, lockoutOnFailure: true);
-
-        if (result.IsLockedOut)
+        // Check lockout status before validating password.
+        if (await _userManager.IsLockedOutAsync(user))
         {
             _logger.LogWarning("Account locked out: {Email}", request.Email);
             throw new ForbiddenException("Account is locked. Please try again later.");
         }
 
-        if (!result.Succeeded)
+        var isPasswordValid = await _userManager.CheckPasswordAsync(user, request.Password);
+        if (!isPasswordValid)
         {
+            await _userManager.AccessFailedAsync(user);
+
+            if (await _userManager.IsLockedOutAsync(user))
+            {
+                _logger.LogWarning("Account locked out after failed login attempt: {Email}", request.Email);
+                throw new ForbiddenException("Account is locked. Please try again later.");
+            }
+
             throw new UnauthorizedException("Invalid email or password.");
         }
+
+        // Reset failure count after successful password validation.
+        await _userManager.ResetAccessFailedCountAsync(user);
 
         _logger.LogInformation("User logged in: {Email}", request.Email);
 
@@ -259,19 +269,29 @@ public class AuthService : IAuthService
             throw new ForbiddenException("Account is inactive.");
         }
 
-        // Check password with lockout
-        var result = await _signInManager.CheckPasswordSignInAsync(user, request.Password, lockoutOnFailure: true);
-
-        if (result.IsLockedOut)
+        // Check lockout status before validating password.
+        if (await _userManager.IsLockedOutAsync(user))
         {
             _logger.LogWarning("Account locked out: {Email}", request.Email);
             throw new ForbiddenException("Account is locked. Please try again later.");
         }
 
-        if (!result.Succeeded)
+        var isPasswordValid = await _userManager.CheckPasswordAsync(user, request.Password);
+        if (!isPasswordValid)
         {
+            await _userManager.AccessFailedAsync(user);
+
+            if (await _userManager.IsLockedOutAsync(user))
+            {
+                _logger.LogWarning("Account locked out after failed login attempt: {Email}", request.Email);
+                throw new ForbiddenException("Account is locked. Please try again later.");
+            }
+
             throw new UnauthorizedException("Invalid email or password.");
         }
+
+        // Reset failure count after successful password validation.
+        await _userManager.ResetAccessFailedCountAsync(user);
 
         _logger.LogInformation("User logged in: {Email}", request.Email);
 
@@ -493,11 +513,75 @@ public class AuthService : IAuthService
             throw new BadRequestException($"Change password failed: {errorMessages}");
         }
 
+        // If account was locked due to failed attempts, unlock after successful password update.
+        await _userManager.ResetAccessFailedCountAsync(user);
+        await _userManager.SetLockoutEndDateAsync(user, null);
+
         // Force re-login by removing current refresh token after password change.
         await _userManager.RemoveAuthenticationTokenAsync(user, RefreshTokenProvider, RefreshTokenName);
         await _userManager.RemoveAuthenticationTokenAsync(user, RefreshTokenProvider, RefreshTokenExpiryName);
 
         _logger.LogInformation("Password changed successfully for user: {UserId}", userId);
+    }
+
+    public async Task ForgotPasswordAsync(ForgotPasswordRequest request)
+    {
+        if (request == null)
+        {
+            throw new BadRequestException("Forgot password request body is required.");
+        }
+
+        if (!string.Equals(request.NewPassword, request.ConfirmPassword, StringComparison.Ordinal))
+        {
+            throw new BadRequestException("Confirm password does not match new password.");
+        }
+
+        var otpValidation = await _otpService.ValidateOtp(request.Email, request.Otp);
+        if (!otpValidation.Success)
+        {
+            throw new BadRequestException(otpValidation.Message);
+        }
+
+        var consumeValidation = await _otpService.ConsumeValidatedOtp(request.Email);
+        if (!consumeValidation.Success)
+        {
+            throw new BadRequestException(consumeValidation.Message);
+        }
+
+        var user = await _userManager.FindByEmailAsync(request.Email);
+        if (user == null)
+        {
+            throw new NotFoundException("User not found.");
+        }
+
+        IdentityResult result;
+        var hasPassword = await _userManager.HasPasswordAsync(user);
+
+        if (hasPassword)
+        {
+            var resetToken = await _userManager.GeneratePasswordResetTokenAsync(user);
+            result = await _userManager.ResetPasswordAsync(user, resetToken, request.NewPassword);
+        }
+        else
+        {
+            result = await _userManager.AddPasswordAsync(user, request.NewPassword);
+        }
+
+        if (!result.Succeeded)
+        {
+            var errorMessages = string.Join("; ", result.Errors.Select(e => e.Description));
+            throw new BadRequestException($"Reset password failed: {errorMessages}");
+        }
+
+        // If account was locked due to failed attempts, unlock after successful password reset.
+        await _userManager.ResetAccessFailedCountAsync(user);
+        await _userManager.SetLockoutEndDateAsync(user, null);
+
+        // Force re-login by removing current refresh token after password reset.
+        await _userManager.RemoveAuthenticationTokenAsync(user, RefreshTokenProvider, RefreshTokenName);
+        await _userManager.RemoveAuthenticationTokenAsync(user, RefreshTokenProvider, RefreshTokenExpiryName);
+
+        _logger.LogInformation("Password reset successfully for user: {Email}", request.Email);
     }
 
     #endregion

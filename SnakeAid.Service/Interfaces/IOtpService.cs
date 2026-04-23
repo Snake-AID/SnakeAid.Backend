@@ -12,5 +12,6 @@ namespace SnakeAid.Service.Interfaces
         Task CreateOtpEntity(string email, string otp);
         Task<ValidateOtpResponse> CheckOtp(string email, string otp);
         Task<ValidateOtpResponse> ValidateOtp(string email, string otp);
+        Task<ValidateOtpResponse> ConsumeValidatedOtp(string email);
     }
 }

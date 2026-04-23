@@ -138,6 +138,21 @@ public class AuthController : BaseController<AuthController>
     }
 
     /// <summary>
+    /// Forgot password by email
+    /// </summary>
+    [HttpPost("forgot-password")]
+    [ValidateModel]
+    [SwaggerOperation(Summary = "Forgot password", Description = "Reset password using email, new password and confirm password")]
+    [SwaggerResponse(200, "Password reset successfully")]
+    [SwaggerResponse(400, "Validation error or password policy violation")]
+    [SwaggerResponse(404, "User not found")]
+    public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordRequest request)
+    {
+        await _authService.ForgotPasswordAsync(request);
+        return Ok(ApiResponseBuilder.BuildSuccessResponse("Password reset successfully."));
+    }
+
+    /// <summary>
     /// Verify account with OTP
     /// </summary>
     [HttpPost("verify-account")]
