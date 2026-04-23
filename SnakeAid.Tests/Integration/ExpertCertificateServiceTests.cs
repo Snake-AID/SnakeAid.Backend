@@ -2,6 +2,7 @@ using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using SnakeAid.Core.Domains;
+using SnakeAid.Core.Exceptions;
 using SnakeAid.Core.Requests.ExpertCertificate;
 using SnakeAid.Repository.Data;
 using SnakeAid.Repository.Implements;
@@ -117,6 +118,31 @@ public class ExpertCertificateServiceTests
 
         var profile = await db.ExpertProfiles.SingleAsync(p => p.AccountId == expertId);
         Assert.True(profile.IsVerified);
+    }
+
+    [Fact]
+    public async Task AdminCreateAsync_WithInvalidVerificationStatus_ShouldThrowValidationException()
+    {
+        var expertId = Guid.NewGuid();
+        var mediaId = Guid.NewGuid();
+        await using var db = CreateDbContext();
+        await SeedExpertAsync(db, expertId);
+        await SeedMediaAsync(db, mediaId);
+
+        var service = CreateService(db);
+
+        var exception = await Assert.ThrowsAsync<ValidationException>(() => service.AdminCreateAsync(
+            new AdminCreateExpertCertificateRequest
+            {
+                ExpertId = expertId,
+                CertificateName = "Board Certificate",
+                IssuingOrganization = "SnakeAid Board",
+                IssueDate = new DateTime(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc),
+                ReportMediaIds = [mediaId],
+                VerificationStatus = (VerificationStatus)999
+            }));
+
+        Assert.Equal("Invalid VerificationStatus value.", exception.Reason);
     }
 
     private static ExpertCertificateService CreateService(SnakeAidDbContext db)

@@ -26,6 +26,11 @@ public class SnakeCatchingPaymentService : ISnakeCatchingPaymentService
     private const string LogPrefix = "[SnakeCatchingPaymentService]";
     private static readonly Regex OrderCodeRegex = new($@"^{PayOsPaymentFlowPrefixes.SnakeCatching}(\d+)", RegexOptions.Compiled);
 
+    private static string FormatRequestCode(Guid requestId)
+    {
+    var shortId = requestId.ToString("N").Substring(26, 6).ToUpper(); 
+    return $"CAR-{shortId}";
+    }
     public SnakeCatchingPaymentService(
         IPaymentGateway paymentGateway,
         IUnitOfWork unitOfWork,
@@ -797,13 +802,14 @@ public class SnakeCatchingPaymentService : ISnakeCatchingPaymentService
         TransactionType transactionType)
     {
         var isDeposit = transactionType == TransactionType.CatchingDeposit;
+        var requestCode = FormatRequestCode(requestId);
         var paymentSource = string.Equals(paymentMethod, "Wallet", StringComparison.OrdinalIgnoreCase)
             ? "qua ví SnakeAid"
             : "qua PayOS";
         var title = isDeposit ? "Đặt cọc thành công" : "Thanh toán thành công";
         var body = isDeposit
-            ? $"Bạn đã đặt cọc thành công {FormatVnd(amount)} {paymentSource} cho đơn bắt rắn #{requestId}. Vui lòng chờ nhân viên hoàn thành nhiệm vụ và thanh toán phần còn lại."
-            : $"Bạn đã thanh toán thành công {FormatVnd(amount)} {paymentSource} cho đơn bắt rắn #{requestId}. Đơn đã hoàn tất.";
+            ? $"Bạn đã đặt cọc thành công {FormatVnd(amount)} {paymentSource} cho đơn bắt rắn #{requestCode}. Vui lòng chờ nhân viên hoàn thành nhiệm vụ và thanh toán phần còn lại."
+            : $"Bạn đã thanh toán thành công {FormatVnd(amount)} {paymentSource} cho đơn bắt rắn #{requestCode}. Đơn đã hoàn tất.";
         var type = isDeposit ? "SNAKE_CATCHING_DEPOSIT_SUCCESS" : "SNAKE_CATCHING_PAYMENT_SUCCESS";
 
         return new NotificationMessage

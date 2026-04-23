@@ -565,6 +565,30 @@ public class ConsultationService : IConsultationService
             _ => throw new ArgumentOutOfRangeException(nameof(consultation.Type), consultation.Type, "Unsupported consultation type.")
         };
     }
+
+    public async Task<AdminConsultationResponse> ConfirmExpertAbsentHandledAsync(Guid consultationId)
+    {
+        var consultationRepo = _unitOfWork.GetRepository<Consultation>();
+        var consultation = await consultationRepo.FirstOrDefaultAsync(
+            predicate: c => c.Id == consultationId,
+            asNoTracking: false);
+
+        if (consultation == null)
+        {
+            throw new NotFoundException("Consultation not found.");
+        }
+
+        if (consultation.Status != ConsultationStatus.ExpertAbsent)
+        {
+            throw new BusinessException($"Only consultations in status {ConsultationStatus.ExpertAbsent} can be marked as handled.");
+        }
+
+        consultation.Status = ConsultationStatus.ExpertAbsentHandled;
+        consultationRepo.Update(consultation);
+        await _unitOfWork.CommitAsync();
+
+        return await GetConsultationByIdForAdminAsync(consultationId);
+    }
 #endregion
 
 #region Expert Consultation History
@@ -844,6 +868,7 @@ public class ConsultationService : IConsultationService
             or ConsultationStatus.Completed
             or ConsultationStatus.UserAbsent
             or ConsultationStatus.ExpertAbsent
+            or ConsultationStatus.ExpertAbsentHandled
             or ConsultationStatus.AllAbsent;
     }
 

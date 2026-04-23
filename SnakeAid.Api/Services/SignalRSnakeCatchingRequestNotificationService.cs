@@ -14,6 +14,11 @@ namespace SnakeAid.Api.Services
         private readonly IHubContext<RescuerHub> _hubContext;
         private readonly INotificationQueueService _notificationQueueService;
         private readonly ILogger<SignalRSnakeCatchingRequestNotificationService> _logger;
+        private static string FormatRequestCode(Guid requestId)
+        {
+            var shortId = requestId.ToString("N").Substring(26, 6).ToUpper(); 
+            return $"CAR-{shortId}";
+        }
 
         public SignalRSnakeCatchingRequestNotificationService(
             IHubContext<RescuerHub> hubContext,
@@ -96,12 +101,12 @@ namespace SnakeAid.Api.Services
 
                 await _hubContext.Clients.Group(OperatorGroup).SendAsync("SnakeCatchingRequestAccepted", newResponse);
                 await _hubContext.Clients.User(userId.ToString()).SendAsync("SnakeCatchingRequestAccepted", newResponse);
-
+                var requestCode = FormatRequestCode(requestId);
                 await _notificationQueueService.PublishAsync(new NotificationMessage
                 {
                     UserId = userId,
                     Title = "Yêu cầu bắt rắn đã được xác nhận",
-                    Body = $"Yêu cầu bắt rắn #{requestId} đã được xác nhận.",
+                    Body = $"Yêu cầu bắt rắn #{requestCode} đã được xác nhận.",
                     Type = "SNAKE_CATCHING_REQUEST_CONFIRMED",
                     Data = BuildEntityData(requestId)
                 });
@@ -129,7 +134,7 @@ namespace SnakeAid.Api.Services
 
                 await _hubContext.Clients.Group(OperatorGroup).SendAsync("SnakeCatchingRequestAssigned", newResponse);
                 await _hubContext.Clients.User(userId.ToString()).SendAsync("SnakeCatchingRequestAssigned", newResponse);
-
+                var requestCode = FormatRequestCode(requestId);
                 await _notificationQueueService.PublishAsync(new NotificationMessage
                 {
                     UserId = userId,
@@ -147,7 +152,7 @@ namespace SnakeAid.Api.Services
                     {
                         UserId = assignedRescuerId.Value,
                         Title = "Bạn được phân công nhiệm vụ bắt rắn mới",
-                        Body = $"Mã nhiệm vụ: #{requestId}. Mở app để xem chi tiết.",
+                        Body = $"Mã nhiệm vụ: #{requestCode}. Mở app để xem chi tiết.",
                         Type = "SNAKE_CATCHING_MISSION_ASSIGNED",
                         Data = BuildEntityData(requestId)
                     });
@@ -170,6 +175,8 @@ namespace SnakeAid.Api.Services
                     CancellationReason = cancellationReason
                 };
 
+                var requestCode = FormatRequestCode(requestId);
+
                 await _hubContext.Clients.Group(OperatorGroup).SendAsync("SnakeCatchingRequestCancelled", newResponse);
                 await _hubContext.Clients.User(userId.ToString()).SendAsync("SnakeCatchingRequestCancelled", newResponse);
 
@@ -181,7 +188,7 @@ namespace SnakeAid.Api.Services
                     {
                         UserId = assignedRescuerId.Value,
                         Title = "Nhiệm vụ bị hủy",
-                        Body = $"Khách hàng đã hủy yêu cầu #{requestId}.",
+                        Body = $"Khách hàng đã hủy yêu cầu #{requestCode}.",
                         Type = "SNAKE_CATCHING_REQUEST_CANCELLED_BY_MEMBER",
                         Data = BuildEntityData(requestId)
                     });
@@ -197,6 +204,8 @@ namespace SnakeAid.Api.Services
             int? estimatedMinutes = null)
             => SafeExecuteAsync(async () =>
             {
+                var requestCode = FormatRequestCode(requestId);
+
                 await _notificationQueueService.PublishAsync(new NotificationMessage
                 {
                     UserId = memberUserId,
@@ -317,11 +326,11 @@ namespace SnakeAid.Api.Services
                 {
                     UserId = memberUserId,
                     Title = "Cứu hộ viên không thể thực hiện",
-                    Body = $"{rescuerName ?? "Cứu hộ viên"} không thể tiếp tục nhiệm vụ. Đợi SnakeAid đang tìm người thay thế.",
+                    Body = $"{rescuerName ?? "Cứu hộ viên"} không thể tiếp tục nhiệm vụ. Vui lòng đợi điều phối viên đang tìm người thay thế.",
                     Type = "SNAKE_CATCHING_MISSION_ABORTED",
                     Data = BuildEntityData(requestId, missionId)
                 });
-
+                var requestCode = FormatRequestCode(requestId);
                 await _hubContext.Clients.Group(OperatorGroup).SendAsync("SnakeCatchingMissionAborted", new
                 {
                     RequestId = requestId,
@@ -336,7 +345,7 @@ namespace SnakeAid.Api.Services
                 await _notificationQueueService.BroadcastAsync(new AdminBroadcastNotificationRequest
                 {
                     Title = "Cần phân công lại ngay",
-                    Body = $"Cứu hộ viên {rescuerName ?? rescuerUserId.ToString()} đã hủy nhiệm vụ cho đơn #{requestId}.",
+                    Body = $"Cứu hộ viên {rescuerName ?? rescuerUserId.ToString()} đã hủy nhiệm vụ cho đơn #{requestCode}.",
                     Type = "SNAKE_CATCHING_REASSIGN_NEEDED",
                     TargetRoles = new List<AccountRole> { AccountRole.Operator },
                     Data = BuildEntityData(requestId, missionId)

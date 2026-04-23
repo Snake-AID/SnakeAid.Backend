@@ -861,6 +861,7 @@ namespace SnakeAid.Service.Implements
 
         public async Task<DetailSnakeCatchingRequestResponse> CancelSnakeCatchingRequestAsync(
             Guid userId,
+            string userRole,
             Guid requestId,
             CancelSnakeCatchingRequestRequest request)
         {
@@ -884,24 +885,30 @@ namespace SnakeAid.Service.Implements
                         throw new NotFoundException($"Snake catching request with ID {requestId} not found.");
                     }
 
-                    // Validate that the user is the owner of the request
-                    if (snakeCatchingRequest.UserId != userId)
+                    var isOperator = string.Equals(userRole, "Operator", StringComparison.OrdinalIgnoreCase);
+
+                    // Only request owner or operator can cancel.
+                    if (!isOperator && snakeCatchingRequest.UserId != userId)
                     {
                         throw new BadRequestException("You are not authorized to cancel this request.");
                     }
 
                     // Handle cancellation based on current status
-                    if (snakeCatchingRequest.Status == RequestStatus.Pending)
+                    if (snakeCatchingRequest.Status == RequestStatus.Pending
+                        || snakeCatchingRequest.Status == RequestStatus.Confirmed)
                     {
-                        // If status is Pending, simply change to Cancelled
+                        var previousStatus = snakeCatchingRequest.Status;
+
+                        // If status is Pending/Confirmed, simply change to Cancelled
                         snakeCatchingRequest.Status = RequestStatus.Cancelled;
                         snakeCatchingRequest.CancellationReason = request.Reason;
 
                         _unitOfWork.GetRepository<SnakeCatchingRequest>().Update(snakeCatchingRequest);
 
                         _logger.LogInformation(
-                            "Snake catching request {RequestId} cancelled from Pending status.",
-                            requestId);
+                            "Snake catching request {RequestId} cancelled from {RequestStatus} status.",
+                            requestId,
+                            previousStatus);
                     }
                     else if (snakeCatchingRequest.Status == RequestStatus.Assigned)
                     {

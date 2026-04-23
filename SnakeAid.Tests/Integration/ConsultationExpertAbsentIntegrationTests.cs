@@ -151,6 +151,26 @@ public class ConsultationExpertAbsentIntegrationTests : IDisposable
         Assert.NotNull(result.CustomerReportSubmittedAt);
     }
 
+    [Fact]
+    public async Task ConfirmExpertAbsentHandledAsync_ShouldUpdateStatusAndReturnAdminResponse()
+    {
+        var result = await _service.ConfirmExpertAbsentHandledAsync(_completedConsultationId);
+
+        Assert.Equal(_completedConsultationId, result.ConsultationId);
+        Assert.Equal("ExpertAbsentHandled", result.Status);
+        Assert.Equal("Existing customer report", result.CustomerReport);
+        Assert.NotNull(result.CustomerReportSubmittedAt);
+
+        var persisted = await _db.Set<Consultation>().SingleAsync(c => c.Id == _completedConsultationId);
+        Assert.Equal(ConsultationStatus.ExpertAbsentHandled, persisted.Status);
+    }
+
+    [Fact]
+    public async Task ConfirmExpertAbsentHandledAsync_WhenStatusIsNotExpertAbsent_ShouldThrowBusinessException()
+    {
+        await Assert.ThrowsAsync<BusinessException>(() => _service.ConfirmExpertAbsentHandledAsync(_scheduledConsultationId));
+    }
+
     private void SeedData()
     {
         _db.Set<Account>().AddRange(

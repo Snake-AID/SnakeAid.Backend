@@ -29,7 +29,7 @@ namespace SnakeAid.Service.Interfaces
             int page,
             int pageSize);
 
-        Task<DetailSnakeCatchingRequestResponse> CancelSnakeCatchingRequestAsync(Guid userId, Guid requestId, CancelSnakeCatchingRequestRequest request);
+        Task<DetailSnakeCatchingRequestResponse> CancelSnakeCatchingRequestAsync(Guid userId, string userRole, Guid requestId, CancelSnakeCatchingRequestRequest request);
 
     }
 }

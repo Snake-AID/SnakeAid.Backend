@@ -166,8 +166,9 @@ When aborted successfully:
             Guid missionId,
             [FromBody] AbortSnakeCatchingMissionRequest request)
         {
-            var rescuerId = GetCurrentUserId();
-            var result = await _missionService.AbortMissionAsync(rescuerId, missionId, request);
+            var userId = GetCurrentUserId();
+            var userRole = GetCurrentUserRole();
+            var result = await _missionService.AbortMissionAsync(userId, userRole, missionId, request);
             return Ok(ApiResponseBuilder.BuildSuccessResponse(
                 result,
                 "Mission aborted successfully."));

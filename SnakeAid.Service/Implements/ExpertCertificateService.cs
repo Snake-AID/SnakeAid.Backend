@@ -474,6 +474,11 @@ public class ExpertCertificateService : IExpertCertificateService
 
     private static void ValidateReviewState(VerificationStatus status, string? rejectionReason)
     {
+        if (!Enum.IsDefined(typeof(VerificationStatus), status))
+        {
+            throw new ValidationException("Invalid VerificationStatus value.");
+        }
+
         if (status == VerificationStatus.Rejected && string.IsNullOrWhiteSpace(rejectionReason))
         {
             throw new ValidationException("RejectionReason is required when verification status is Rejected.");

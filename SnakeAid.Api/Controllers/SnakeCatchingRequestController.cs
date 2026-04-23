@@ -193,7 +193,7 @@ namespace SnakeAid.Api.Controllers
         [SwaggerOperation(
             Summary = "Cancel Snake Catching Request",
             Description = "Cancel a snake catching request. Rules: " +
-                "1) If status is Pending, it will be cancelled directly. " +
+                "1) If status is Pending or Confirmed, it will be cancelled directly. " +
                 "2) If status is Assigned and mission is Preparing, both request and mission will be cancelled. " +
                 "3) If mission is EnRoute, cancellation is not allowed. " +
                 "Note: No refund will be processed automatically.")]
@@ -210,8 +210,9 @@ namespace SnakeAid.Api.Controllers
             [FromBody] CancelSnakeCatchingRequestRequest request)
         {
             var userId = GetCurrentUserId();
+            var userRole = GetCurrentUserRole();
 
-            var result = await _snakeCatchingRequestService.CancelSnakeCatchingRequestAsync(userId, requestId, request);
+            var result = await _snakeCatchingRequestService.CancelSnakeCatchingRequestAsync(userId, userRole, requestId, request);
 
             return Ok(ApiResponseBuilder.BuildSuccessResponse(
                 result,

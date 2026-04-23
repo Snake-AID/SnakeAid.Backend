@@ -454,7 +454,8 @@ namespace SnakeAid.Service.Implements
         }
 
         public async Task<SnakeCatchingMissionDetailResponse> AbortMissionAsync(
-            Guid rescuerId,
+            Guid userId,
+            string userRole,
             Guid missionId,
             AbortSnakeCatchingMissionRequest request)
         {
@@ -464,12 +465,18 @@ namespace SnakeAid.Service.Implements
                 {
                     // Get mission with related request
                     var mission = await _unitOfWork.GetRepository<SnakeCatchingMission>().FirstOrDefaultAsync(
-                        predicate: m => m.Id == missionId && m.RescuerId == rescuerId,
+                        predicate: m => m.Id == missionId,
                         include: q => q.Include(m => m.SnakeCatchingRequest));
 
                     if (mission == null)
                     {
-                        throw new NotFoundException("Mission not found or you don't have permission to access it.");
+                        throw new NotFoundException("Mission not found.");
+                    }
+
+                    var isOperator = string.Equals(userRole, "Operator", StringComparison.OrdinalIgnoreCase);
+                    if (!isOperator && mission.RescuerId != userId)
+                    {
+                        throw new BadRequestException("You are not authorized to abort this mission.");
                     }
 
                     // Validate current status - only allow abort from Preparing or EnRoute
@@ -503,7 +510,7 @@ namespace SnakeAid.Service.Implements
 
                     _logger.LogInformation(
                         "Mission aborted successfully. MissionId: {MissionId}, RescuerId: {RescuerId}, RequestId: {RequestId}, Reason: {Reason}",
-                        missionId, rescuerId, mission.SnakeCatchingRequestId, request.Reason);
+                        missionId, mission.RescuerId, mission.SnakeCatchingRequestId, request.Reason);
 
                     var requestInfo = await _unitOfWork.GetRepository<SnakeCatchingRequest>()
                         .FirstOrDefaultAsync(
@@ -511,7 +518,7 @@ namespace SnakeAid.Service.Implements
                             predicate: r => r.Id == mission.SnakeCatchingRequestId);
 
                     var rescuerName = await _unitOfWork.GetRepository<Account>()
-                        .FirstOrDefaultAsync(selector: a => a.FullName, predicate: a => a.Id == rescuerId);
+                        .FirstOrDefaultAsync(selector: a => a.FullName, predicate: a => a.Id == mission.RescuerId);
 
                     await mission.AttachReportMediaAsync(_unitOfWork, MediaReferenceType.SnakeCatchingMission);
                     var response = mission.Adapt<SnakeCatchingMissionDetailResponse>();
@@ -525,7 +532,7 @@ namespace SnakeAid.Service.Implements
                             requestId.Value,
                             missionId,
                             memberUserId.Value,
-                            rescuerId,
+                            response.RescuerId,
                             operatorUserId,
                             rescuerName,
                             request.Reason),

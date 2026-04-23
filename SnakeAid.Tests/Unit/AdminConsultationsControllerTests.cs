@@ -56,6 +56,21 @@ public class AdminConsultationsControllerTests
     }
 
     [Fact]
+    public void ConfirmExpertAbsentHandled_ActionShouldExposeRouteAndResponseMetadata()
+    {
+        var method = typeof(AdminConsultationsController).GetMethod(nameof(AdminConsultationsController.ConfirmExpertAbsentHandled));
+
+        Assert.NotNull(method);
+
+        var httpPost = Assert.Single(method!.GetCustomAttributes(typeof(HttpPostAttribute), inherit: true).Cast<HttpPostAttribute>());
+        Assert.Equal("{consultationId:guid}/expert-absent/confirm-handled", httpPost.Template);
+
+        var produces = Assert.Single(method.GetCustomAttributes(typeof(ProducesResponseTypeAttribute), inherit: true).Cast<ProducesResponseTypeAttribute>());
+        Assert.Equal(StatusCodes.Status200OK, produces.StatusCode);
+        Assert.Equal(typeof(ApiResponse<AdminConsultationResponse>), produces.Type);
+    }
+
+    [Fact]
     public async Task GetAllConsultations_ShouldReturnSuccessEnvelope()
     {
         var expected = new PagingResponse<AdminConsultationResponse>
@@ -167,5 +182,53 @@ public class AdminConsultationsControllerTests
         Assert.NotNull(response.Data);
         Assert.Equal(consultationId, response.Data!.ConsultationId);
         Assert.Equal("Completed", response.Data.BookingStatus);
+    }
+
+    [Fact]
+    public async Task ConfirmExpertAbsentHandled_ShouldReturnSuccessEnvelope()
+    {
+        var consultationId = Guid.NewGuid();
+        var expected = new AdminConsultationResponse
+        {
+            ConsultationId = consultationId,
+            Type = "Scheduled",
+            Status = "ExpertAbsentHandled",
+            UserId = Guid.NewGuid(),
+            ExpertId = Guid.NewGuid(),
+            StartTime = DateTime.UtcNow
+        };
+
+        var service = new Mock<IConsultationService>();
+        service.Setup(s => s.ConfirmExpertAbsentHandledAsync(consultationId))
+            .ReturnsAsync(expected);
+
+        var mapper = new Mock<IMapper>();
+        var httpContextAccessor = new HttpContextAccessor
+        {
+            HttpContext = new DefaultHttpContext
+            {
+                User = new ClaimsPrincipal(new ClaimsIdentity(
+                [
+                    new Claim(ClaimTypes.NameIdentifier, Guid.NewGuid().ToString()),
+                    new Claim(ClaimTypes.Role, "Admin")
+                ], "Test"))
+            }
+        };
+
+        var controller = new AdminConsultationsController(
+            service.Object,
+            NullLogger<AdminConsultationsController>.Instance,
+            httpContextAccessor,
+            mapper.Object);
+
+        var result = await controller.ConfirmExpertAbsentHandled(consultationId);
+
+        var ok = Assert.IsType<OkObjectResult>(result.Result);
+        var response = Assert.IsType<ApiResponse<AdminConsultationResponse>>(ok.Value);
+
+        Assert.True(response.IsSuccess);
+        Assert.Equal("Expert absent case marked as handled successfully.", response.Message);
+        Assert.NotNull(response.Data);
+        Assert.Equal("ExpertAbsentHandled", response.Data!.Status);
     }
 }
