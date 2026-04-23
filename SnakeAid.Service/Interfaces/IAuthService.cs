@@ -45,4 +45,9 @@ public interface IAuthService
     /// Change current user's password
     /// </summary>
     Task ChangePasswordAsync(Guid userId, ChangePasswordRequest request);
+
+    /// <summary>
+    /// Reset password by email (forgot password flow)
+    /// </summary>
+    Task ForgotPasswordAsync(ForgotPasswordRequest request);
 }

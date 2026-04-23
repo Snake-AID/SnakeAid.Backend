@@ -20,6 +20,7 @@ namespace SnakeAid.Service.Implements
             public string OtpCode { get; set; } = string.Empty;
             public DateTime ExpirationTime { get; set; }
             public int AttemptsLeft { get; set; }
+            public bool IsValidated { get; set; }
         }
 
         public Task CreateOtpEntity(string email, string otp)
@@ -30,7 +31,8 @@ namespace SnakeAid.Service.Implements
             {
                 OtpCode = otp,
                 ExpirationTime = DateTime.UtcNow.AddMinutes(OTP_EXPIRY_MINUTES),
-                AttemptsLeft = MAX_ATTEMPTS
+                AttemptsLeft = MAX_ATTEMPTS,
+                IsValidated = false
             };
 
             var cacheOptions = new MemoryCacheEntryOptions()
@@ -159,14 +161,63 @@ namespace SnakeAid.Service.Implements
                 }
             }
 
-            // OTP is valid - remove from cache (consume it)
-            _cache.Remove(cacheKey);
+            // OTP is valid - mark as validated for the next secured action.
+            otpData.IsValidated = true;
+            var validatedCacheOptions = new MemoryCacheEntryOptions()
+                .SetAbsoluteExpiration(otpData.ExpirationTime);
+            _cache.Set(cacheKey, otpData, validatedCacheOptions);
 
             return Task.FromResult(new ValidateOtpResponse
             {
                 Success = true,
                 AttemptsLeft = otpData.AttemptsLeft,
                 Message = "OTP validated successfully."
+            });
+        }
+
+        public Task<ValidateOtpResponse> ConsumeValidatedOtp(string email)
+        {
+            var cacheKey = $"otp_{email.ToLowerInvariant()}";
+
+            if (!_cache.TryGetValue<OtpData>(cacheKey, out var otpData) || otpData == null)
+            {
+                return Task.FromResult(new ValidateOtpResponse
+                {
+                    Success = false,
+                    AttemptsLeft = 0,
+                    Message = "No OTP found for this email. Please request a new OTP."
+                });
+            }
+
+            if (otpData.ExpirationTime < DateTime.UtcNow)
+            {
+                _cache.Remove(cacheKey);
+                return Task.FromResult(new ValidateOtpResponse
+                {
+                    Success = false,
+                    AttemptsLeft = 0,
+                    Message = "OTP has expired. Please request a new OTP."
+                });
+            }
+
+            if (!otpData.IsValidated)
+            {
+                return Task.FromResult(new ValidateOtpResponse
+                {
+                    Success = false,
+                    AttemptsLeft = otpData.AttemptsLeft,
+                    Message = "OTP is not validated. Please validate OTP first."
+                });
+            }
+
+            // One-time consume after validated action is completed.
+            _cache.Remove(cacheKey);
+
+            return Task.FromResult(new ValidateOtpResponse
+            {
+                Success = true,
+                AttemptsLeft = otpData.AttemptsLeft,
+                Message = "OTP consumed successfully."
             });
         }
     }
