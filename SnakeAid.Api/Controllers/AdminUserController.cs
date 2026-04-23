@@ -12,6 +12,7 @@ using SnakeAid.Core.Responses.User;
 using SnakeAid.Service.Interfaces;
 using SnakeAid.Core.Meta;
 using SnakeAid.Core.Validators;
+using Swashbuckle.AspNetCore.Annotations;
 
 namespace SnakeAid.Api.Controllers
 {
@@ -61,6 +62,20 @@ namespace SnakeAid.Api.Controllers
         {
             var result = await _userService.GetAdminUserDetailAsync(userId);
             return Ok(ApiResponseBuilder.BuildSuccessResponse(result, "User detail retrieved."));
+        }
+
+        /// <summary>
+        /// Create a rescuer account for the system
+        /// </summary>
+        [HttpPost("create-rescuer")]
+        [ValidateModel]
+        [SwaggerOperation(Summary = "Create rescuer account", Description = "Admin creates a rescuer account for the system.")]
+        [SwaggerResponse(200, "Rescuer account created successfully", typeof(ApiResponse<AdminUserDetailResponse>))]
+        [SwaggerResponse(400, "Validation error or email already in use")]
+        public async Task<IActionResult> CreateRescuer([FromBody] AdminCreateRescuerRequest request)
+        {
+            var result = await _userService.CreateRescuerAsync(request);
+            return Ok(ApiResponseBuilder.BuildSuccessResponse(result, "Rescuer account created successfully."));
         }
 
         /// <summary>

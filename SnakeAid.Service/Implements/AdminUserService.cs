@@ -1,18 +1,20 @@
 using Mapster;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using SnakeAid.Core.Domains;
 using SnakeAid.Core.Exceptions;
 using SnakeAid.Core.Meta;
+using SnakeAid.Core.Requests.User;
 using SnakeAid.Core.Responses.User;
 using SnakeAid.Repository.Data;
 using SnakeAid.Repository.Implements;
+using SnakeAid.Repository.Interfaces;
 using SnakeAid.Service.Interfaces;
 using System;
 using System.Linq;
+using System.Net;
 using System.Threading.Tasks;
-using Microsoft.EntityFrameworkCore;
-using SnakeAid.Repository.Interfaces;
 
 namespace SnakeAid.Service.Implements
 {
@@ -149,6 +151,94 @@ namespace SnakeAid.Service.Implements
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error retrieving user detail for ID {UserId}: {Message}", userId, ex.Message);
+                throw;
+            }
+        }
+
+        public async Task<AdminUserDetailResponse> CreateRescuerAsync(AdminCreateRescuerRequest request)
+        {
+            try
+            {
+                var existingUser = await _userManager.FindByEmailAsync(request.Email);
+                if (existingUser != null)
+                {
+                    throw new ConflictException("Email is already in use.");
+                }
+
+                var user = new Account
+                {
+                    Id = Guid.NewGuid(),
+                    UserName = request.Email,
+                    Email = request.Email,
+                    FullName = request.FullName,
+                    PhoneNumber = request.PhoneNumber,
+                    IsActive = true,
+                    EmailConfirmed = true,
+                    Role = AccountRole.Rescuer,
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
+                };
+
+                var createResult = await _userManager.CreateAsync(user, request.Password);
+                if (!createResult.Succeeded)
+                {
+                    var errorMessages = string.Join("; ", createResult.Errors.Select(e => e.Description));
+                    throw new BadRequestException($"Rescuer creation failed: {errorMessages}");
+                }
+
+                var rescuerRepository = _unitOfWork.GetRepository<RescuerProfile>();
+                var rescuer = new RescuerProfile
+                {
+                    AccountId = user.Id,
+                    Type = request.Type,
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
+                };
+                await rescuerRepository.InsertAsync(rescuer);
+
+                var walletRepository = _unitOfWork.GetRepository<Wallet>();
+                var wallet = new Wallet
+                {
+                    Id = Guid.NewGuid(),
+                    UserId = user.Id,
+                    Balance = 0m,
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
+                };
+                await walletRepository.InsertAsync(wallet);
+
+                await _unitOfWork.CommitAsync();
+
+                return new AdminUserDetailResponse
+                {
+                    Id = user.Id,
+                    UserName = user.UserName ?? string.Empty,
+                    FullName = user.FullName,
+                    Email = user.Email,
+                    PhoneNumber = user.PhoneNumber,
+                    Role = user.Role,
+                    CreatedAt = user.CreatedAt,
+                    UpdatedAt = user.UpdatedAt,
+                    IsActive = user.IsActive,
+                    ReputationPoints = user.ReputationPoints,
+                    ReputationStatus = user.ReputationStatus,
+                    AvatarUrl = user.AvatarUrl,
+                    RescuerProfile = new AdminRescuerProfileResponse
+                    {
+                        IsOnline = rescuer.IsOnline,
+                        IsAvailable = rescuer.IsAvailable,
+                        Type = rescuer.Type,
+                        Rating = rescuer.Rating,
+                        RatingCount = rescuer.RatingCount,
+                        TotalMissions = rescuer.TotalMissions,
+                        CompletedMissions = rescuer.CompletedMissions,
+                        LastLocationUpdate = rescuer.LastLocationUpdate
+                    }
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error creating rescuer account: {Message}", ex.Message);
                 throw;
             }
         }

@@ -1,4 +1,5 @@
 using SnakeAid.Core.Meta;
+using SnakeAid.Core.Requests.User;
 using SnakeAid.Core.Responses.User;
 
 namespace SnakeAid.Service.Interfaces
@@ -19,6 +20,11 @@ namespace SnakeAid.Service.Interfaces
         /// Get detailed user information
         /// </summary>
         Task<AdminUserDetailResponse> GetAdminUserDetailAsync(Guid userId);
+
+        /// <summary>
+        /// Create a new rescuer account by an admin
+        /// </summary>
+        Task<AdminUserDetailResponse> CreateRescuerAsync(AdminCreateRescuerRequest request);
 
         /// <summary>
         /// Ban/deactivate a user account
