@@ -10,7 +10,8 @@ public class ExpertConsultationResponse
     public string? RoomId { get; set; }
     public DateTime? StartTime { get; set; }
     public DateTime? EndTime { get; set; }
-    public decimal? Price { get; set; }
+    public decimal? GrossPrice { get; set; }
+    public decimal? NetPrice { get; set; }
 
     // Scheduled-specific
     public Guid? BookingId { get; set; }
