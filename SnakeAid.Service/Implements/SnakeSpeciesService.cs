@@ -122,6 +122,7 @@ namespace SnakeAid.Service.Implements
                              EF.Functions.ILike(s.CommonName, pattern, escapeChar) ||
                              s.AlternativeNames.Any(sn => EF.Functions.ILike(sn.Name, pattern, escapeChar))),
                         include: q => q
+                            .Include(s => s.PrimaryVenomTypeDefinition)
                             .Include(s => s.SpeciesVenoms)
                                 .ThenInclude(sv => sv.VenomType)
                             .Include(s => s.SpeciesAntivenoms)
@@ -209,6 +210,11 @@ namespace SnakeAid.Service.Implements
                 ? await BuildFirstAidOverrideAsync(request.FirstAidGuidelineOverride, ct)
                 : null;
 
+            if (request.PrimaryVenomTypeId.HasValue)
+            {
+                await ValidatePrimaryVenomTypeIdAsync(request.PrimaryVenomTypeId.Value, ct);
+            }
+
             var entity = new SnakeSpecies
             {
                 ScientificName = scientificName,
@@ -218,6 +224,7 @@ namespace SnakeAid.Service.Implements
                 Description = request.Description?.Trim() ?? string.Empty,
                 IdentificationSummary = request.IdentificationSummary?.Trim() ?? string.Empty,
                 PrimaryVenomType = request.PrimaryVenomType,
+                PrimaryVenomTypeId = request.PrimaryVenomTypeId,
                 Identification = request.Identification,
                 SymptomsByTime = request.SymptomsByTime,
                 FirstAidGuidelineOverride = firstAidOverride,
@@ -298,6 +305,12 @@ namespace SnakeAid.Service.Implements
             if (request.IdentificationSummary != null)
             {
                 entity.IdentificationSummary = request.IdentificationSummary.Trim();
+            }
+
+            if (request.PrimaryVenomTypeId.HasValue)
+            {
+                await ValidatePrimaryVenomTypeIdAsync(request.PrimaryVenomTypeId.Value, ct);
+                entity.PrimaryVenomTypeId = request.PrimaryVenomTypeId;
             }
 
             if (request.PrimaryVenomType.HasValue)
@@ -458,6 +471,8 @@ namespace SnakeAid.Service.Implements
                     predicate: s => s.Id == id,
                     include: query => query
                         .Include(s => s.AlternativeNames)
+                        .Include(s => s.PrimaryVenomTypeDefinition)
+                                .ThenInclude(vt => vt.FirstAidGuideline)
                         .Include(s => s.SpeciesAntivenoms)
                             .ThenInclude(sa => sa.Antivenom)
                         .Include(s => s.SpeciesVenoms)
@@ -593,6 +608,17 @@ namespace SnakeAid.Service.Implements
 
             if (scientificNameExists)
                 throw new BadRequestException($"Snake species with scientific name '{scientificName}' already exists.");
+        }
+
+        private async Task ValidatePrimaryVenomTypeIdAsync(int primaryVenomTypeId, CancellationToken ct)
+        {
+            var exists = await _unitOfWork.GetRepository<VenomType>()
+                .ExistsAsync(v => v.Id == primaryVenomTypeId, ct);
+
+            if (!exists)
+            {
+                throw new NotFoundException($"Primary venom type with ID {primaryVenomTypeId} not found.");
+            }
         }
 
         private async Task SyncRelationsAfterCreateOrUpdateAsync(

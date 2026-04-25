@@ -9,7 +9,8 @@ public class CreateVenomTypeRequest
     public string Name { get; set; } = string.Empty;
 
     [MaxLength(200)]
-    public string? ScientificName { get; set; }
+    [Required]
+    public string ScientificName { get; set; } = string.Empty;
 
     [Required]
     [MaxLength(1000)]

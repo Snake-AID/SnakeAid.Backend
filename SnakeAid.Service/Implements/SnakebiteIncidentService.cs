@@ -1293,6 +1293,19 @@ namespace SnakeAid.Service.Implements
                         await _unitOfWork.Context.Entry(recognitionResult)
                             .Reference(r => r.DetectedSpecies)
                             .LoadAsync();
+
+                        if (recognitionResult.DetectedSpecies != null)
+                        {
+                            await _unitOfWork.Context.Entry(recognitionResult.DetectedSpecies)
+                                .Reference(s => s.PrimaryVenomTypeDefinition)
+                                .LoadAsync();
+
+                            await _unitOfWork.Context.Entry(recognitionResult.DetectedSpecies)
+                                .Collection(s => s.SpeciesVenoms)
+                                .Query()
+                                .Include(sv => sv.VenomType)
+                                .LoadAsync();
+                        }
                     }
 
                     // Verify the recognition result's media belongs to this incident
@@ -1373,7 +1386,11 @@ namespace SnakeAid.Service.Implements
                     // 2. Validate selected snake species exists
                     var selectedSnake = await _unitOfWork.GetRepository<SnakeSpecies>()
                         .FirstOrDefaultAsync(
-                            predicate: s => s.Id == request.SelectedSnakeSpeciesId && s.IsActive
+                            predicate: s => s.Id == request.SelectedSnakeSpeciesId && s.IsActive,
+                            include: query => query.Include(s => s.PrimaryVenomTypeDefinition)
+                                                    .Include(s => s.SpeciesVenoms)
+                                                        .ThenInclude(sv => sv.VenomType)
+
                         );
 
                     if (selectedSnake == null)

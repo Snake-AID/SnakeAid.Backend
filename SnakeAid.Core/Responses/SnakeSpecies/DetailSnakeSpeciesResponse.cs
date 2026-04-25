@@ -57,5 +57,7 @@ namespace SnakeAid.Core.Responses.SnakeSpecies
         public List<VenomInfo> Venoms { get; set; } = new();
 
         public List<AntivenomInfo> Antivenoms { get; set; } = new();
+
+        public int? PrimaryVenomTypeId { get; set; }
     }
 }

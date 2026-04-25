@@ -23,6 +23,8 @@ public class CreateSnakeSpeciesRequest
 
     public PrimaryVenomType? PrimaryVenomType { get; set; }
 
+    public int? PrimaryVenomTypeId { get; set; }
+
     public IdentificationFeature? Identification { get; set; }
 
     public List<SymptomTimeline>? SymptomsByTime { get; set; }

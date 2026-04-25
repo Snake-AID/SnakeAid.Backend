@@ -40,8 +40,10 @@ namespace SnakeAid.Service.Implements
             SnakeSpecies? snakeSpecies = null;
             if (request.SnakeSpeciesId.HasValue)
             {
+                var snakeSpeciesId = request.SnakeSpeciesId.Value;
                 snakeSpecies = await _unitOfWork.GetRepository<SnakeSpecies>()
-                    .FirstOrDefaultAsync(predicate: s => s.Id == request.SnakeSpeciesId.Value, include: query => query.Include(s => s.PrimaryVenomTypeDefinition));
+                    .FirstOrDefaultAsync(predicate: s => s.Id == snakeSpeciesId,
+                    include: query => query.Include(s => s.PrimaryVenomTypeDefinition));
 
                 if (snakeSpecies == null)
                 {
@@ -153,7 +155,8 @@ namespace SnakeAid.Service.Implements
             if (request.SnakeSpeciesId.HasValue)
             {
                 var snakeSpeciesExists = await _unitOfWork.GetRepository<SnakeSpecies>()
-                    .FirstOrDefaultAsync(predicate: s => s.Id == request.SnakeSpeciesId.Value);
+                    .FirstOrDefaultAsync(predicate: s => s.Id == request.SnakeSpeciesId.Value,
+                        include: query => query.Include(s => s.PrimaryVenomTypeDefinition));
                 if (snakeSpeciesExists == null)
                 {
                     throw new NotFoundException($"Snake species with id '{request.SnakeSpeciesId.Value}' not found.");

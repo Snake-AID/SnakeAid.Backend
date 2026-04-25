@@ -76,7 +76,7 @@ public class AIRecognitionReportMediaService : IAIRecognitionReportMediaService
                             ImageUrl = r.DetectedSpecies.ImageUrl,
                             Description = r.DetectedSpecies.Description,
                             IdentificationSummary = r.DetectedSpecies.IdentificationSummary,
-                            PrimaryVenomType = r.DetectedSpecies.GetPrimaryVenomTypeLabel(),
+                            PrimaryVenomType = r.DetectedSpecies.PrimaryVenomTypeDefinition != null ? r.DetectedSpecies.PrimaryVenomTypeDefinition.ScientificName : "None",
                             RiskLevel = r.DetectedSpecies.RiskLevel,
                             IsVenomous = r.DetectedSpecies.IsVenomous,
                             IsActive = r.DetectedSpecies.IsActive
@@ -322,7 +322,9 @@ public class AIRecognitionReportMediaService : IAIRecognitionReportMediaService
             .CreateBaseQuery(asNoTracking)
             .Include(r => r.ReportMedia)
             .Include(r => r.DetectedSpecies)
+                .ThenInclude(s => s!.PrimaryVenomTypeDefinition)
             .Include(r => r.ExpertCorrectedSpecies)
+                .ThenInclude(s => s!.PrimaryVenomTypeDefinition)
             .Include(r => r.Expert);
     }
 
