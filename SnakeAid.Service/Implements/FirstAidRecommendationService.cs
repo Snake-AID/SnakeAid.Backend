@@ -92,6 +92,8 @@ public class FirstAidRecommendationService : IFirstAidRecommendationService
             .FirstOrDefaultAsync(
                 predicate: s => s.Id == snakeSpeciesId && s.IsActive,
                 include: query => query
+                    .Include(s => s.PrimaryVenomTypeDefinition)
+                        .ThenInclude(v => v.FirstAidGuideline)
                     .Include(s => s.SpeciesVenoms)
                         .ThenInclude(sv => sv.VenomType)
                             .ThenInclude(v => v.FirstAidGuideline),
@@ -104,6 +106,7 @@ public class FirstAidRecommendationService : IFirstAidRecommendationService
         }
 
         // Use extension method to get merged content (handles Append/Replace modes)
+        var primaryVenom = species.GetPrimaryVenomTypeDefinition();
         var mergedContent = species.GetMergedFirstAidContent();
 
         FirstAidContent content;
@@ -126,15 +129,26 @@ public class FirstAidRecommendationService : IFirstAidRecommendationService
                 _logger.LogInformation("Using merged guideline ({Mode} mode) for species {SpeciesId}",
                     mode, snakeSpeciesId);
             }
-            else if (species.PrimaryVenomType.HasValue)
+            else if (primaryVenom?.FirstAidGuideline != null)
             {
                 // Fallback used PrimaryVenomType
                 source = GuidelineSource.VenomType;
-                guidelineId = (int)species.PrimaryVenomType.Value + 1; // VenomType.Id = enum + 1
-                guidelineName = $"Guideline for {species.PrimaryVenomType.Value} venom";
+                guidelineId = primaryVenom.FirstAidGuideline.Id;
+                guidelineName = primaryVenom.FirstAidGuideline.Name;
 
                 _logger.LogInformation("Using PrimaryVenomType-based guideline for species {SpeciesId}",
                     snakeSpeciesId);
+            }
+            else if (species.SpeciesVenoms.Select(sv => sv.VenomType)
+                         .FirstOrDefault(v => v.FirstAidGuideline != null)
+                     is { FirstAidGuideline: { } fallbackGuideline })
+            {
+                source = GuidelineSource.VenomType;
+                guidelineId = fallbackGuideline.Id;
+                guidelineName = fallbackGuideline.Name;
+
+                _logger.LogInformation("Using fallback SpeciesVenoms guideline {GuidelineId} for species {SpeciesId}",
+                    guidelineId, snakeSpeciesId);
             }
             else
             {
@@ -190,7 +204,7 @@ public class FirstAidRecommendationService : IFirstAidRecommendationService
                 ImageUrl = species.ImageUrl,
                 Description = species.Description ?? string.Empty,
                 IdentificationSummary = species.IdentificationSummary ?? string.Empty,
-                PrimaryVenomType = species.PrimaryVenomType,
+                PrimaryVenomType = species.GetPrimaryVenomTypeLabel(),
                 RiskLevel = species.RiskLevel,
                 IsVenomous = species.IsVenomous,
                 IsActive = species.IsActive

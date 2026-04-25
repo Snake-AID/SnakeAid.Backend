@@ -1112,5 +1112,7 @@ public class SnakebiteAndMissionFlowIntegrationTests
         public Task<DetailRescueMissionResponse> GetMissionDetailAsync(Guid missionId, double? rescuerLat, double? rescuerLng) => throw new NotImplementedException();
         public Task<HospitalTransferPricingResponse> ReportHospitalTransferAsync(Guid missionId, Guid rescuerId, ReportHospitalTransferRequest request) => throw new NotImplementedException();
         public Task<PagedData<AdminRescueMissionSummaryResponse>> GetAdminMissionListAsync(IEnumerable<RescueMissionStatus>? statuses, DateTimeOffset? since, DateTimeOffset? until, int page, int pageSize) => throw new NotImplementedException();
+
+        public Task<ICollection<ListRescueMissionResponse>> GetRescuerMissionListAsync(Guid rescuerId, RescueMissionStatus? status) => throw new NotImplementedException();
     }
 }

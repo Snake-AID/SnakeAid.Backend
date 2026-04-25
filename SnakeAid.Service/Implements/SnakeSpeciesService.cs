@@ -68,6 +68,7 @@ namespace SnakeAid.Service.Implements
                     .FirstOrDefaultAsync(
                         predicate: s => s.Id == id && s.IsActive,
                         include: query => query
+                            .Include(s => s.PrimaryVenomTypeDefinition)
                             .Include(s => s.AlternativeNames)
                             .Include(s => s.SpeciesAntivenoms)
                                 .ThenInclude(sa => sa.Antivenom)
@@ -140,7 +141,7 @@ namespace SnakeAid.Service.Implements
                         .Where(m => m.IsActive && m.MediaType == MediaType.Image)
                         .Select(m => m.MediaUrl).ToList(),
                     IsVenomous = s.IsVenomous,
-                    PrimaryVenomType = s.PrimaryVenomType,
+                    PrimaryVenomType = s.GetPrimaryVenomTypeLabel(),
                     RiskLevel = s.RiskLevel,
                     Identification = s.Identification != null ? new Core.Responses.SnakeSpecies.IdentificationInfo
                     {
@@ -510,16 +511,10 @@ namespace SnakeAid.Service.Implements
                 return null;
             }
 
-            if (snakeSpecies.PrimaryVenomType.HasValue)
+            var primaryVenom = snakeSpecies.GetPrimaryVenomTypeDefinition();
+            if (primaryVenom?.FirstAidGuideline != null)
             {
-                var primaryVenomTypeId = (int)snakeSpecies.PrimaryVenomType.Value + 1;
-                var primaryVenom = snakeSpecies.SpeciesVenoms
-                    .FirstOrDefault(sv => sv.VenomTypeId == primaryVenomTypeId);
-
-                if (primaryVenom?.VenomType?.FirstAidGuideline != null)
-                {
-                    return primaryVenom.VenomType.FirstAidGuideline.Adapt<FirstAidGuidelineResponse>();
-                }
+                return primaryVenom.FirstAidGuideline.Adapt<FirstAidGuidelineResponse>();
             }
 
             var anyVenomWithGuideline = snakeSpecies.SpeciesVenoms
@@ -1534,6 +1529,9 @@ SELECT setval(
                 // Step 2: Get snakes in this region with metadata
                 var snakesInRegion = await _unitOfWork.GetRepository<SnakeSpecies>()
                     .CreateBaseQuery(asNoTracking: true)
+                    .Include(s => s.PrimaryVenomTypeDefinition)
+                    .Include(s => s.SpeciesVenoms)
+                        .ThenInclude(sv => sv.VenomType)
                     .Where(s => s.IsActive &&
                                 s.RegionSnakeMappings.Any(m =>
                                     m.GeographicRegionId == region.Id &&
@@ -1571,7 +1569,7 @@ SELECT setval(
                         ImageUrl = x.Snake.ImageUrl,
                         Description = x.Snake.Description,
                         IdentificationSummary = x.Snake.IdentificationSummary,
-                        PrimaryVenomType = x.Snake.PrimaryVenomType,
+                        PrimaryVenomType = x.Snake.GetPrimaryVenomTypeLabel(),
                         RiskLevel = x.Snake.RiskLevel,
                         IsVenomous = x.Snake.IsVenomous,
 

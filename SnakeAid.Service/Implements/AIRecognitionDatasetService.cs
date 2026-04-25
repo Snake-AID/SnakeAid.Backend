@@ -9,6 +9,7 @@ using SnakeAid.Core.Responses.AIRecognition;
 using SnakeAid.Core.Services;
 using SnakeAid.Repository.Data;
 using SnakeAid.Repository.Interfaces;
+using SnakeAid.Service.Extensions;
 using SnakeAid.Service.Interfaces;
 
 namespace SnakeAid.Service.Implements;
@@ -75,7 +76,7 @@ public class AIRecognitionReportMediaService : IAIRecognitionReportMediaService
                             ImageUrl = r.DetectedSpecies.ImageUrl,
                             Description = r.DetectedSpecies.Description,
                             IdentificationSummary = r.DetectedSpecies.IdentificationSummary,
-                            PrimaryVenomType = r.DetectedSpecies.PrimaryVenomType,
+                            PrimaryVenomType = r.DetectedSpecies.GetPrimaryVenomTypeLabel(),
                             RiskLevel = r.DetectedSpecies.RiskLevel,
                             IsVenomous = r.DetectedSpecies.IsVenomous,
                             IsActive = r.DetectedSpecies.IsActive
@@ -151,7 +152,7 @@ public class AIRecognitionReportMediaService : IAIRecognitionReportMediaService
                             ImageUrl = r.DetectedSpecies.ImageUrl,
                             Description = r.DetectedSpecies.Description,
                             IdentificationSummary = r.DetectedSpecies.IdentificationSummary,
-                            PrimaryVenomType = r.DetectedSpecies.PrimaryVenomType,
+                            PrimaryVenomType = r.DetectedSpecies.GetPrimaryVenomTypeLabel(),
                             RiskLevel = r.DetectedSpecies.RiskLevel,
                             IsVenomous = r.DetectedSpecies.IsVenomous,
                             IsActive = r.DetectedSpecies.IsActive
@@ -438,7 +439,7 @@ public class AIRecognitionReportMediaService : IAIRecognitionReportMediaService
                         ImageUrl = entity.DetectedSpecies.ImageUrl,
                         Description = entity.DetectedSpecies.Description,
                         IdentificationSummary = entity.DetectedSpecies.IdentificationSummary,
-                        PrimaryVenomType = entity.DetectedSpecies.PrimaryVenomType,
+                        PrimaryVenomType = entity.DetectedSpecies.GetPrimaryVenomTypeLabel(),
                         RiskLevel = entity.DetectedSpecies.RiskLevel,
                         IsVenomous = entity.DetectedSpecies.IsVenomous,
                         IsActive = entity.DetectedSpecies.IsActive

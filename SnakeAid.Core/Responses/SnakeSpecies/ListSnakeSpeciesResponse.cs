@@ -31,7 +31,7 @@ namespace SnakeAid.Core.Responses.SnakeSpecies
         [MaxLength(2000)]
         public string IdentificationSummary { get; set; }
 
-        public PrimaryVenomType? PrimaryVenomType { get; set; }
+        public string PrimaryVenomType { get; set; } = "None";
 
         [Column(TypeName = "jsonb")]
         public IdentificationFeature? Identification { get; set; }
