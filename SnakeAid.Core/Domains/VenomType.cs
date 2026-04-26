@@ -18,7 +18,7 @@ namespace SnakeAid.Core.Domains
         public string Name { get; set; }
 
         [MaxLength(200)]
-        public string? ScientificName { get; set; }  // Tên khoa học
+        public string ScientificName { get; set; }  // Tên khoa học
 
         [Required]
         [MaxLength(1000)]

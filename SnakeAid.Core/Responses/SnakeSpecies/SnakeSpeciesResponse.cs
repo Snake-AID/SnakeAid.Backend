@@ -22,7 +22,7 @@ namespace SnakeAid.Core.Responses.SnakeSpecies
 
         public string IdentificationSummary { get; set; } = string.Empty;
 
-        public PrimaryVenomType? PrimaryVenomType { get; set; }
+        public string PrimaryVenomType { get; set; } = "None";
 
         public float RiskLevel { get; set; }
 

@@ -26,7 +26,7 @@ namespace SnakeAid.Core.Responses.SnakeSpecies
         public string ImageUrl { get; set; } = string.Empty;
         public string? Description { get; set; }
         public string? IdentificationSummary { get; set; }
-        public PrimaryVenomType? PrimaryVenomType { get; set; }
+        public string PrimaryVenomType { get; set; } = "None";
         public float RiskLevel { get; set; }
         public bool IsVenomous { get; set; }
 

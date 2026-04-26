@@ -68,6 +68,8 @@ namespace SnakeAid.Service.Implements
                     .FirstOrDefaultAsync(
                         predicate: s => s.Id == id && s.IsActive,
                         include: query => query
+                            .Include(s => s.PrimaryVenomTypeDefinition)
+                                .ThenInclude(vt => vt.FirstAidGuideline)
                             .Include(s => s.AlternativeNames)
                             .Include(s => s.SpeciesAntivenoms)
                                 .ThenInclude(sa => sa.Antivenom)
@@ -121,8 +123,11 @@ namespace SnakeAid.Service.Implements
                              EF.Functions.ILike(s.CommonName, pattern, escapeChar) ||
                              s.AlternativeNames.Any(sn => EF.Functions.ILike(sn.Name, pattern, escapeChar))),
                         include: q => q
+                            .Include(s => s.PrimaryVenomTypeDefinition)
+                                .ThenInclude(vt => vt.FirstAidGuideline)
                             .Include(s => s.SpeciesVenoms)
                                 .ThenInclude(sv => sv.VenomType)
+                                .ThenInclude(vt => vt.FirstAidGuideline)
                             .Include(s => s.SpeciesAntivenoms)
                                 .ThenInclude(sa => sa.Antivenom)
                             .Include(s => s.LibraryMedias)
@@ -140,7 +145,7 @@ namespace SnakeAid.Service.Implements
                         .Where(m => m.IsActive && m.MediaType == MediaType.Image)
                         .Select(m => m.MediaUrl).ToList(),
                     IsVenomous = s.IsVenomous,
-                    PrimaryVenomType = s.PrimaryVenomType,
+                    PrimaryVenomType = s.GetPrimaryVenomTypeLabel(),
                     RiskLevel = s.RiskLevel,
                     Identification = s.Identification != null ? new Core.Responses.SnakeSpecies.IdentificationInfo
                     {
@@ -208,6 +213,11 @@ namespace SnakeAid.Service.Implements
                 ? await BuildFirstAidOverrideAsync(request.FirstAidGuidelineOverride, ct)
                 : null;
 
+            if (request.PrimaryVenomTypeId.HasValue)
+            {
+                await ValidatePrimaryVenomTypeIdAsync(request.PrimaryVenomTypeId.Value, ct);
+            }
+
             var entity = new SnakeSpecies
             {
                 ScientificName = scientificName,
@@ -217,6 +227,7 @@ namespace SnakeAid.Service.Implements
                 Description = request.Description?.Trim() ?? string.Empty,
                 IdentificationSummary = request.IdentificationSummary?.Trim() ?? string.Empty,
                 PrimaryVenomType = request.PrimaryVenomType,
+                PrimaryVenomTypeId = request.PrimaryVenomTypeId,
                 Identification = request.Identification,
                 SymptomsByTime = request.SymptomsByTime,
                 FirstAidGuidelineOverride = firstAidOverride,
@@ -231,7 +242,7 @@ namespace SnakeAid.Service.Implements
             await _unitOfWork.GetRepository<SnakeSpecies>().InsertAsync(entity, ct);
             await _unitOfWork.CommitAsync();
 
-            await LinkLibraryMediaToSpeciesAsync(request.MediaId, entity.Id, ct);
+            // await LinkLibraryMediaToSpeciesAsync(request.MediaId, entity.Id, ct);
             await _unitOfWork.CommitAsync();
 
             await SyncRelationsAfterCreateOrUpdateAsync(entity.Id, request.VenomIds, request.AntivenomIds, request.AlternativeNames, ct);
@@ -299,6 +310,12 @@ namespace SnakeAid.Service.Implements
                 entity.IdentificationSummary = request.IdentificationSummary.Trim();
             }
 
+            if (request.PrimaryVenomTypeId.HasValue)
+            {
+                await ValidatePrimaryVenomTypeIdAsync(request.PrimaryVenomTypeId.Value, ct);
+                entity.PrimaryVenomTypeId = request.PrimaryVenomTypeId;
+            }
+
             if (request.PrimaryVenomType.HasValue)
             {
                 entity.PrimaryVenomType = request.PrimaryVenomType;
@@ -341,7 +358,7 @@ namespace SnakeAid.Service.Implements
 
             if (mediaIdToLink.HasValue)
             {
-                await LinkLibraryMediaToSpeciesAsync(mediaIdToLink.Value, id, ct);
+                // await LinkLibraryMediaToSpeciesAsync(mediaIdToLink.Value, id, ct);
                 await _unitOfWork.CommitAsync();
             }
 
@@ -457,6 +474,8 @@ namespace SnakeAid.Service.Implements
                     predicate: s => s.Id == id,
                     include: query => query
                         .Include(s => s.AlternativeNames)
+                        .Include(s => s.PrimaryVenomTypeDefinition)
+                                .ThenInclude(vt => vt.FirstAidGuideline)
                         .Include(s => s.SpeciesAntivenoms)
                             .ThenInclude(sa => sa.Antivenom)
                         .Include(s => s.SpeciesVenoms)
@@ -505,21 +524,16 @@ namespace SnakeAid.Service.Implements
 
         private static FirstAidGuidelineResponse? GetBaseFirstAidGuidelineResponse(SnakeSpecies snakeSpecies)
         {
+
+            var primaryVenom = snakeSpecies.GetPrimaryVenomTypeDefinition();
+            if (primaryVenom?.FirstAidGuideline != null)
+            {
+                return primaryVenom.FirstAidGuideline.Adapt<FirstAidGuidelineResponse>();
+            }
+
             if (snakeSpecies.SpeciesVenoms == null || !snakeSpecies.SpeciesVenoms.Any())
             {
                 return null;
-            }
-
-            if (snakeSpecies.PrimaryVenomType.HasValue)
-            {
-                var primaryVenomTypeId = (int)snakeSpecies.PrimaryVenomType.Value + 1;
-                var primaryVenom = snakeSpecies.SpeciesVenoms
-                    .FirstOrDefault(sv => sv.VenomTypeId == primaryVenomTypeId);
-
-                if (primaryVenom?.VenomType?.FirstAidGuideline != null)
-                {
-                    return primaryVenom.VenomType.FirstAidGuideline.Adapt<FirstAidGuidelineResponse>();
-                }
             }
 
             var anyVenomWithGuideline = snakeSpecies.SpeciesVenoms
@@ -598,6 +612,17 @@ namespace SnakeAid.Service.Implements
 
             if (scientificNameExists)
                 throw new BadRequestException($"Snake species with scientific name '{scientificName}' already exists.");
+        }
+
+        private async Task ValidatePrimaryVenomTypeIdAsync(int primaryVenomTypeId, CancellationToken ct)
+        {
+            var exists = await _unitOfWork.GetRepository<VenomType>()
+                .ExistsAsync(v => v.Id == primaryVenomTypeId, ct);
+
+            if (!exists)
+            {
+                throw new NotFoundException($"Primary venom type with ID {primaryVenomTypeId} not found.");
+            }
         }
 
         private async Task SyncRelationsAfterCreateOrUpdateAsync(
@@ -1183,7 +1208,7 @@ namespace SnakeAid.Service.Implements
 
         private async Task ApplyPostCreateMappingsAsync(int snakeSpeciesId, Guid libraryMediaId, ParsedSnakeSpeciesExcel parsed, CancellationToken ct)
         {
-            await LinkLibraryMediaToSpeciesAsync(libraryMediaId, snakeSpeciesId, ct);
+            // await LinkLibraryMediaToSpeciesAsync(libraryMediaId, snakeSpeciesId, ct);
             await AddAntivenomMappingsAsync(snakeSpeciesId, parsed.Antivenoms, ct);
             await AddVenomMappingsAsync(snakeSpeciesId, parsed.Venoms, ct);
             await AddAlternativeNamesAsync(snakeSpeciesId, parsed.AlternativeNames, ct);
@@ -1534,6 +1559,9 @@ SELECT setval(
                 // Step 2: Get snakes in this region with metadata
                 var snakesInRegion = await _unitOfWork.GetRepository<SnakeSpecies>()
                     .CreateBaseQuery(asNoTracking: true)
+                    .Include(s => s.PrimaryVenomTypeDefinition)
+                    .Include(s => s.SpeciesVenoms)
+                        .ThenInclude(sv => sv.VenomType)
                     .Where(s => s.IsActive &&
                                 s.RegionSnakeMappings.Any(m =>
                                     m.GeographicRegionId == region.Id &&
@@ -1571,7 +1599,7 @@ SELECT setval(
                         ImageUrl = x.Snake.ImageUrl,
                         Description = x.Snake.Description,
                         IdentificationSummary = x.Snake.IdentificationSummary,
-                        PrimaryVenomType = x.Snake.PrimaryVenomType,
+                        PrimaryVenomType = x.Snake.GetPrimaryVenomTypeLabel(),
                         RiskLevel = x.Snake.RiskLevel,
                         IsVenomous = x.Snake.IsVenomous,
 

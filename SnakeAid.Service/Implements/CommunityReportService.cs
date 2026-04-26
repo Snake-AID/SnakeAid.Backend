@@ -7,6 +7,7 @@ using SnakeAid.Core.Responses.CommunityReport;
 using SnakeAid.Core.Responses.SnakeSpecies;
 using SnakeAid.Repository.Data;
 using SnakeAid.Repository.Interfaces;
+using SnakeAid.Service.Extensions;
 using SnakeAid.Service.Interfaces;
 
 namespace SnakeAid.Service.Implements
@@ -39,8 +40,10 @@ namespace SnakeAid.Service.Implements
             SnakeSpecies? snakeSpecies = null;
             if (request.SnakeSpeciesId.HasValue)
             {
+                var snakeSpeciesId = request.SnakeSpeciesId.Value;
                 snakeSpecies = await _unitOfWork.GetRepository<SnakeSpecies>()
-                    .FirstOrDefaultAsync(predicate: s => s.Id == request.SnakeSpeciesId.Value);
+                    .FirstOrDefaultAsync(predicate: s => s.Id == snakeSpeciesId,
+                    include: query => query.Include(s => s.PrimaryVenomTypeDefinition));
 
                 if (snakeSpecies == null)
                 {
@@ -72,7 +75,8 @@ namespace SnakeAid.Service.Implements
                 .FirstOrDefaultAsync(
                     predicate: r => r.Id == id,
                     include: query => query.Include(r => r.User)
-                                           .Include(r => r.SnakeSpecies));
+                                           .Include(r => r.SnakeSpecies)
+                                           .ThenInclude(s => s.PrimaryVenomTypeDefinition));
 
             if (report == null)
             {
@@ -92,7 +96,8 @@ namespace SnakeAid.Service.Implements
                     predicate: isAdmin ? null : r => r.UserId == currentUserId,
                     orderBy: query => query.OrderByDescending(r => r.CreatedAt),
                     include: query => query.Include(r => r.User)
-                                           .Include(r => r.SnakeSpecies));
+                                           .Include(r => r.SnakeSpecies)
+                                           .ThenInclude(s => s.PrimaryVenomTypeDefinition));
 
             return reports.Select(ToResponse).ToList();
         }
@@ -103,7 +108,8 @@ namespace SnakeAid.Service.Implements
                     predicate: null,
                     orderBy: query => query.OrderByDescending(r => r.CreatedAt),
                     include: query => query.Include(r => r.User)
-                                           .Include(r => r.SnakeSpecies));
+                                           .Include(r => r.SnakeSpecies)
+                                           .ThenInclude(s => s.PrimaryVenomTypeDefinition));
 
             return reports.Select(ToResponse).ToList();
         }
@@ -120,7 +126,8 @@ namespace SnakeAid.Service.Implements
                 .FirstOrDefaultAsync(
                     predicate: r => r.Id == id,
                     include: query => query.Include(r => r.User)
-                                           .Include(r => r.SnakeSpecies),
+                                           .Include(r => r.SnakeSpecies)
+                                           .ThenInclude(s => s.PrimaryVenomTypeDefinition),
                     asNoTracking: false);
 
             if (report == null)
@@ -148,7 +155,8 @@ namespace SnakeAid.Service.Implements
             if (request.SnakeSpeciesId.HasValue)
             {
                 var snakeSpeciesExists = await _unitOfWork.GetRepository<SnakeSpecies>()
-                    .FirstOrDefaultAsync(predicate: s => s.Id == request.SnakeSpeciesId.Value);
+                    .FirstOrDefaultAsync(predicate: s => s.Id == request.SnakeSpeciesId.Value,
+                        include: query => query.Include(s => s.PrimaryVenomTypeDefinition));
                 if (snakeSpeciesExists == null)
                 {
                     throw new NotFoundException($"Snake species with id '{request.SnakeSpeciesId.Value}' not found.");
@@ -220,7 +228,7 @@ namespace SnakeAid.Service.Implements
                         ImageUrl = report.SnakeSpecies.ImageUrl,
                         Description = report.SnakeSpecies.Description,
                         IdentificationSummary = report.SnakeSpecies.IdentificationSummary,
-                        PrimaryVenomType = report.SnakeSpecies.PrimaryVenomType,
+                        PrimaryVenomType = report.SnakeSpecies.GetPrimaryVenomTypeLabel(),
                         RiskLevel = report.SnakeSpecies.RiskLevel,
                         IsVenomous = report.SnakeSpecies.IsVenomous,
                         IsActive = report.SnakeSpecies.IsActive,

@@ -37,6 +37,8 @@ namespace SnakeAid.Core.Domains
 
         public PrimaryVenomType? PrimaryVenomType { get; set; }
 
+        public int? PrimaryVenomTypeId { get; set; }
+
         [Column(TypeName = "jsonb")]
         public IdentificationFeature? Identification { get; set; }
 
@@ -65,6 +67,9 @@ namespace SnakeAid.Core.Domains
         public ICollection<SnakeCatchingTariff> SnakeCatchingTariffs { get; set; } = new List<SnakeCatchingTariff>();
         public ICollection<SnakeSpeciesName> AlternativeNames { get; set; } = new List<SnakeSpeciesName>();
         public ICollection<LibraryMedia> LibraryMedias { get; set; } = new List<LibraryMedia>();
+
+        [ForeignKey(nameof(PrimaryVenomTypeId))]
+        public VenomType? PrimaryVenomTypeDefinition { get; set; }
     }
 
     public enum PrimaryVenomType

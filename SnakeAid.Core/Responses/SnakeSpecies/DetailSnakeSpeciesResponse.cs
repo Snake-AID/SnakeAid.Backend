@@ -31,7 +31,7 @@ namespace SnakeAid.Core.Responses.SnakeSpecies
 
         public string IdentificationSummary { get; set; }
 
-        public PrimaryVenomType? PrimaryVenomType { get; set; }
+        public string PrimaryVenomType { get; set; } = "None";
 
 
         public IdentificationFeature? Identification { get; set; }
@@ -57,5 +57,7 @@ namespace SnakeAid.Core.Responses.SnakeSpecies
         public List<VenomInfo> Venoms { get; set; } = new();
 
         public List<AntivenomInfo> Antivenoms { get; set; } = new();
+
+        public int? PrimaryVenomTypeId { get; set; }
     }
 }

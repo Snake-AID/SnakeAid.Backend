@@ -20,23 +20,14 @@ public static class SnakeSpeciesExtensions
         // 1. Get base guideline from PrimaryVenomType
         FirstAidContent? baseContent = null;
 
-        if (species.PrimaryVenomType.HasValue && species.SpeciesVenoms?.Any() == true)
+        if ((species.PrimaryVenomTypeId.HasValue || species.PrimaryVenomType.HasValue) && species.SpeciesVenoms?.Any() == true)
         {
-            // Map PrimaryVenomType enum to VenomType.Id
-            // Neurotoxic = 0 → VenomType Id = 1
-            // Hemotoxic = 1 → VenomType Id = 2
-            // Cytotoxic = 2 → VenomType Id = 3
-            // Myotoxic = 3 → VenomType Id = 4
-            int primaryVenomTypeId = (int)species.PrimaryVenomType.Value + 1;
+            var primaryVenom = species.GetPrimaryVenomTypeDefinition();
 
-            // Find the VenomType matching PrimaryVenomType ID
-            var primaryVenom = species.SpeciesVenoms
-                .FirstOrDefault(sv => sv.VenomTypeId == primaryVenomTypeId);
-
-            if (primaryVenom?.VenomType?.FirstAidGuideline?.Content != null)
+            if (primaryVenom?.FirstAidGuideline?.Content != null)
             {
                 // Clone base content to avoid modifying original
-                baseContent = CloneFirstAidContent(primaryVenom.VenomType.FirstAidGuideline.Content);
+                baseContent = CloneFirstAidContent(primaryVenom.FirstAidGuideline.Content);
             }
         }
 
@@ -110,6 +101,65 @@ public static class SnakeSpeciesExtensions
 
             return merged;
         }
+    }
+
+    public static VenomType? GetPrimaryVenomTypeDefinition(this SnakeSpecies species)
+    {
+        if (species.PrimaryVenomTypeDefinition != null)
+        {
+            return species.PrimaryVenomTypeDefinition;
+        }
+
+        if (species.PrimaryVenomTypeId.HasValue && species.SpeciesVenoms?.Any() == true)
+        {
+            var mappedVenom = species.SpeciesVenoms
+                .FirstOrDefault(sv => sv.VenomTypeId == species.PrimaryVenomTypeId.Value);
+
+            if (mappedVenom?.VenomType != null)
+            {
+                return mappedVenom.VenomType;
+            }
+        }
+
+        if (!species.PrimaryVenomType.HasValue || species.SpeciesVenoms?.Any() != true)
+        {
+            return null;
+        }
+
+        var targetName = GetPrimaryVenomTypeName(species.PrimaryVenomType.Value);
+        if (string.IsNullOrWhiteSpace(targetName))
+        {
+            return null;
+        }
+
+        return species.SpeciesVenoms
+            .Select(sv => sv.VenomType)
+            .FirstOrDefault(v => v != null
+                && (string.Equals(v.Name, targetName, StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(v.ScientificName, targetName, StringComparison.OrdinalIgnoreCase)));
+    }
+
+    public static string GetPrimaryVenomTypeLabel(this SnakeSpecies species)
+    {
+        var venomType = species.GetPrimaryVenomTypeDefinition();
+        if (venomType?.ScientificName != null)
+        {
+            return venomType.ScientificName;
+        }
+
+        return "None";
+    }
+
+    private static string? GetPrimaryVenomTypeName(PrimaryVenomType primaryVenomType)
+    {
+        return primaryVenomType switch
+        {
+            PrimaryVenomType.Neurotoxic => "Độc thần kinh",
+            PrimaryVenomType.Hemotoxic => "Độc máu",
+            PrimaryVenomType.Cytotoxic => "Độc tế bào",
+            PrimaryVenomType.Myotoxic => "Độc cơ",
+            _ => null
+        };
     }
 
     /// <summary>

@@ -1293,6 +1293,19 @@ namespace SnakeAid.Service.Implements
                         await _unitOfWork.Context.Entry(recognitionResult)
                             .Reference(r => r.DetectedSpecies)
                             .LoadAsync();
+
+                        if (recognitionResult.DetectedSpecies != null)
+                        {
+                            await _unitOfWork.Context.Entry(recognitionResult.DetectedSpecies)
+                                .Reference(s => s.PrimaryVenomTypeDefinition)
+                                .LoadAsync();
+
+                            await _unitOfWork.Context.Entry(recognitionResult.DetectedSpecies)
+                                .Collection(s => s.SpeciesVenoms)
+                                .Query()
+                                .Include(sv => sv.VenomType)
+                                .LoadAsync();
+                        }
                     }
 
                     // Verify the recognition result's media belongs to this incident
@@ -1337,7 +1350,7 @@ namespace SnakeAid.Service.Implements
                             ImageUrl = recognitionResult.DetectedSpecies.ImageUrl,
                             Description = recognitionResult.DetectedSpecies.Description ?? string.Empty,
                             IdentificationSummary = recognitionResult.DetectedSpecies.IdentificationSummary ?? string.Empty,
-                            PrimaryVenomType = recognitionResult.DetectedSpecies.PrimaryVenomType,
+                            PrimaryVenomType = recognitionResult.DetectedSpecies.GetPrimaryVenomTypeLabel(),
                             RiskLevel = recognitionResult.DetectedSpecies.RiskLevel,
                             IsVenomous = recognitionResult.DetectedSpecies.IsVenomous,
                             IsActive = recognitionResult.DetectedSpecies.IsActive
@@ -1373,7 +1386,11 @@ namespace SnakeAid.Service.Implements
                     // 2. Validate selected snake species exists
                     var selectedSnake = await _unitOfWork.GetRepository<SnakeSpecies>()
                         .FirstOrDefaultAsync(
-                            predicate: s => s.Id == request.SelectedSnakeSpeciesId && s.IsActive
+                            predicate: s => s.Id == request.SelectedSnakeSpeciesId && s.IsActive,
+                            include: query => query.Include(s => s.PrimaryVenomTypeDefinition)
+                                                    .Include(s => s.SpeciesVenoms)
+                                                        .ThenInclude(sv => sv.VenomType)
+
                         );
 
                     if (selectedSnake == null)
@@ -1382,42 +1399,17 @@ namespace SnakeAid.Service.Implements
                         throw new BadRequestException("Selected snake species is invalid or inactive.");
                     }
 
-                    // 3. Validate selected options exist and are active
-                    var selectedOptions = await _unitOfWork.GetRepository<FilterOption>()
-                        .GetListAsync(
-                            predicate: o => request.SelectedOptionIds.Contains(o.Id) && o.IsActive
-                        );
-
-                    if (selectedOptions.Count != request.SelectedOptionIds.Count)
-                    {
-                        throw new BadRequestException("Some selected options are invalid or inactive.");
-                    }
-
-                    // 4. Build FilterAnswerData (optimized - only store IDs)
-                    var filterAnswerData = new FilterAnswerData
-                    {
-                        SelectedOptionIds = request.SelectedOptionIds,
-                        SelectedSnakeSpeciesId = request.SelectedSnakeSpeciesId,
-                        MatchScore = request.MatchScore,
-                        MatchPercentage = request.MatchPercentage,
-                        SelectedAt = DateTime.UtcNow
-                    };
-
                     // 5. Update incident with identification
                     incident.IdentifiedSnakeSpeciesId = request.SelectedSnakeSpeciesId;
                     incident.IdentificationMethod = SnakeIdentificationMethod.FilterQuestions;
-                    incident.FilterAnswers = filterAnswerData;
                     incident.IdentifiedAt = DateTime.UtcNow;
 
                     _unitOfWork.GetRepository<SnakebiteIncident>().Update(incident);
 
                     _logger.LogInformation(
-                        "Snake identified for incident {IncidentId}: Species {SpeciesId} via filter questions with {MatchScore}/{TotalAnswers} matches ({MatchPercentage}%)",
+                        "Snake identified for incident {IncidentId}: Species {SpeciesId} via location",
                         incidentId,
-                        request.SelectedSnakeSpeciesId,
-                        request.MatchScore,
-                        request.SelectedOptionIds.Count,
-                        request.MatchPercentage
+                        request.SelectedSnakeSpeciesId
                     );
 
                     return new IdentifySnakeResponse
@@ -1435,14 +1427,14 @@ namespace SnakeAid.Service.Implements
                             ImageUrl = selectedSnake.ImageUrl,
                             Description = selectedSnake.Description ?? string.Empty,
                             IdentificationSummary = selectedSnake.IdentificationSummary ?? string.Empty,
-                            PrimaryVenomType = selectedSnake.PrimaryVenomType,
+                            PrimaryVenomType = selectedSnake.GetPrimaryVenomTypeLabel(),
                             RiskLevel = selectedSnake.RiskLevel,
                             IsVenomous = selectedSnake.IsVenomous,
                             IsActive = selectedSnake.IsActive
                         },
                         MatchedSnakes = new List<string>
                         {
-                            $"{selectedSnake.CommonName ?? selectedSnake.ScientificName} ({request.MatchScore}/{request.SelectedOptionIds.Count} matches - {request.MatchPercentage:F1}%)"
+                            $"{selectedSnake.CommonName ?? selectedSnake.ScientificName}%)"
                         }
                     };
                 });

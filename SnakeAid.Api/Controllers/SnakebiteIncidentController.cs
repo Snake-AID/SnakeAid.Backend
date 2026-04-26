@@ -184,7 +184,7 @@ namespace SnakeAid.Api.Controllers
         /// Identify snake species for incident using filter questions
         /// </summary>
         [HttpPost("{incidentId}/identify/filter")]
-        [SwaggerOperation(Summary = "Identify Snake by Filter", Description = "Set the identified snake species for an incident based on user's answers to filter questions")]
+        [SwaggerOperation(Summary = "Identify Snake by Filter", Description = "Set the identified snake species for an incident based on user's selected snake species by location")]
         [SwaggerResponse(200, "Snake identified successfully", typeof(ApiResponse<IdentifySnakeResponse>))]
         [SwaggerResponse(404, "Incident not found")]
         [SwaggerResponse(400, "Invalid filter answers or no matching snake found")]

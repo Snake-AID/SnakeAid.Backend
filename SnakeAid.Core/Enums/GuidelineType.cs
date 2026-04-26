@@ -7,7 +7,7 @@ namespace SnakeAid.Core.Enums
         [EnumMember(Value = "GENERAL")]
         General = 0,
 
-        [EnumMember(Value = "SPECIES_SPECIFIC")]
-        SpeciesSpecific = 1
+        [EnumMember(Value = "VENOM_SPECIFIC")]
+        VenomSpecific = 1
     }
 }

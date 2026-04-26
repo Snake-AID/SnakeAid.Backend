@@ -60,6 +60,15 @@ namespace SnakeAid.Repository.Data.Configurations
 
             builder.HasIndex(s => s.IsActive)
                 .HasDatabaseName("IX_SnakeSpecies_IsActive");
+
+            builder.HasIndex(s => s.PrimaryVenomTypeId)
+                .HasDatabaseName("IX_SnakeSpecies_PrimaryVenomTypeId");
+
+            builder.HasOne(s => s.PrimaryVenomTypeDefinition)
+                .WithMany()
+                .HasForeignKey(s => s.PrimaryVenomTypeId)
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("FK_SnakeSpecies_PrimaryVenomType");
         }
     }
 }
