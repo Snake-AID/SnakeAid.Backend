@@ -69,6 +69,7 @@ namespace SnakeAid.Service.Implements
                         predicate: s => s.Id == id && s.IsActive,
                         include: query => query
                             .Include(s => s.PrimaryVenomTypeDefinition)
+                                .ThenInclude(vt => vt.FirstAidGuideline)
                             .Include(s => s.AlternativeNames)
                             .Include(s => s.SpeciesAntivenoms)
                                 .ThenInclude(sa => sa.Antivenom)
@@ -123,8 +124,10 @@ namespace SnakeAid.Service.Implements
                              s.AlternativeNames.Any(sn => EF.Functions.ILike(sn.Name, pattern, escapeChar))),
                         include: q => q
                             .Include(s => s.PrimaryVenomTypeDefinition)
+                                .ThenInclude(vt => vt.FirstAidGuideline)
                             .Include(s => s.SpeciesVenoms)
                                 .ThenInclude(sv => sv.VenomType)
+                                .ThenInclude(vt => vt.FirstAidGuideline)
                             .Include(s => s.SpeciesAntivenoms)
                                 .ThenInclude(sa => sa.Antivenom)
                             .Include(s => s.LibraryMedias)
@@ -239,7 +242,7 @@ namespace SnakeAid.Service.Implements
             await _unitOfWork.GetRepository<SnakeSpecies>().InsertAsync(entity, ct);
             await _unitOfWork.CommitAsync();
 
-            await LinkLibraryMediaToSpeciesAsync(request.MediaId, entity.Id, ct);
+            // await LinkLibraryMediaToSpeciesAsync(request.MediaId, entity.Id, ct);
             await _unitOfWork.CommitAsync();
 
             await SyncRelationsAfterCreateOrUpdateAsync(entity.Id, request.VenomIds, request.AntivenomIds, request.AlternativeNames, ct);
@@ -355,7 +358,7 @@ namespace SnakeAid.Service.Implements
 
             if (mediaIdToLink.HasValue)
             {
-                await LinkLibraryMediaToSpeciesAsync(mediaIdToLink.Value, id, ct);
+                // await LinkLibraryMediaToSpeciesAsync(mediaIdToLink.Value, id, ct);
                 await _unitOfWork.CommitAsync();
             }
 
@@ -1205,7 +1208,7 @@ namespace SnakeAid.Service.Implements
 
         private async Task ApplyPostCreateMappingsAsync(int snakeSpeciesId, Guid libraryMediaId, ParsedSnakeSpeciesExcel parsed, CancellationToken ct)
         {
-            await LinkLibraryMediaToSpeciesAsync(libraryMediaId, snakeSpeciesId, ct);
+            // await LinkLibraryMediaToSpeciesAsync(libraryMediaId, snakeSpeciesId, ct);
             await AddAntivenomMappingsAsync(snakeSpeciesId, parsed.Antivenoms, ct);
             await AddVenomMappingsAsync(snakeSpeciesId, parsed.Venoms, ct);
             await AddAlternativeNamesAsync(snakeSpeciesId, parsed.AlternativeNames, ct);
