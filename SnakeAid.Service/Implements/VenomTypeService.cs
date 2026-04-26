@@ -36,7 +36,7 @@ public class VenomTypeService : IVenomTypeService
         var entity = new VenomType
         {
             Name = request.Name.Trim(),
-            ScientificName = request.ScientificName.Trim() ?? string.Empty,
+            ScientificName = request.ScientificName?.Trim() ?? string.Empty,
             Description = request.Description.Trim(),
             IsActive = request.IsActive,
             SeverityIndex = request.SeverityIndex,

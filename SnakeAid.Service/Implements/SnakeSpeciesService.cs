@@ -521,15 +521,16 @@ namespace SnakeAid.Service.Implements
 
         private static FirstAidGuidelineResponse? GetBaseFirstAidGuidelineResponse(SnakeSpecies snakeSpecies)
         {
-            if (snakeSpecies.SpeciesVenoms == null || !snakeSpecies.SpeciesVenoms.Any())
-            {
-                return null;
-            }
 
             var primaryVenom = snakeSpecies.GetPrimaryVenomTypeDefinition();
             if (primaryVenom?.FirstAidGuideline != null)
             {
                 return primaryVenom.FirstAidGuideline.Adapt<FirstAidGuidelineResponse>();
+            }
+
+            if (snakeSpecies.SpeciesVenoms == null || !snakeSpecies.SpeciesVenoms.Any())
+            {
+                return null;
             }
 
             var anyVenomWithGuideline = snakeSpecies.SpeciesVenoms

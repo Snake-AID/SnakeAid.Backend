@@ -1407,7 +1407,7 @@ namespace SnakeAid.Service.Implements
                     _unitOfWork.GetRepository<SnakebiteIncident>().Update(incident);
 
                     _logger.LogInformation(
-                        "Snake identified for incident {IncidentId}: Species {SpeciesId} via location)",
+                        "Snake identified for incident {IncidentId}: Species {SpeciesId} via location",
                         incidentId,
                         request.SelectedSnakeSpeciesId
                     );
