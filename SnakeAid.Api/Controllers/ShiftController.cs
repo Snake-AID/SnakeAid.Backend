@@ -160,6 +160,17 @@ namespace SnakeAid.Api.Controllers
             return Ok(ApiResponseBuilder.BuildSuccessResponse(result));
         }
 
+        [HttpPost("assignments/clone-next-week")]
+        [SwaggerOperation(Summary = "Clone Shift Assignments to Next Week", Description = "Clone scheduled shift assignments from the source week into the next week")]
+        [SwaggerResponse(200, "Cloned", typeof(ApiResponse<List<ShiftAssignmentResponse>>))]
+        [SwaggerResponse(400, "Bad Request", typeof(ApiResponse<object>))]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> CloneAssignmentsToNextWeek([FromQuery] DateOnly? sourceDate)
+        {
+            var result = await _shiftService.CloneAssignmentsToNextWeekAsync(sourceDate);
+            return Ok(ApiResponseBuilder.BuildSuccessResponse(result, "Shift assignments cloned to next week successfully."));
+        }
+
         [HttpPut("assignments/{assignmentId}")]
         [ValidateModel]
         [SwaggerOperation(Summary = "Update Shift Assignment", Description = "Update resuer/date/notes/status of an assignment")]

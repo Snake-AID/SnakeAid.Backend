@@ -5,6 +5,7 @@ using SnakeAid.Core.Domains;
 using SnakeAid.Core.Exceptions;
 using SnakeAid.Core.Requests.Shift;
 using SnakeAid.Core.Responses.Shift;
+using SnakeAid.Core.Utils;
 using SnakeAid.Repository.Data;
 using SnakeAid.Repository.Interfaces;
 using SnakeAid.Service.Interfaces;
@@ -452,6 +453,83 @@ namespace SnakeAid.Service.Implements
                 orderBy: q => q.OrderBy(a => a.ShiftStartLocal));
 
             return assignments.Adapt<List<ShiftAssignmentResponse>>();
+        }
+
+        public async Task<List<ShiftAssignmentResponse>> CloneAssignmentsToNextWeekAsync(DateOnly? sourceWeekDate = null)
+        {
+            var sourceDate = sourceWeekDate ?? AppTime.TodayLocalDate;
+            var sourceWeekStart = NormalizeWeekStart(sourceDate);
+            var targetWeekStart = sourceWeekStart.AddDays(7);
+
+            var sourceAssignments = await _unitOfWork.GetRepository<ShiftAssignment>().GetListAsync(
+                predicate: a => a.ShiftStartLocal >= sourceWeekStart.ToDateTime(TimeOnly.MinValue)
+                              && a.ShiftStartLocal < sourceWeekStart.AddDays(7).ToDateTime(TimeOnly.MinValue)
+                              && a.Status == ShiftAssignmentStatus.Scheduled,
+                include: q => q.Include(a => a.Shift));
+
+            if (!sourceAssignments.Any())
+            {
+                return new List<ShiftAssignmentResponse>();
+            }
+
+            var existingTargetAssignments = await _unitOfWork.GetRepository<ShiftAssignment>().GetListAsync(
+                predicate: a => a.ShiftStartLocal >= targetWeekStart.ToDateTime(TimeOnly.MinValue)
+                              && a.ShiftStartLocal < targetWeekStart.AddDays(7).ToDateTime(TimeOnly.MinValue));
+
+            var existingTargetKeys = existingTargetAssignments
+                .Select(a => (a.RescuerId, a.ShiftId, a.ShiftStartLocal))
+                .ToHashSet();
+
+            var createdAssignments = new List<ShiftAssignment>();
+            var skippedCount = 0;
+
+            // Preserve existing assignments in the target week.
+            // This method only appends missing copies from the source week,
+            // it will not delete or overwrite assignments already present in the next week.
+            foreach (var sourceAssignment in sourceAssignments)
+            {
+                var targetStartLocal = DateTime.SpecifyKind(sourceAssignment.ShiftStartLocal.AddDays(7), DateTimeKind.Unspecified);
+                var targetEndLocal = DateTime.SpecifyKind(sourceAssignment.ShiftEndLocal.AddDays(7), DateTimeKind.Unspecified);
+
+                if (existingTargetKeys.Contains((sourceAssignment.RescuerId, sourceAssignment.ShiftId, targetStartLocal)))
+                {
+                    skippedCount++;
+                    continue;
+                }
+
+                createdAssignments.Add(new ShiftAssignment
+                {
+                    Id = Guid.NewGuid(),
+                    RescuerId = sourceAssignment.RescuerId,
+                    ShiftId = sourceAssignment.ShiftId,
+                    ShiftStartLocal = targetStartLocal,
+                    ShiftEndLocal = targetEndLocal,
+                    Status = ShiftAssignmentStatus.Scheduled,
+                    Notes = sourceAssignment.Notes,
+                    CheckInAtUtc = null,
+                    CheckOutAtUtc = null
+                });
+            }
+
+            if (!createdAssignments.Any())
+            {
+                return new List<ShiftAssignmentResponse>();
+            }
+
+            await _unitOfWork.GetRepository<ShiftAssignment>().InsertRangeAsync(createdAssignments);
+            await _unitOfWork.CommitAsync();
+
+            _logger.LogInformation("Cloned {Count} shift assignments from week {SourceWeekStart} to next week starting {TargetWeekStart} (skipped {SkippedCount} existing assignments)",
+                createdAssignments.Count, sourceWeekStart, targetWeekStart, skippedCount);
+
+            return createdAssignments.Adapt<List<ShiftAssignmentResponse>>();
+        }
+
+        private static DateOnly NormalizeWeekStart(DateOnly date)
+        {
+            var firstDayOfWeek = DayOfWeek.Monday;
+            var delta = ((int)date.DayOfWeek - (int)firstDayOfWeek + 7) % 7;
+            return date.AddDays(-delta);
         }
 
         private static void ValidateShiftTime(TimeSpan startTime, TimeSpan endTime)
