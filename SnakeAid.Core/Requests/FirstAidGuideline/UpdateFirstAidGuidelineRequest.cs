@@ -15,10 +15,10 @@ namespace SnakeAid.Core.Requests.FirstAidGuideline
         /// <summary>
         /// Nội dung chi tiết (JSON format)
         /// </summary>
-        public FirstAidContent? Content { get; set; }
+        public FirstAidContentRequest? Content { get; set; }
 
         /// <summary>
-        /// Loại hướng dẫn: General (0) hoặc SpeciesSpecific (1)
+        /// Loại hướng dẫn: General (0) hoặc VenomousSpecific (1)
         /// </summary>
         public GuidelineType? Type { get; set; }
 
