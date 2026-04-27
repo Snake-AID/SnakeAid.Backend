@@ -21,7 +21,7 @@ public class CreateSnakeSpeciesRequest
     [MaxLength(2000)]
     public string IdentificationSummary { get; set; } = string.Empty;
 
-    public PrimaryVenomType? PrimaryVenomType { get; set; }
+    // public PrimaryVenomType? PrimaryVenomType { get; set; }
 
     public int? PrimaryVenomTypeId { get; set; }
 

@@ -35,6 +35,7 @@ namespace SnakeAid.Core.Domains
         [MaxLength(2000)]
         public string IdentificationSummary { get; set; }
 
+        [Obsolete("PrimaryVenomType is deprecated. Use PrimaryVenomTypeId to reference the VenomType entity instead.")]
         public PrimaryVenomType? PrimaryVenomType { get; set; }
 
         public int? PrimaryVenomTypeId { get; set; }
