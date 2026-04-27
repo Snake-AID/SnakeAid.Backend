@@ -19,7 +19,7 @@ public class UpdateSnakeSpeciesRequest
     [MaxLength(2000)]
     public string? IdentificationSummary { get; set; }
 
-    public PrimaryVenomType? PrimaryVenomType { get; set; }
+    // public PrimaryVenomType? PrimaryVenomType { get; set; }
 
     public int? PrimaryVenomTypeId { get; set; }
 

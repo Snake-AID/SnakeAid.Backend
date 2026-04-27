@@ -226,7 +226,7 @@ namespace SnakeAid.Service.Implements
                 ImageUrl = libraryMedia.MediaUrl,
                 Description = request.Description?.Trim() ?? string.Empty,
                 IdentificationSummary = request.IdentificationSummary?.Trim() ?? string.Empty,
-                PrimaryVenomType = request.PrimaryVenomType,
+                // PrimaryVenomType = request.PrimaryVenomType,
                 PrimaryVenomTypeId = request.PrimaryVenomTypeId,
                 Identification = request.Identification,
                 SymptomsByTime = request.SymptomsByTime,
@@ -316,10 +316,10 @@ namespace SnakeAid.Service.Implements
                 entity.PrimaryVenomTypeId = request.PrimaryVenomTypeId;
             }
 
-            if (request.PrimaryVenomType.HasValue)
-            {
-                entity.PrimaryVenomType = request.PrimaryVenomType;
-            }
+            // if (request.PrimaryVenomType.HasValue)
+            // {
+            //     entity.PrimaryVenomType = request.PrimaryVenomType;
+            // }
 
             if (request.Identification != null)
             {

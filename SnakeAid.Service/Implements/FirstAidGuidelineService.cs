@@ -38,7 +38,7 @@ namespace SnakeAid.Service.Implements
                 var guideline = new FirstAidGuideline
                 {
                     Name = request.Name,
-                    Content = request.Content,
+                    Content = await BuildFirstAidContentAsync(request.Content),
                     Type = request.Type,
                     Summary = request.Summary,
                     CreatedAt = DateTime.UtcNow,
@@ -124,7 +124,7 @@ namespace SnakeAid.Service.Implements
 
                 if (request.Content != null)
                 {
-                    guideline.Content = request.Content;
+                    guideline.Content = await BuildFirstAidContentAsync(request.Content);
                 }
 
                 if (request.Type.HasValue)
@@ -144,6 +144,66 @@ namespace SnakeAid.Service.Implements
 
                 return guideline.Adapt<FirstAidGuidelineResponse>();
             });
+        }
+
+        private async Task<FirstAidContent> BuildFirstAidContentAsync(FirstAidContentRequest request)
+        {
+            var mediaIds = new HashSet<Guid>();
+
+            void CollectMediaIds(IEnumerable<FirstAidStepRequest>? steps)
+            {
+                if (steps == null)
+                    return;
+
+                foreach (var step in steps)
+                {
+                    if (step?.MediaId.HasValue == true)
+                    {
+                        mediaIds.Add(step.MediaId.Value);
+                    }
+                }
+            }
+
+            CollectMediaIds(request.Steps);
+            CollectMediaIds(request.Dos);
+            CollectMediaIds(request.Donts);
+
+            var mediaById = new Dictionary<Guid, LibraryMedia>();
+            if (mediaIds.Any())
+            {
+                var mediaList = await _unitOfWork.GetRepository<LibraryMedia>()
+                    .GetListAsync(predicate: m => mediaIds.Contains(m.Id));
+
+                mediaById = mediaList.ToDictionary(m => m.Id);
+                var missingIds = mediaIds.Except(mediaById.Keys).ToList();
+                if (missingIds.Any())
+                {
+                    throw new NotFoundException($"One or more first-aid media IDs were not found: {string.Join(", ", missingIds)}");
+                }
+            }
+
+            static FirstAidStep MapStep(FirstAidStepRequest step, Dictionary<Guid, LibraryMedia> mediaById)
+            {
+                var mediaUrl = step.MediaUrl ?? string.Empty;
+                if (step.MediaId.HasValue && mediaById.TryGetValue(step.MediaId.Value, out var libraryMedia))
+                {
+                    mediaUrl = libraryMedia.MediaUrl;
+                }
+
+                return new FirstAidStep
+                {
+                    Text = step.Text,
+                    MediaUrl = mediaUrl
+                };
+            }
+
+            return new FirstAidContent
+            {
+                Steps = request.Steps?.Select(step => MapStep(step, mediaById)).ToList() ?? new List<FirstAidStep>(),
+                Dos = request.Dos?.Select(step => MapStep(step, mediaById)).ToList() ?? new List<FirstAidStep>(),
+                Donts = request.Donts?.Select(step => MapStep(step, mediaById)).ToList() ?? new List<FirstAidStep>(),
+                Notes = request.Notes ?? new List<string>()
+            };
         }
 
         public async Task DeleteFirstAidGuidelineAsync(int id)
