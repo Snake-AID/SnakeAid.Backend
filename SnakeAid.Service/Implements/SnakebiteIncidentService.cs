@@ -1140,7 +1140,9 @@ namespace SnakeAid.Service.Implements
                     }
 
                     // Calculate severity level only when incident has not been identified yet
-                    var severityLevel = existingIncident.SeverityLevel ?? 0;
+                    var severityLevel = preserveExistingSeverity
+                        ? existingIncident.SeverityLevel ?? 0
+                        : 0;
                     if (!preserveExistingSeverity)
                     {
                         // Core: take maximum score
@@ -1340,7 +1342,7 @@ namespace SnakeAid.Service.Implements
                     incident.IdentifiedSnakeSpeciesId = recognitionResult.DetectedSpeciesId.Value;
                     incident.IdentificationMethod = SnakeIdentificationMethod.AIDetection;
                     incident.AIRecognitionResultId = recognitionResultId;
-                    incident.SeverityLevel = (int)recognitionResult.DetectedSpecies.RiskLevel * 10;
+                    incident.SeverityLevel = (int)(recognitionResult.DetectedSpecies.RiskLevel * 10);
                     incident.IdentifiedAt = DateTime.UtcNow;
 
                     _unitOfWork.GetRepository<SnakebiteIncident>().Update(incident);
@@ -1415,7 +1417,7 @@ namespace SnakeAid.Service.Implements
                     // 5. Update incident with identification
                     incident.IdentifiedSnakeSpeciesId = request.SelectedSnakeSpeciesId;
                     incident.IdentificationMethod = SnakeIdentificationMethod.FilterQuestions;
-                    incident.SeverityLevel = (int)selectedSnake.RiskLevel * 10;
+                    incident.SeverityLevel = (int)(selectedSnake.RiskLevel * 10);
                     incident.IdentifiedAt = DateTime.UtcNow;
 
                     _unitOfWork.GetRepository<SnakebiteIncident>().Update(incident);
