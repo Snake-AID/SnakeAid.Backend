@@ -7,6 +7,7 @@ using SnakeAid.Core.Responses.MemberProfile;
 using SnakeAid.Core.Responses.RescuerProfile;
 using SnakeAid.Core.Responses.SnakebiteIncident;
 using SnakeAid.Core.Responses.SnakeSpecies;
+using SnakeAid.Core.Responses.TreatmentFacility;
 
 namespace SnakeAid.Core.Responses.RescueMission
 {
@@ -39,6 +40,9 @@ namespace SnakeAid.Core.Responses.RescueMission
         /// Distance from rescuer to incident (calculated on demand)
         public double? DistanceKm { get; set; }
 
+        public bool RequiresHospitalization { get; set; } = false;
+        public int? HospitalId { get; set; }
+
         /// Media uploaded for this rescue mission (all purposes).
         public List<ReportMediaResponse> MissionMedia { get; set; } = new List<ReportMediaResponse>();
 
@@ -47,6 +51,7 @@ namespace SnakeAid.Core.Responses.RescueMission
         public BriefRescuerProfileResponse Rescuer { get; set; } = null!;
 
         public BriefMemberProfileResponse User { get; set; } = null!;
+        public HospitalTransferResponse? HospitalInfo { get; set; }
     }
 
     public class BriefIncidentResponse

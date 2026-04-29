@@ -20,6 +20,12 @@ namespace SnakeAid.Core.Mappings
 
             // Map RescueMission → CreateRescueMissionResponse
             config.NewConfig<RescueMission, CreateRescueMissionResponse>();
+
+            config.NewConfig<TreatmentFacility, HospitalTransferResponse>()
+                .Map(dest => dest.HospitalId, src => src.Id)
+                .Map(dest => dest.HospitalName, src => src.Name)
+                .Map(dest => dest.Address, src => src.Address)
+                .Map(dest => dest.ContactNumber, src => src.ContactNumber);
         }
     }
 }

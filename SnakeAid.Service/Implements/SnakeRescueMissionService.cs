@@ -611,6 +611,7 @@ namespace SnakeAid.Service.Implements
                             .ThenInclude(i => i.AIRecognitionResult)
                         .Include(m => m.Rescuer)
                             .ThenInclude(r => r.Account)
+                        .Include(m => m.Hospital)
                 );
 
                 if (mission == null)

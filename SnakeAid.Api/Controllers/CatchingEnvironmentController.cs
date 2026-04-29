@@ -36,6 +36,7 @@ namespace SnakeAid.Api.Controllers
         [SwaggerResponse(400, "Validation error")]
         [SwaggerResponse(401, "Unauthorized")]
         [SwaggerResponse(403, "Forbidden")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> CreateCatchingEnvironment([FromBody] CreateCatchingEnvironmentRequest request)
         {
             var result = await _catchingEnvironmentService.CreateCatchingEnvironmentAsync(request);
@@ -78,6 +79,7 @@ namespace SnakeAid.Api.Controllers
         [SwaggerResponse(401, "Unauthorized")]
         [SwaggerResponse(403, "Forbidden")]
         [SwaggerResponse(404, "Catching environment not found")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> UpdateCatchingEnvironment(int id, [FromBody] UpdateCatchingEnvironmentRequest request)
         {
             var result = await _catchingEnvironmentService.UpdateCatchingEnvironmentAsync(id, request);
@@ -94,6 +96,7 @@ namespace SnakeAid.Api.Controllers
         [SwaggerResponse(401, "Unauthorized")]
         [SwaggerResponse(403, "Forbidden")]
         [SwaggerResponse(404, "Catching environment not found")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> DeleteCatchingEnvironment(int id)
         {
             var result = await _catchingEnvironmentService.DeleteCatchingEnvironmentAsync(id);
