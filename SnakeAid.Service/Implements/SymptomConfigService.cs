@@ -263,7 +263,10 @@ namespace SnakeAid.Service.Implements
                     throw new NotFoundException($"Symptom configuration with ID {id} not found.");
                 }
 
-                _unitOfWork.GetRepository<SymptomConfig>().Delete(symptomConfig);
+                symptomConfig.IsActive = false;
+                symptomConfig.UpdatedAt = DateTime.UtcNow;
+
+                _unitOfWork.GetRepository<SymptomConfig>().Update(symptomConfig);
                 await _unitOfWork.CommitAsync();
 
                 return true; // Just to satisfy the transaction return type
@@ -291,7 +294,7 @@ namespace SnakeAid.Service.Implements
         {
             var symptomConfigs = await _unitOfWork.GetRepository<SymptomConfig>()
                 .GetListAsync(
-                    orderBy: o => o.OrderBy(sc => sc.DisplayOrder).ThenBy(sc => sc.Name),
+                    orderBy: o => o.OrderBy(sc => sc.DisplayOrder).ThenBy(sc => sc.Id),
                     include: q => q.Include(sc => sc.VenomType)
                 );
 
