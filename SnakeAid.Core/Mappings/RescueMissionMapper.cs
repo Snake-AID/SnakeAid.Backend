@@ -11,7 +11,8 @@ namespace SnakeAid.Core.Mappings
             // Map RescueMission → DetailRescueMissionResponse
             config.NewConfig<RescueMission, DetailRescueMissionResponse>()
                 .Map(dest => dest.MissionMedia, src => src.Media)
-                .Map(dest => dest.User, src => src.Incident.User);
+                .Map(dest => dest.User, src => src.Incident.User)
+                .Map(dest => dest.HospitalInfo, src => src.Hospital);
 
             // Map SnakebiteIncident → BriefIncidentResponse
             config.NewConfig<SnakebiteIncident, BriefIncidentResponse>()
@@ -20,6 +21,12 @@ namespace SnakeAid.Core.Mappings
 
             // Map RescueMission → CreateRescueMissionResponse
             config.NewConfig<RescueMission, CreateRescueMissionResponse>();
+
+            config.NewConfig<TreatmentFacility, HospitalTransferResponse>()
+                .Map(dest => dest.HospitalId, src => src.Id)
+                .Map(dest => dest.HospitalName, src => src.Name)
+                .Map(dest => dest.Address, src => src.Address)
+                .Map(dest => dest.ContactNumber, src => src.ContactNumber);
         }
     }
 }

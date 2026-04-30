@@ -833,6 +833,7 @@ namespace SnakeAid.Service.Implements
                                     .ThenInclude(r => r.Account)
                                 .Include(i => i.Missions)
                                 .Include(i => i.IdentifiedSnakeSpecies)
+                                    .ThenInclude(s => s.PrimaryVenomTypeDefinition)
                                 .Include(i => i.AIRecognitionResult)
                         );
 
@@ -1094,7 +1095,9 @@ namespace SnakeAid.Service.Implements
                         ? (int)(DateTime.UtcNow - existingIncident.IncidentOccurredAt.Value).TotalMinutes
                         : 0);
 
-                    // Collect symptom descriptions and calculate severity
+                    var preserveExistingSeverity = existingIncident.IdentifiedSnakeSpeciesId.HasValue && existingIncident.SeverityLevel.HasValue;
+
+                    // Collect symptom descriptions and calculate severity only when allowed
                     var reportedSymptoms = new List<ReportSymptom>();
                     var coreSymptomScores = new List<int>();
                     var modifierSymptomScores = new List<int>();
@@ -1118,37 +1121,45 @@ namespace SnakeAid.Service.Implements
                                 });
                             }
 
-                            // Calculate score based on TimeScoreList
-                            var score = CalculateScoreByElapsedTime(symptom.TimeScoreList, elapsedMinutes);
+                            if (!preserveExistingSeverity)
+                            {
+                                // Calculate score based on TimeScoreList
+                                var score = CalculateScoreByElapsedTime(symptom.TimeScoreList, elapsedMinutes);
 
-                            // Categorize by symptom category
-                            if (symptom.Category == SymptomCategory.Core)
-                            {
-                                coreSymptomScores.Add(score);
-                            }
-                            else if (symptom.Category == SymptomCategory.Modifier)
-                            {
-                                modifierSymptomScores.Add(score);
+                                // Categorize by symptom category
+                                if (symptom.Category == SymptomCategory.Core)
+                                {
+                                    coreSymptomScores.Add(score);
+                                }
+                                else if (symptom.Category == SymptomCategory.Modifier)
+                                {
+                                    modifierSymptomScores.Add(score);
+                                }
                             }
                         }
                     }
 
-                    // Calculate severity level
-                    // Core: take maximum score
-                    var severityLevel = 0;
-                    if (coreSymptomScores.Any())
+                    // Calculate severity level only when incident has not been identified yet
+                    var severityLevel = preserveExistingSeverity
+                        ? existingIncident.SeverityLevel ?? 0
+                        : 0;
+                    if (!preserveExistingSeverity)
                     {
-                        severityLevel = coreSymptomScores.Max();
-                    }
+                        // Core: take maximum score
+                        if (coreSymptomScores.Any())
+                        {
+                            severityLevel = coreSymptomScores.Max();
+                        }
 
-                    // Modifier: sum all scores
-                    if (modifierSymptomScores.Any())
-                    {
-                        severityLevel += modifierSymptomScores.Sum();
-                    }
+                        // Modifier: sum all scores
+                        if (modifierSymptomScores.Any())
+                        {
+                            severityLevel += modifierSymptomScores.Sum();
+                        }
 
-                    if (severityLevel > 100)
-                        severityLevel = 100;
+                        if (severityLevel > 100)
+                            severityLevel = 100;
+                    }
 
                     // Update symptom report and severity level
                     var jsonOptions = new System.Text.Json.JsonSerializerOptions()
@@ -1157,7 +1168,10 @@ namespace SnakeAid.Service.Implements
                         WriteIndented = false
                     };
                     existingIncident.SymptomsReport = reportedSymptoms;
-                    existingIncident.SeverityLevel = severityLevel;
+                    if (!preserveExistingSeverity)
+                    {
+                        existingIncident.SeverityLevel = severityLevel;
+                    }
                     _unitOfWork.GetRepository<SnakebiteIncident>().Update(existingIncident);
                     await _unitOfWork.CommitAsync();
 
@@ -1328,6 +1342,7 @@ namespace SnakeAid.Service.Implements
                     incident.IdentifiedSnakeSpeciesId = recognitionResult.DetectedSpeciesId.Value;
                     incident.IdentificationMethod = SnakeIdentificationMethod.AIDetection;
                     incident.AIRecognitionResultId = recognitionResultId;
+                    incident.SeverityLevel = (int)(recognitionResult.DetectedSpecies.RiskLevel * 10);
                     incident.IdentifiedAt = DateTime.UtcNow;
 
                     _unitOfWork.GetRepository<SnakebiteIncident>().Update(incident);
@@ -1402,6 +1417,7 @@ namespace SnakeAid.Service.Implements
                     // 5. Update incident with identification
                     incident.IdentifiedSnakeSpeciesId = request.SelectedSnakeSpeciesId;
                     incident.IdentificationMethod = SnakeIdentificationMethod.FilterQuestions;
+                    incident.SeverityLevel = (int)(selectedSnake.RiskLevel * 10);
                     incident.IdentifiedAt = DateTime.UtcNow;
 
                     _unitOfWork.GetRepository<SnakebiteIncident>().Update(incident);
