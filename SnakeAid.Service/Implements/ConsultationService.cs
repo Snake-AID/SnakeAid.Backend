@@ -595,6 +595,9 @@ public class ConsultationService : IConsultationService
     public async Task<PagingResponse<ExpertConsultationResponse>> GetExpertConsultationsAsync(Guid expertId, MyConsultationsQueryRequest query)
     {
         var results = new List<ExpertConsultationResponse>();
+        var expert = await _unitOfWork.GetRepository<Account>().FirstOrDefaultAsync(
+            predicate: a => a.Id == expertId);
+        var expertAvatarUrl = expert?.AvatarUrl;
 
         var includeScheduled = string.IsNullOrEmpty(query.Type)
             || query.Type.Equals("Scheduled", StringComparison.OrdinalIgnoreCase);
@@ -621,6 +624,7 @@ public class ConsultationService : IConsultationService
                     Status = b.Consultation!.Status.ToString(),
                     UserId = b.UserId,
                     UserName = b.User?.FullName,
+                    ExpertAvatarUrl = expertAvatarUrl,
                     RoomId = b.Consultation.RoomId,
                     StartTime = b.Consultation.StartTime,
                     EndTime = b.Consultation.EndTime,
@@ -672,6 +676,7 @@ public class ConsultationService : IConsultationService
                     Status = consultation.Status.ToString(),
                     UserId = p.RescuerId,
                     UserName = p.Rescuer?.FullName,
+                    ExpertAvatarUrl = expertAvatarUrl,
                     RoomId = consultation.RoomId,
                     StartTime = consultation.StartTime,
                     EndTime = consultation.EndTime,
@@ -717,6 +722,7 @@ public class ConsultationService : IConsultationService
                         Status = c.Status.ToString(),
                         UserId = c.CallerId,
                         UserName = c.Caller?.FullName,
+                        ExpertAvatarUrl = expertAvatarUrl,
                         RoomId = c.RoomId,
                         StartTime = c.StartTime,
                         EndTime = c.EndTime,
@@ -806,6 +812,7 @@ public class ConsultationService : IConsultationService
                     Status = consultation.Status.ToString(),
                     ExpertId = p.ExpertId,
                     ExpertName = p.Expert?.FullName,
+                    ExpertAvatarUrl = p.Expert?.AvatarUrl,
                     RoomId = consultation.RoomId,
                     StartTime = consultation.StartTime,
                     EndTime = consultation.EndTime,
@@ -834,6 +841,7 @@ public class ConsultationService : IConsultationService
             Status = consultation.Status.ToString(),
             ExpertId = consultation.CalleeId,
             ExpertName = consultation.Callee?.FullName ?? booking?.Expert?.FullName,
+            ExpertAvatarUrl = consultation.Callee?.AvatarUrl ?? booking?.Expert?.AvatarUrl,
             RoomId = consultation.RoomId,
             StartTime = consultation.StartTime,
             EndTime = consultation.EndTime,
