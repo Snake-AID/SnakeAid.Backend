@@ -218,5 +218,32 @@ namespace SnakeAid.Api.Controllers
                 result,
                 "Snake catching request cancelled successfully."));
         }
+
+        /// <summary>
+        /// Operator cancels a snake catching request and triggers refund if any payment exists.
+        /// </summary>
+        [HttpPatch("operatorcancel/{requestId:guid}")]
+        [Authorize(Roles = "Operator,Admin")]
+        [SwaggerOperation(
+            Summary = "Operator Cancel Snake Catching Request",
+            Description = "Operator cancels a snake catching request. If any payment exists, refund will be processed automatically.")]
+        [SwaggerResponse(200, "Request cancelled successfully with refund processed if applicable", typeof(ApiResponse<DetailSnakeCatchingRequestResponse>))]
+        [SwaggerResponse(400, "Invalid request or cannot cancel in current status")]
+        [SwaggerResponse(401, "User not authenticated")]
+        [SwaggerResponse(403, "User is not authorized to perform this action")]
+        [SwaggerResponse(404, "Request not found")]
+        [ProducesResponseType(typeof(ApiResponse<DetailSnakeCatchingRequestResponse>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> OperatorCancelSnakeCatchingRequest(
+            [FromRoute] Guid requestId,
+            [FromBody] CancelSnakeCatchingRequestRequest request)
+        {
+            var result = await _snakeCatchingRequestService.OperatorCancelSnakeCatchingRequestAsync(requestId, request);
+
+            return Ok(ApiResponseBuilder.BuildSuccessResponse(
+                result,
+                "Snake catching request cancelled by operator. Money will be refunded if any payment was created."));
+        }
     }
 }

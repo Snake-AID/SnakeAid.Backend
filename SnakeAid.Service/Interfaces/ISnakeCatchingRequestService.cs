@@ -31,5 +31,9 @@ namespace SnakeAid.Service.Interfaces
 
         Task<DetailSnakeCatchingRequestResponse> CancelSnakeCatchingRequestAsync(Guid userId, string userRole, Guid requestId, CancelSnakeCatchingRequestRequest request);
 
+        /// <summary>
+        /// Operator cancels a snake catching request with automatic refund if any payment exists.
+        /// </summary>
+        Task<DetailSnakeCatchingRequestResponse> OperatorCancelSnakeCatchingRequestAsync(Guid requestId, CancelSnakeCatchingRequestRequest request);
     }
 }

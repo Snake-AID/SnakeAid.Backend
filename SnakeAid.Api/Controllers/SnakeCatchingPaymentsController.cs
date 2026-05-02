@@ -89,4 +89,20 @@ public class SnakeCatchingPaymentsController : BaseController<SnakeCatchingPayme
         var result = await _snakeCatchingPaymentService.TransferSnakeCatchingFundsToRescuerAsync(request, cancellationToken);
         return Ok(ApiResponseBuilder.BuildSuccessResponse(result, "Funds transferred successfully to rescuer"));
     }
+
+    [HttpPost("refund")]
+    [SwaggerOperation(
+        Summary = "Refund snake catching payment",
+        Description = "Refund a snake catching payment to the user's wallet and create a refund transaction.",
+        Tags = new[] { "Snake Catching Payments" })]
+    [ProducesResponseType(typeof(ApiResponse<SnakeCatchingRefundResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> RefundSnakeCatching(
+        [FromBody] SnakeCatchingRefundRequest request,
+        CancellationToken cancellationToken)
+    {
+        var result = await _snakeCatchingPaymentService.RefundSnakeCatchingAsync(request, cancellationToken);
+        return Ok(ApiResponseBuilder.BuildSuccessResponse(result, "Snake catching refund processed successfully"));
+    }
 }

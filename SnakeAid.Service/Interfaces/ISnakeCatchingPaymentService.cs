@@ -39,4 +39,8 @@ public interface ISnakeCatchingPaymentService
     Task<RefundTransactionResponse> RefundSnakeCatchingTransactionAsync(
         RefundTransactionRequest request,
         CancellationToken cancellationToken);
+
+    Task<SnakeCatchingRefundResponse> RefundSnakeCatchingAsync(
+        SnakeCatchingRefundRequest request,
+        CancellationToken cancellationToken = default);
 }
