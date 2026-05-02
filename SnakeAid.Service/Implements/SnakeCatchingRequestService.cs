@@ -24,6 +24,7 @@ namespace SnakeAid.Service.Implements
     {
         private readonly IUnitOfWork<SnakeAidDbContext> _unitOfWork;
         private readonly ILogger<SnakeCatchingRequestService> _logger;
+        private readonly ISnakeCatchingPaymentService _snakeCatchingPaymentService;
         private readonly ISystemSettingService _systemSettingService;
         private readonly ILocationIqService _locationIqService;
         private readonly ISnakeAIService _snakeAIService;
@@ -39,7 +40,8 @@ namespace SnakeAid.Service.Implements
             ISystemSettingService systemSettingService,
             ILocationIqService locationIqService,
             ISnakeAIService snakeAIService,
-            ISnakeCatchingRequestNotificationService snakeCatchingRequestNotificationService)
+            ISnakeCatchingRequestNotificationService snakeCatchingRequestNotificationService,
+            ISnakeCatchingPaymentService snakeCatchingPaymentService)
         {
             _unitOfWork = unitOfWork;
             _logger = logger;
@@ -47,6 +49,7 @@ namespace SnakeAid.Service.Implements
             _locationIqService = locationIqService;
             _snakeAIService = snakeAIService;
             _snakeCatchingRequestNotificationService = snakeCatchingRequestNotificationService;
+            _snakeCatchingPaymentService = snakeCatchingPaymentService;
         }
 
         public async Task<CreateSnakeCatchingRequestResponse> CreateSnakeCatchingRequestAsync(
@@ -1024,6 +1027,107 @@ namespace SnakeAid.Service.Implements
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error cancelling snake catching request: {Message}", ex.Message);
+                throw;
+            }
+        }
+
+        public async Task<DetailSnakeCatchingRequestResponse> OperatorCancelSnakeCatchingRequestAsync(
+            Guid requestId,
+            CancelSnakeCatchingRequestRequest request)
+        {
+            try
+            {
+                // Cancel the request using the standard logic
+                var response = await _unitOfWork.ExecuteInTransactionAsync(async () =>
+                {
+                    var snakeCatchingRequest = await _unitOfWork.GetRepository<SnakeCatchingRequest>().GetByIdAsync(requestId);
+
+                    if (snakeCatchingRequest == null)
+                        throw new BadRequestException($"Snake catching request with ID {requestId} not found");
+
+                    snakeCatchingRequest.Status = RequestStatus.Cancelled;
+                    snakeCatchingRequest.CancellationReason = request.Reason;
+
+                    _unitOfWork.GetRepository<SnakeCatchingRequest>().Update(snakeCatchingRequest);
+
+                    var response = snakeCatchingRequest.Adapt<DetailSnakeCatchingRequestResponse>();
+                    if (response.EstimatedPrice.HasValue)
+                    {
+                        var perKmRate = GetCatchingPricePerKilomenter();
+                        if (perKmRate > 0)
+                        {
+                            response.DistanceKm = (double)(response.EstimatedPrice.Value / perKmRate);
+                        }
+                    }
+
+                    _logger.LogInformation(
+                        "Operator cancelled snake catching request. RequestId: {RequestId}, UserId: {UserId}, Reason: {Reason}",
+                        requestId, snakeCatchingRequest.UserId, request.Reason);
+
+                    return response;
+                });
+
+                // Process refund if any payment exists
+                if (response.UserId != Guid.Empty)
+                {
+                    try
+                    {
+                        var paidTransactions = await _unitOfWork.GetRepository<Transaction>().GetListAsync(
+                            predicate: t => t.ReferenceId == requestId &&
+                                           (t.TransactionType == TransactionType.CatchingPayment || t.TransactionType == TransactionType.CatchingDeposit) &&
+                                           !string.IsNullOrEmpty(t.ExternalTransactionId),
+                            asNoTracking: true);
+
+                        var refundedTransactions = await _unitOfWork.GetRepository<Transaction>().GetListAsync(
+                            predicate: t => t.ReferenceId == requestId && t.TransactionType == TransactionType.CatchingRefund,
+                            asNoTracking: true);
+
+                        var availableRefundAmount = paidTransactions.Sum(t => t.Amount) - refundedTransactions.Sum(t => t.Amount);
+
+                        if (availableRefundAmount > 0)
+                        {
+                            var refundRequest = new RefundTransactionRequest
+                            {
+                                ReceiverId = response.UserId,
+                                ReferenceId = requestId,
+                                Amount = availableRefundAmount,
+                                Description = request.Reason,
+                                TransactionType = TransactionType.CatchingRefund
+                            };
+
+                            await _snakeCatchingPaymentService.RefundSnakeCatchingTransactionAsync(refundRequest, CancellationToken.None);
+
+                            _logger.LogInformation(
+                                "Operator cancel: refund processed for Request {RequestId}, UserId: {UserId}, RefundAmount: {RefundAmount}",
+                                requestId, response.UserId, availableRefundAmount);
+                        }
+                        else
+                        {
+                            _logger.LogInformation(
+                                "Operator cancel: no payment to refund for Request {RequestId}, UserId: {UserId}",
+                                requestId, response.UserId);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Failed to process refund during operator cancel for Request {RequestId}", requestId);
+                        // Do not throw - cancellation should not be rolled back because refund failed
+                    }
+                }
+
+                // Send notification
+                await _snakeCatchingRequestNotificationService.NotifyRequestCancelledAsync(
+                    response.Id,
+                    response.UserId,
+                    response.Status,
+                    response.CancellationReason,
+                    response.AssignedRescuerId);
+
+                return response;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error in operator cancel for snake catching request: {Message}", ex.Message);
                 throw;
             }
         }
