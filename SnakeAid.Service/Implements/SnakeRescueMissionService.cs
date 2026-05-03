@@ -150,6 +150,7 @@ namespace SnakeAid.Service.Implements
 
                     // Mark rescuer as unavailable (on mission)
                     rescuer.IsAvailable = false;
+                    rescuer.TotalMissions += 1;
                     _unitOfWork.GetRepository<RescuerProfile>().Update(rescuer);
 
                     await _unitOfWork.GetRepository<RescueMission>().InsertAsync(mission);
@@ -328,6 +329,16 @@ namespace SnakeAid.Service.Implements
                     {
                         incident.Status = SnakebiteIncidentStatus.Finished;
                         _unitOfWork.GetRepository<SnakebiteIncident>().Update(incident);
+                    }
+
+                    var rescuer = await _unitOfWork.GetRepository<RescuerProfile>().FirstOrDefaultAsync(
+                        predicate: r => r.AccountId == missionEntity.RescuerId
+                    );
+
+                    if (rescuer != null)
+                    {
+                        rescuer.CompletedMissions += 1;
+                        _unitOfWork.GetRepository<RescuerProfile>().Update(rescuer);
                     }
 
                     _unitOfWork.GetRepository<RescueMission>().Update(missionEntity);
@@ -892,6 +903,54 @@ namespace SnakeAid.Service.Implements
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error retrieving admin rescue mission list: {Message}", ex.Message);
+                throw;
+            }
+        }
+
+        public async Task<bool> ReportNoNeedHospitalTransferAsync(
+            Guid missionId,
+            Guid rescuerId,
+            string? notes)
+        {
+            try
+            {
+                var mission = await _unitOfWork.GetRepository<RescueMission>()
+                    .FirstOrDefaultAsync(
+                        predicate: m => m.Id == missionId && m.RescuerId == rescuerId,
+                        include: q => q.Include(m => m.Incident)
+                    );
+
+                if (mission == null)
+                    throw new NotFoundException("Mission not found or you are not assigned to this mission");
+
+                if (mission.Status != RescueMissionStatus.RescuerArrived)
+                    throw new BadRequestException("Can only report hospital transfer after arriving at incident location");
+
+                await _unitOfWork.ExecuteInTransactionAsync(async () =>
+                {
+                    mission.RequiresHospitalization = false;
+                    mission.HospitalId = null;
+
+                    if (!string.IsNullOrWhiteSpace(notes))
+                    {
+                        mission.Notes = string.IsNullOrWhiteSpace(mission.Notes)
+                            ? $"[Hospital Transfer] {notes}"
+                            : $"{mission.Notes}\n[Hospital Transfer] {notes}";
+                    }
+
+                    _unitOfWork.GetRepository<RescueMission>().Update(mission);
+                    await _unitOfWork.CommitAsync();
+
+                    _logger.LogInformation(
+                        "✅ Hospital transfer reported - MissionId: {MissionId}, No hospitalization needed. Notes: {Notes}",
+                        missionId, notes);
+                });
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error reporting hospital transfer for mission {MissionId}: {Message}",
+                    missionId, ex.Message);
                 throw;
             }
         }

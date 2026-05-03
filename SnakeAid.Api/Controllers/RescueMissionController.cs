@@ -7,6 +7,7 @@ using SnakeAid.Core.Domains;
 using SnakeAid.Core.Meta;
 using SnakeAid.Core.Requests.RescueMission;
 using SnakeAid.Core.Responses.RescueMission;
+using SnakeAid.Core.Validators;
 using SnakeAid.Service.Interfaces;
 using Swashbuckle.AspNetCore.Annotations;
 using System;
@@ -180,6 +181,7 @@ namespace SnakeAid.Api.Controllers
         [SwaggerResponse(400, "Invalid request or evidence validation failed", typeof(ApiResponse<object>))]
         [SwaggerResponse(404, "Mission not found")]
         [Authorize(Roles = "Rescuer")]
+        [ValidateModel]
         public async Task<IActionResult> CompleteMission(
             Guid missionId,
             [FromBody] CompleteMissionRequest request)
@@ -200,6 +202,7 @@ namespace SnakeAid.Api.Controllers
         [SwaggerResponse(400, "Invalid status transition or missing reason", typeof(ApiResponse<object>))]
         [SwaggerResponse(404, "Mission not found")]
         [Authorize(Roles = "Rescuer")]
+        [ValidateModel]
         public async Task<IActionResult> AbortMission(
             Guid missionId,
             [FromBody] AbortMissionRequest request)
@@ -221,6 +224,7 @@ namespace SnakeAid.Api.Controllers
         [SwaggerResponse(400, "Invalid status transition - can only cancel during Preparing phase", typeof(ApiResponse<object>))]
         [SwaggerResponse(404, "Mission not found")]
         [Authorize(Roles = "User")]
+        [ValidateModel]
         public async Task<IActionResult> CancelMission(
             Guid missionId,
             [FromBody] CancelMissionRequest request)
@@ -237,6 +241,7 @@ namespace SnakeAid.Api.Controllers
         [SwaggerResponse(400, "Invalid status transition - can only transfer during Preparing phase", typeof(ApiResponse<object>))]
         [SwaggerResponse(404, "Mission not found")]
         [Authorize(Roles = "Rescuer")]
+        [ValidateModel]
         public async Task<IActionResult> TransferToHospital(
             Guid missionId,
             [FromBody] ReportHospitalTransferRequest request)
@@ -244,6 +249,24 @@ namespace SnakeAid.Api.Controllers
             var userId = GetCurrentUserId();
             var result = await _missionService.ReportHospitalTransferAsync(missionId, userId, request);
             return Ok(ApiResponseBuilder.BuildSuccessResponse<HospitalTransferPricingResponse>(result, "Mission transferred to hospital."));
+        }
+
+        [HttpPatch("{missionId}/no-need-hospital-transfer")]
+        [SwaggerOperation(
+            Summary = "Report No Need for Hospital Transfer (User)",
+            Description = "Rescuer reports that hospital transfer is not needed for the patient")]
+        [SwaggerResponse(200, "No need for hospital transfer reported", typeof(ApiResponse<bool>))]
+        [SwaggerResponse(400, "Invalid status transition - can only report no need for hospital transfer during Preparing phase", typeof(ApiResponse<object>))]
+        [SwaggerResponse(404, "Mission not found")]
+        [Authorize(Roles = "Rescuer")]
+        [ValidateModel]
+        public async Task<IActionResult> ReportNoNeedHospitalTransfer(
+            Guid missionId,
+            [FromBody] ReportNoNeedHospitalTransferRequest request)
+        {
+            var userId = GetCurrentUserId();
+            var result = await _missionService.ReportNoNeedHospitalTransferAsync(missionId, userId, request.Notes);
+            return Ok(ApiResponseBuilder.BuildSuccessResponse<bool>(result, "No need for hospital transfer reported."));
         }
     }
 }

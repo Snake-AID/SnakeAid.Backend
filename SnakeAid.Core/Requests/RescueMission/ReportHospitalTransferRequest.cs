@@ -12,4 +12,10 @@ namespace SnakeAid.Core.Requests.RescueMission
         [MaxLength(1000, ErrorMessage = "Notes must not exceed 1000 characters")]
         public string? Notes { get; set; }
     }
+
+    public class ReportNoNeedHospitalTransferRequest
+    {
+        [MaxLength(1000, ErrorMessage = "Notes must not exceed 1000 characters")]
+        public string? Notes { get; set; }
+    }
 }
