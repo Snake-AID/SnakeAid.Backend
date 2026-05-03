@@ -563,16 +563,6 @@ namespace SnakeAid.Service.Implements
                 // Notify operators that the rescuer declined the dispatch
                 await _operatorRealtimeNotificationService.NotifyRescuerDeclinedAsync(incident.Id, rescuerId, reason);
 
-                // Notify member that dispatch was declined and re-dispatch is in progress
-                await SafePublishMemberNotificationAsync(new NotificationMessage
-                {
-                    UserId = incident.UserId,
-                    Title = "Cứu hộ viên chưa thể nhận ca",
-                    Body = "Một cứu hộ viên vừa từ chối yêu cầu SOS. Hệ thống đang tìm cứu hộ viên khác cho bạn.",
-                    Type = "SNAKE_RESCUE_REDISPATCH_IN_PROGRESS",
-                    Data = BuildIncidentNotificationData(incident.Id)
-                }, "rescuer declined SOS dispatch", incident.UserId);
-
                 return response;
             }
             catch (DbUpdateConcurrencyException ex)
@@ -591,7 +581,7 @@ namespace SnakeAid.Service.Implements
         {
             try
             {
-                var (response, incident, rescuerId, memberUserId) = await _unitOfWork.ExecuteInTransactionAsync(async () =>
+                var (response, incident, rescuerId) = await _unitOfWork.ExecuteInTransactionAsync(async () =>
                 {
                     var request = await _unitOfWork.GetRepository<RescuerRequest>().FirstOrDefaultAsync(
                         predicate: r => r.Id == requestId,
@@ -630,7 +620,7 @@ namespace SnakeAid.Service.Implements
                         RejectedAt = DateTime.UtcNow,
                         Message = "Dispatch request was cancelled by operator."
                     };
-                    return (response, incident, request.RescuerId, incident.UserId);
+                    return (response, incident, request.RescuerId);
                 });
 
                 // Notify rescuer (caller) that the request has been cancelled
@@ -641,16 +631,6 @@ namespace SnakeAid.Service.Implements
 
                 // Notify operators that the dispatch was cancelled
                 await _operatorRealtimeNotificationService.NotifyRescuerDeclinedAsync(incident.Id, rescuerId, "Cancelled by Operator");
-
-                // Notify member that operator cancelled this dispatch and is re-dispatching
-                await SafePublishMemberNotificationAsync(new NotificationMessage
-                {
-                    UserId = memberUserId,
-                    Title = "Điều phối viên đang điều phối lại",
-                    Body = "Điều phối viên vừa hủy yêu cầu đã gửi đến một cứu hộ viên và đang tìm người phù hợp hơn.",
-                    Type = "SNAKE_RESCUE_REDISPATCH_IN_PROGRESS",
-                    Data = BuildIncidentNotificationData(incident.Id)
-                }, "operator cancelled SOS dispatch request", memberUserId);
 
                 return response;
             }
