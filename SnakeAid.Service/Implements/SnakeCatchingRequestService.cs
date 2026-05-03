@@ -1077,9 +1077,9 @@ namespace SnakeAid.Service.Implements
                 {
                     try
                     {
-                        var paidTransactions = await _unitOfWork.GetRepository<Transaction>().GetListAsync(
+                        var depositTransactions = await _unitOfWork.GetRepository<Transaction>().GetListAsync(
                             predicate: t => t.ReferenceId == requestId &&
-                                           (t.TransactionType == TransactionType.CatchingPayment || t.TransactionType == TransactionType.CatchingDeposit) &&
+                                           t.TransactionType == TransactionType.CatchingDeposit &&
                                            !string.IsNullOrEmpty(t.ExternalTransactionId),
                             asNoTracking: true);
 
@@ -1087,10 +1087,10 @@ namespace SnakeAid.Service.Implements
                             predicate: t => t.ReferenceId == requestId && t.TransactionType == TransactionType.CatchingRefund,
                             asNoTracking: true);
 
-                        var availableRefundAmount = paidTransactions.Sum(t => t.Amount) - refundedTransactions.Sum(t => t.Amount);
+                        var availableRefundAmount = depositTransactions.Sum(t => t.Amount) - refundedTransactions.Sum(t => t.Amount);
 
                         // Get deposit amount for notification
-                        var depositTransaction = paidTransactions.FirstOrDefault(t => t.TransactionType == TransactionType.CatchingDeposit);
+                        var depositTransaction = depositTransactions.FirstOrDefault();
                         depositAmount = depositTransaction?.Amount;
 
                         if (availableRefundAmount > 0)
@@ -1113,7 +1113,7 @@ namespace SnakeAid.Service.Implements
                         else
                         {
                             _logger.LogInformation(
-                                "Operator cancel: no payment to refund for Request {RequestId}, UserId: {UserId}",
+                                "Operator cancel: no deposit to refund for Request {RequestId}, UserId: {UserId}",
                                 requestId, response.UserId);
                         }
                     }
