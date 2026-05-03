@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging;
 using SnakeAid.Core.Constants;
 using SnakeAid.Core.Domains;
 using SnakeAid.Core.Exceptions;
+using SnakeAid.Core.Messages.Notifications;
 using SnakeAid.Core.Requests;
 using SnakeAid.Core.Requests.Notification;
 using SnakeAid.Core.Requests.SnakebiteIncident;
@@ -32,6 +33,7 @@ namespace SnakeAid.Service.Implements
         private readonly IRescueNotificationService _rescueNotificationService;
         private readonly IMissionNotificationService _missionNotificationService;
         private readonly ISnakeRescueMissionService _snakeRescueMissionService;
+        private readonly INotificationQueueService _notificationQueueService;
 
         public SnakebiteIncidentService(
             IUnitOfWork<SnakeAidDbContext> unitOfWork,
@@ -40,7 +42,8 @@ namespace SnakeAid.Service.Implements
             IOperatorRealtimeNotificationService operatorRealtimeNotificationService,
             IRescueNotificationService rescueNotificationService,
             IMissionNotificationService missionNotificationService,
-            ISnakeRescueMissionService SnakeRescueMissionService)
+            ISnakeRescueMissionService SnakeRescueMissionService,
+            INotificationQueueService notificationQueueService)
         {
             _unitOfWork = unitOfWork;
             _logger = logger;
@@ -49,6 +52,7 @@ namespace SnakeAid.Service.Implements
             _rescueNotificationService = rescueNotificationService;
             _missionNotificationService = missionNotificationService;
             _snakeRescueMissionService = SnakeRescueMissionService;
+            _notificationQueueService = notificationQueueService;
         }
 
         public async Task<CreateIncidentResponse> ConfirmIncidentAsync(Guid incidentId, Guid operatorId)
@@ -56,6 +60,8 @@ namespace SnakeAid.Service.Implements
             try
             {
                 var isNewClaim = false;
+                Guid memberUserId = Guid.Empty;
+                var shouldNotifyMember = false;
                 var response = await _unitOfWork.ExecuteInTransactionAsync(async () =>
                 {
                     var incident = await _unitOfWork.GetRepository<SnakebiteIncident>().FirstOrDefaultAsync(
@@ -66,6 +72,8 @@ namespace SnakeAid.Service.Implements
                     {
                         throw new NotFoundException("Snakebite incident not found.");
                     }
+
+                    memberUserId = incident.UserId;
 
                     if (!incident.HandlingOperatorId.HasValue)
                     {
@@ -87,6 +95,7 @@ namespace SnakeAid.Service.Implements
                         incident.Status = SnakebiteIncidentStatus.Verified;
                         incident.ConfirmedAt = DateTime.UtcNow;
                         _unitOfWork.GetRepository<SnakebiteIncident>().Update(incident);
+                        shouldNotifyMember = true;
                     }
 
                     return incident.Adapt<CreateIncidentResponse>();
@@ -95,6 +104,18 @@ namespace SnakeAid.Service.Implements
                 if (isNewClaim)
                 {
                     await _operatorRealtimeNotificationService.NotifyIncidentClaimedAsync(incidentId, operatorId);
+                }
+
+                if (shouldNotifyMember && memberUserId != Guid.Empty)
+                {
+                    await SafePublishMemberNotificationAsync(new NotificationMessage
+                    {
+                        UserId = memberUserId,
+                        Title = "Yêu cầu SOS đã được tiếp nhận",
+                        Body = "Điều phối viên đã tiếp nhận ca SOS của bạn và đang tìm cứu hộ viên phù hợp.",
+                        Type = "SNAKE_RESCUE_INCIDENT_CONFIRMED",
+                        Data = BuildIncidentNotificationData(incidentId)
+                    }, "operator confirmed SOS incident", memberUserId);
                 }
 
                 return response;
@@ -808,6 +829,15 @@ namespace SnakeAid.Service.Implements
                     request.Lng,
                     request.Address ?? string.Empty);
 
+                await SafePublishMemberNotificationAsync(new NotificationMessage
+                {
+                    UserId = userId,
+                    Title = "Yêu cầu SOS đã được ghi nhận",
+                    Body = "SnakeAid đã nhận yêu cầu SOS của bạn. Điều phối viên sẽ xử lý trong thời gian sớm nhất.",
+                    Type = "SNAKE_RESCUE_INCIDENT_CREATED",
+                    Data = BuildIncidentNotificationData(responseData.Id)
+                }, "member created SOS incident", userId);
+
                 return responseData;
 
             }
@@ -1211,6 +1241,29 @@ namespace SnakeAid.Service.Implements
             );
 
             return matchingScore?.Score ?? 0;
+        }
+
+        private async Task SafePublishMemberNotificationAsync(NotificationMessage message, string actionName, Guid userId)
+        {
+            try
+            {
+                await _notificationQueueService.PublishAsync(message);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex,
+                    "Failed to publish {Action} notification for user {UserId}",
+                    actionName,
+                    userId);
+            }
+        }
+
+        private static Dictionary<string, string> BuildIncidentNotificationData(Guid incidentId)
+        {
+            return new Dictionary<string, string>
+            {
+                ["incidentId"] = incidentId.ToString()
+            };
         }
 
         public async Task<object> GetMediaDebugInfoAsync(Guid incidentId)

@@ -2,6 +2,8 @@ using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.Logging;
 using SnakeAid.Api.Hubs;
 using SnakeAid.Core.Exceptions;
+using SnakeAid.Core.Messages.Notifications;
+using SnakeAid.Core.Requests.Notification;
 using SnakeAid.Service.Interfaces;
 using System;
 using System.Collections.Concurrent;
@@ -14,15 +16,18 @@ namespace SnakeAid.Api.Services
     public class SignalRExpertEmergencyNotificationService : IExpertEmergencyNotificationService
     {
         private readonly IHubContext<ExpertHub> _hubContext;
+        private readonly INotificationQueueService _notificationQueueService;
         private readonly ILogger<SignalRExpertEmergencyNotificationService> _logger;
 
         public static ConcurrentDictionary<string, string> ConnectedExperts { get; } = new();
 
         public SignalRExpertEmergencyNotificationService(
             IHubContext<ExpertHub> hubContext,
+            INotificationQueueService notificationQueueService,
             ILogger<SignalRExpertEmergencyNotificationService> logger)
         {
             _hubContext = hubContext;
+            _notificationQueueService = notificationQueueService;
             _logger = logger;
         }
 
@@ -52,6 +57,61 @@ namespace SnakeAid.Api.Services
                 () => _hubContext.Clients.Group(groupName).SendAsync("EmergencyRequestStatusChanged", statusData),
                 "NotifyEmergencyRequestStatusChanged",
                 groupName);
+        }
+
+        public async Task NotifyEmergencyRequestCreatedAsync(Guid requestId, Guid memberId, Guid expertId)
+        {
+            await SafeTryPublishNotificationAsync(
+                new NotificationMessage
+                {
+                    UserId = memberId,
+                    Title = "Yêu cầu tư vấn khẩn cấp đã được gửi",
+                    Body = "Yêu cầu tư vấn khẩn cấp của bạn đang được gửi đến chuyên gia.",
+                    Type = "EMERGENCY_CONSULTATION_REQUEST_CREATED",
+                    Data = new Dictionary<string, string>
+                    {
+                        ["requestId"] = requestId.ToString(),
+                        ["expertId"] = expertId.ToString()
+                    }
+                },
+                "emergency consultation request created notification",
+                memberId);
+        }
+
+        public async Task NotifyEmergencyRequestAcceptedAsync(Guid requestId, Guid expertId)
+        {
+            await SafeTryPublishNotificationAsync(
+                new NotificationMessage
+                {
+                    UserId = expertId,
+                    Title = "Cuộc tư vấn khẩn cấp được chấp nhận",
+                    Body = "Bạn đã chấp nhận một yêu cầu tư vấn khẩn cấp. Vui lòng sẵn sàng để bắt đầu cuộc gọi.",
+                    Type = "EMERGENCY_CONSULTATION_REQUEST_ACCEPTED",
+                    Data = new Dictionary<string, string>
+                    {
+                        ["requestId"] = requestId.ToString()
+                    }
+                },
+                "emergency consultation request accepted notification",
+                expertId);
+        }
+
+        public async Task NotifyEmergencyRequestRejectedAsync(Guid requestId, Guid expertId)
+        {
+            await SafeTryPublishNotificationAsync(
+                new NotificationMessage
+                {
+                    UserId = expertId,
+                    Title = "Yêu cầu tư vấn khẩn cấp bị từ chối",
+                    Body = "Bạn đã từ chối một yêu cầu tư vấn khẩn cấp.",
+                    Type = "EMERGENCY_CONSULTATION_REQUEST_REJECTED",
+                    Data = new Dictionary<string, string>
+                    {
+                        ["requestId"] = requestId.ToString()
+                    }
+                },
+                "emergency consultation request rejected notification",
+                expertId);
         }
 
         public static void AddConnection(string expertId, string connectionId)
@@ -89,6 +149,22 @@ namespace SnakeAid.Api.Services
             catch (Exception ex)
             {
                 _logger.LogError(new SignalRNotificationException($"Error in {actionName} for expert {expertId}", ex), "SignalR_Notification_Error");
+            }
+        }
+
+        private async Task SafeTryPublishNotificationAsync(
+            NotificationMessage message,
+            string actionName,
+            Guid userId)
+        {
+            try
+            {
+                await _notificationQueueService.PublishAsync(message);
+                _logger.LogInformation("Published {Action} for userId {UserId}", actionName, userId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to publish {Action} for userId {UserId}", actionName, userId);
             }
         }
     }
