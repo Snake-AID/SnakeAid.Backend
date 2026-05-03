@@ -47,5 +47,10 @@ namespace SnakeAid.Service.Interfaces
             DateTimeOffset? until,
             int page,
             int pageSize);
+
+        Task<bool> ReportNoNeedHospitalTransferAsync(
+            Guid missionId,
+            Guid rescuerId,
+            string? notes);
     }
 }
