@@ -7,7 +7,7 @@ public class ExpertConsultationResponse
     public string Status { get; set; } = string.Empty;     // "Ongoing" | "Completed"
     public Guid UserId { get; set; }                        // CallerId
     public string? UserName { get; set; }                   // Caller's FullName
-    public string? ExpertAvatarUrl { get; set; }
+    public string? UserAvatarUrl { get; set; }
     public string? RoomId { get; set; }
     public DateTime? StartTime { get; set; }
     public DateTime? EndTime { get; set; }
