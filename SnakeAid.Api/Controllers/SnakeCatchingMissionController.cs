@@ -155,9 +155,9 @@ Requirements:
 When aborted successfully:
 - Mission status is updated to MissionAborted
 - CancellationReason is set to the provided reason
-- SnakeCatchingRequest is reset to Pending status
-- AssignedRescuer is cleared so other rescuers can accept the request
-- If any paid transactions exist (CatchingPayment or CatchingDeposit), automatic refund is processed to user's wallet")]
+- SnakeCatchingRequest is reset to Confirmed status
+- AssignedRescuer is cleared so operator can reassign to other rescuers
+- No automatic refund is processed (operator should handle refund decisions separately)")]
         [SwaggerResponse(200, "Mission aborted successfully", typeof(ApiResponse<SnakeCatchingMissionDetailResponse>))]
         [SwaggerResponse(400, "Invalid status transition - can only abort from Preparing or EnRoute")]
         [SwaggerResponse(403, "Not authorized")]

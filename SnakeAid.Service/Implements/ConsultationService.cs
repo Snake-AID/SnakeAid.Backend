@@ -621,6 +621,7 @@ public class ConsultationService : IConsultationService
                     Status = b.Consultation!.Status.ToString(),
                     UserId = b.UserId,
                     UserName = b.User?.FullName,
+                    UserAvatarUrl = b.User?.AvatarUrl,
                     RoomId = b.Consultation.RoomId,
                     StartTime = b.Consultation.StartTime,
                     EndTime = b.Consultation.EndTime,
@@ -633,7 +634,7 @@ public class ConsultationService : IConsultationService
             }
         }
 
-        // Emergency consultations — query by ExpertId
+        // Emergency consultations use Rescuer navigation for the requesting user account.
         if (includeEmergency)
         {
             var emergencyRequests = await _unitOfWork.GetRepository<ConsultationPingRequest>().GetListAsync(
@@ -659,25 +660,27 @@ public class ConsultationService : IConsultationService
                 emergencyRequestIds,
                 TransactionType.ConsultationPayment);
 
-            foreach (var p in emergencyRequests)
+            foreach (var request in emergencyRequests)
             {
-                if (p.Consultation is null)
+                if (request.Consultation is null)
                     continue;
 
-                var consultation = p.Consultation;
+                var consultation = request.Consultation;
+                var requester = request.Rescuer;
                 results.Add(new ExpertConsultationResponse
                 {
                     ConsultationId = consultation.Id,
                     Type = "Emergency",
                     Status = consultation.Status.ToString(),
-                    UserId = p.RescuerId,
-                    UserName = p.Rescuer?.FullName,
+                    UserId = request.RescuerId,
+                    UserName = requester?.FullName,
+                    UserAvatarUrl = requester?.AvatarUrl,
                     RoomId = consultation.RoomId,
                     StartTime = consultation.StartTime,
                     EndTime = consultation.EndTime,
-                    GrossPrice = ResolveLookupAmount(paymentLookup, p.Id),
+                    GrossPrice = ResolveLookupAmount(paymentLookup, request.Id),
                     NetPrice = ResolveLookupAmount(payoutLookup, consultation.Id),
-                    EmergencyRequestId = p.Id
+                    EmergencyRequestId = request.Id
                 });
             }
         }
@@ -717,6 +720,7 @@ public class ConsultationService : IConsultationService
                         Status = c.Status.ToString(),
                         UserId = c.CallerId,
                         UserName = c.Caller?.FullName,
+                        UserAvatarUrl = c.Caller?.AvatarUrl,
                         RoomId = c.RoomId,
                         StartTime = c.StartTime,
                         EndTime = c.EndTime,
@@ -806,6 +810,7 @@ public class ConsultationService : IConsultationService
                     Status = consultation.Status.ToString(),
                     ExpertId = p.ExpertId,
                     ExpertName = p.Expert?.FullName,
+                    ExpertAvatarUrl = p.Expert?.AvatarUrl,
                     RoomId = consultation.RoomId,
                     StartTime = consultation.StartTime,
                     EndTime = consultation.EndTime,
@@ -834,6 +839,7 @@ public class ConsultationService : IConsultationService
             Status = consultation.Status.ToString(),
             ExpertId = consultation.CalleeId,
             ExpertName = consultation.Callee?.FullName ?? booking?.Expert?.FullName,
+            ExpertAvatarUrl = consultation.Callee?.AvatarUrl ?? booking?.Expert?.AvatarUrl,
             RoomId = consultation.RoomId,
             StartTime = consultation.StartTime,
             EndTime = consultation.EndTime,

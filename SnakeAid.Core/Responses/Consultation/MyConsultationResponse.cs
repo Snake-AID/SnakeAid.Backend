@@ -7,6 +7,7 @@ public class MyConsultationResponse
     public string Status { get; set; } = string.Empty; // "Ongoing" or "Completed"
     public Guid ExpertId { get; set; }
     public string? ExpertName { get; set; }
+    public string? ExpertAvatarUrl { get; set; }
     public string? RoomId { get; set; }
     public DateTime? StartTime { get; set; }
     public DateTime? EndTime { get; set; }

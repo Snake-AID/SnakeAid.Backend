@@ -38,6 +38,8 @@ public class ExpertConsultationPriceResponseTests : IDisposable
     private const decimal ScheduledGrossPrice = 500_000m;
     private const decimal EmergencyGrossPrice = 5_000_000m;
     private const decimal EmergencyNetPrice = 4_000_000m;
+    private const string ExpertAvatarUrl = "https://cdn.test.local/avatars/expert-one.png";
+    private const string UserAvatarUrl = "https://cdn.test.local/avatars/user-one.png";
 
     public ExpertConsultationPriceResponseTests()
     {
@@ -79,6 +81,7 @@ public class ExpertConsultationPriceResponseTests : IDisposable
         Assert.Equal(ScheduledGrossPrice, item.GrossPrice);
         Assert.Null(item.NetPrice);
         Assert.Equal(_scheduledBookingId, item.BookingId);
+        Assert.Equal(UserAvatarUrl, item.UserAvatarUrl);
     }
 
     [Fact]
@@ -93,15 +96,29 @@ public class ExpertConsultationPriceResponseTests : IDisposable
         Assert.Equal(2, items.Count);
         Assert.Equal(EmergencyGrossPrice, items[_pingRequest1Id].GrossPrice);
         Assert.Equal(EmergencyNetPrice, items[_pingRequest1Id].NetPrice);
+        Assert.Equal(UserAvatarUrl, items[_pingRequest1Id].UserAvatarUrl);
         Assert.Null(items[_pingRequest2Id].GrossPrice);
         Assert.Null(items[_pingRequest2Id].NetPrice);
+        Assert.Equal(UserAvatarUrl, items[_pingRequest2Id].UserAvatarUrl);
+    }
+
+    [Fact]
+    public void ExpertConsultationResponse_ShouldExposeUserAvatarUrl_AndNotExpertAvatarUrl()
+    {
+        var properties = typeof(ExpertConsultationResponse)
+            .GetProperties(BindingFlags.Public | BindingFlags.Instance)
+            .Select(p => p.Name)
+            .ToHashSet();
+
+        Assert.Contains(nameof(ExpertConsultationResponse.UserAvatarUrl), properties);
+        Assert.DoesNotContain("ExpertAvatarUrl", properties);
     }
 
     private void SeedData()
     {
         _db.Set<Account>().AddRange(
-            new Account { Id = _expertId, FullName = "Expert One" },
-            new Account { Id = _userId, FullName = "User One" });
+            new Account { Id = _expertId, FullName = "Expert One", AvatarUrl = ExpertAvatarUrl },
+            new Account { Id = _userId, FullName = "User One", AvatarUrl = UserAvatarUrl });
 
         _db.Set<ExpertTimeSlot>().Add(new ExpertTimeSlot
         {

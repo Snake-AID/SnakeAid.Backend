@@ -42,6 +42,14 @@ namespace SnakeAid.Service.Interfaces
             string? cancellationReason,
             Guid? assignedRescuerId);
 
+        Task NotifyOperatorCancelledAsync(
+            Guid requestId,
+            Guid userId,
+            RequestStatus status,
+            string? cancellationReason,
+            Guid? assignedRescuerId,
+            decimal? depositAmount);
+
         Task NotifyMissionEnRouteAsync(
             Guid requestId,
             Guid missionId,

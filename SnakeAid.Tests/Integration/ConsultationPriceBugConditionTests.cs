@@ -47,6 +47,7 @@ public class ConsultationPriceBugConditionTests
         var consultationId = Guid.NewGuid();
         var transactionId = Guid.NewGuid();
         const decimal expectedPrice = 200_000m;
+        const string expertAvatarUrl = "https://cdn.test.local/avatars/emergency-expert.png";
 
         await using var db = CreateDbContext();
 
@@ -73,7 +74,8 @@ public class ConsultationPriceBugConditionTests
             Email = $"expert.{expertId:N}@test.local",
             NormalizedEmail = $"EXPERT.{expertId:N}@TEST.LOCAL",
             IsActive = true,
-            Role = AccountRole.Expert
+            Role = AccountRole.Expert,
+            AvatarUrl = expertAvatarUrl
         });
 
         // Seed consultation
@@ -138,6 +140,103 @@ public class ConsultationPriceBugConditionTests
         // This assertion encodes the EXPECTED behavior.
         // On UNFIXED code, Price will be null — this test should FAIL.
         Assert.Equal(expectedPrice, emergencyConsultation.Price);
+        Assert.Equal(expertAvatarUrl, emergencyConsultation.ExpertAvatarUrl);
+    }
+
+    [Fact]
+    public async Task GetMyConsultations_ScheduledWithExpertAvatar_ShouldReturnExpertAvatarUrl()
+    {
+        var userId = Guid.NewGuid();
+        var expertId = Guid.NewGuid();
+        var consultationId = Guid.NewGuid();
+        var bookingId = Guid.NewGuid();
+        var slotId = Guid.NewGuid();
+        var startTime = DateTime.UtcNow.AddDays(-1);
+        const string expertAvatarUrl = "https://cdn.test.local/avatars/scheduled-expert.png";
+
+        await using var db = CreateDbContext();
+
+        db.Set<Account>().AddRange(
+            new Account
+            {
+                Id = userId,
+                FullName = "Scheduled User",
+                UserName = $"user.{userId:N}",
+                NormalizedUserName = $"USER.{userId:N}",
+                Email = $"user.{userId:N}@test.local",
+                NormalizedEmail = $"USER.{userId:N}@TEST.LOCAL",
+                IsActive = true,
+                Role = AccountRole.User
+            },
+            new Account
+            {
+                Id = expertId,
+                FullName = "Scheduled Expert",
+                UserName = $"expert.{expertId:N}",
+                NormalizedUserName = $"EXPERT.{expertId:N}",
+                Email = $"expert.{expertId:N}@test.local",
+                NormalizedEmail = $"EXPERT.{expertId:N}@TEST.LOCAL",
+                IsActive = true,
+                Role = AccountRole.Expert,
+                AvatarUrl = expertAvatarUrl
+            });
+
+        db.Set<ExpertTimeSlot>().Add(new ExpertTimeSlot
+        {
+            Id = slotId,
+            ExpertId = expertId,
+            StartTime = startTime,
+            EndTime = startTime.AddMinutes(30),
+            Status = TimeSlotStatus.Booked,
+            Version = 0u
+        });
+
+        db.Consultations.Add(new Consultation
+        {
+            Id = consultationId,
+            CallerId = userId,
+            CalleeId = expertId,
+            RoomId = "room-scheduled-avatar",
+            StartTime = startTime,
+            EndTime = startTime.AddMinutes(30),
+            Status = ConsultationStatus.Completed,
+            Type = ConsultationType.Scheduled
+        });
+
+        db.Set<ConsultationBooking>().Add(new ConsultationBooking
+        {
+            Id = bookingId,
+            UserId = userId,
+            ExpertId = expertId,
+            Price = 300_000m,
+            BookedAt = startTime.AddDays(-1),
+            Status = BookingStatus.Completed,
+            Version = 0u,
+            ConsultationId = consultationId,
+            TimeSlotId = slotId,
+            PaymentDeadline = startTime
+        });
+
+        await db.SaveChangesAsync();
+
+        var unitOfWork = new UnitOfWork<SnakeAidDbContext>(db);
+        var service = new ConsultationService(
+            unitOfWork,
+            new FakeConsultationPaymentService(),
+            NullLogger<ConsultationService>.Instance);
+
+        var query = new MyConsultationsQueryRequest
+        {
+            PageNumber = 1,
+            PageSize = 10,
+            Type = "Scheduled"
+        };
+
+        var result = await service.GetMyConsultationsAsync(userId, query);
+
+        var scheduledConsultation = Assert.Single(result.Items);
+        Assert.Equal(consultationId, scheduledConsultation.ConsultationId);
+        Assert.Equal(expertAvatarUrl, scheduledConsultation.ExpertAvatarUrl);
     }
 
     #region Helpers

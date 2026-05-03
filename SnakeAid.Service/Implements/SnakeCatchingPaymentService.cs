@@ -1161,4 +1161,129 @@ public class SnakeCatchingPaymentService : ISnakeCatchingPaymentService
         public bool Success { get; init; }
         public string? ErrorMessage { get; init; }
     }
+
+    public async Task<SnakeCatchingRefundResponse> RefundSnakeCatchingAsync(
+        SnakeCatchingRefundRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            _logger.LogInformation("{Prefix} Starting refund for SnakeCatchingRequestId {RequestId}, Amount {Amount}",
+                LogPrefix, request.SnakeCatchingRequestId, request.Amount);
+
+            // Validate request
+            if (request.Amount <= 0)
+            {
+                throw new InvalidOperationException("Refund amount must be greater than 0");
+            }
+
+            // Get snake catching request to find userId
+            var snakeCatchingRequest = await _unitOfWork.GetRepository<SnakeCatchingRequest>()
+                .GetByIdAsync(request.SnakeCatchingRequestId);
+
+            if (snakeCatchingRequest == null)
+            {
+                throw new InvalidOperationException($"Snake catching request not found with ID: {request.SnakeCatchingRequestId}");
+            }
+
+            if (snakeCatchingRequest.UserId == Guid.Empty)
+            {
+                throw new InvalidOperationException("Snake catching request does not have a valid UserId");
+            }
+
+            var userId = snakeCatchingRequest.UserId;
+
+            // Get user's wallet
+            var userWallet = await _unitOfWork.GetRepository<Wallet>()
+                .FirstOrDefaultAsync(
+                    predicate: w => w.UserId == userId,
+                    asNoTracking: false,
+                    cancellationToken: cancellationToken);
+
+            if (userWallet == null)
+            {
+                _logger.LogWarning("{Prefix} Wallet not found for UserId {UserId}", LogPrefix, userId);
+                throw new InvalidOperationException($"User wallet not found for user {userId}");
+            }
+
+            var balanceBefore = userWallet.Balance;
+
+            // Add amount to wallet
+            userWallet.Balance += request.Amount;
+            _unitOfWork.GetRepository<Wallet>().Update(userWallet);
+
+            // Create transaction record
+            var transaction = new Transaction
+            {
+                Id = Guid.NewGuid(),
+                UserId = userId,
+                ReferenceId = request.SnakeCatchingRequestId,
+                Amount = request.Amount,
+                Currency = "VND",
+                TransactionType = TransactionType.CatchingRefund,
+                Description = request.Description ?? "Snake catching refund",
+                PaymentMethod = "Internal",
+                ExternalTransactionId = $"REFUND-{Guid.NewGuid():N}",
+                CreatedAt = DateTime.UtcNow
+            };
+
+            await _unitOfWork.GetRepository<Transaction>().InsertAsync(transaction, cancellationToken: cancellationToken);
+
+            // Commit changes
+            await _unitOfWork.CommitAsync();
+
+            _logger.LogInformation("{Prefix} Refund completed successfully. UserId {UserId}, TransactionId {TransactionId}, Amount {Amount}",
+                LogPrefix, userId, transaction.Id, request.Amount);
+
+            // Create and publish notification
+            try
+            {
+                if (_notificationQueueService != null)
+                {
+                    var notification = new NotificationMessage
+                    {
+                        NotificationId = Guid.NewGuid(),
+                        UserId = userId,
+                        Title = "Refund Processed",
+                        Body = $"Your snake catching refund of {request.Amount:N0} VND has been credited to your wallet",
+                        Type = "SNAKECATCHING_REFUND",
+                        Data = new Dictionary<string, string>
+                        {
+                            { "SnakeCatchingRequestId", request.SnakeCatchingRequestId.ToString() },
+                            { "Amount", request.Amount.ToString("F2") },
+                            { "TransactionId", transaction.Id.ToString() }
+                        }
+                    };
+
+                    await _notificationQueueService.PublishAsync(notification, cancellationToken);
+
+                    _logger.LogInformation("{Prefix} Notification published for refund. UserId {UserId}",
+                        LogPrefix, userId);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "{Prefix} Failed to publish refund notification. UserId {UserId}, TransactionId {TransactionId}",
+                    LogPrefix, userId, transaction.Id);
+                // Don't throw - notification failure should not fail the refund
+            }
+
+            return new SnakeCatchingRefundResponse
+            {
+                TransactionId = transaction.Id,
+                SnakeCatchingRequestId = request.SnakeCatchingRequestId,
+                UserId = userId,
+                Amount = request.Amount,
+                UserWalletBalance = userWallet.Balance,
+                RefundedAt = DateTime.UtcNow,
+                Message = "Refund completed successfully"
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "{Prefix} Error during refund. SnakeCatchingRequestId {RequestId}, Amount {Amount}",
+                LogPrefix, request.SnakeCatchingRequestId, request.Amount);
+            throw;
+        }
+    }
 }
