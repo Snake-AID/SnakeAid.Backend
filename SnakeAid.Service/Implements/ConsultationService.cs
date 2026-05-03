@@ -634,7 +634,7 @@ public class ConsultationService : IConsultationService
             }
         }
 
-        // Emergency consultations — query by ExpertId
+        // Emergency consultations use Rescuer navigation for the requesting user account.
         if (includeEmergency)
         {
             var emergencyRequests = await _unitOfWork.GetRepository<ConsultationPingRequest>().GetListAsync(
@@ -660,26 +660,27 @@ public class ConsultationService : IConsultationService
                 emergencyRequestIds,
                 TransactionType.ConsultationPayment);
 
-            foreach (var p in emergencyRequests)
+            foreach (var request in emergencyRequests)
             {
-                if (p.Consultation is null)
+                if (request.Consultation is null)
                     continue;
 
-                var consultation = p.Consultation;
+                var consultation = request.Consultation;
+                var requester = request.Rescuer;
                 results.Add(new ExpertConsultationResponse
                 {
                     ConsultationId = consultation.Id,
                     Type = "Emergency",
                     Status = consultation.Status.ToString(),
-                    UserId = p.RescuerId,
-                    UserName = p.Rescuer?.FullName,
-                    UserAvatarUrl = p.Rescuer?.AvatarUrl,
+                    UserId = request.RescuerId,
+                    UserName = requester?.FullName,
+                    UserAvatarUrl = requester?.AvatarUrl,
                     RoomId = consultation.RoomId,
                     StartTime = consultation.StartTime,
                     EndTime = consultation.EndTime,
-                    GrossPrice = ResolveLookupAmount(paymentLookup, p.Id),
+                    GrossPrice = ResolveLookupAmount(paymentLookup, request.Id),
                     NetPrice = ResolveLookupAmount(payoutLookup, consultation.Id),
-                    EmergencyRequestId = p.Id
+                    EmergencyRequestId = request.Id
                 });
             }
         }
