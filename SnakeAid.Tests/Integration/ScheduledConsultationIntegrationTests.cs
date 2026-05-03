@@ -208,6 +208,84 @@ public class ScheduledConsultationIntegrationTests
         Assert.Equal(TimeSlotStatus.Booked, slot.Status);
     }
 
+    [Theory]
+    [InlineData(ConsultationStatus.ExpertAbsent)]
+    [InlineData(ConsultationStatus.ExpertAbsentHandled)]
+    public async Task EndConsultationAsync_ForExpertAbsentStatus_ShouldCleanupCall_AndPreserveBusinessState(
+        ConsultationStatus initialStatus)
+    {
+        var userId = Guid.NewGuid();
+        var expertId = Guid.NewGuid();
+        var slotId = Guid.NewGuid();
+        var consultationId = Guid.NewGuid();
+        var bookingId = Guid.NewGuid();
+
+        await using var db = CreateDbContext();
+        await SeedUserAndExpertAsync(db, userId, expertId);
+
+        db.ExpertTimeSlots.Add(new ExpertTimeSlot
+        {
+            Id = slotId,
+            ExpertId = expertId,
+            StartTime = new DateTime(2026, 3, 10, 8, 0, 0, DateTimeKind.Utc),
+            EndTime = new DateTime(2026, 3, 10, 8, 30, 0, DateTimeKind.Utc),
+            Status = TimeSlotStatus.Reserved
+        });
+
+        db.Consultations.Add(new Consultation
+        {
+            Id = consultationId,
+            CallerId = userId,
+            CalleeId = expertId,
+            RoomId = $"consultation-{consultationId}",
+            StartTime = new DateTime(2026, 3, 10, 8, 0, 0, DateTimeKind.Utc),
+            Status = initialStatus,
+            Type = ConsultationType.Scheduled,
+            CustomerReport = "Expert did not join the call.",
+            CustomerReportSubmittedAt = DateTime.UtcNow.AddMinutes(-5)
+        });
+
+        db.ConsultationBookings.Add(new ConsultationBooking
+        {
+            Id = bookingId,
+            UserId = userId,
+            ExpertId = expertId,
+            TimeSlotId = slotId,
+            ConsultationId = consultationId,
+            Price = 150_000m,
+            BookedAt = DateTime.UtcNow,
+            PaymentDeadline = DateTime.UtcNow.AddMinutes(15),
+            Status = BookingStatus.Confirmed
+        });
+
+        await db.SaveChangesAsync();
+
+        var hub = new SpyHubContext();
+        var liveKit = new SpyLiveKitService();
+        var paymentService = new FakeConsultationPaymentService();
+        var consultationService = new ConsultationService(
+            new UnitOfWork<SnakeAidDbContext>(db),
+            paymentService,
+            NullLogger<ConsultationService>.Instance,
+            hub,
+            liveKit);
+
+        await consultationService.EndConsultationAsync(consultationId, userId);
+
+        var consultation = await db.Consultations.FirstAsync(c => c.Id == consultationId);
+        var booking = await db.ConsultationBookings.FirstAsync(b => b.Id == bookingId);
+        var slot = await db.ExpertTimeSlots.FirstAsync(s => s.Id == slotId);
+
+        Assert.Equal(initialStatus, consultation.Status);
+        Assert.NotNull(consultation.EndTime);
+        Assert.Equal(BookingStatus.Confirmed, booking.Status);
+        Assert.Equal(TimeSlotStatus.Reserved, slot.Status);
+        Assert.Empty(paymentService.SettledConsultationIds);
+
+        Assert.Single(hub.SendCalls);
+        Assert.Equal($"consultation-{consultationId}", Assert.Single(liveKit.DeletedRoomNames));
+    }
+
     [Fact]
     public async Task CancelScheduledBookingAsync_ByMember_ShouldCancelPendingBooking_AndReleaseSlot()
     {

@@ -120,6 +120,14 @@ public class ConsultationService : IConsultationService
             }
         }
 
+        if (consultation.Status is ConsultationStatus.ExpertAbsent or ConsultationStatus.ExpertAbsentHandled)
+        {
+            consultation.EndTime ??= DateTime.UtcNow;
+            consultationRepo.Update(consultation);
+            await _unitOfWork.CommitAsync();
+            return;
+        }
+
         consultation.Status = ConsultationStatus.Completed;
         consultation.EndTime = DateTime.UtcNow;
         consultationRepo.Update(consultation);
