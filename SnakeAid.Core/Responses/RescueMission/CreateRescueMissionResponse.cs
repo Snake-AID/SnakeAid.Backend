@@ -1,5 +1,6 @@
 ﻿using SnakeAid.Core.Domains;
 using SnakeAid.Core.Responses.RescuerProfile;
+using SnakeAid.Core.Responses.TreatmentFacility;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
@@ -38,6 +39,12 @@ namespace SnakeAid.Core.Responses.RescueMission
         public string? CancellationReason { get; set; }
 
         public decimal? ActualCost { get; set; }
+
+        public bool RequiresHospitalization { get; set; } = false;
+
+        public int? HospitalId { get; set; }
+
+        public HospitalTransferResponse? Hospital { get; set; }
 
         public BriefRescuerProfileResponse Rescuer { get; set; }
     }
