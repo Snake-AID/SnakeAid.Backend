@@ -46,7 +46,7 @@ public class BookingService : IBookingService
     {
         try
         {
-            return await _unitOfWork.ExecuteInTransactionAsync(async () =>
+            var response = await _unitOfWork.ExecuteInTransactionAsync(async () =>
             {
                 var timeSlotRepo = _unitOfWork.GetRepository<ExpertTimeSlot>();
                 var slot = await timeSlotRepo.FirstOrDefaultAsync(
@@ -133,6 +133,11 @@ public class BookingService : IBookingService
                     RoomId = consultation.RoomId
                 };
             });
+
+            // Send push notification to member about booking created
+            await TryPublishScheduledBookingCreatedNotificationAsync(response, default);
+
+            return response;
         }
         catch (DbUpdateConcurrencyException ex)
         {
@@ -236,7 +241,15 @@ public class BookingService : IBookingService
 
             if (cancellationReason == ConsultationBookingCancellationReason.CancelledByExpert)
             {
+                // Notify Member about expert cancellation
                 await TryPublishExpertCancelledBookingNotificationAsync(booking, cancellationToken);
+                // Notify Expert about their own cancellation
+                await TryPublishExpertCancellationConfirmationAsync(booking, cancellationToken);
+            }
+            else if (cancellationReason == ConsultationBookingCancellationReason.CancelledByMember)
+            {
+                // Notify Member about their own cancellation
+                await TryPublishMemberCancelledBookingNotificationAsync(booking, cancellationToken);
             }
 
             return MapBookingResponse(booking);
@@ -502,6 +515,92 @@ public class BookingService : IBookingService
             _logger.LogError(
                 ex,
                 "Failed to publish expert-cancel scheduled booking notification for bookingId={BookingId}, userId={UserId}",
+                booking.Id,
+                booking.UserId);
+        }
+    }
+
+    private async Task TryPublishScheduledBookingCreatedNotificationAsync(
+        ConsultationBookingResponse booking,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var minutesRemaining = (booking.PaymentDeadline - DateTime.UtcNow)?.TotalMinutes ?? 0;
+            await _notificationQueueService.PublishAsync(new NotificationMessage
+            {
+                UserId = booking.UserId,
+                Title = "Lịch tư vấn đã được tạo",
+                Body = $"Lịch tư vấn với {booking.ExpertName ?? "chuyên gia"} sẽ diễn ra vào {booking.SlotStartTime:dd/MM/yyyy HH:mm}. Vui lòng thanh toán trong {minutesRemaining:F0} phút.",
+                Type = "CONSULTATION_SCHEDULED_BOOKING_CREATED",
+                Data = new Dictionary<string, string>
+                {
+                    ["bookingId"] = booking.Id.ToString(),
+                    ["expertId"] = booking.ExpertId.ToString(),
+                    ["consultationId"] = booking.ConsultationId.ToString()
+                }
+            }, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(
+                ex,
+                "Failed to publish scheduled booking created notification for bookingId={BookingId}, userId={UserId}",
+                booking.Id,
+                booking.UserId);
+        }
+    }
+
+    private async Task TryPublishExpertCancellationConfirmationAsync(
+        ConsultationBooking booking,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            await _notificationQueueService.PublishAsync(new NotificationMessage
+            {
+                UserId = booking.ExpertId,
+                Title = "Bạn đã hủy lịch tư vấn",
+                Body = $"Lịch tư vấn vào {booking.TimeSlot.StartTime:dd/MM/yyyy HH:mm} đã được hủy. Thành viên sẽ được thông báo.",
+                Type = "CONSULTATION_SCHEDULED_BOOKING_CANCELLED_BY_EXPERT_CONFIRMATION",
+                Data = BuildExpertCancelledBookingNotificationData(booking)
+            }, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(
+                ex,
+                "Failed to publish expert cancellation confirmation for bookingId={BookingId}, expertId={ExpertId}",
+                booking.Id,
+                booking.ExpertId);
+        }
+    }
+
+    private async Task TryPublishMemberCancelledBookingNotificationAsync(
+        ConsultationBooking booking,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            await _notificationQueueService.PublishAsync(new NotificationMessage
+            {
+                UserId = booking.UserId,
+                Title = "Bạn đã hủy lịch tư vấn",
+                Body = $"Lịch tư vấn với {booking.Expert?.FullName ?? "chuyên gia"} vào {booking.TimeSlot.StartTime:dd/MM/yyyy HH:mm} đã được hủy.",
+                Type = "CONSULTATION_SCHEDULED_BOOKING_CANCELLED_BY_MEMBER",
+                Data = new Dictionary<string, string>
+                {
+                    ["bookingId"] = booking.Id.ToString(),
+                    ["expertId"] = booking.ExpertId.ToString(),
+                    ["cancellationReason"] = ConsultationBookingCancellationReason.CancelledByMember.ToString()
+                }
+            }, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(
+                ex,
+                "Failed to publish member cancellation notification for bookingId={BookingId}, userId={UserId}",
                 booking.Id,
                 booking.UserId);
         }

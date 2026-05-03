@@ -75,6 +75,9 @@ namespace SnakeAid.Service.Implements
                 requesterId,
                 request.ExpertId);
 
+            // Send push notification to member
+            await _notificationService.NotifyEmergencyRequestCreatedAsync(ping.Id, requesterId, request.ExpertId);
+
             return ToResponse(ping, null);
         }
 
@@ -146,6 +149,7 @@ namespace SnakeAid.Service.Implements
             });
 
             await _notificationService.NotifyEmergencyRequestStatusChangedAsync(requestId, result);
+            await _notificationService.NotifyEmergencyRequestAcceptedAsync(requestId, expertId);
             return result;
         }
 
@@ -182,6 +186,7 @@ namespace SnakeAid.Service.Implements
 
             var result = ToResponse(ping, null);
             await _notificationService.NotifyEmergencyRequestStatusChangedAsync(requestId, result);
+            await _notificationService.NotifyEmergencyRequestRejectedAsync(requestId, expertId);
             return result;
         }
 
