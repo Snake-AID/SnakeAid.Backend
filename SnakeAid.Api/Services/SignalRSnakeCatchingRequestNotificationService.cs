@@ -195,6 +195,58 @@ namespace SnakeAid.Api.Services
                 }
             }, "SnakeCatchingRequestCancelled", requestId);
 
+        public Task NotifyOperatorCancelledAsync(
+            Guid requestId,
+            Guid userId,
+            RequestStatus status,
+            string? cancellationReason,
+            Guid? assignedRescuerId,
+            decimal? depositAmount)
+            => SafeExecuteAsync(async () =>
+            {
+                var newResponse = new
+                {
+                    Id = requestId,
+                    UserId = userId,
+                    Status = status,
+                    CancellationReason = cancellationReason
+                };
+
+                var requestCode = FormatRequestCode(requestId);
+
+                await _hubContext.Clients.Group(OperatorGroup).SendAsync("SnakeCatchingRequestCancelled", newResponse);
+                await _hubContext.Clients.User(userId.ToString()).SendAsync("SnakeCatchingRequestCancelled", newResponse);
+
+                // Send push notification to customer with different message based on deposit amount
+                var customerTitle = depositAmount.HasValue ? "Yêu cầu bị hủy - Hoàn tiền" : "Yêu cầu bị hủy";
+                var customerBody = depositAmount.HasValue
+                    ? $"Yêu cầu #{requestCode} đã bị hủy bởi điều phối viên. Tiền phí di chuyển {depositAmount.Value:N0} VND sẽ được hoàn lại."
+                    : $"Yêu cầu #{requestCode} đã bị hủy bởi điều phối viên.";
+
+                await _notificationQueueService.PublishAsync(new NotificationMessage
+                {
+                    UserId = userId,
+                    Title = customerTitle,
+                    Body = customerBody,
+                    Type = "SNAKE_CATCHING_REQUEST_CANCELLED_BY_OPERATOR",
+                    Data = BuildEntityData(requestId)
+                });
+
+                if (assignedRescuerId.HasValue)
+                {
+                    await _hubContext.Clients.User(assignedRescuerId.Value.ToString()).SendAsync("SnakeCatchingRequestCancelled", newResponse);
+
+                    await _notificationQueueService.PublishAsync(new NotificationMessage
+                    {
+                        UserId = assignedRescuerId.Value,
+                        Title = "Nhiệm vụ bị hủy",
+                        Body = $"Yêu cầu #{requestCode} đã bị hủy bởi điều phối viên.",
+                        Type = "SNAKE_CATCHING_REQUEST_CANCELLED_BY_OPERATOR",
+                        Data = BuildEntityData(requestId)
+                    });
+                }
+            }, "SnakeCatchingRequestCancelledByOperator", requestId);
+
         public Task NotifyMissionEnRouteAsync(
             Guid requestId,
             Guid missionId,

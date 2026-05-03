@@ -1045,6 +1045,10 @@ namespace SnakeAid.Service.Implements
                     if (snakeCatchingRequest == null)
                         throw new BadRequestException($"Snake catching request with ID {requestId} not found");
 
+                    // Only allow operator cancel for Pending and Confirmed status
+                    if (snakeCatchingRequest.Status != RequestStatus.Pending && snakeCatchingRequest.Status != RequestStatus.Confirmed)
+                        throw new BadRequestException($"Cannot cancel request with status {snakeCatchingRequest.Status}. Only Pending and Confirmed requests can be cancelled by operator.");
+
                     snakeCatchingRequest.Status = RequestStatus.Cancelled;
                     snakeCatchingRequest.CancellationReason = request.Reason;
 
@@ -1068,6 +1072,7 @@ namespace SnakeAid.Service.Implements
                 });
 
                 // Process refund if any payment exists
+                decimal? depositAmount = null;
                 if (response.UserId != Guid.Empty)
                 {
                     try
@@ -1083,6 +1088,10 @@ namespace SnakeAid.Service.Implements
                             asNoTracking: true);
 
                         var availableRefundAmount = paidTransactions.Sum(t => t.Amount) - refundedTransactions.Sum(t => t.Amount);
+
+                        // Get deposit amount for notification
+                        var depositTransaction = paidTransactions.FirstOrDefault(t => t.TransactionType == TransactionType.CatchingDeposit);
+                        depositAmount = depositTransaction?.Amount;
 
                         if (availableRefundAmount > 0)
                         {
@@ -1116,12 +1125,13 @@ namespace SnakeAid.Service.Implements
                 }
 
                 // Send notification
-                await _snakeCatchingRequestNotificationService.NotifyRequestCancelledAsync(
+                await _snakeCatchingRequestNotificationService.NotifyOperatorCancelledAsync(
                     response.Id,
                     response.UserId,
                     response.Status,
                     response.CancellationReason,
-                    response.AssignedRescuerId);
+                    response.AssignedRescuerId,
+                    depositAmount);
 
                 return response;
             }
