@@ -180,6 +180,16 @@ namespace SnakeAid.Api.Services
                 await _hubContext.Clients.Group(OperatorGroup).SendAsync("SnakeCatchingRequestCancelled", newResponse);
                 await _hubContext.Clients.User(userId.ToString()).SendAsync("SnakeCatchingRequestCancelled", newResponse);
 
+                // Send push notification to member
+                await _notificationQueueService.PublishAsync(new NotificationMessage
+                {
+                    UserId = userId,
+                    Title = "Yêu cầu đã hủy",
+                    Body = $"Yêu cầu #{requestCode} đã được hủy.",
+                    Type = "SNAKE_CATCHING_REQUEST_CANCELLED_BY_MEMBER",
+                    Data = BuildEntityData(requestId)
+                });
+
                 if (assignedRescuerId.HasValue)
                 {
                     await _hubContext.Clients.User(assignedRescuerId.Value.ToString()).SendAsync("SnakeCatchingRequestCancelled", newResponse);
