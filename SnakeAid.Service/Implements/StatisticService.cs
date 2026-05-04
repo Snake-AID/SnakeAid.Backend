@@ -47,8 +47,7 @@ public class StatisticService : IStatisticService
                 continue;
             }
 
-            var signedAmount = tx.TransactionType == TransactionType.ConsultationRefund ? -tx.Amount : tx.Amount;
-            flowValues[flow.Value] += signedAmount;
+            flowValues[flow.Value] += GetAnalyticsSignedAmount(tx);
         }
 
         var byFlow = BuildByFlow(buckets.Values, flowFilter);
@@ -596,10 +595,17 @@ public class StatisticService : IStatisticService
 
     private static decimal GetProfitSignedAmount(TransactionLite tx)
     {
+        return GetAnalyticsSignedAmount(tx);
+    }
+
+    private static decimal GetAnalyticsSignedAmount(TransactionLite tx)
+    {
         return tx.TransactionType switch
         {
             TransactionType.ExpertPayout => -tx.Amount,
             TransactionType.ConsultationRefund => -tx.Amount,
+            TransactionType.CatchingRefund => -tx.Amount,
+            TransactionType.SnakebiteIncidentRefund => -tx.Amount,
             _ => tx.Amount
         };
     }
@@ -611,8 +617,10 @@ public class StatisticService : IStatisticService
             TransactionType.ConsultationPayment => AnalyticsFlow.Consultation,
             TransactionType.ConsultationRefund => AnalyticsFlow.Consultation,
             TransactionType.CatchingPayment => AnalyticsFlow.Catching,
+            TransactionType.CatchingRefund => AnalyticsFlow.Catching,
             TransactionType.CatchingDeposit => AnalyticsFlow.Catching,
             TransactionType.SnakebiteIncidentPayment => AnalyticsFlow.Snakebite,
+            TransactionType.SnakebiteIncidentRefund => AnalyticsFlow.Snakebite,
             _ => null
         };
     }
@@ -625,8 +633,10 @@ public class StatisticService : IStatisticService
             TransactionType.ExpertPayout => AnalyticsFlow.Consultation,
             TransactionType.ConsultationRefund => AnalyticsFlow.Consultation,
             TransactionType.CatchingPayment => AnalyticsFlow.Catching,
+            TransactionType.CatchingRefund => AnalyticsFlow.Catching,
             TransactionType.CatchingDeposit => AnalyticsFlow.Catching,
             TransactionType.SnakebiteIncidentPayment => AnalyticsFlow.Snakebite,
+            TransactionType.SnakebiteIncidentRefund => AnalyticsFlow.Snakebite,
             _ => null
         };
     }
@@ -756,8 +766,10 @@ public class StatisticService : IStatisticService
         TransactionType.ConsultationPayment,
         TransactionType.ConsultationRefund,
         TransactionType.CatchingPayment,
+        TransactionType.CatchingRefund,
         TransactionType.CatchingDeposit,
-        TransactionType.SnakebiteIncidentPayment
+        TransactionType.SnakebiteIncidentPayment,
+        TransactionType.SnakebiteIncidentRefund
     ];
 
     private static readonly HashSet<TransactionType> RelevantCommissionTypes =
@@ -773,8 +785,10 @@ public class StatisticService : IStatisticService
         TransactionType.ExpertPayout,
         TransactionType.ConsultationRefund,
         TransactionType.CatchingPayment,
+        TransactionType.CatchingRefund,
         TransactionType.CatchingDeposit,
-        TransactionType.SnakebiteIncidentPayment
+        TransactionType.SnakebiteIncidentPayment,
+        TransactionType.SnakebiteIncidentRefund
     ];
 
     private sealed class TransactionLite
