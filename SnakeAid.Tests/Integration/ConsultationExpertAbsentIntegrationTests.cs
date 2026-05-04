@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using SnakeAid.Core.Domains;
 using SnakeAid.Core.Exceptions;
 using SnakeAid.Core.Requests.Consultation;
+using SnakeAid.Core.Responses.Consultation.History;
 using SnakeAid.Repository.Data;
 using SnakeAid.Repository.Implements;
 using SnakeAid.Service.Implements;
@@ -124,7 +125,7 @@ public class ConsultationExpertAbsentIntegrationTests : IDisposable
             Type = "Scheduled"
         });
 
-        var item = Assert.Single(result.Items, i => i.ConsultationId == _completedConsultationId);
+        var item = Assert.Single(result.Items.OfType<MyConsultationHistoryResponse>(), i => i.ConsultationId == _completedConsultationId);
         Assert.Equal("Existing customer report", item.CustomerReport);
         Assert.NotNull(item.CustomerReportSubmittedAt);
     }

@@ -3,6 +3,7 @@ using System.Threading.Tasks;
 using SnakeAid.Core.Meta;
 using SnakeAid.Core.Requests.Consultation;
 using SnakeAid.Core.Responses.Consultation;
+using SnakeAid.Core.Responses.Consultation.History;
 using SnakeAid.Core.Responses.UserFeedback;
 
 namespace SnakeAid.Service.Interfaces;
@@ -17,6 +18,6 @@ public interface IConsultationService
     Task<AdminConsultationResponse> GetConsultationByIdForAdminAsync(Guid consultationId);
     Task<PagingResponse<AdminConsultationResponse>> GetAllConsultationsForAdminAsync(AdminConsultationsQueryRequest query);
     Task<AdminConsultationResponse> ConfirmExpertAbsentHandledAsync(Guid consultationId);
-    Task<PagingResponse<MyConsultationResponse>> GetMyConsultationsAsync(Guid userId, MyConsultationsQueryRequest query);
-    Task<PagingResponse<ExpertConsultationResponse>> GetExpertConsultationsAsync(Guid expertId, MyConsultationsQueryRequest query);
+    Task<PagingResponse<MyConsultationHistoryUnionResponse>> GetMyConsultationsAsync(Guid userId, MyConsultationsQueryRequest query);
+    Task<PagingResponse<ExpertConsultationHistoryUnionResponse>> GetExpertConsultationsAsync(Guid expertId, MyConsultationsQueryRequest query);
 }

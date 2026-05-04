@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using SnakeAid.Core.Domains;
 using SnakeAid.Core.Requests.Consultation;
 using SnakeAid.Core.Responses.Consultation;
+using SnakeAid.Core.Responses.Consultation.History;
 using SnakeAid.Core.Responses.PayOs;
 using SnakeAid.Repository.Data;
 using SnakeAid.Repository.Implements;
@@ -75,7 +76,7 @@ public class ExpertConsultationPriceResponseTests : IDisposable
 
         var result = await _service.GetExpertConsultationsAsync(_expertId, query);
 
-        var item = Assert.Single(result.Items);
+        var item = Assert.Single(result.Items.OfType<ExpertConsultationHistoryResponse>());
         Assert.Equal("Scheduled", item.Type);
         Assert.Equal(_scheduledConsultationId, item.ConsultationId);
         Assert.Equal(ScheduledGrossPrice, item.GrossPrice);
@@ -91,7 +92,9 @@ public class ExpertConsultationPriceResponseTests : IDisposable
 
         var result = await _service.GetExpertConsultationsAsync(_expertId, query);
 
-        var items = result.Items.ToDictionary(item => item.EmergencyRequestId!.Value);
+        var items = result.Items
+            .OfType<ExpertConsultationHistoryResponse>()
+            .ToDictionary(item => item.EmergencyRequestId!.Value);
 
         Assert.Equal(2, items.Count);
         Assert.Equal(EmergencyGrossPrice, items[_pingRequest1Id].GrossPrice);

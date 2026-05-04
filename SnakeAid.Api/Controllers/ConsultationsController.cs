@@ -5,6 +5,7 @@ using SnakeAid.Core.Meta;
 using SnakeAid.Core.Domains;
 using SnakeAid.Core.Requests.Consultation;
 using SnakeAid.Core.Responses.Consultation;
+using SnakeAid.Core.Responses.Consultation.History;
 using SnakeAid.Core.Responses.UserFeedback;
 using SnakeAid.Service.Interfaces;
 
@@ -50,7 +51,7 @@ public class ConsultationsController : BaseController<ConsultationsController>
 
     [HttpGet("/api/users/me/consultations")]
     [Authorize(Roles = "User")]
-    public async Task<ActionResult<ApiResponse<PagingResponse<MyConsultationResponse>>>> GetMyConsultations([FromQuery] MyConsultationsQueryRequest query)
+    public async Task<ActionResult<ApiResponse<PagingResponse<MyConsultationHistoryUnionResponse>>>> GetMyConsultations([FromQuery] MyConsultationsQueryRequest query)
     {
         var userId = GetCurrentUserId();
         var result = await _consultationService.GetMyConsultationsAsync(userId, query);
