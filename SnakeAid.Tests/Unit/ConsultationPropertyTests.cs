@@ -36,13 +36,20 @@ public class ConsultationPropertyTests
         var now = DateTime.UtcNow;
         var bookings = GenerateRandomBookings(count, now);
 
+        var terminalDenylist = new[]
+        {
+            ConsultationStatus.Completed,
+            ConsultationStatus.ExpertAbsent,
+            ConsultationStatus.ExpertAbsentHandled
+        };
+
         // Apply the same predicate used in AutoCompleteElapsedScheduledConsultationsAsync
         var filtered = bookings.Where(b =>
             b.Status == BookingStatus.Confirmed
             && b.ConsultationId.HasValue
             && b.TimeSlot.EndTime <= now
             && b.Consultation != null
-            && b.Consultation.Status != ConsultationStatus.Completed).ToList();
+            && !terminalDenylist.Contains(b.Consultation.Status)).ToList();
 
         // Verify: every returned booking satisfies ALL conditions
         foreach (var b in filtered)
@@ -51,7 +58,7 @@ public class ConsultationPropertyTests
             Assert.NotNull(b.ConsultationId);
             Assert.True(b.TimeSlot.EndTime <= now);
             Assert.NotNull(b.Consultation);
-            Assert.NotEqual(ConsultationStatus.Completed, b.Consultation!.Status);
+            Assert.DoesNotContain(b.Consultation!.Status, terminalDenylist);
         }
 
         // Verify: no eligible booking was missed
@@ -60,7 +67,7 @@ public class ConsultationPropertyTests
             && b.ConsultationId.HasValue
             && b.TimeSlot.EndTime <= now
             && b.Consultation != null
-            && b.Consultation.Status != ConsultationStatus.Completed
+            && !terminalDenylist.Contains(b.Consultation.Status)
             && !filtered.Contains(b)).ToList();
 
         Assert.Empty(missed);
@@ -399,7 +406,13 @@ public class ConsultationPropertyTests
         GenerateExpertConsultationData(Guid expertId, int scheduledCount, int emergencyCount)
     {
         var random = new System.Random();
-        var consultationStatuses = new[] { ConsultationStatus.Ongoing, ConsultationStatus.Completed };
+        var consultationStatuses = new[]
+        {
+            ConsultationStatus.Ongoing,
+            ConsultationStatus.Completed,
+            ConsultationStatus.ExpertAbsent,
+            ConsultationStatus.ExpertAbsentHandled
+        };
         var bookings = new List<ConsultationBooking>();
         var pings = new List<ConsultationPingRequest>();
 

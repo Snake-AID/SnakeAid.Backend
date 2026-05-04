@@ -7,6 +7,7 @@ using NetTopologySuite;
 using NetTopologySuite.Geometries;
 using SnakeAid.Core.Constants;
 using SnakeAid.Core.Domains;
+using SnakeAid.Core.Messages.Notifications;
 using SnakeAid.Core.Meta;
 using SnakeAid.Core.Requests.Notification;
 using SnakeAid.Core.Requests.RescueMission;
@@ -298,7 +299,8 @@ public class SnakebiteAndMissionFlowIntegrationTests
             new RecordingOperatorRealtimeNotificationService(),
             new RecordingRescueNotificationService(),
             new RecordingMissionNotificationService(),
-            new NoopSnakeRescueMissionService());
+            new NoopSnakeRescueMissionService(),
+            new NoopNotificationQueueService());
 
         var result = await incidentService.GetAdminIncidentsAsync(
             statuses: null,
@@ -361,7 +363,8 @@ public class SnakebiteAndMissionFlowIntegrationTests
             new RecordingOperatorRealtimeNotificationService(),
             new RecordingRescueNotificationService(),
             new RecordingMissionNotificationService(),
-            new NoopSnakeRescueMissionService());
+            new NoopSnakeRescueMissionService(),
+            new NoopNotificationQueueService());
 
         var result = await incidentService.GetAdminIncidentsAsync(
             statuses: new[] { SnakebiteIncidentStatus.Verified, SnakebiteIncidentStatus.Assigned },
@@ -406,7 +409,8 @@ public class SnakebiteAndMissionFlowIntegrationTests
             new RecordingOperatorRealtimeNotificationService(),
             new RecordingRescueNotificationService(),
             new RecordingMissionNotificationService(),
-            new NoopSnakeRescueMissionService());
+            new NoopSnakeRescueMissionService(),
+            new NoopNotificationQueueService());
 
         var page1 = await incidentService.GetAdminIncidentsAsync(
             statuses: null,
@@ -741,7 +745,8 @@ public class SnakebiteAndMissionFlowIntegrationTests
             operatorNotifications,
             rescueNotifications,
             missionNotifications,
-            new NoopSnakeRescueMissionService());
+            new NoopSnakeRescueMissionService(),
+            new NoopNotificationQueueService());
     }
 
     private static SnakeAidDbContext CreateDbContext()
@@ -1112,7 +1117,15 @@ public class SnakebiteAndMissionFlowIntegrationTests
         public Task<DetailRescueMissionResponse> GetMissionDetailAsync(Guid missionId, double? rescuerLat, double? rescuerLng) => throw new NotImplementedException();
         public Task<HospitalTransferPricingResponse> ReportHospitalTransferAsync(Guid missionId, Guid rescuerId, ReportHospitalTransferRequest request) => throw new NotImplementedException();
         public Task<PagedData<AdminRescueMissionSummaryResponse>> GetAdminMissionListAsync(IEnumerable<RescueMissionStatus>? statuses, DateTimeOffset? since, DateTimeOffset? until, int page, int pageSize) => throw new NotImplementedException();
+        public Task<bool> ReportNoNeedHospitalTransferAsync(Guid missionId, Guid rescuerId, string? notes) => throw new NotImplementedException();
 
         public Task<ICollection<ListRescueMissionResponse>> GetRescuerMissionListAsync(Guid rescuerId, RescueMissionStatus? status) => throw new NotImplementedException();
+    }
+
+    private sealed class NoopNotificationQueueService : INotificationQueueService
+    {
+        public Task PublishAsync(NotificationMessage message, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task PublishBulkAsync(IEnumerable<NotificationMessage> messages, IEnumerable<AppNotification> appNotifications, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task<int> BroadcastAsync(AdminBroadcastNotificationRequest request, CancellationToken cancellationToken = default) => Task.FromResult(0);
     }
 }
