@@ -5,6 +5,7 @@ using SnakeAid.Core.Meta;
 using SnakeAid.Core.Requests.Expert;
 using SnakeAid.Core.Requests.Consultation;
 using SnakeAid.Core.Responses.Consultation;
+using SnakeAid.Core.Responses.Consultation.History;
 using SnakeAid.Core.Responses.Expert;
 using SnakeAid.Core.Responses.UserFeedback;
 using SnakeAid.Service.Interfaces;
@@ -61,7 +62,7 @@ namespace SnakeAid.Api.Controllers
         /// </summary>
         [HttpGet("me/consultations")]
         [Authorize(Roles = "Expert")]
-        public async Task<ActionResult<ApiResponse<PagingResponse<ExpertConsultationResponse>>>> GetMyConsultations(
+        public async Task<ActionResult<ApiResponse<PagingResponse<ExpertConsultationHistoryUnionResponse>>>> GetMyConsultations(
             [FromQuery] MyConsultationsQueryRequest query)
         {
             var userIdStr = User.FindFirstValue(ClaimTypes.NameIdentifier);

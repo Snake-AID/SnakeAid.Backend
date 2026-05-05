@@ -6,6 +6,7 @@ using SnakeAid.Core.Domains;
 using SnakeAid.Core.Meta;
 using SnakeAid.Core.Requests.Consultation;
 using SnakeAid.Core.Responses.Consultation;
+using SnakeAid.Core.Responses.Consultation.History;
 using SnakeAid.Repository.Data;
 using SnakeAid.Repository.Interfaces;
 using SnakeAid.Service.Implements;
@@ -169,7 +170,7 @@ public class ConsultationPropertyTests
 
         var result = service.GetExpertConsultationsAsync(expertId, query).GetAwaiter().GetResult();
 
-        foreach (var item in result.Items)
+        foreach (var item in result.Items.OfType<ExpertConsultationHistoryResponse>())
         {
             if (filterByStatus && item.Status != "Completed")
                 return false;
@@ -245,7 +246,7 @@ public class ConsultationPropertyTests
         var query = new MyConsultationsQueryRequest { PageNumber = 1, PageSize = 100 };
         var result = service.GetExpertConsultationsAsync(expertId, query).GetAwaiter().GetResult();
 
-        foreach (var item in result.Items)
+        foreach (var item in result.Items.OfType<ExpertConsultationHistoryResponse>())
         {
             // Common fields always present
             if (item.ConsultationId == Guid.Empty) return false;
@@ -303,7 +304,7 @@ public class ConsultationPropertyTests
         var query = new MyConsultationsQueryRequest { PageNumber = 1, PageSize = 100 };
         var result = service.GetExpertConsultationsAsync(expertId, query).GetAwaiter().GetResult();
 
-        var items = result.Items.ToList();
+        var items = result.Items.OfType<ExpertConsultationHistoryResponse>().ToList();
         for (var i = 0; i < items.Count - 1; i++)
         {
             var current = items[i].StartTime ?? DateTime.MinValue;

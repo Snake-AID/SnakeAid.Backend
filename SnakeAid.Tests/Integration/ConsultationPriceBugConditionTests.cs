@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using SnakeAid.Core.Domains;
 using SnakeAid.Core.Requests.Consultation;
 using SnakeAid.Core.Responses.Consultation;
+using SnakeAid.Core.Responses.Consultation.History;
 using SnakeAid.Core.Responses.PayOs;
 using SnakeAid.Repository.Data;
 using SnakeAid.Repository.Implements;
@@ -133,7 +134,9 @@ public class ConsultationPriceBugConditionTests
         var result = await service.GetMyConsultationsAsync(userId, query);
 
         // Assert
-        var emergencyConsultation = result.Items.FirstOrDefault(c => c.Type == "Emergency");
+        var emergencyConsultation = result.Items
+            .OfType<MyConsultationHistoryResponse>()
+            .FirstOrDefault(c => c.Type == "Emergency");
         Assert.NotNull(emergencyConsultation);
         Assert.Equal(pingRequestId, emergencyConsultation.EmergencyRequestId);
 
@@ -234,7 +237,7 @@ public class ConsultationPriceBugConditionTests
 
         var result = await service.GetMyConsultationsAsync(userId, query);
 
-        var scheduledConsultation = Assert.Single(result.Items);
+        var scheduledConsultation = Assert.Single(result.Items.OfType<MyConsultationHistoryResponse>());
         Assert.Equal(consultationId, scheduledConsultation.ConsultationId);
         Assert.Equal(expertAvatarUrl, scheduledConsultation.ExpertAvatarUrl);
     }
