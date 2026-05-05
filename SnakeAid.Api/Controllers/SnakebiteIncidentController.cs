@@ -329,6 +329,23 @@ namespace SnakeAid.Api.Controllers
         }
 
         /// <summary>
+        /// Operator confirms handover to a hospital when no center rescuer can take the case
+        /// </summary>
+        [HttpPost("{incidentId}/handover-hospital")]
+        [SwaggerOperation(Summary = "Handover Incident to Hospital", Description = "Mark the incident as NoRescuerFound after operator contacts a nearby hospital and hands over the case.")]
+        [SwaggerResponse(200, "Incident handed over to hospital", typeof(ApiResponse<CreateIncidentResponse>))]
+        [SwaggerResponse(404, "Incident not found")]
+        [SwaggerResponse(409, "Incident updated by another operator")]
+        [Authorize(Roles = "Operator")]
+        [ValidateModel]
+        public async Task<IActionResult> HandoverIncidentToHospital(Guid incidentId, [FromBody] HandoverToHospitalRequest request)
+        {
+            var operatorId = GetCurrentUserId();
+            var result = await _incidentService.HandoverIncidentToHospitalAsync(incidentId, operatorId, request);
+            return Ok(ApiResponseBuilder.BuildSuccessResponse(result, "Incident handed over to hospital."));
+        }
+
+        /// <summary>
         /// Operator dispatches an incident to a rescuer
         /// </summary>
         [HttpPost("{incidentId}/dispatch")]

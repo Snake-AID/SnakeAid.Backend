@@ -13,5 +13,7 @@ namespace SnakeAid.Service.Interfaces
         Task NotifyMissionCompletedAsync(Guid incidentId, Guid memberUserId, Guid rescuerUserId, MissionCompletedNotificationPayload result);
         Task NotifyMissionCancelledAsync(Guid incidentId, Guid rescuerUserId, string reason);
         Task NotifyMissionAbortedAsync(Guid incidentId, Guid memberUserId, Guid rescuerUserId, string? rescuerName, string reason);
+        Task NotifyIncidentFalseAlarmAsync(Guid incidentId, Guid memberUserId, string? reason);
+        Task NotifyHospitalHandoverAcceptedAsync(Guid incidentId, Guid memberUserId, string hospitalName, string? hospitalPhone, string? operatorNote);
     }
 }

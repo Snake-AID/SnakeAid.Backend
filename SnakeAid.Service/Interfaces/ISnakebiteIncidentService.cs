@@ -26,6 +26,8 @@ namespace SnakeAid.Service.Interfaces
 
         Task<CreateIncidentResponse> ReportIncidentNoAnswerAsync(Guid incidentId, Guid operatorId, bool continueCalling, string? note);
 
+        Task<CreateIncidentResponse> HandoverIncidentToHospitalAsync(Guid incidentId, Guid operatorId, HandoverToHospitalRequest request);
+
         Task<AcceptRescueResponse> AcceptDispatchRequestAsync(Guid requestId, Guid rescuerId);
 
         Task<RejectRescueResponse> DeclineDispatchRequestAsync(Guid requestId, Guid rescuerId, string? reason);

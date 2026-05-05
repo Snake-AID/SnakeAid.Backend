@@ -136,6 +136,7 @@ namespace SnakeAid.Service.Implements
         {
             try
             {
+                Guid memberUserId = Guid.Empty;
                 var response = await _unitOfWork.ExecuteInTransactionAsync(async () =>
                 {
                     var incident = await _unitOfWork.GetRepository<SnakebiteIncident>().FirstOrDefaultAsync(
@@ -147,10 +148,17 @@ namespace SnakeAid.Service.Implements
                         throw new NotFoundException("Snakebite incident not found.");
                     }
 
-                    if (incident.HandlingOperatorId != operatorId)
+                    if (incident.HandlingOperatorId.HasValue && incident.HandlingOperatorId != operatorId)
                     {
                         throw new ConflictException("Incident is being handled by another operator.");
                     }
+
+                    if (!incident.HandlingOperatorId.HasValue)
+                    {
+                        incident.HandlingOperatorId = operatorId;
+                    }
+
+                    memberUserId = incident.UserId;
 
                     incident.Status = SnakebiteIncidentStatus.FalseAlarm;
                     incident.OperatorNotes = string.IsNullOrWhiteSpace(incident.OperatorNotes)
@@ -163,6 +171,11 @@ namespace SnakeAid.Service.Implements
                 });
 
                 await _operatorRealtimeNotificationService.NotifyIncidentFalseAlarmAsync(incidentId, operatorId, reason);
+
+                if (memberUserId != Guid.Empty)
+                {
+                    await _missionNotificationService.NotifyIncidentFalseAlarmAsync(incidentId, memberUserId, reason);
+                }
 
                 return response;
             }
@@ -231,6 +244,133 @@ namespace SnakeAid.Service.Implements
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error reporting no-answer for incident {IncidentId}: {Message}", incidentId, ex.Message);
+                throw;
+            }
+        }
+
+        public async Task<CreateIncidentResponse> HandoverIncidentToHospitalAsync(Guid incidentId, Guid operatorId, HandoverToHospitalRequest request)
+        {
+            var cancelPendingNotifies = new List<(string RescuerId, Guid RequestId)>();
+            Guid memberUserId = Guid.Empty;
+            string hospitalName = string.Empty;
+            string? hospitalPhone = null;
+            string? operatorHandoverNote = null;
+
+            try
+            {
+                var response = await _unitOfWork.ExecuteInTransactionAsync(async () =>
+                {
+                    var incident = await _unitOfWork.GetRepository<SnakebiteIncident>().FirstOrDefaultAsync(
+                        predicate: i => i.Id == incidentId
+                    );
+
+                    if (incident == null)
+                    {
+                        throw new NotFoundException("Snakebite incident not found.");
+                    }
+
+                    if (incident.HandlingOperatorId != operatorId)
+                    {
+                        throw new ConflictException("Incident is being handled by another operator.");
+                    }
+
+                    if (incident.Status != SnakebiteIncidentStatus.Pending && incident.Status != SnakebiteIncidentStatus.Verified)
+                    {
+                        throw new BadRequestException($"Cannot hand over incident with status: {incident.Status}");
+                    }
+
+                    memberUserId = incident.UserId;
+
+                    var inProgressMission = await _unitOfWork.GetRepository<RescueMission>().CreateBaseQuery(asNoTracking: true)
+                        .AnyAsync(m => m.IncidentId == incidentId
+                                       && (m.Status == RescueMissionStatus.Preparing
+                                           || m.Status == RescueMissionStatus.EnRoute
+                                           || m.Status == RescueMissionStatus.RescuerArrived));
+
+                    if (inProgressMission)
+                    {
+                        throw new BadRequestException("Cannot hand over to hospital while there is an active rescue mission.");
+                    }
+
+                    var pendingRequests = await _unitOfWork.GetRepository<RescuerRequest>().GetListAsync(
+                        predicate: r => r.IncidentId == incidentId && r.Status == RescueRequestStatus.Pending);
+
+                    foreach (var pending in pendingRequests)
+                    {
+                        pending.Status = RescueRequestStatus.Cancelled;
+                        pending.ResponseAt = DateTime.UtcNow;
+                        pending.DeclineReason = DispatchRequestCancelReasonCodes.CancelledByOperator;
+                        _unitOfWork.GetRepository<RescuerRequest>().Update(pending);
+                        cancelPendingNotifies.Add((pending.RescuerId.ToString(), pending.Id));
+                    }
+
+                    var reasonSummary = $"Chuyển ca cho bệnh viện: {request.HospitalName.Trim()}";
+                    if (!string.IsNullOrWhiteSpace(request.HospitalPhone))
+                    {
+                        reasonSummary += $" ({request.HospitalPhone.Trim()})";
+                    }
+
+                    hospitalName = request.HospitalName.Trim();
+                    hospitalPhone = string.IsNullOrWhiteSpace(request.HospitalPhone) ? null : request.HospitalPhone.Trim();
+
+                    incident.Status = SnakebiteIncidentStatus.NoRescuerFound;
+                    incident.CancellationReason = reasonSummary.Length > 500 ? reasonSummary[..500] : reasonSummary;
+                    incident.AssignedRescuerId = null;
+                    incident.AssignedAt = null;
+                    incident.DispatchedAt = null;
+
+                    var operatorNote = $"Đã chuyển ca cho bệnh viện: {request.HospitalName.Trim()}";
+                    if (!string.IsNullOrWhiteSpace(request.HospitalPhone))
+                    {
+                        operatorNote += $", SĐT: {request.HospitalPhone.Trim()}";
+                    }
+                    if (!string.IsNullOrWhiteSpace(request.Note))
+                    {
+                        operatorNote += $", Ghi chú: {request.Note.Trim()}";
+                    }
+
+                    operatorHandoverNote = request.Note?.Trim();
+
+                    incident.OperatorNotes = string.IsNullOrWhiteSpace(incident.OperatorNotes)
+                        ? operatorNote
+                        : string.Join("\n", incident.OperatorNotes, operatorNote);
+
+                    _unitOfWork.GetRepository<SnakebiteIncident>().Update(incident);
+                    return incident.Adapt<CreateIncidentResponse>();
+                });
+
+                foreach (var (rescuerId, requestId) in cancelPendingNotifies)
+                {
+                    await _rescueNotificationService.NotifyRequestCancelledAsync(
+                        rescuerId,
+                        requestId,
+                        DispatchRequestCancelReasonCodes.CancelledByOperator);
+                }
+
+                await _operatorRealtimeNotificationService.NotifyIncidentCancelledAsync(
+                    incidentId,
+                    "Chuyển ca cho bệnh viện");
+
+                if (memberUserId != Guid.Empty)
+                {
+                    await _missionNotificationService.NotifyHospitalHandoverAcceptedAsync(
+                        incidentId,
+                        memberUserId,
+                        hospitalName,
+                        hospitalPhone,
+                        operatorHandoverNote);
+                }
+
+                return response;
+            }
+            catch (DbUpdateConcurrencyException ex)
+            {
+                _logger.LogWarning(ex, "Concurrency conflict while handing over incident {IncidentId} to hospital", incidentId);
+                throw new ConflictException("Incident was updated by another operator. Please refresh and try again.");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error handing over incident {IncidentId} to hospital: {Message}", incidentId, ex.Message);
                 throw;
             }
         }

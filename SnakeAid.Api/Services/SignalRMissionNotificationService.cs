@@ -146,6 +146,60 @@ namespace SnakeAid.Api.Services
                 });
             }, "MissionAborted", incidentId);
 
+        public async Task NotifyIncidentFalseAlarmAsync(Guid incidentId, Guid memberUserId, string? reason)
+            => await SafeExecuteAsync(async () =>
+            {
+                await _hubContext.Clients.Group(incidentId.ToString()).SendAsync("IncidentFalseAlarm", new
+                {
+                    IncidentId = incidentId,
+                    Reason = reason,
+                    UpdatedAt = DateTime.UtcNow
+                });
+
+                await _notificationQueueService.PublishAsync(new NotificationMessage
+                {
+                    UserId = memberUserId,
+                    Title = "Sự cố được xác nhận là báo động giả",
+                    Body = string.IsNullOrWhiteSpace(reason)
+                        ? "Điều phối viên đã xác nhận đây là báo động giả. Ca SOS đã được đóng."
+                        : $"Điều phối viên đã xác nhận đây là báo động giả. Lý do: {reason}",
+                    Type = "SNAKE_RESCUE_INCIDENT_FALSE_ALARM",
+                    Data = BuildEntityData(incidentId)
+                });
+            }, "IncidentFalseAlarm", incidentId);
+
+        public async Task NotifyHospitalHandoverAcceptedAsync(Guid incidentId, Guid memberUserId, string hospitalName, string? hospitalPhone, string? operatorNote)
+            => await SafeExecuteAsync(async () =>
+            {
+                await _hubContext.Clients.Group(incidentId.ToString()).SendAsync("HospitalHandoverAccepted", new
+                {
+                    IncidentId = incidentId,
+                    HospitalName = hospitalName,
+                    HospitalPhone = hospitalPhone,
+                    OperatorNote = operatorNote,
+                    SuggestedClientAction = "close_tracking_or_show_toast",
+                    UpdatedAt = DateTime.UtcNow
+                });
+
+                var body = !string.IsNullOrWhiteSpace(hospitalPhone)
+                    ? $"Điều phối viên đã chuyển ca của bạn cho {hospitalName} ({hospitalPhone})."
+                    : $"Điều phối viên đã chuyển ca của bạn cho {hospitalName}.";
+
+                if (!string.IsNullOrWhiteSpace(operatorNote))
+                {
+                    body = $"{body} Ghi chú: {operatorNote}";
+                }
+
+                await _notificationQueueService.PublishAsync(new NotificationMessage
+                {
+                    UserId = memberUserId,
+                    Title = "Bệnh viện đã tiếp nhận ca",
+                    Body = body,
+                    Type = "SNAKE_RESCUE_HANDOVER_TO_HOSPITAL",
+                    Data = BuildEntityData(incidentId)
+                });
+            }, "HospitalHandoverAccepted", incidentId);
+
         private static Dictionary<string, string> BuildEntityData(Guid incidentId, Guid? missionId = null)
         {
             var data = new Dictionary<string, string>
