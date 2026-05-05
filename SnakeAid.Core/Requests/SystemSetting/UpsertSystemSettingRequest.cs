@@ -6,7 +6,7 @@ namespace SnakeAid.Core.Requests.SystemSetting;
 public class UpsertSystemSettingRequest
 {
     [Required]
-    [MaxLength(2000)]
+    [MaxLength(10000)]
     public string Value { get; set; } = string.Empty;
 
     [Required]
