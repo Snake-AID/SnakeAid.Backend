@@ -1194,11 +1194,20 @@ namespace SnakeAid.Service.Implements
                             predicate: s => s.Id == existingIncident.IdentifiedSnakeSpeciesId.Value
                         );
 
-                        var snakeSeverity = identifiedSnake != null
-                            ? (int)(identifiedSnake.RiskLevel * 10)
-                            : existingIncident.SeverityLevel ?? 0;
+                        if (identifiedSnake == null)
+                        {
+                            _logger.LogWarning(
+                                "Identified snake species {SpeciesId} not found for incident {IncidentId}. Falling back to symptom severity.",
+                                existingIncident.IdentifiedSnakeSpeciesId,
+                                incidentId);
 
-                        severityLevel = Math.Max(snakeSeverity, symptomSeverity);
+                            severityLevel = symptomSeverity;
+                        }
+                        else
+                        {
+                            var snakeSeverity = (int)(identifiedSnake.RiskLevel * 10);
+                            severityLevel = Math.Max(snakeSeverity, symptomSeverity);
+                        }
                     }
 
                     // Update symptom report and severity level
