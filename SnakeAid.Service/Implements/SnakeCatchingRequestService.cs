@@ -471,9 +471,9 @@ namespace SnakeAid.Service.Implements
                 }
 
                 // Check if rescuer is online
-                if (!existingAccount.RescuerProfile.IsOnline && existingAccount.RescuerProfile.IsAvailable)
+                if (!existingAccount.RescuerProfile.IsOnline || !existingAccount.RescuerProfile.IsAvailable)
                 {
-                    throw new BadRequestException("Rescuer must be online to accept requests.");
+                    throw new BadRequestException("Rescuer is currently offline or unavailable.");
                 }
 
                 // Step 2: Start transaction for DB operations ONLY
@@ -535,6 +535,17 @@ namespace SnakeAid.Service.Implements
                     };
 
                     await _unitOfWork.GetRepository<SnakeCatchingMission>().InsertAsync(newMission);
+
+                    var rescuerProfile = await _unitOfWork.GetRepository<RescuerProfile>().FirstOrDefaultAsync(
+                        predicate: r => r.AccountId == request.rescuerId,
+                        asNoTracking: false);
+
+                    if (rescuerProfile != null)
+                    {
+                        rescuerProfile.IsAvailable = false;
+                        _unitOfWork.GetRepository<RescuerProfile>().Update(rescuerProfile);
+                    }
+
                     await _unitOfWork.CommitAsync();
 
                     // Reload the request with all navigation properties for response
