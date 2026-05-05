@@ -202,15 +202,6 @@ namespace SnakeAid.Api.Hubs
 
                 await Clients.Caller.SendAsync("RequestDeclined", response);
 
-                // Notify operators (dashboard) about decline
-                await Clients.Group(OperatorGroup).SendAsync("RescuerDeclined", new
-                {
-                    RequestId = response.RequestId,
-                    RescuerId = rescuerId,
-                    Reason = response.Message,
-                    DeclinedAt = response.RejectedAt
-                });
-
                 _logger.LogInformation("Rescuer {RescuerId} declined dispatch request {RequestId}", rescuerId, requestId);
             }
             catch (Exception ex)

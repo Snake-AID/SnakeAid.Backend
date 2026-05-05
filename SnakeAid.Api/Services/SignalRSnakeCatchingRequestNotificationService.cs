@@ -129,7 +129,8 @@ namespace SnakeAid.Api.Services
                     AssignedAt = assignedAt,
                     AssignedRescuerId = assignedRescuerId,
                     AssignedRescuerName = assignedRescuerName,
-                    AssignedRescuerPhone = assignedRescuerPhone
+                    AssignedRescuerPhone = assignedRescuerPhone,
+                    IsAvailable = assignedRescuerId.HasValue ? false : (bool?)null
                 };
 
                 await _hubContext.Clients.Group(OperatorGroup).SendAsync("SnakeCatchingRequestAssigned", newResponse);

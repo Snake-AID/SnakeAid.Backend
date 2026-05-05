@@ -298,14 +298,9 @@ namespace SnakeAid.Service.Implements
                         throw new BadRequestException("Rescuer already aborted this incident and is excluded from re-dispatch.");
                     }
 
-                    if (!rescuer.IsOnline)
+                    if (!rescuer.IsOnline || !rescuer.IsAvailable)
                     {
-                        throw new BadRequestException("Rescuer is currently offline.");
-                    }
-
-                    if (!rescuer.IsAvailable)
-                    {
-                        throw new BadRequestException("Rescuer is currently unavailable.");
+                        throw new BadRequestException("Rescuer is currently offline or unavailable.");
                     }
 
                     var nowLocal = AppTime.NowLocal;
@@ -352,6 +347,10 @@ namespace SnakeAid.Service.Implements
                     };
 
                     await _unitOfWork.GetRepository<RescuerRequest>().InsertAsync(dispatchRequest);
+
+                    // Lock rescuer availability while the dispatch is pending.
+                    rescuer.IsAvailable = false;
+                    _unitOfWork.GetRepository<RescuerProfile>().Update(rescuer);
 
                     // Keep incident in Verified until rescuer acknowledges the dispatch.
                     incident.Status = SnakebiteIncidentStatus.Verified;
@@ -612,6 +611,16 @@ namespace SnakeAid.Service.Implements
                     if (incident.Status == SnakebiteIncidentStatus.Verified)
                     {
                         _unitOfWork.GetRepository<SnakebiteIncident>().Update(incident);
+                    }
+
+                    var rescuerProfile = await _unitOfWork.GetRepository<RescuerProfile>().FirstOrDefaultAsync(
+                        predicate: r => r.AccountId == request.RescuerId,
+                        asNoTracking: false);
+
+                    if (rescuerProfile != null)
+                    {
+                        rescuerProfile.IsAvailable = true;
+                        _unitOfWork.GetRepository<RescuerProfile>().Update(rescuerProfile);
                     }
 
                     var response = new RejectRescueResponse

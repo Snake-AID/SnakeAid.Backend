@@ -88,6 +88,7 @@ namespace SnakeAid.Api.Services
                     IncidentId = incidentId,
                     RescuerId = rescuerId,
                     OperatorId = operatorId,
+                    IsAvailable = false,
                     RequestedAt = DateTime.UtcNow
                 });
 
@@ -192,7 +193,7 @@ namespace SnakeAid.Api.Services
                     IncidentId = incidentId,
                     RescuerId = rescuerId,
                     Reason = reason,
-                    UpdatedAt = DateTime.UtcNow
+                    DeclinedAt = DateTime.UtcNow
                 });
 
                 _logger.LogInformation("Broadcasted RescuerDeclined for {IncidentId} to operator group", incidentId);
