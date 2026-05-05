@@ -6,6 +6,8 @@ public static class SystemSettingKeys
     public const string RescuePricePerKmDefault = "Rescue:PricePerKmDefault";
 
     public const string CatchingBasePrice = "Catching:BasePrice";
+    public const string CatchingVenomSnakePrice = "Catching:VenomSnakePrice";
+    public const string CatchingNonVenomSnakePrice = "Catching:NonVenomSnakePrice";
     public const string CatchingAdditionalSnakePrice = "Catching:AdditionalSnakePrice";
     public const string CatchingFallbackEstimatedPrice = "Catching:FallbackEstimatedPrice";
     public const string CatchingPricePerKilomenter = "Catching:PricePerKilomenter";

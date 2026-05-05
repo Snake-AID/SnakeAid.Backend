@@ -12,7 +12,7 @@ namespace SnakeAid.Api.Controllers
 {
     [Route("api/catchingmission/details")]
     [ApiController]
-    [Authorize]
+    [Authorize(Roles = "Rescuer")]
     public class CatchingMissionDetailController : BaseController<CatchingMissionDetailController>
     {
         private readonly ICatchingMissionDetailService _catchingMissionDetailService;

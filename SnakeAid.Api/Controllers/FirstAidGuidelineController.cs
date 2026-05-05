@@ -33,6 +33,7 @@ namespace SnakeAid.Api.Controllers
         /// Create a new first aid guideline
         /// </summary>
         [HttpPost]
+        [Authorize(Roles = "Admin")]
         [ValidateModel]
         [SwaggerOperation(Summary = "Create First Aid Guideline", Description = "Create a new first aid guideline (Admin only)")]
         [SwaggerResponse(200, "Created successfully", typeof(ApiResponse<FirstAidGuidelineResponse>))]
@@ -49,6 +50,7 @@ namespace SnakeAid.Api.Controllers
         /// Get first aid guideline by ID
         /// </summary>
         [HttpGet("{id}")]
+        [Authorize]
         [SwaggerOperation(Summary = "Get First Aid Guideline by ID", Description = "Get detailed information of a first aid guideline")]
         [SwaggerResponse(200, "Success", typeof(ApiResponse<FirstAidGuidelineResponse>))]
         [SwaggerResponse(404, "Guideline not found")]
@@ -62,6 +64,7 @@ namespace SnakeAid.Api.Controllers
         /// Get list of first aid guidelines with pagination and filters
         /// </summary>
         [HttpGet("filter")]
+        [Authorize]
         [SwaggerOperation(Summary = "Filter First Aid Guidelines", Description = "Get paginated list of first aid guidelines with optional filters")]
         [SwaggerResponse(200, "Success", typeof(ApiResponse<PagedData<FirstAidGuidelineResponse>>))]
         public async Task<IActionResult> FilterFirstAidGuidelines([FromQuery] GetFirstAidGuidelineRequest request)
@@ -74,6 +77,7 @@ namespace SnakeAid.Api.Controllers
         /// Get all first aid guidelines without pagination
         /// </summary>
         [HttpGet]
+        [Authorize]
         [SwaggerOperation(Summary = "Get All First Aid Guidelines", Description = "Get all first aid guidelines without pagination")]
         [SwaggerResponse(200, "Success", typeof(ApiResponse<List<FirstAidGuidelineResponse>>))]
         public async Task<IActionResult> GetAllFirstAidGuideline()
@@ -86,6 +90,7 @@ namespace SnakeAid.Api.Controllers
         /// Get first aid guidelines by snake species ID
         /// </summary>
         [HttpGet("by-snake-species/{snakeSpeciesId}")]
+        [Authorize]
         [SwaggerOperation(Summary = "Get First Aid Guidelines by Snake Species", Description = "Get first aid guidelines based on the venom types of a specific snake species")]
         [SwaggerResponse(200, "Success", typeof(ApiResponse<List<FirstAidGuidelineResponse>>))]
         [SwaggerResponse(404, "Snake species not found")]
@@ -99,6 +104,7 @@ namespace SnakeAid.Api.Controllers
         /// Update an existing first aid guideline
         /// </summary>
         [HttpPut("{id}")]
+        [Authorize(Roles = "Admin")]
         [ValidateModel]
         [SwaggerOperation(Summary = "Update First Aid Guideline", Description = "Update an existing first aid guideline (Admin only)")]
         [SwaggerResponse(200, "Updated successfully", typeof(ApiResponse<FirstAidGuidelineResponse>))]
@@ -116,6 +122,7 @@ namespace SnakeAid.Api.Controllers
         /// Delete a first aid guideline
         /// </summary>
         [HttpDelete("{id}")]
+        [Authorize(Roles = "Admin")]
         [SwaggerOperation(Summary = "Delete First Aid Guideline", Description = "Delete a first aid guideline (Admin only)")]
         [SwaggerResponse(200, "Deleted successfully", typeof(ApiResponse<bool>))]
         [SwaggerResponse(401, "Unauthorized")]
@@ -131,6 +138,7 @@ namespace SnakeAid.Api.Controllers
         /// Get recommended first aid guideline for a snakebite incident
         /// </summary>
         [HttpGet("recommendation/incident/{incidentId}")]
+        [Authorize]
         [SwaggerOperation(Summary = "Get Recommendation for Incident", Description = "Get the recommended first aid guideline for a specific snakebite incident based on identified snake")]
         [SwaggerResponse(200, "Success", typeof(ApiResponse<Core.Responses.FirstAid.FirstAidRecommendationResponse>))]
         [SwaggerResponse(404, "Incident not found")]
@@ -144,6 +152,7 @@ namespace SnakeAid.Api.Controllers
         /// Get first aid guideline recommendation for a specific snake species
         /// </summary>
         [HttpGet("recommendation/species/{snakeSpeciesId}")]
+        [Authorize]
         [SwaggerOperation(Summary = "Get Recommendation for Species", Description = "Get the first aid guideline recommendation for a specific snake species")]
         [SwaggerResponse(200, "Success", typeof(ApiResponse<Core.Responses.FirstAid.FirstAidRecommendationResponse>))]
         [SwaggerResponse(404, "Snake species not found")]
@@ -157,6 +166,7 @@ namespace SnakeAid.Api.Controllers
         /// Get general first aid guideline for snake bites (when snake is not identified)
         /// </summary>
         [HttpGet("recommendation/general")]
+        [Authorize]
         [SwaggerOperation(Summary = "Get General Recommendation", Description = "Get general first aid guideline for snake bites when the snake species is not identified")]
         [SwaggerResponse(200, "Success", typeof(ApiResponse<Core.Responses.FirstAid.FirstAidRecommendationResponse>))]
         public async Task<IActionResult> GetGeneralRecommendation()

@@ -13,7 +13,7 @@ namespace SnakeAid.Core.Domains
         public string SettingKey { get; set; }
 
         [Required]
-        [MaxLength(2000)]
+        [MaxLength(10000)]
         public string Value { get; set; }
 
         [MaxLength(500)]

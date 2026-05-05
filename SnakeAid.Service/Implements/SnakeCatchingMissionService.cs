@@ -31,7 +31,9 @@ namespace SnakeAid.Service.Implements
         private readonly ISnakeCatchingRequestNotificationService _snakeCatchingRequestNotificationService;
 
         private const decimal CATCHING_BASE_PRICE = 4000;
-        private const decimal ADDITIONAL_SNAKE_PRICE = 1000;
+        private const decimal VENOM_SNAKE_PRICE = 100000;
+        private const decimal NONVENOM_SNAKE_PRICE = 50000;
+
 
         public SnakeCatchingMissionService(
             IUnitOfWork<SnakeAidDbContext> unitOfWork,
@@ -59,6 +61,16 @@ namespace SnakeAid.Service.Implements
             {
                 _logger.LogError(ex, "Notification failed during {OperationName}: {Message}", operationName, ex.Message);
             }
+        }
+
+        private static decimal GetSnakeUnitPrice(
+            CatchingMissionDetail detail,
+            decimal venomSnakePrice,
+            decimal nonVenomSnakePrice)
+        {
+            return detail.SnakeSpecies?.IsVenomous == true
+                ? venomSnakePrice
+                : nonVenomSnakePrice;
         }
 
         public async Task<SnakeCatchingMissionDetailResponse> StartMissionAsync(
@@ -219,7 +231,8 @@ namespace SnakeAid.Service.Implements
             try
             {
                 var basePrice = _systemSettingService.GetSetting(SystemSettingKeys.CatchingBasePrice, CATCHING_BASE_PRICE);
-                var additionalSnakePrice = _systemSettingService.GetSetting(SystemSettingKeys.CatchingAdditionalSnakePrice, ADDITIONAL_SNAKE_PRICE);
+                var venomSnakePrice = _systemSettingService.GetSetting(SystemSettingKeys.CatchingVenomSnakePrice, VENOM_SNAKE_PRICE);
+                var nonVenomSnakePrice = _systemSettingService.GetSetting(SystemSettingKeys.CatchingNonVenomSnakePrice, NONVENOM_SNAKE_PRICE);
 
                 var (response, requestId, memberUserId, rescuerName, actualCost) = await _unitOfWork.ExecuteInTransactionAsync(async () =>
                 {
@@ -273,17 +286,11 @@ namespace SnakeAid.Service.Implements
                         mission.CatchingEnvironment = catchingEnvExists;
                     }
 
-                    //Update actual cost if provided
-                    var snakeQuantity = mission.MissionDetails?.Sum(d => d.Quantity);
-                    if (snakeQuantity > 0)
-                    {
-                        decimal additionalCosts = snakeQuantity.Value * additionalSnakePrice;
-                        mission.ActualCost = basePrice + additionalCosts + envCost;
-                    }
-                    else
-                    {
-                        mission.ActualCost = 0;
-                    }
+                    var missionDetails = mission.MissionDetails?.ToList() ?? new List<CatchingMissionDetail>();
+                    var additionalCosts = missionDetails.Sum(d => d.Quantity * GetSnakeUnitPrice(d, venomSnakePrice, nonVenomSnakePrice));
+                    mission.ActualCost = missionDetails.Count > 0
+                        ? basePrice + additionalCosts + envCost
+                        : 0;
 
                     mission.Price = basePrice;
 
@@ -330,16 +337,16 @@ namespace SnakeAid.Service.Implements
                         response.CatchingEnvironment = mission.CatchingEnvironment.Adapt<CatchingEnvironmentResponse>();
                     }
 
-                    if (mission.MissionDetails != null && mission.MissionDetails.Any())
+                    if (missionDetails.Any())
                     {
-                        response.MissionDetails = mission.MissionDetails.Select(d => new CatchingMissionDetailResponse
+                        response.MissionDetails = missionDetails.Select(d => new CatchingMissionDetailResponse
                         {
                             Id = d.Id,
                             SnakeCatchingMissionId = d.SnakeCatchingMissionId,
                             SnakeSpeciesId = d.SnakeSpeciesId,
                             SnakeSpeciesName = d.SnakeSpecies?.CommonName,
                             Quantity = d.Quantity,
-                            Price = d.Quantity * additionalSnakePrice,
+                            Price = d.Quantity * GetSnakeUnitPrice(d, venomSnakePrice, nonVenomSnakePrice),
                             CreatedAt = d.CreatedAt,
                             UpdatedAt = d.UpdatedAt
                         }).ToList();

@@ -714,7 +714,8 @@ namespace SnakeAid.Service.Implements
                     }
                 }
 
-                var additionalSnakePriceValue = _systemSettingService.GetSetting(SystemSettingKeys.CatchingAdditionalSnakePrice, ADDITIONAL_SNAKE_PRICE);
+                var venomSnakePrice = _systemSettingService.GetSetting(SystemSettingKeys.CatchingVenomSnakePrice, 100000m);
+                var nonVenomSnakePrice = _systemSettingService.GetSetting(SystemSettingKeys.CatchingNonVenomSnakePrice, 50000m);
 
                 foreach (var missionResponse in response.Missions)
                 {
@@ -723,9 +724,18 @@ namespace SnakeAid.Service.Implements
                         continue;
                     }
 
+                    var sourceMission = request.Missions?.FirstOrDefault(m => m.Id == missionResponse.Id);
+
                     foreach (var detail in missionResponse.MissionDetails)
                     {
-                        detail.Price = detail.Quantity * additionalSnakePriceValue;
+                        var sourceDetail = sourceMission?.MissionDetails?.FirstOrDefault(d => d.Id == detail.Id);
+
+                        if (sourceDetail == null)
+                        {
+                            continue;
+                        }
+
+                        detail.Price = detail.Quantity * GetSnakeUnitPrice(sourceDetail, venomSnakePrice, nonVenomSnakePrice);
                     }
                 }
 
@@ -831,6 +841,16 @@ namespace SnakeAid.Service.Implements
             }
 
             return _systemSettingService.GetSetting(SystemSettingKeys.LegacyLocationIqPricePerKilometer, PRICE_PER_KM_DEFAULT);
+        }
+
+        private static decimal GetSnakeUnitPrice(
+            CatchingMissionDetail detail,
+            decimal venomSnakePrice,
+            decimal nonVenomSnakePrice)
+        {
+            return detail.SnakeSpecies?.IsVenomous == true
+                ? venomSnakePrice
+                : nonVenomSnakePrice;
         }
 
         private async Task<decimal> CalculateEstimatedPriceFromCenterAsync(double destinationLng, double destinationLat, string context)

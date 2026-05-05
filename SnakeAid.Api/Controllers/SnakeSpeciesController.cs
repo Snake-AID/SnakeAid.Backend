@@ -31,6 +31,7 @@ namespace SnakeAid.Api.Controllers
         /// Get all snake species
         /// </summary>
         [HttpGet]
+        [Authorize]
         [SwaggerOperation(Summary = "Get All Snake Species", Description = "Get list of all active snake species")]
         [SwaggerResponse(200, "Success", typeof(ApiResponse<List<ListSnakeSpeciesResponse>>))]
         public async Task<IActionResult> GetAllSnakeSpecies()
@@ -43,6 +44,7 @@ namespace SnakeAid.Api.Controllers
         /// Get snake species details by ID
         /// </summary>
         [HttpGet("{id}")]
+        [Authorize]
         [SwaggerOperation(Summary = "Get Snake Species by ID", Description = "Get detailed information of a specific snake species including alternative names, antivenoms, and venoms")]
         [SwaggerResponse(200, "Success", typeof(ApiResponse<DetailSnakeSpeciesResponse>))]
         [SwaggerResponse(404, "Snake species not found")]
@@ -56,7 +58,7 @@ namespace SnakeAid.Api.Controllers
         /// Create snake species
         /// </summary>
         [HttpPost]
-        [Authorize]
+        [Authorize(Roles = "Admin")]
         [ValidateModel]
         [SwaggerOperation(Summary = "Create Snake Species")]
         [SwaggerResponse(200, "Created successfully", typeof(ApiResponse<DetailSnakeSpeciesResponse>))]
@@ -71,7 +73,7 @@ namespace SnakeAid.Api.Controllers
         /// Update snake species
         /// </summary>
         [HttpPut("{id}")]
-        [Authorize]
+        [Authorize(Roles = "Admin")]
         [ValidateModel]
         [SwaggerOperation(Summary = "Update Snake Species")]
         [SwaggerResponse(200, "Updated successfully", typeof(ApiResponse<DetailSnakeSpeciesResponse>))]
@@ -86,7 +88,7 @@ namespace SnakeAid.Api.Controllers
         /// Delete snake species
         /// </summary>
         [HttpDelete("{id}")]
-        [Authorize]
+        [Authorize(Roles = "Admin")]
         [SwaggerOperation(Summary = "Delete Snake Species")]
         [SwaggerResponse(200, "Deleted successfully", typeof(ApiResponse<object>))]
         public async Task<IActionResult> DeleteSnakeSpecies(int id, CancellationToken ct)
@@ -99,7 +101,7 @@ namespace SnakeAid.Api.Controllers
         /// Create snake species from excel file and image file
         /// </summary>
         [HttpPost("create-with-file")]
-        [Authorize]
+        [Authorize(Roles = "Admin")]
         [Consumes("multipart/form-data")]
         [ValidateModel]
         [SwaggerOperation(Summary = "Create Snake Species With File", Description = "Upload excel (7 sheets) and image file. Sheet1: basic fields, Sheet2: Identification, Sheet3: SymptomsByTime, Sheet4: FirstAidGuidelineOverride, Sheet5: AntiVenom, Sheet6: Venom, Sheet7: AlternativeName")]
@@ -115,6 +117,7 @@ namespace SnakeAid.Api.Controllers
         /// Search snake species with venom and antivenom data for expert consultation
         /// </summary>
         [HttpGet("search")]
+        [Authorize]
         [SwaggerOperation(Summary = "Search Snake Species", Description = "Search snake species by text query, including venom types and available antivenoms for expert reference during consultations")]
         [SwaggerResponse(200, "Success", typeof(ApiResponse<List<SearchSnakeSpeciesResponse>>))]
         public async Task<IActionResult> SearchSnakes([FromQuery] string q)
@@ -127,6 +130,7 @@ namespace SnakeAid.Api.Controllers
         /// Filter snake species by questionnaire answers
         /// </summary>
         [HttpPost("filter-by-answers")]
+        [Authorize]
         [SwaggerOperation(
             Summary = "Filter Snakes by Questionnaire Answers",
             Description = "Filter snake species based on user's answers to identification questionnaire. Returns snakes sorted by match score (best matches first)."
@@ -148,6 +152,7 @@ namespace SnakeAid.Api.Controllers
         /// Get snakes by GPS location (location-based filtering)
         /// </summary>
         [HttpGet("by-location")]
+        [Authorize]
         [SwaggerOperation(
             Summary = "Get Snakes by GPS Location",
             Description = "Get list of snake species common in the geographic region based on GPS coordinates. Returns snakes sorted by priority (most common first)."
@@ -170,6 +175,7 @@ namespace SnakeAid.Api.Controllers
         /// Get all geographic regions with polygon boundaries for map rendering
         /// </summary>
         [HttpGet("/api/geographic-regions")]
+        [Authorize]
         [SwaggerOperation(
             Summary = "Get All Geographic Regions",
             Description = "Returns all active regions with polygon boundary coordinates (GeoJSON [lng,lat] order). Geometry-only payload for map initialization/cache."
@@ -187,6 +193,7 @@ namespace SnakeAid.Api.Controllers
         /// Get all region distribution mappings for a snake species
         /// </summary>
         [HttpGet("{id}/region-mappings")]
+        [Authorize]
         [SwaggerOperation(Summary = "Get Region Mappings for Snake", Description = "Returns all geographic regions this snake species is mapped to, with commonality and priority metadata.")]
         [SwaggerResponse(200, "Success", typeof(ApiResponse<List<RegionSnakeMappingResponse>>))]
         [SwaggerResponse(404, "Snake species not found")]

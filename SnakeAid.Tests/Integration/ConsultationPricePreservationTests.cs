@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using SnakeAid.Core.Domains;
 using SnakeAid.Core.Requests.Consultation;
 using SnakeAid.Core.Responses.Consultation;
+using SnakeAid.Core.Responses.Consultation.History;
 using SnakeAid.Core.Responses.PayOs;
 using SnakeAid.Repository.Data;
 using SnakeAid.Repository.Implements;
@@ -167,7 +168,7 @@ public class ConsultationPricePreservationTests : IDisposable
 
         var result = await _service.GetMyConsultationsAsync(_userId, query);
 
-        var items = result.Items.ToList();
+        var items = result.Items.OfType<MyConsultationHistoryResponse>().ToList();
         Assert.Equal(3, items.Count);
 
         // Map by BookingId and verify each price
@@ -231,7 +232,7 @@ public class ConsultationPricePreservationTests : IDisposable
 
         var result = await _service.GetMyConsultationsAsync(_userId, query);
 
-        var items = result.Items.ToList();
+        var items = result.Items.OfType<MyConsultationHistoryResponse>().ToList();
         Assert.Equal(5, items.Count);
 
         // Verify descending order
@@ -286,7 +287,7 @@ public class ConsultationPricePreservationTests : IDisposable
 
         var result = await _service.GetMyConsultationsAsync(_userId, query);
 
-        var items = result.Items.ToList();
+        var items = result.Items.OfType<MyConsultationHistoryResponse>().ToList();
         Assert.Equal(2, items.Count);
         // Sorted descending: page 2 should have items at index 2 and 3
         // consultation1 (Jan 10) and emergency2 (Jan 8)
@@ -307,7 +308,7 @@ public class ConsultationPricePreservationTests : IDisposable
 
         var result = await _service.GetMyConsultationsAsync(_userId, query);
 
-        var items = result.Items.ToList();
+        var items = result.Items.OfType<MyConsultationHistoryResponse>().ToList();
         Assert.Single(items);
         Assert.Equal(_emergencyConsultation1Id, items[0].ConsultationId);
         Assert.Equal(3, result.Meta.CurrentPage);
@@ -330,7 +331,7 @@ public class ConsultationPricePreservationTests : IDisposable
 
         var result = await _service.GetMyConsultationsAsync(_userId, query);
 
-        var items = result.Items.ToList();
+        var items = result.Items.OfType<MyConsultationHistoryResponse>().ToList();
         Assert.Equal(2, items.Count);
         Assert.All(items, item =>
         {
