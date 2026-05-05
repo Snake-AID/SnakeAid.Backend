@@ -1,4 +1,5 @@
 using MapsterMapper;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SnakeAid.Core.Meta;
 using SnakeAid.Core.Requests.Lesson;
@@ -26,6 +27,7 @@ namespace SnakeAid.Api.Controllers
         }
 
         [HttpPost]
+        [Authorize(Roles = "Admin")]
         [ValidateModel]
         [SwaggerOperation(Summary = "Create Lesson", Description = "Create a new lesson")]
         [SwaggerResponse(200, "Created successfully", typeof(ApiResponse<LessonResponse>))]
@@ -37,6 +39,7 @@ namespace SnakeAid.Api.Controllers
         }
 
         [HttpGet("{id}")]
+        [Authorize(Roles = "Admin, Rescuer")]
         [SwaggerOperation(Summary = "Get Lesson by ID", Description = "Get detailed information of a lesson")]
         [SwaggerResponse(200, "Success", typeof(ApiResponse<LessonResponse>))]
         [SwaggerResponse(404, "Lesson not found")]
@@ -47,6 +50,7 @@ namespace SnakeAid.Api.Controllers
         }
 
         [HttpGet]
+        [Authorize(Roles = "Admin, Rescuer")]
         [SwaggerOperation(Summary = "Get All Lessons", Description = "Get all lessons")]
         [SwaggerResponse(200, "Success", typeof(ApiResponse<List<LessonResponse>>))]
         public async Task<IActionResult> GetAllLessons()
@@ -56,6 +60,7 @@ namespace SnakeAid.Api.Controllers
         }
 
         [HttpPut("{id}")]
+        [Authorize(Roles = "Admin")]
         [ValidateModel]
         [SwaggerOperation(Summary = "Update Lesson", Description = "Update an existing lesson")]
         [SwaggerResponse(200, "Updated successfully", typeof(ApiResponse<LessonResponse>))]
@@ -68,6 +73,7 @@ namespace SnakeAid.Api.Controllers
         }
 
         [HttpDelete("{id}")]
+        [Authorize(Roles = "Admin")]
         [SwaggerOperation(Summary = "Delete Lesson", Description = "Delete a lesson")]
         [SwaggerResponse(200, "Deleted successfully", typeof(ApiResponse<bool>))]
         [SwaggerResponse(404, "Lesson not found")]

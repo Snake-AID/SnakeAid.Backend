@@ -298,14 +298,9 @@ namespace SnakeAid.Service.Implements
                         throw new BadRequestException("Rescuer already aborted this incident and is excluded from re-dispatch.");
                     }
 
-                    if (!rescuer.IsOnline)
+                    if (!rescuer.IsOnline || !rescuer.IsAvailable)
                     {
-                        throw new BadRequestException("Rescuer is currently offline.");
-                    }
-
-                    if (!rescuer.IsAvailable)
-                    {
-                        throw new BadRequestException("Rescuer is currently unavailable.");
+                        throw new BadRequestException("Rescuer is currently offline or unavailable.");
                     }
 
                     var nowLocal = AppTime.NowLocal;
@@ -352,6 +347,10 @@ namespace SnakeAid.Service.Implements
                     };
 
                     await _unitOfWork.GetRepository<RescuerRequest>().InsertAsync(dispatchRequest);
+
+                    // Lock rescuer availability while the dispatch is pending.
+                    rescuer.IsAvailable = false;
+                    _unitOfWork.GetRepository<RescuerProfile>().Update(rescuer);
 
                     // Keep incident in Verified until rescuer acknowledges the dispatch.
                     incident.Status = SnakebiteIncidentStatus.Verified;
@@ -614,6 +613,16 @@ namespace SnakeAid.Service.Implements
                         _unitOfWork.GetRepository<SnakebiteIncident>().Update(incident);
                     }
 
+                    var rescuerProfile = await _unitOfWork.GetRepository<RescuerProfile>().FirstOrDefaultAsync(
+                        predicate: r => r.AccountId == request.RescuerId,
+                        asNoTracking: false);
+
+                    if (rescuerProfile != null)
+                    {
+                        rescuerProfile.IsAvailable = true;
+                        _unitOfWork.GetRepository<RescuerProfile>().Update(rescuerProfile);
+                    }
+
                     var response = new RejectRescueResponse
                     {
                         RequestId = request.Id,
@@ -862,6 +871,7 @@ namespace SnakeAid.Service.Implements
                                 .Include(i => i.AssignedRescuer)
                                     .ThenInclude(r => r.Account)
                                 .Include(i => i.Missions)
+                                    .ThenInclude(m => m.Hospital)
                                 .Include(i => i.IdentifiedSnakeSpecies)
                                     .ThenInclude(s => s.PrimaryVenomTypeDefinition)
                                 .Include(i => i.AIRecognitionResult)
@@ -964,6 +974,8 @@ namespace SnakeAid.Service.Implements
                             .Include(i => i.Missions)
                                 .ThenInclude(m => m.Rescuer)
                                     .ThenInclude(r => r.Account)
+                            .Include(i => i.Missions)
+                                .ThenInclude(m => m.Hospital)
                             .Include(i => i.DispatchRequests)
                                 .ThenInclude(r => r.Rescuer)
                                     .ThenInclude(rescuer => rescuer.Account)
@@ -1125,9 +1137,7 @@ namespace SnakeAid.Service.Implements
                         ? (int)(DateTime.UtcNow - existingIncident.IncidentOccurredAt.Value).TotalMinutes
                         : 0);
 
-                    var preserveExistingSeverity = existingIncident.IdentifiedSnakeSpeciesId.HasValue && existingIncident.SeverityLevel.HasValue;
-
-                    // Collect symptom descriptions and calculate severity only when allowed
+                    // Collect symptom descriptions and calculate symptom-based severity
                     var reportedSymptoms = new List<ReportSymptom>();
                     var coreSymptomScores = new List<int>();
                     var modifierSymptomScores = new List<int>();
@@ -1151,44 +1161,62 @@ namespace SnakeAid.Service.Implements
                                 });
                             }
 
-                            if (!preserveExistingSeverity)
-                            {
-                                // Calculate score based on TimeScoreList
-                                var score = CalculateScoreByElapsedTime(symptom.TimeScoreList, elapsedMinutes);
+                            // Calculate score based on TimeScoreList
+                            var score = CalculateScoreByElapsedTime(symptom.TimeScoreList, elapsedMinutes);
 
-                                // Categorize by symptom category
-                                if (symptom.Category == SymptomCategory.Core)
-                                {
-                                    coreSymptomScores.Add(score);
-                                }
-                                else if (symptom.Category == SymptomCategory.Modifier)
-                                {
-                                    modifierSymptomScores.Add(score);
-                                }
+                            // Categorize by symptom category
+                            if (symptom.Category == SymptomCategory.Core)
+                            {
+                                coreSymptomScores.Add(score);
+                            }
+                            else if (symptom.Category == SymptomCategory.Modifier)
+                            {
+                                modifierSymptomScores.Add(score);
                             }
                         }
                     }
 
-                    // Calculate severity level only when incident has not been identified yet
-                    var severityLevel = preserveExistingSeverity
-                        ? existingIncident.SeverityLevel ?? 0
-                        : 0;
-                    if (!preserveExistingSeverity)
+                    var symptomSeverity = 0;
+
+                    // Core: take maximum score
+                    if (coreSymptomScores.Any())
                     {
-                        // Core: take maximum score
-                        if (coreSymptomScores.Any())
-                        {
-                            severityLevel = coreSymptomScores.Max();
-                        }
+                        symptomSeverity = coreSymptomScores.Max();
+                    }
 
-                        // Modifier: sum all scores
-                        if (modifierSymptomScores.Any())
-                        {
-                            severityLevel += modifierSymptomScores.Sum();
-                        }
+                    // Modifier: sum all scores
+                    if (modifierSymptomScores.Any())
+                    {
+                        symptomSeverity += modifierSymptomScores.Sum();
+                    }
 
-                        if (severityLevel > 100)
-                            severityLevel = 100;
+                    if (symptomSeverity > 100)
+                    {
+                        symptomSeverity = 100;
+                    }
+
+                    var severityLevel = symptomSeverity;
+
+                    if (existingIncident.IdentifiedSnakeSpeciesId.HasValue)
+                    {
+                        var identifiedSnake = await _unitOfWork.GetRepository<SnakeSpecies>().FirstOrDefaultAsync(
+                            predicate: s => s.Id == existingIncident.IdentifiedSnakeSpeciesId.Value
+                        );
+
+                        if (identifiedSnake == null)
+                        {
+                            _logger.LogWarning(
+                                "Identified snake species {SpeciesId} not found for incident {IncidentId}. Falling back to symptom severity.",
+                                existingIncident.IdentifiedSnakeSpeciesId,
+                                incidentId);
+
+                            severityLevel = symptomSeverity;
+                        }
+                        else
+                        {
+                            var snakeSeverity = (int)(identifiedSnake.RiskLevel * 10);
+                            severityLevel = Math.Max(snakeSeverity, symptomSeverity);
+                        }
                     }
 
                     // Update symptom report and severity level
@@ -1198,10 +1226,7 @@ namespace SnakeAid.Service.Implements
                         WriteIndented = false
                     };
                     existingIncident.SymptomsReport = reportedSymptoms;
-                    if (!preserveExistingSeverity)
-                    {
-                        existingIncident.SeverityLevel = severityLevel;
-                    }
+                    existingIncident.SeverityLevel = severityLevel;
                     _unitOfWork.GetRepository<SnakebiteIncident>().Update(existingIncident);
                     await _unitOfWork.CommitAsync();
 

@@ -15,7 +15,7 @@ namespace SnakeAid.Api.Controllers
 {
     [Route("api/snakecatching/missions")]
     [ApiController]
-    [Authorize]
+    [Authorize(Roles = "Rescuer, Operator")]
     public class SnakeCatchingMissionController : BaseController<SnakeCatchingMissionController>
     {
         private readonly ISnakeCatchingMissionService _missionService;

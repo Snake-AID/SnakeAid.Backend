@@ -1,4 +1,5 @@
 using MapsterMapper;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SnakeAid.Core.Meta;
 using SnakeAid.Core.Requests.SystemSetting;
@@ -9,6 +10,7 @@ using Swashbuckle.AspNetCore.Annotations;
 namespace SnakeAid.Api.Controllers;
 
 [Route("api/admin/system-settings")]
+[Authorize]
 [ApiController]
 public class SystemSettingController : BaseController<SystemSettingController>
 {

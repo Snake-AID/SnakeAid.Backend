@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using SnakeAid.Core.Domains;
 using SnakeAid.Core.Exceptions;
 using SnakeAid.Core.Requests.Consultation;
+using SnakeAid.Core.Responses.Consultation.History;
 using SnakeAid.Repository.Data;
 using SnakeAid.Repository.Implements;
 using SnakeAid.Service.Implements;
@@ -17,6 +18,7 @@ public class ConsultationExpertAbsentIntegrationTests : IDisposable
     private readonly SqliteConnection _connection;
     private readonly SnakeAidDbContext _db;
     private readonly ConsultationService _service;
+    private readonly FakeConsultationPaymentService _paymentService = new();
 
     private readonly Guid _memberId = Guid.NewGuid();
     private readonly Guid _otherMemberId = Guid.NewGuid();
@@ -24,6 +26,7 @@ public class ConsultationExpertAbsentIntegrationTests : IDisposable
 
     private readonly Guid _slotId = Guid.NewGuid();
     private readonly Guid _bookingId = Guid.NewGuid();
+    private readonly Guid _reportedBookingId = Guid.NewGuid();
     private readonly Guid _scheduledConsultationId = Guid.NewGuid();
     private readonly Guid _completedConsultationId = Guid.NewGuid();
     private readonly Guid _futureConsultationId = Guid.NewGuid();
@@ -46,7 +49,7 @@ public class ConsultationExpertAbsentIntegrationTests : IDisposable
 
         _service = new ConsultationService(
             new UnitOfWork<SnakeAidDbContext>(_db),
-            new FakeConsultationPaymentService(),
+            _paymentService,
             NullLogger<ConsultationService>.Instance);
     }
 
@@ -122,7 +125,7 @@ public class ConsultationExpertAbsentIntegrationTests : IDisposable
             Type = "Scheduled"
         });
 
-        var item = Assert.Single(result.Items, i => i.ConsultationId == _completedConsultationId);
+        var item = Assert.Single(result.Items.OfType<MyConsultationHistoryResponse>(), i => i.ConsultationId == _completedConsultationId);
         Assert.Equal("Existing customer report", item.CustomerReport);
         Assert.NotNull(item.CustomerReportSubmittedAt);
     }
@@ -158,11 +161,29 @@ public class ConsultationExpertAbsentIntegrationTests : IDisposable
 
         Assert.Equal(_completedConsultationId, result.ConsultationId);
         Assert.Equal("ExpertAbsentHandled", result.Status);
+        Assert.Equal("Refunded", result.BookingStatus);
         Assert.Equal("Existing customer report", result.CustomerReport);
         Assert.NotNull(result.CustomerReportSubmittedAt);
+        Assert.Equal(_reportedBookingId, _paymentService.RefundCalls.Single().BookingId);
+        Assert.Equal(_memberId, _paymentService.RefundCalls.Single().ReceiverId);
 
         var persisted = await _db.Set<Consultation>().SingleAsync(c => c.Id == _completedConsultationId);
         Assert.Equal(ConsultationStatus.ExpertAbsentHandled, persisted.Status);
+
+        var booking = await _db.Set<ConsultationBooking>().SingleAsync(b => b.Id == _reportedBookingId);
+        Assert.Equal(BookingStatus.Refunded, booking.Status);
+    }
+
+    [Fact]
+    public async Task ConfirmExpertAbsentHandledAsync_WhenAlreadyHandledAndRefunded_ShouldReturnCurrentStateWithoutDuplicateRefund()
+    {
+        await _service.ConfirmExpertAbsentHandledAsync(_completedConsultationId);
+
+        var result = await _service.ConfirmExpertAbsentHandledAsync(_completedConsultationId);
+
+        Assert.Equal("ExpertAbsentHandled", result.Status);
+        Assert.Equal("Refunded", result.BookingStatus);
+        Assert.Single(_paymentService.RefundCalls);
     }
 
     [Fact]
@@ -251,14 +272,14 @@ public class ConsultationExpertAbsentIntegrationTests : IDisposable
             },
             new ConsultationBooking
             {
-                Id = Guid.NewGuid(),
+                Id = _reportedBookingId,
                 UserId = _memberId,
                 ExpertId = _expertId,
                 Price = 150_000m,
                 BookedAt = DateTime.UtcNow.AddDays(-2),
                 ProblemDescription = "Existing report booking",
                 PaymentDeadline = DateTime.UtcNow.AddHours(-4),
-                Status = BookingStatus.Completed,
+                Status = BookingStatus.Confirmed,
                 ConsultationId = _completedConsultationId,
                 TimeSlotId = _slotId
             },
@@ -428,6 +449,8 @@ public class ConsultationExpertAbsentIntegrationTests : IDisposable
 
     private sealed class FakeConsultationPaymentService : IConsultationPaymentService
     {
+        public List<(Guid BookingId, Guid ReceiverId, string Reason)> RefundCalls { get; } = new();
+
         public Task<Core.Responses.Consultation.ConsultationPaymentResponse> ConfirmConsultationPaymentAsync(Guid transactionId, CancellationToken cancellationToken = default) => throw new NotImplementedException();
         public Task<Core.Responses.PayOs.PayOsWebhookResponse> ConfirmConsultationPaymentByOrderCodeAsync(long orderCode, CancellationToken cancellationToken = default) => throw new NotImplementedException();
         public Task<Core.Responses.Consultation.ConsultationPaymentResponse> PayScheduledBookingAsync(Guid userId, Guid bookingId, ProcessConsultationPaymentRequest request, CancellationToken cancellationToken = default) => throw new NotImplementedException();
@@ -435,7 +458,11 @@ public class ConsultationExpertAbsentIntegrationTests : IDisposable
         public Task<bool> IsConsultationPayOsOrderCodeAsync(long orderCode, CancellationToken cancellationToken = default) => Task.FromResult(false);
         public Task<Core.Responses.PayOs.PayOsWebhookResponse> ProcessConsultationWebhookAsync(string rawPayload, CancellationToken cancellationToken = default) => throw new NotImplementedException();
         public Task<bool> RefundEmergencyEscrowAsync(Guid requestId, string reason, CancellationToken cancellationToken = default) => Task.FromResult(true);
-        public Task<bool> RefundScheduledBookingAsync(Guid bookingId, Guid receiverId, string reason, CancellationToken cancellationToken = default) => Task.FromResult(true);
+        public Task<bool> RefundScheduledBookingAsync(Guid bookingId, Guid receiverId, string reason, CancellationToken cancellationToken = default)
+        {
+            RefundCalls.Add((bookingId, receiverId, reason));
+            return Task.FromResult(true);
+        }
         public Task<bool> CancelPendingScheduledBookingPaymentAsync(Guid bookingId, string reason, CancellationToken cancellationToken = default) => Task.FromResult(true);
         public Task<int> ExpireEmergencyRequestsAsync(CancellationToken cancellationToken = default) => Task.FromResult(0);
         public Task<bool> SettleConsultationEscrowAsync(Guid consultationId, CancellationToken cancellationToken = default) => Task.FromResult(true);

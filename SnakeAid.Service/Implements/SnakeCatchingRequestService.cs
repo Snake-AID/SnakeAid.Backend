@@ -471,9 +471,9 @@ namespace SnakeAid.Service.Implements
                 }
 
                 // Check if rescuer is online
-                if (!existingAccount.RescuerProfile.IsOnline && existingAccount.RescuerProfile.IsAvailable)
+                if (!existingAccount.RescuerProfile.IsOnline || !existingAccount.RescuerProfile.IsAvailable)
                 {
-                    throw new BadRequestException("Rescuer must be online to accept requests.");
+                    throw new BadRequestException("Rescuer is currently offline or unavailable.");
                 }
 
                 // Step 2: Start transaction for DB operations ONLY
@@ -535,6 +535,17 @@ namespace SnakeAid.Service.Implements
                     };
 
                     await _unitOfWork.GetRepository<SnakeCatchingMission>().InsertAsync(newMission);
+
+                    var rescuerProfile = await _unitOfWork.GetRepository<RescuerProfile>().FirstOrDefaultAsync(
+                        predicate: r => r.AccountId == request.rescuerId,
+                        asNoTracking: false);
+
+                    if (rescuerProfile != null)
+                    {
+                        rescuerProfile.IsAvailable = false;
+                        _unitOfWork.GetRepository<RescuerProfile>().Update(rescuerProfile);
+                    }
+
                     await _unitOfWork.CommitAsync();
 
                     // Reload the request with all navigation properties for response
@@ -703,7 +714,8 @@ namespace SnakeAid.Service.Implements
                     }
                 }
 
-                var additionalSnakePriceValue = _systemSettingService.GetSetting(SystemSettingKeys.CatchingAdditionalSnakePrice, ADDITIONAL_SNAKE_PRICE);
+                var venomSnakePrice = _systemSettingService.GetSetting(SystemSettingKeys.CatchingVenomSnakePrice, 100000m);
+                var nonVenomSnakePrice = _systemSettingService.GetSetting(SystemSettingKeys.CatchingNonVenomSnakePrice, 50000m);
 
                 foreach (var missionResponse in response.Missions)
                 {
@@ -712,9 +724,18 @@ namespace SnakeAid.Service.Implements
                         continue;
                     }
 
+                    var sourceMission = request.Missions?.FirstOrDefault(m => m.Id == missionResponse.Id);
+
                     foreach (var detail in missionResponse.MissionDetails)
                     {
-                        detail.Price = detail.Quantity * additionalSnakePriceValue;
+                        var sourceDetail = sourceMission?.MissionDetails?.FirstOrDefault(d => d.Id == detail.Id);
+
+                        if (sourceDetail == null)
+                        {
+                            continue;
+                        }
+
+                        detail.Price = detail.Quantity * GetSnakeUnitPrice(sourceDetail, venomSnakePrice, nonVenomSnakePrice);
                     }
                 }
 
@@ -820,6 +841,16 @@ namespace SnakeAid.Service.Implements
             }
 
             return _systemSettingService.GetSetting(SystemSettingKeys.LegacyLocationIqPricePerKilometer, PRICE_PER_KM_DEFAULT);
+        }
+
+        private static decimal GetSnakeUnitPrice(
+            CatchingMissionDetail detail,
+            decimal venomSnakePrice,
+            decimal nonVenomSnakePrice)
+        {
+            return detail.SnakeSpecies?.IsVenomous == true
+                ? venomSnakePrice
+                : nonVenomSnakePrice;
         }
 
         private async Task<decimal> CalculateEstimatedPriceFromCenterAsync(double destinationLng, double destinationLat, string context)

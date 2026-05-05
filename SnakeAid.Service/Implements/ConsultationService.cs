@@ -9,6 +9,7 @@ using SnakeAid.Core.Mappings;
 using SnakeAid.Core.Meta;
 using SnakeAid.Core.Requests.Consultation;
 using SnakeAid.Core.Responses.Consultation;
+using SnakeAid.Core.Responses.Consultation.History;
 using SnakeAid.Core.Responses.UserFeedback;
 using SnakeAid.Repository.Data;
 using SnakeAid.Repository.Interfaces;
@@ -118,6 +119,14 @@ public class ConsultationService : IConsultationService
                     consultationId,
                     roomName);
             }
+        }
+
+        if (consultation.Status is ConsultationStatus.ExpertAbsent or ConsultationStatus.ExpertAbsentHandled)
+        {
+            consultation.EndTime ??= DateTime.UtcNow;
+            consultationRepo.Update(consultation);
+            await _unitOfWork.CommitAsync();
+            return;
         }
 
         consultation.Status = ConsultationStatus.Completed;
@@ -568,33 +577,64 @@ public class ConsultationService : IConsultationService
 
     public async Task<AdminConsultationResponse> ConfirmExpertAbsentHandledAsync(Guid consultationId)
     {
-        var consultationRepo = _unitOfWork.GetRepository<Consultation>();
-        var consultation = await consultationRepo.FirstOrDefaultAsync(
-            predicate: c => c.Id == consultationId,
-            asNoTracking: false);
-
-        if (consultation == null)
+        await _unitOfWork.ExecuteInTransactionAsync(async () =>
         {
-            throw new NotFoundException("Consultation not found.");
-        }
+            var consultationRepo = _unitOfWork.GetRepository<Consultation>();
+            var consultation = await consultationRepo.FirstOrDefaultAsync(
+                predicate: c => c.Id == consultationId,
+                asNoTracking: false);
 
-        if (consultation.Status != ConsultationStatus.ExpertAbsent)
-        {
-            throw new BusinessException($"Only consultations in status {ConsultationStatus.ExpertAbsent} can be marked as handled.");
-        }
+            if (consultation == null)
+            {
+                throw new NotFoundException("Consultation not found.");
+            }
 
-        consultation.Status = ConsultationStatus.ExpertAbsentHandled;
-        consultationRepo.Update(consultation);
-        await _unitOfWork.CommitAsync();
+            var bookingRepo = _unitOfWork.GetRepository<ConsultationBooking>();
+            var booking = await bookingRepo.FirstOrDefaultAsync(
+                predicate: b => b.ConsultationId == consultationId,
+                asNoTracking: false);
+
+            if (consultation.Status == ConsultationStatus.ExpertAbsentHandled
+                && booking?.Status == BookingStatus.Refunded)
+            {
+                return;
+            }
+
+            if (consultation.Status is not (ConsultationStatus.ExpertAbsent or ConsultationStatus.ExpertAbsentHandled))
+            {
+                throw new BusinessException($"Only consultations in status {ConsultationStatus.ExpertAbsent} can be marked as handled.");
+            }
+
+            if (booking == null)
+            {
+                throw new NotFoundException("Consultation booking was not found.");
+            }
+
+            if (booking.Status != BookingStatus.Refunded)
+            {
+                await _consultationPaymentService.RefundScheduledBookingAsync(
+                    booking.Id,
+                    booking.UserId,
+                    "Expert absent case approved by admin.",
+                    CancellationToken.None);
+
+                booking.Status = BookingStatus.Refunded;
+                bookingRepo.Update(booking);
+            }
+
+            consultation.Status = ConsultationStatus.ExpertAbsentHandled;
+            consultationRepo.Update(consultation);
+            await _unitOfWork.CommitAsync();
+        });
 
         return await GetConsultationByIdForAdminAsync(consultationId);
     }
 #endregion
 
 #region Expert Consultation History
-    public async Task<PagingResponse<ExpertConsultationResponse>> GetExpertConsultationsAsync(Guid expertId, MyConsultationsQueryRequest query)
+    public async Task<PagingResponse<ExpertConsultationHistoryUnionResponse>> GetExpertConsultationsAsync(Guid expertId, MyConsultationsQueryRequest query)
     {
-        var results = new List<ExpertConsultationResponse>();
+        var results = new List<ExpertConsultationHistoryUnionResponse>();
 
         var includeScheduled = string.IsNullOrEmpty(query.Type)
             || query.Type.Equals("Scheduled", StringComparison.OrdinalIgnoreCase);
@@ -614,7 +654,7 @@ public class ConsultationService : IConsultationService
 
             foreach (var b in bookings)
             {
-                results.Add(new ExpertConsultationResponse
+                results.Add(new ExpertConsultationHistoryResponse
                 {
                     ConsultationId = b.ConsultationId!.Value,
                     Type = "Scheduled",
@@ -667,7 +707,7 @@ public class ConsultationService : IConsultationService
 
                 var consultation = request.Consultation;
                 var requester = request.Rescuer;
-                results.Add(new ExpertConsultationResponse
+                results.Add(new ExpertConsultationHistoryResponse
                 {
                     ConsultationId = consultation.Id,
                     Type = "Emergency",
@@ -690,6 +730,7 @@ public class ConsultationService : IConsultationService
         if (includeScheduled)
         {
             var scheduledConsultationIds = results
+                .OfType<ExpertConsultationHistoryResponse>()
                 .Where(r => r.Type == "Scheduled")
                 .Select(r => r.ConsultationId)
                 .ToHashSet();
@@ -713,7 +754,7 @@ public class ConsultationService : IConsultationService
                         "Scheduled consultation {ConsultationId} has no associated ConsultationBooking. GrossPrice will be null.",
                         c.Id);
 
-                    results.Add(new ExpertConsultationResponse
+                    results.Add(new ExpertConsultationHistoryResponse
                     {
                         ConsultationId = c.Id,
                         Type = "Scheduled",
@@ -734,24 +775,55 @@ public class ConsultationService : IConsultationService
         if (includeScheduled)
         {
             var scheduledPayoutLookup = await BuildLatestTransactionAmountLookupAsync(
-                results.Where(r => r.Type == "Scheduled").Select(r => r.ConsultationId).Distinct().ToList(),
+                results
+                    .OfType<ExpertConsultationHistoryResponse>()
+                    .Where(r => r.Type == "Scheduled")
+                    .Select(r => r.ConsultationId)
+                    .Distinct()
+                    .ToList(),
                 TransactionType.ExpertPayout);
 
-            foreach (var scheduledResult in results.Where(r => r.Type == "Scheduled"))
+            foreach (var scheduledResult in results.OfType<ExpertConsultationHistoryResponse>().Where(r => r.Type == "Scheduled"))
             {
                 scheduledResult.NetPrice = ResolveLookupAmount(scheduledPayoutLookup, scheduledResult.ConsultationId);
             }
         }
 
+        if (includeEmergency && !statusFilter.HasValue)
+        {
+            var terminalRequests = await _unitOfWork.GetRepository<ConsultationPingRequest>().GetListAsync(
+                predicate: p => p.ExpertId == expertId
+                    && !p.ConsultationId.HasValue
+                    && (p.Status == ConsultationPingStatus.DeclinedByExpert
+                        || p.Status == ConsultationPingStatus.Expired),
+                include: q => q.Include(p => p.Rescuer));
+
+            foreach (var request in terminalRequests)
+            {
+                results.Add(new ExpertInstantConsultationRequestHistoryResponse
+                {
+                    InstantRequestId = request.Id,
+                    Type = "Emergency",
+                    RequestStatus = request.Status.ToString(),
+                    RequestedAt = request.RequestedAt,
+                    RespondedAt = request.RespondedAt,
+                    UserId = request.RescuerId,
+                    UserName = request.Rescuer?.FullName,
+                    UserAvatarUrl = request.Rescuer?.AvatarUrl
+                });
+            }
+        }
+
         // Sort + paginate
-        return BuildPagingResponse(results, query.PageNumber, query.PageSize, c => c.StartTime);
+        var (normalizedPageNumber, normalizedPageSize) = NormalizePaging(query.PageNumber, query.PageSize);
+        return BuildPagingResponse(results, normalizedPageNumber, normalizedPageSize, c => c.HistorySortTime);
     }
 #endregion
 
 #region User Consultation History
-    public async Task<PagingResponse<MyConsultationResponse>> GetMyConsultationsAsync(Guid userId, MyConsultationsQueryRequest query)
+    public async Task<PagingResponse<MyConsultationHistoryUnionResponse>> GetMyConsultationsAsync(Guid userId, MyConsultationsQueryRequest query)
     {
-        var results = new List<MyConsultationResponse>();
+        var results = new List<MyConsultationHistoryUnionResponse>();
 
         var includeScheduled = string.IsNullOrEmpty(query.Type)
             || query.Type.Equals("Scheduled", StringComparison.OrdinalIgnoreCase);
@@ -772,7 +844,7 @@ public class ConsultationService : IConsultationService
 
             foreach (var b in bookings)
             {
-                results.Add(BuildMyConsultationResponse(b.Consultation!, b));
+                results.Add(BuildMyConsultationHistoryResponse(b.Consultation!, b));
             }
         }
 
@@ -803,7 +875,7 @@ public class ConsultationService : IConsultationService
                     continue;
 
                 var consultation = p.Consultation;
-                results.Add(new MyConsultationResponse
+                results.Add(new MyConsultationHistoryResponse
                 {
                     ConsultationId = consultation.Id,
                     Type = "Emergency",
@@ -822,12 +894,63 @@ public class ConsultationService : IConsultationService
             }
         }
 
+        if (includeEmergency && !statusFilter.HasValue)
+        {
+            var terminalRequests = await _unitOfWork.GetRepository<ConsultationPingRequest>().GetListAsync(
+                predicate: p => p.RescuerId == userId
+                    && !p.ConsultationId.HasValue
+                    && (p.Status == ConsultationPingStatus.DeclinedByExpert
+                        || p.Status == ConsultationPingStatus.Expired),
+                include: q => q.Include(p => p.Expert));
+
+            foreach (var request in terminalRequests)
+            {
+                results.Add(new MyInstantConsultationRequestHistoryResponse
+                {
+                    InstantRequestId = request.Id,
+                    Type = "Emergency",
+                    RequestStatus = request.Status.ToString(),
+                    RequestedAt = request.RequestedAt,
+                    RespondedAt = request.RespondedAt,
+                    ExpertId = request.ExpertId,
+                    ExpertName = request.Expert?.FullName,
+                    ExpertAvatarUrl = request.Expert?.AvatarUrl
+                });
+            }
+        }
+
         // Sort + paginate
-        return BuildPagingResponse(results, query.PageNumber, query.PageSize, c => c.StartTime);
+        var (normalizedPageNumber, normalizedPageSize) = NormalizePaging(query.PageNumber, query.PageSize);
+        return BuildPagingResponse(results, normalizedPageNumber, normalizedPageSize, c => c.HistorySortTime);
     }
 #endregion
 
 #region Shared Parsing Helpers
+    private static MyConsultationHistoryResponse BuildMyConsultationHistoryResponse(
+        Consultation consultation,
+        ConsultationBooking? booking = null)
+    {
+        return new MyConsultationHistoryResponse
+        {
+            ConsultationId = consultation.Id,
+            Type = consultation.Type.ToString(),
+            Status = consultation.Status.ToString(),
+            ExpertId = consultation.CalleeId,
+            ExpertName = consultation.Callee?.FullName ?? booking?.Expert?.FullName,
+            ExpertAvatarUrl = consultation.Callee?.AvatarUrl ?? booking?.Expert?.AvatarUrl,
+            RoomId = consultation.RoomId,
+            StartTime = consultation.StartTime,
+            EndTime = consultation.EndTime,
+            Price = booking?.Price,
+            ProblemDescription = booking?.ProblemDescription,
+            CustomerReport = consultation.CustomerReport,
+            CustomerReportSubmittedAt = consultation.CustomerReportSubmittedAt,
+            BookingId = booking?.Id,
+            SlotStartTime = booking?.TimeSlot?.StartTime,
+            SlotEndTime = booking?.TimeSlot?.EndTime
+        };
+    }
+
     private static MyConsultationResponse BuildMyConsultationResponse(
         Consultation consultation,
         ConsultationBooking? booking = null)

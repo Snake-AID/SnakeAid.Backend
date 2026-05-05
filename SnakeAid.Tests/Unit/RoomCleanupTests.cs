@@ -378,6 +378,39 @@ public class RoomCleanupTests
 
     #endregion
 
+    #region Expert absent auto-complete guard
+
+    [Theory]
+    [InlineData(ConsultationStatus.ExpertAbsent)]
+    [InlineData(ConsultationStatus.ExpertAbsentHandled)]
+    public async Task AutoCompleteScheduled_WhenExpertAbsentStatus_SkipsCompletionAndSettlement(
+        ConsultationStatus status)
+    {
+        // Arrange
+        var consultationId = Guid.NewGuid();
+        var booking = MakeElapsedBooking(consultationId);
+        booking.Consultation!.Status = status;
+
+        var uow = new SpyUnitOfWork(bookings: new[] { booking });
+        var payment = new SpyPaymentService();
+        var hub = new SpyHubContext();
+        var liveKit = new SpyLiveKitService();
+        var sut = CreateService(uow, payment, hub, liveKit);
+
+        // Act
+        var count = await sut.AutoCompleteElapsedScheduledConsultationsAsync();
+
+        // Assert
+        Assert.Equal(0, count);
+        Assert.Equal(BookingStatus.Confirmed, booking.Status);
+        Assert.Equal(status, booking.Consultation.Status);
+        Assert.Empty(payment.SettledConsultationIds);
+        Assert.Empty(hub.SendCalls);
+        Assert.Empty(liveKit.DeletedRoomNames);
+    }
+
+    #endregion
+
     #region Helpers
 
     private static BookingService CreateService(

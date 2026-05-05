@@ -239,9 +239,11 @@ namespace SnakeAid.Service.Implements
             var snakeSpecies = await _unitOfWork.GetRepository<SnakeSpecies>()
                 .FirstOrDefaultAsync(
                     predicate: s => s.Id == snakeSpeciesId,
-                    include: q => q.Include(s => s.SpeciesVenoms)
-                                   .ThenInclude(sv => sv.VenomType)
-                                   .ThenInclude(vt => vt.FirstAidGuideline)
+                    include: q => q.Include(s => s.PrimaryVenomTypeDefinition)
+                                        .ThenInclude(pvt => pvt.FirstAidGuideline)
+                                    .Include(s => s.SpeciesVenoms)
+                                        .ThenInclude(sv => sv.VenomType)
+                                        .ThenInclude(vt => vt.FirstAidGuideline)
                 );
 
             if (snakeSpecies == null)

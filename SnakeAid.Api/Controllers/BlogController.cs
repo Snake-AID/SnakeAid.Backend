@@ -1,4 +1,5 @@
 using MapsterMapper;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SnakeAid.Core.Meta;
 using SnakeAid.Core.Requests.Blog;
@@ -26,6 +27,7 @@ namespace SnakeAid.Api.Controllers
         }
 
         [HttpPost]
+        [Authorize(Roles = "Admin, Expert")]
         [ValidateModel]
         [SwaggerOperation(Summary = "Create blog")]
         [SwaggerResponse(200, "Created successfully", typeof(ApiResponse<BlogResponse>))]
@@ -37,6 +39,7 @@ namespace SnakeAid.Api.Controllers
         }
 
         [HttpGet]
+        [Authorize]
         [SwaggerOperation(Summary = "Get blogs with filter")]
         [SwaggerResponse(200, "Success", typeof(ApiResponse<List<BlogResponse>>))]
         public async Task<IActionResult> GetBlogs([FromQuery] GetBlogsRequest request)
@@ -46,6 +49,7 @@ namespace SnakeAid.Api.Controllers
         }
 
         [HttpGet("{id}")]
+        [Authorize]
         [SwaggerOperation(Summary = "Get blog detail")]
         [SwaggerResponse(200, "Success", typeof(ApiResponse<BlogResponse>))]
         [SwaggerResponse(404, "Not found")]
@@ -56,6 +60,7 @@ namespace SnakeAid.Api.Controllers
         }
 
         [HttpPut("{id}")]
+        [Authorize(Roles = "Admin, Expert")]
         [ValidateModel]
         [SwaggerOperation(Summary = "Update blog")]
         [SwaggerResponse(200, "Updated successfully", typeof(ApiResponse<BlogResponse>))]
@@ -67,6 +72,7 @@ namespace SnakeAid.Api.Controllers
         }
 
         [HttpPatch("{id}/status")]
+        [Authorize(Roles = "Admin, Expert")]
         [ValidateModel]
         [SwaggerOperation(Summary = "Update blog status")]
         [SwaggerResponse(200, "Updated successfully", typeof(ApiResponse<BlogResponse>))]
@@ -78,6 +84,7 @@ namespace SnakeAid.Api.Controllers
         }
 
         [HttpPatch("{id}/view")]
+        [Authorize]
         [SwaggerOperation(Summary = "Increase blog view")]
         [SwaggerResponse(200, "Updated successfully", typeof(ApiResponse<BlogResponse>))]
         [SwaggerResponse(404, "Not found")]
@@ -88,6 +95,7 @@ namespace SnakeAid.Api.Controllers
         }
 
         [HttpPatch("{id}/like")]
+        [Authorize]
         [SwaggerOperation(Summary = "Like blog")]
         [SwaggerResponse(200, "Updated successfully", typeof(ApiResponse<BlogResponse>))]
         [SwaggerResponse(404, "Not found")]
@@ -99,6 +107,7 @@ namespace SnakeAid.Api.Controllers
         }
 
         [HttpPatch("{id}/unlike")]
+        [Authorize]
         [SwaggerOperation(Summary = "Unlike blog")]
         [SwaggerResponse(200, "Updated successfully", typeof(ApiResponse<BlogResponse>))]
         [SwaggerResponse(404, "Not found")]
@@ -110,6 +119,7 @@ namespace SnakeAid.Api.Controllers
         }
 
         [HttpDelete("{id}")]
+        [Authorize(Roles = "Admin, Expert")]
         [SwaggerOperation(Summary = "Delete blog")]
         [SwaggerResponse(200, "Deleted successfully", typeof(ApiResponse<bool>))]
         [SwaggerResponse(404, "Not found")]

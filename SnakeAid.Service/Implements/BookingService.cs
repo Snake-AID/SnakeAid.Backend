@@ -291,7 +291,9 @@ public class BookingService : IBookingService
                 && b.ConsultationId.HasValue
                 && b.TimeSlot.EndTime <= now
                 && b.Consultation != null
-                && b.Consultation.Status != ConsultationStatus.Completed,
+                && b.Consultation.Status != ConsultationStatus.Completed
+                && b.Consultation.Status != ConsultationStatus.ExpertAbsent
+                && b.Consultation.Status != ConsultationStatus.ExpertAbsentHandled,
             include: q => q.Include(b => b.TimeSlot).Include(b => b.Consultation),
             asNoTracking: false,
             cancellationToken: cancellationToken);
@@ -299,6 +301,11 @@ public class BookingService : IBookingService
         var completedCount = 0;
         foreach (var booking in bookings)
         {
+            if (booking.Consultation?.Status is ConsultationStatus.ExpertAbsent or ConsultationStatus.ExpertAbsentHandled)
+            {
+                continue;
+            }
+
             var consultationId = booking.ConsultationId!.Value;
             var roomName = $"consultation-{consultationId}";
 
