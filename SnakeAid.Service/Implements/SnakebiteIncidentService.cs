@@ -1128,9 +1128,7 @@ namespace SnakeAid.Service.Implements
                         ? (int)(DateTime.UtcNow - existingIncident.IncidentOccurredAt.Value).TotalMinutes
                         : 0);
 
-                    var preserveExistingSeverity = existingIncident.IdentifiedSnakeSpeciesId.HasValue && existingIncident.SeverityLevel.HasValue;
-
-                    // Collect symptom descriptions and calculate severity only when allowed
+                    // Collect symptom descriptions and calculate symptom-based severity
                     var reportedSymptoms = new List<ReportSymptom>();
                     var coreSymptomScores = new List<int>();
                     var modifierSymptomScores = new List<int>();
@@ -1154,44 +1152,53 @@ namespace SnakeAid.Service.Implements
                                 });
                             }
 
-                            if (!preserveExistingSeverity)
-                            {
-                                // Calculate score based on TimeScoreList
-                                var score = CalculateScoreByElapsedTime(symptom.TimeScoreList, elapsedMinutes);
+                            // Calculate score based on TimeScoreList
+                            var score = CalculateScoreByElapsedTime(symptom.TimeScoreList, elapsedMinutes);
 
-                                // Categorize by symptom category
-                                if (symptom.Category == SymptomCategory.Core)
-                                {
-                                    coreSymptomScores.Add(score);
-                                }
-                                else if (symptom.Category == SymptomCategory.Modifier)
-                                {
-                                    modifierSymptomScores.Add(score);
-                                }
+                            // Categorize by symptom category
+                            if (symptom.Category == SymptomCategory.Core)
+                            {
+                                coreSymptomScores.Add(score);
+                            }
+                            else if (symptom.Category == SymptomCategory.Modifier)
+                            {
+                                modifierSymptomScores.Add(score);
                             }
                         }
                     }
 
-                    // Calculate severity level only when incident has not been identified yet
-                    var severityLevel = preserveExistingSeverity
-                        ? existingIncident.SeverityLevel ?? 0
-                        : 0;
-                    if (!preserveExistingSeverity)
+                    var symptomSeverity = 0;
+
+                    // Core: take maximum score
+                    if (coreSymptomScores.Any())
                     {
-                        // Core: take maximum score
-                        if (coreSymptomScores.Any())
-                        {
-                            severityLevel = coreSymptomScores.Max();
-                        }
+                        symptomSeverity = coreSymptomScores.Max();
+                    }
 
-                        // Modifier: sum all scores
-                        if (modifierSymptomScores.Any())
-                        {
-                            severityLevel += modifierSymptomScores.Sum();
-                        }
+                    // Modifier: sum all scores
+                    if (modifierSymptomScores.Any())
+                    {
+                        symptomSeverity += modifierSymptomScores.Sum();
+                    }
 
-                        if (severityLevel > 100)
-                            severityLevel = 100;
+                    if (symptomSeverity > 100)
+                    {
+                        symptomSeverity = 100;
+                    }
+
+                    var severityLevel = symptomSeverity;
+
+                    if (existingIncident.IdentifiedSnakeSpeciesId.HasValue)
+                    {
+                        var identifiedSnake = await _unitOfWork.GetRepository<SnakeSpecies>().FirstOrDefaultAsync(
+                            predicate: s => s.Id == existingIncident.IdentifiedSnakeSpeciesId.Value
+                        );
+
+                        var snakeSeverity = identifiedSnake != null
+                            ? (int)(identifiedSnake.RiskLevel * 10)
+                            : existingIncident.SeverityLevel ?? 0;
+
+                        severityLevel = Math.Max(snakeSeverity, symptomSeverity);
                     }
 
                     // Update symptom report and severity level
@@ -1201,10 +1208,7 @@ namespace SnakeAid.Service.Implements
                         WriteIndented = false
                     };
                     existingIncident.SymptomsReport = reportedSymptoms;
-                    if (!preserveExistingSeverity)
-                    {
-                        existingIncident.SeverityLevel = severityLevel;
-                    }
+                    existingIncident.SeverityLevel = severityLevel;
                     _unitOfWork.GetRepository<SnakebiteIncident>().Update(existingIncident);
                     await _unitOfWork.CommitAsync();
 
