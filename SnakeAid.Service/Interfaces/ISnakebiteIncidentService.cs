@@ -20,11 +20,13 @@ namespace SnakeAid.Service.Interfaces
 
         Task<CreateIncidentResponse> ConfirmIncidentAsync(Guid incidentId, Guid operatorId);
 
-        Task<CreateIncidentResponse> DispatchIncidentAsync(Guid incidentId, Guid rescuerId, Guid operatorId);
+        Task<CreateIncidentResponse> DispatchIncidentAsync(Guid incidentId, Guid rescuerId, Guid operatorId, bool allowOffDuty = false, string? operatorNote = null);
 
         Task<CreateIncidentResponse> MarkIncidentFalseAlarmAsync(Guid incidentId, Guid operatorId, string? reason);
 
         Task<CreateIncidentResponse> ReportIncidentNoAnswerAsync(Guid incidentId, Guid operatorId, bool continueCalling, string? note);
+
+        Task<CreateIncidentResponse> HandoverIncidentToHospitalAsync(Guid incidentId, Guid operatorId, HandoverToHospitalRequest request);
 
         Task<AcceptRescueResponse> AcceptDispatchRequestAsync(Guid requestId, Guid rescuerId);
 

@@ -163,6 +163,136 @@ namespace SnakeAid.Service.Implements
                 maxDistanceKm);
         }
 
+        public async Task<OffDutyRescuerSnapshotResponse> GetOffDutyRescuersAsync(
+            Guid? incidentId,
+            Guid? catchingRequestId,
+            double? maxDistanceKm)
+        {
+            if (incidentId.HasValue && catchingRequestId.HasValue)
+            {
+                throw new ArgumentException("Only one of incidentId or catchingRequestId may be provided.");
+            }
+
+            var nowLocal = AppTime.NowLocal;
+            var excludedRescuerIds = new HashSet<Guid>();
+            NetTopologySuite.Geometries.Point? locationPoint = null;
+
+            if (incidentId.HasValue)
+            {
+                var incident = await _unitOfWork.GetRepository<SnakebiteIncident>().FirstOrDefaultAsync(
+                    predicate: i => i.Id == incidentId.Value);
+
+                if (incident == null)
+                {
+                    throw new NotFoundException("Incident not found.");
+                }
+
+                locationPoint = incident.LocationCoordinates;
+
+                var declinedRescuerIds = await _unitOfWork.GetRepository<RescuerRequest>().CreateBaseQuery(asNoTracking: true)
+                    .Where(r => r.IncidentId == incidentId.Value && r.Status == RescueRequestStatus.Declined)
+                    .Select(r => r.RescuerId)
+                    .Distinct()
+                    .ToListAsync();
+
+                var abortedRescuerIds = await _unitOfWork.GetRepository<RescueMission>().CreateBaseQuery(asNoTracking: true)
+                    .Where(m => m.IncidentId == incidentId.Value && m.Status == RescueMissionStatus.MissionAborted)
+                    .Select(m => m.RescuerId)
+                    .Distinct()
+                    .ToListAsync();
+
+                excludedRescuerIds.UnionWith(declinedRescuerIds);
+                excludedRescuerIds.UnionWith(abortedRescuerIds);
+            }
+            else if (catchingRequestId.HasValue)
+            {
+                var catchingRequest = await _unitOfWork.GetRepository<SnakeCatchingRequest>().FirstOrDefaultAsync(
+                    predicate: r => r.Id == catchingRequestId.Value);
+
+                if (catchingRequest == null)
+                {
+                    throw new NotFoundException("Catching request not found.");
+                }
+
+                locationPoint = catchingRequest.LocationCoordinates;
+
+                if (catchingRequest.AssignedRescuerId.HasValue)
+                {
+                    excludedRescuerIds.Add(catchingRequest.AssignedRescuerId.Value);
+                }
+
+                var abortedRescuerIds = await _unitOfWork.GetRepository<SnakeCatchingMission>().CreateBaseQuery(asNoTracking: true)
+                    .Where(m => m.SnakeCatchingRequestId == catchingRequestId.Value &&
+                                (m.Status == CatchingMissionStatus.MissionAborted || m.Status == CatchingMissionStatus.Cancelled))
+                    .Select(m => m.RescuerId)
+                    .Distinct()
+                    .ToListAsync();
+
+                excludedRescuerIds.UnionWith(abortedRescuerIds);
+            }
+
+            var onDutyRescuerIds = await _unitOfWork.GetRepository<ShiftAssignment>().CreateBaseQuery(asNoTracking: true)
+                .Where(a => (a.Status == ShiftAssignmentStatus.Scheduled || a.Status == ShiftAssignmentStatus.Active)
+                            && a.ShiftStartLocal <= nowLocal
+                            && a.ShiftEndLocal >= nowLocal)
+                .Select(a => a.RescuerId)
+                .Distinct()
+                .ToListAsync();
+
+            excludedRescuerIds.UnionWith(onDutyRescuerIds);
+
+            var backupRescuers = await _unitOfWork.GetRepository<RescuerProfile>().GetListAsync(
+                predicate: r => r.IsOnline && r.IsAvailable && !excludedRescuerIds.Contains(r.AccountId),
+                include: q => q.Include(r => r.Account),
+                orderBy: q => q.OrderByDescending(r => r.UpdatedAt));
+
+            var responseItems = backupRescuers
+                .Select(r => BuildOffDutyRescuerItem(r, distanceKm: null))
+                .ToList();
+
+            if (locationPoint != null && responseItems.Any() && responseItems.Any(i => i.Latitude.HasValue && i.Longitude.HasValue))
+            {
+                var rescuerIds = responseItems.Select(i => i.RescuerId).ToList();
+                var distanceResults = await _unitOfWork.GetRepository<RescuerProfile>()
+                    .GetListAsync(
+                        predicate: r => rescuerIds.Contains(r.AccountId) && r.LastLocation != null,
+                        selector: r => new
+                        {
+                            Id = r.AccountId,
+                            DistanceKm = EF.Functions.Distance(r.LastLocation!, locationPoint, true) / 1000
+                        });
+
+                var distanceMap = distanceResults.ToDictionary(x => x.Id, x => (double?)x.DistanceKm);
+
+                foreach (var item in responseItems)
+                {
+                    if (distanceMap.TryGetValue(item.RescuerId, out var d))
+                    {
+                        item.DistanceKm = Math.Round(d ?? 0, 2);
+                    }
+                }
+            }
+
+            responseItems = responseItems
+                .Where(item => !maxDistanceKm.HasValue || (item.DistanceKm.HasValue && item.DistanceKm.Value <= maxDistanceKm.Value))
+                .OrderBy(item => item.DistanceKm ?? double.MaxValue)
+                .ThenByDescending(item => item.LastLocationUpdate)
+                .ToList();
+
+            _logger.LogInformation(
+                "Snapshot off-duty backup rescuers built. ContextId={ContextId}, Count={Count}, MaxDistanceKm={MaxDistanceKm}",
+                incidentId ?? catchingRequestId,
+                responseItems.Count,
+                maxDistanceKm);
+
+            return new OffDutyRescuerSnapshotResponse
+            {
+                ContextId = incidentId ?? catchingRequestId,
+                SnapshotAt = AppTime.UtcNow,
+                Rescuers = responseItems
+            };
+        }
+
         private async Task<OnDutyRescuerSnapshotResponse> BuildSnapshotAsync(
             DateOnly targetDate,
             DateTime nowLocal,
@@ -271,6 +401,25 @@ namespace SnakeAid.Service.Implements
                 ShiftStartTime = assignment.ShiftStartLocal.TimeOfDay,
                 ShiftEndTime = assignment.ShiftEndLocal.TimeOfDay,
                 ShiftDate = DateOnly.FromDateTime(assignment.ShiftStartLocal),
+                Latitude = latitude,
+                Longitude = longitude,
+                LastLocationUpdate = rescuer.LastLocationUpdate,
+                DistanceKm = distanceKm
+            };
+        }
+
+        private static OffDutyRescuerItemResponse BuildOffDutyRescuerItem(RescuerProfile rescuer, double? distanceKm)
+        {
+            var latitude = rescuer.LastLocation?.Y;
+            var longitude = rescuer.LastLocation?.X;
+
+            return new OffDutyRescuerItemResponse
+            {
+                RescuerId = rescuer.AccountId,
+                FullName = rescuer.Account?.FullName ?? string.Empty,
+                PhoneNumber = rescuer.Account?.PhoneNumber,
+                IsOnline = rescuer.IsOnline,
+                IsAvailable = rescuer.IsAvailable,
                 Latitude = latitude,
                 Longitude = longitude,
                 LastLocationUpdate = rescuer.LastLocationUpdate,

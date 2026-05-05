@@ -1049,6 +1049,14 @@ public class SnakebiteAndMissionFlowIntegrationTests
         }
 
         public Task NotifyMissionAbortedAsync(Guid incidentId, Guid memberUserId, Guid rescuerUserId, string? rescuerName, string reason) => Task.CompletedTask;
+
+        public Task NotifyHospitalHandoverAcceptedAsync(Guid incidentId, Guid memberUserId, string hospitalName, string? hospitalPhone, string? operatorNote)
+            => Task.CompletedTask;
+
+        public Task NotifyIncidentFalseAlarmAsync(Guid incidentId, Guid memberUserId, string? reason)
+        {
+            throw new NotImplementedException();
+        }
     }
 
     private sealed class TestSystemSettingService : ISystemSettingService

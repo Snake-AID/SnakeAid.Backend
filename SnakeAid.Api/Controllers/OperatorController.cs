@@ -67,6 +67,29 @@ namespace SnakeAid.Api.Controllers
             return Ok(ApiResponseBuilder.BuildSuccessResponse(result));
         }
 
+        [HttpGet("off-duty")]
+        [SwaggerOperation(
+            Summary = "Get Off-Duty Backup Rescuers Snapshot",
+            Description = "Return backup rescuer snapshot for operator fallback flow: online and available rescuers who are not currently on duty, with optional distance to incident or catching request.")]
+        [SwaggerResponse(200, "Success", typeof(ApiResponse<OffDutyRescuerSnapshotResponse>))]
+        public async Task<IActionResult> GetOffDutyRescuers(
+            [FromQuery] Guid? incidentId,
+            [FromQuery] Guid? catchingRequestId,
+            [FromQuery] double? maxDistanceKm = null)
+        {
+            if (incidentId.HasValue && catchingRequestId.HasValue)
+            {
+                return BadRequest(ApiResponseBuilder.BuildErrorResponse("Provide only one of incidentId or catchingRequestId."));
+            }
+
+            var result = await _operatorSnapshotService.GetOffDutyRescuersAsync(
+                incidentId,
+                catchingRequestId,
+                maxDistanceKm);
+
+            return Ok(ApiResponseBuilder.BuildSuccessResponse(result));
+        }
+
         [HttpGet("online-rescuers")]
         [SwaggerOperation(
             Summary = "Get Online Rescuers",
