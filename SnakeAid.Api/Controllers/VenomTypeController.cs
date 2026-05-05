@@ -1,4 +1,5 @@
 using MapsterMapper;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SnakeAid.Core.Meta;
 using SnakeAid.Core.Requests.VenomType;
@@ -26,6 +27,7 @@ public class VenomTypeController : BaseController<VenomTypeController>
     }
 
     [HttpPost]
+    [Authorize(Roles = "Admin")]
     [ValidateModel]
     [SwaggerOperation(Summary = "Create Venom Type")]
     [SwaggerResponse(200, "Created successfully", typeof(ApiResponse<VenomTypeResponse>))]
@@ -36,6 +38,7 @@ public class VenomTypeController : BaseController<VenomTypeController>
     }
 
     [HttpGet("{id}")]
+    [Authorize]
     [SwaggerOperation(Summary = "Get Venom Type by ID")]
     [SwaggerResponse(200, "Success", typeof(ApiResponse<VenomTypeResponse>))]
     public async Task<IActionResult> GetVenomTypeById(int id)
@@ -45,6 +48,7 @@ public class VenomTypeController : BaseController<VenomTypeController>
     }
 
     [HttpGet]
+    [Authorize]
     [SwaggerOperation(Summary = "Get All Venom Types")]
     [SwaggerResponse(200, "Success", typeof(ApiResponse<List<VenomTypeResponse>>))]
     public async Task<IActionResult> GetAllVenomTypes()
@@ -54,6 +58,7 @@ public class VenomTypeController : BaseController<VenomTypeController>
     }
 
     [HttpPut("{id}")]
+    [Authorize(Roles = "Admin")]
     [ValidateModel]
     [SwaggerOperation(Summary = "Update Venom Type")]
     [SwaggerResponse(200, "Updated successfully", typeof(ApiResponse<VenomTypeResponse>))]
@@ -64,6 +69,7 @@ public class VenomTypeController : BaseController<VenomTypeController>
     }
 
     [HttpDelete("{id}")]
+    [Authorize(Roles = "Admin")]
     [SwaggerOperation(Summary = "Delete Venom Type")]
     [SwaggerResponse(200, "Deleted successfully", typeof(ApiResponse<object>))]
     public async Task<IActionResult> DeleteVenomType(int id)

@@ -30,6 +30,7 @@ namespace SnakeAid.Api.Controllers
         /// Create a new catching environment
         /// </summary>
         [HttpPost]
+        [Authorize(Roles = "Admin")]
         [ValidateModel]
         [SwaggerOperation(Summary = "Create Catching Environment", Description = "Create a new catching environment (Admin only)")]
         [SwaggerResponse(200, "Created successfully", typeof(ApiResponse<CatchingEnvironmentResponse>))]
@@ -47,6 +48,7 @@ namespace SnakeAid.Api.Controllers
         /// Get catching environment by ID
         /// </summary>
         [HttpGet("{id}")]
+        [Authorize]
         [SwaggerOperation(Summary = "Get Catching Environment by ID", Description = "Get detailed information of a catching environment")]
         [SwaggerResponse(200, "Success", typeof(ApiResponse<CatchingEnvironmentResponse>))]
         [SwaggerResponse(404, "Catching environment not found")]
@@ -60,6 +62,7 @@ namespace SnakeAid.Api.Controllers
         /// Get all catching environments
         /// </summary>
         [HttpGet]
+        [Authorize]
         [SwaggerOperation(Summary = "Get All Catching Environments", Description = "Get all catching environments without pagination")]
         [SwaggerResponse(200, "Success", typeof(ApiResponse<List<CatchingEnvironmentResponse>>))]
         public async Task<IActionResult> GetAllCatchingEnvironments()
@@ -72,6 +75,7 @@ namespace SnakeAid.Api.Controllers
         /// Update an existing catching environment
         /// </summary>
         [HttpPut("{id}")]
+        [Authorize(Roles = "Admin")]
         [ValidateModel]
         [SwaggerOperation(Summary = "Update Catching Environment", Description = "Update an existing catching environment (Admin only)")]
         [SwaggerResponse(200, "Updated successfully", typeof(ApiResponse<CatchingEnvironmentResponse>))]
@@ -90,6 +94,7 @@ namespace SnakeAid.Api.Controllers
         /// Delete a catching environment
         /// </summary>
         [HttpDelete("{id}")]
+        [Authorize(Roles = "Admin")]
         [SwaggerOperation(Summary = "Delete Catching Environment", Description = "Delete a catching environment (Admin only)")]
         [SwaggerResponse(200, "Deleted successfully", typeof(ApiResponse<bool>))]
         [SwaggerResponse(400, "Cannot delete if in use")]
