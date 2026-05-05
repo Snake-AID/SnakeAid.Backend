@@ -30,6 +30,10 @@ namespace SnakeAid.Service.Implements
         private readonly IRescuerOnlineStatusService _rescuerOnlineStatusService;
         private readonly ISnakeCatchingRequestNotificationService _snakeCatchingRequestNotificationService;
 
+        private const decimal CATCHING_BASE_PRICE = 4000;
+        private const decimal VENOM_SNAKE_PRICE = 100000;
+        private const decimal NONVENOM_SNAKE_PRICE = 50000;
+
 
         public SnakeCatchingMissionService(
             IUnitOfWork<SnakeAidDbContext> unitOfWork,
@@ -226,9 +230,9 @@ namespace SnakeAid.Service.Implements
         {
             try
             {
-                var basePrice = _systemSettingService.GetSetting(SystemSettingKeys.CatchingBasePrice, decimal.Zero);
-                var venomSnakePrice = _systemSettingService.GetSetting(SystemSettingKeys.CatchingVenomSnakePrice, decimal.Zero);
-                var nonVenomSnakePrice = _systemSettingService.GetSetting(SystemSettingKeys.CatchingNonVenomSnakePrice, decimal.Zero);
+                var basePrice = _systemSettingService.GetSetting(SystemSettingKeys.CatchingBasePrice, CATCHING_BASE_PRICE);
+                var venomSnakePrice = _systemSettingService.GetSetting(SystemSettingKeys.CatchingVenomSnakePrice, VENOM_SNAKE_PRICE);
+                var nonVenomSnakePrice = _systemSettingService.GetSetting(SystemSettingKeys.CatchingNonVenomSnakePrice, NONVENOM_SNAKE_PRICE);
 
                 var (response, requestId, memberUserId, rescuerName, actualCost) = await _unitOfWork.ExecuteInTransactionAsync(async () =>
                 {
