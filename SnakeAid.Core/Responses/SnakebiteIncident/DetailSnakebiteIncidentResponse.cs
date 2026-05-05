@@ -29,6 +29,7 @@ namespace SnakeAid.Core.Responses.SnakebiteIncident
         public Guid? AssignedRescuerId { get; set; }
 
         public string? CancellationReason { get; set; }
+        public string? OperatorNotes { get; set; }
 
         public int? SeverityLevel { get; set; } = 1;
 
