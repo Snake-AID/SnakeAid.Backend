@@ -1,7 +1,10 @@
+using System.Text.Json.Serialization;
+
 namespace SnakeAid.Core.Responses.Consultation.History;
 
 public class MyInstantConsultationRequestHistoryResponse : MyConsultationHistoryUnionResponse
 {
+    [JsonIgnore]
     public override string Kind => "instant";
     public Guid InstantRequestId { get; set; }
     public string RequestStatus { get; set; } = string.Empty;

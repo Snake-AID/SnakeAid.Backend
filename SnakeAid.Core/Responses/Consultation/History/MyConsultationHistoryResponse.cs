@@ -1,7 +1,10 @@
+using System.Text.Json.Serialization;
+
 namespace SnakeAid.Core.Responses.Consultation.History;
 
 public class MyConsultationHistoryResponse : MyConsultationHistoryUnionResponse
 {
+    [JsonIgnore]
     public override string Kind => "consultation";
     public Guid ConsultationId { get; set; }
     public string Status { get; set; } = string.Empty;

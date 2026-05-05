@@ -815,7 +815,8 @@ public class ConsultationService : IConsultationService
         }
 
         // Sort + paginate
-        return BuildPagingResponse(results, query.PageNumber, query.PageSize, c => c.HistorySortTime);
+        var (normalizedPageNumber, normalizedPageSize) = NormalizePaging(query.PageNumber, query.PageSize);
+        return BuildPagingResponse(results, normalizedPageNumber, normalizedPageSize, c => c.HistorySortTime);
     }
 #endregion
 
@@ -919,7 +920,8 @@ public class ConsultationService : IConsultationService
         }
 
         // Sort + paginate
-        return BuildPagingResponse(results, query.PageNumber, query.PageSize, c => c.HistorySortTime);
+        var (normalizedPageNumber, normalizedPageSize) = NormalizePaging(query.PageNumber, query.PageSize);
+        return BuildPagingResponse(results, normalizedPageNumber, normalizedPageSize, c => c.HistorySortTime);
     }
 #endregion
 

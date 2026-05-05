@@ -2,10 +2,12 @@ using System.Text.Json.Serialization;
 
 namespace SnakeAid.Core.Responses.Consultation.History;
 
-[JsonDerivedType(typeof(ExpertConsultationHistoryResponse))]
-[JsonDerivedType(typeof(ExpertInstantConsultationRequestHistoryResponse))]
+[JsonPolymorphic(TypeDiscriminatorPropertyName = "kind")]
+[JsonDerivedType(typeof(ExpertConsultationHistoryResponse), "consultation")]
+[JsonDerivedType(typeof(ExpertInstantConsultationRequestHistoryResponse), "instant")]
 public abstract class ExpertConsultationHistoryUnionResponse
 {
+    [JsonIgnore]
     public abstract string Kind { get; }
 
     public string Type { get; set; } = string.Empty;

@@ -92,9 +92,16 @@ public class ExpertConsultationPriceResponseTests : IDisposable
 
         var result = await _service.GetExpertConsultationsAsync(_expertId, query);
 
-        var items = result.Items
+        var historyItems = result.Items
             .OfType<ExpertConsultationHistoryResponse>()
-            .ToDictionary(item => item.EmergencyRequestId!.Value);
+            .ToList();
+
+        Assert.All(historyItems, item =>
+            Assert.True(
+                item.EmergencyRequestId.HasValue,
+                $"Expected {nameof(ExpertConsultationHistoryResponse)}.{nameof(ExpertConsultationHistoryResponse.EmergencyRequestId)} to be non-null for emergency consultation history rows."));
+
+        var items = historyItems.ToDictionary(item => item.EmergencyRequestId!.Value);
 
         Assert.Equal(2, items.Count);
         Assert.Equal(EmergencyGrossPrice, items[_pingRequest1Id].GrossPrice);
