@@ -339,7 +339,7 @@ namespace SnakeAid.Api.Controllers
         public async Task<IActionResult> DispatchIncident(Guid incidentId, [FromBody] DispatchIncidentRequest request)
         {
             var operatorId = GetCurrentUserId();
-            var result = await _incidentService.DispatchIncidentAsync(incidentId, request.RescuerId, operatorId);
+            var result = await _incidentService.DispatchIncidentAsync(incidentId, request.RescuerId, operatorId, request.AllowOffDuty, request.OperatorNote);
             return Ok(ApiResponseBuilder.BuildSuccessResponse(result, "Incident dispatched."));
         }
 

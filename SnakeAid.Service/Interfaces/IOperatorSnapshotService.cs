@@ -28,6 +28,11 @@ namespace SnakeAid.Service.Interfaces
             bool onlyAvailable,
             double? maxDistanceKm);
 
+        Task<OffDutyRescuerSnapshotResponse> GetOffDutyRescuersAsync(
+            Guid? incidentId,
+            Guid? catchingRequestId,
+            double? maxDistanceKm);
+
         Task<List<BriefRescuerProfileResponse>> GetRescuerRegistryAsync();
 
         Task<BriefRescuerProfileResponse?> GetRescuerByIdAsync(Guid rescuerId);

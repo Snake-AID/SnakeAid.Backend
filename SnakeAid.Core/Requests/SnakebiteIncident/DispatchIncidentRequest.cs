@@ -6,5 +6,9 @@ namespace SnakeAid.Core.Requests.SnakebiteIncident
     {
         [Required]
         public Guid RescuerId { get; set; }
+
+        public bool AllowOffDuty { get; set; } = false;
+
+        public string? OperatorNote { get; set; }
     }
 }

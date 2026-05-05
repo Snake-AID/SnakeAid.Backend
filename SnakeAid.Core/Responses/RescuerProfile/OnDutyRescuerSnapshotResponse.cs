@@ -31,4 +31,24 @@ namespace SnakeAid.Core.Responses.RescuerProfile
         public DateTime? LastLocationUpdate { get; set; }
         public double? DistanceKm { get; set; }
     }
+
+    public class OffDutyRescuerSnapshotResponse
+    {
+        public Guid? ContextId { get; set; }
+        public DateTime SnapshotAt { get; set; }
+        public List<OffDutyRescuerItemResponse> Rescuers { get; set; } = new();
+    }
+
+    public class OffDutyRescuerItemResponse
+    {
+        public Guid RescuerId { get; set; }
+        public string FullName { get; set; } = string.Empty;
+        public string? PhoneNumber { get; set; }
+        public bool IsOnline { get; set; }
+        public bool IsAvailable { get; set; }
+        public double? Latitude { get; set; }
+        public double? Longitude { get; set; }
+        public DateTime? LastLocationUpdate { get; set; }
+        public double? DistanceKm { get; set; }
+    }
 }

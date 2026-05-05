@@ -235,7 +235,7 @@ namespace SnakeAid.Service.Implements
             }
         }
 
-        public async Task<CreateIncidentResponse> DispatchIncidentAsync(Guid incidentId, Guid rescuerId, Guid operatorId)
+        public async Task<CreateIncidentResponse> DispatchIncidentAsync(Guid incidentId, Guid rescuerId, Guid operatorId, bool allowOffDuty = false, string? operatorNote = null)
         {
             try
             {
@@ -243,6 +243,7 @@ namespace SnakeAid.Service.Implements
                 DateTime dispatchedAt = DateTime.UtcNow;
                 double incidentLatitude = 0;
                 double incidentLongitude = 0;
+                string? offDutyDispatchNote = null;
                 var autoCancelledRequestNotifies = new List<(string RescuerId, Guid RequestId, string CancelReason)>();
                 const string autoCancelledReason = DispatchRequestCancelReasonCodes.CancelledByRedispatch;
 
@@ -312,7 +313,18 @@ namespace SnakeAid.Service.Implements
 
                     if (!isOnDutyNow)
                     {
-                        throw new BadRequestException("Rescuer is not currently on shift.");
+                        if (!allowOffDuty)
+                        {
+                            throw new BadRequestException("Rescuer is not currently on shift.");
+                        }
+
+                        if (string.IsNullOrWhiteSpace(operatorNote))
+                        {
+                            throw new BadRequestException("Operator must confirm manual contact when dispatching an off-duty rescuer.");
+                        }
+
+                        offDutyDispatchNote = operatorNote!;
+                        _logger.LogInformation("Operator {OperatorId} requested off-duty dispatch to rescuer {RescuerId} for incident {IncidentId}: {Note}", operatorId, rescuerId, incidentId, operatorNote);
                     }
 
                     // Ensure only one active pending dispatch request remains for the newly selected rescuer.
@@ -355,6 +367,14 @@ namespace SnakeAid.Service.Implements
                     // Keep incident in Verified until rescuer acknowledges the dispatch.
                     incident.Status = SnakebiteIncidentStatus.Verified;
                     incident.DispatchedAt = dispatchedAt;
+
+                    if (!string.IsNullOrWhiteSpace(offDutyDispatchNote))
+                    {
+                        incident.OperatorNotes = string.IsNullOrWhiteSpace(incident.OperatorNotes)
+                            ? offDutyDispatchNote
+                            : string.Join("\n", incident.OperatorNotes, offDutyDispatchNote);
+                    }
+
                     _unitOfWork.GetRepository<SnakebiteIncident>().Update(incident);
 
                     dispatchRequestId = dispatchRequest.Id;
