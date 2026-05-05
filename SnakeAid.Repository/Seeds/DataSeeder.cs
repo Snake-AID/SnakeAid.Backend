@@ -2718,6 +2718,8 @@ namespace SnakeAid.Repository.Seeds
                     new SystemSetting { SettingKey = "Center:Longitude", Value = "106.8413534", ValueType = SettingValueType.Decimal, Description = "Center longitude used for route pricing" },
 
                     new SystemSetting { SettingKey = "Catching:BasePrice", Value = "500000", ValueType = SettingValueType.Decimal, Description = "Base price for snake catching mission (VND)" },
+                    new SystemSetting { SettingKey = "Catching:VenomSnakePrice", Value = "100000", ValueType = SettingValueType.Decimal, Description = "Price per venomous snake caught (VND)" },
+                    new SystemSetting { SettingKey = "Catching:NonVenomSnakePrice", Value = "50000", ValueType = SettingValueType.Decimal, Description = "Price per non-venomous snake caught (VND)" },
                     new SystemSetting { SettingKey = "Catching:AdditionalSnakePrice", Value = "100000", ValueType = SettingValueType.Decimal, Description = "Additional fee per extra snake (VND)" },
                     new SystemSetting { SettingKey = "Catching:FallbackEstimatedPrice", Value = "50000", ValueType = SettingValueType.Decimal, Description = "Fallback estimated price when distance service fails (VND)" },
                     new SystemSetting { SettingKey = "Catching:PricePerKilomenter", Value = "150000", ValueType = SettingValueType.Decimal, Description = "Snake catching operational price per kilometer for distance-based pricing (VND)" },
