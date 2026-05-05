@@ -1112,6 +1112,9 @@ public class ConsultationPaymentIntegrationTests
         }
 
         public Task NotifyEmergencyRequestStatusChangedAsync(Guid requestId, object statusData) => Task.CompletedTask;
+        public Task NotifyEmergencyRequestCreatedAsync(Guid requestId, Guid memberId, Guid expertId) => Task.CompletedTask;
+        public Task NotifyEmergencyRequestAcceptedAsync(Guid requestId, Guid expertId) => Task.CompletedTask;
+        public Task NotifyEmergencyRequestRejectedAsync(Guid requestId, Guid expertId) => Task.CompletedTask;
     }
 
     private sealed class FakePaymentGateway : IPaymentGateway

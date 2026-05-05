@@ -26,6 +26,7 @@ public class SnakebiteIncidentServiceTests
     private readonly Mock<IRescueNotificationService> _rescueNotificationMock = new();
     private readonly Mock<IMissionNotificationService> _missionNotificationMock = new();
     private readonly Mock<ISnakeRescueMissionService> _missionServiceMock = new();
+    private readonly Mock<INotificationQueueService> _notificationQueueMock = new();
 
     private readonly SnakebiteIncidentService _service;
 
@@ -55,7 +56,8 @@ public class SnakebiteIncidentServiceTests
             _operatorRealtimeMock.Object,
             _rescueNotificationMock.Object,
             _missionNotificationMock.Object,
-            _missionServiceMock.Object);
+            _missionServiceMock.Object,
+            _notificationQueueMock.Object);
     }
 
     [Fact]

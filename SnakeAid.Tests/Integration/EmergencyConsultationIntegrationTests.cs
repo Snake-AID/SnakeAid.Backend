@@ -175,6 +175,9 @@ public class EmergencyConsultationIntegrationTests
         public bool IsExpertConnected(string expertId) => true;
         public Task SendEmergencyRequestAsync(string expertId, object requestData) => Task.CompletedTask;
         public Task NotifyEmergencyRequestStatusChangedAsync(Guid requestId, object statusData) => Task.CompletedTask;
+        public Task NotifyEmergencyRequestCreatedAsync(Guid requestId, Guid memberId, Guid expertId) => Task.CompletedTask;
+        public Task NotifyEmergencyRequestAcceptedAsync(Guid requestId, Guid expertId) => Task.CompletedTask;
+        public Task NotifyEmergencyRequestRejectedAsync(Guid requestId, Guid expertId) => Task.CompletedTask;
     }
 
     private sealed class EmergencyConsultationSqliteDbContext : SnakeAidDbContext
