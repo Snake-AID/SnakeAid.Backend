@@ -9,7 +9,7 @@ using SnakeAid.Service.Interfaces;
 
 namespace SnakeAid.Api.Controllers;
 
-[Authorize]
+[Authorize(Roles = "Admin, Rescuer, Expert")]
 [ApiController]
 [Route("api/admin/analytics")]
 public class StatisticController : BaseController<StatisticController>

@@ -28,6 +28,7 @@ namespace SnakeAid.Api.Controllers
         }
 
         [HttpGet]
+        [Authorize]
         [SwaggerOperation(Summary = "Get All Treatment Facilities", Description = "Get list of all active treatment facilities")]
         [SwaggerResponse(200, "Success", typeof(ApiResponse<IEnumerable<TreatmentFacilityResponse>>))]
         public async Task<IActionResult> GetAllTreatmentFacilities()
@@ -37,6 +38,7 @@ namespace SnakeAid.Api.Controllers
         }
 
         [HttpGet("filter")]
+        [Authorize]
         [SwaggerOperation(Summary = "Filter Treatment Facilities", Description = "Get paginated treatment facilities filtered by name, active status and antivenom ID")]
         [SwaggerResponse(200, "Success", typeof(ApiResponse<PagedData<TreatmentFacilityResponse>>))]
         public async Task<IActionResult> FilterTreatmentFacilities([FromQuery] GetTreatmentFacilityRequest request)
@@ -46,6 +48,7 @@ namespace SnakeAid.Api.Controllers
         }
 
         [HttpGet("{id}")]
+        [Authorize]
         [SwaggerOperation(Summary = "Get Treatment Facility by ID", Description = "Get treatment facility detail by ID")]
         [SwaggerResponse(200, "Success", typeof(ApiResponse<TreatmentFacilityResponse>))]
         [SwaggerResponse(404, "Treatment facility not found")]
@@ -56,6 +59,7 @@ namespace SnakeAid.Api.Controllers
         }
 
         [HttpGet("find-hospital")]
+        [Authorize]
         [SwaggerOperation(Summary = "Find Treatment Facility by Location", Description = "Find the nearest active treatment facility based on latitude and longitude")]
         [SwaggerResponse(200, "Success", typeof(ApiResponse<IEnumerable<TreatmentFacilityResponse>>))]
         [SwaggerResponse(404, "Treatment facility not found")]
@@ -66,6 +70,7 @@ namespace SnakeAid.Api.Controllers
         }
 
         [HttpPost("")]
+        [Authorize(Roles = "Admin")]
         [SwaggerOperation(Summary = "Create Treatment Facility.", Description = "Create Treatment Facility.")]
         [SwaggerResponse(200, "Success", typeof(ApiResponse<IEnumerable<TreatmentFacilityResponse>>))]
         [SwaggerResponse(404, "Treatment facility not found")]
@@ -77,6 +82,7 @@ namespace SnakeAid.Api.Controllers
         }
 
         [HttpPut("{id}")]
+        [Authorize(Roles = "Admin")]
         [SwaggerOperation(Summary = "Update Treatment Facility.", Description = "Update Treatment Facility.")]
         [SwaggerResponse(200, "Success", typeof(ApiResponse<IEnumerable<TreatmentFacilityResponse>>))]
         [SwaggerResponse(404, "Treatment facility not found")]
@@ -88,6 +94,7 @@ namespace SnakeAid.Api.Controllers
         }
 
         [HttpDelete("{id}")]
+        [Authorize(Roles = "Admin")]
         [SwaggerOperation(Summary = "Delete Treatment Facility.", Description = "Delete Treatment Facility.")]
         [SwaggerResponse(200, "Success", typeof(ApiResponse<IEnumerable<TreatmentFacilityResponse>>))]
         [SwaggerResponse(404, "Treatment facility not found")]

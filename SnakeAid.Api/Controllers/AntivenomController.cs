@@ -1,4 +1,5 @@
 using MapsterMapper;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SnakeAid.Core.Meta;
 using SnakeAid.Core.Requests.Antivenom;
@@ -26,6 +27,7 @@ public class AntivenomController : BaseController<AntivenomController>
     }
 
     [HttpPost]
+    [Authorize(Roles = "Admin")]
     [ValidateModel]
     [SwaggerOperation(Summary = "Create Antivenom")]
     [SwaggerResponse(200, "Created successfully", typeof(ApiResponse<AntivenomResponse>))]
@@ -36,6 +38,7 @@ public class AntivenomController : BaseController<AntivenomController>
     }
 
     [HttpGet("{id}")]
+    [Authorize]
     [SwaggerOperation(Summary = "Get Antivenom by ID")]
     [SwaggerResponse(200, "Success", typeof(ApiResponse<AntivenomResponse>))]
     public async Task<IActionResult> GetAntivenomById(int id)
@@ -45,6 +48,7 @@ public class AntivenomController : BaseController<AntivenomController>
     }
 
     [HttpGet]
+    [Authorize]
     [SwaggerOperation(Summary = "Get All Antivenoms")]
     [SwaggerResponse(200, "Success", typeof(ApiResponse<List<AntivenomResponse>>))]
     public async Task<IActionResult> GetAllAntivenoms()
@@ -54,6 +58,7 @@ public class AntivenomController : BaseController<AntivenomController>
     }
 
     [HttpPut("{id}")]
+    [Authorize(Roles = "Admin")]
     [ValidateModel]
     [SwaggerOperation(Summary = "Update Antivenom")]
     [SwaggerResponse(200, "Updated successfully", typeof(ApiResponse<AntivenomResponse>))]
@@ -64,6 +69,7 @@ public class AntivenomController : BaseController<AntivenomController>
     }
 
     [HttpDelete("{id}")]
+    [Authorize(Roles = "Admin")]
     [SwaggerOperation(Summary = "Delete Antivenom")]
     [SwaggerResponse(200, "Deleted successfully", typeof(ApiResponse<object>))]
     public async Task<IActionResult> DeleteAntivenom(int id)
