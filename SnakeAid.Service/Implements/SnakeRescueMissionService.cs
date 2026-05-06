@@ -36,6 +36,7 @@ namespace SnakeAid.Service.Implements
         private readonly ILocationIqService _locationIqService;
         private readonly IMissionNotificationService _notificationService;
         private readonly IOperatorRealtimeNotificationService _operatorRealtimeNotificationService;
+        private readonly IRescueNotificationService _rescueNotificationService;
 
         public SnakeRescueMissionService(
             IUnitOfWork<SnakeAidDbContext> unitOfWork,
@@ -43,7 +44,8 @@ namespace SnakeAid.Service.Implements
             ISystemSettingService systemSettingService,
             ILocationIqService locationIqService,
             IMissionNotificationService notificationService,
-            IOperatorRealtimeNotificationService operatorRealtimeNotificationService)
+            IOperatorRealtimeNotificationService operatorRealtimeNotificationService,
+            IRescueNotificationService rescueNotificationService)
         {
             _unitOfWork = unitOfWork;
             _logger = logger;
@@ -51,6 +53,7 @@ namespace SnakeAid.Service.Implements
             _locationIqService = locationIqService;
             _notificationService = notificationService;
             _operatorRealtimeNotificationService = operatorRealtimeNotificationService;
+            _rescueNotificationService = rescueNotificationService;
         }
 
         /// <summary>
@@ -551,6 +554,116 @@ namespace SnakeAid.Service.Implements
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error in rescuer aborting mission {MissionId}: {Message}", missionId, ex.Message);
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Operator abort mission: Set status to MissionAborted, reset incident to Verified for re-dispatch
+        /// Used when rescuer is non-responsive or taking too long
+        /// </summary>
+        public async Task OperatorAbortMissionAsync(Guid missionId, Guid operatorId, string reason)
+        {
+            Guid incidentId;
+            Guid? rescuerId = null;
+
+            try
+            {
+                // Step 1: Abort mission in transaction
+                incidentId = await _unitOfWork.ExecuteInTransactionAsync(async () =>
+                {
+                    var mission = await _unitOfWork.GetRepository<RescueMission>().FirstOrDefaultAsync(
+                        predicate: m => m.Id == missionId
+                    );
+
+                    if (mission == null)
+                    {
+                        throw new NotFoundException("Mission not found.");
+                    }
+
+                    rescuerId = mission.RescuerId;
+
+                    // Validate status transition: Same as RescuerAbort (Preparing or EnRoute)
+                    if (!IsValidStatusTransition(mission.Status, RescueMissionStatus.MissionAborted))
+                    {
+                        throw new BadRequestException($"Cannot abort mission with status: {mission.Status}. Only allowed during Preparing or EnRoute phases.");
+                    }
+
+                    var incident = await _unitOfWork.GetRepository<SnakebiteIncident>().FirstOrDefaultAsync(
+                        predicate: i => i.Id == mission.IncidentId
+                    );
+
+                    if (incident == null)
+                    {
+                        throw new NotFoundException("Incident not found.");
+                    }
+
+                    // Security check: Ensure the operator is the one handling the incident
+                    if (incident.HandlingOperatorId != operatorId)
+                    {
+                        throw new ForbiddenException("You are not the handling operator for this incident.");
+                    }
+
+                    _logger.LogInformation("Operator {OperatorId} aborting mission {MissionId} for incident {IncidentId}. Reason: {Reason}",
+                        operatorId, missionId, incident.Id, reason);
+
+                    // Update mission
+                    mission.Status = RescueMissionStatus.MissionAborted;
+                    mission.CancellationReason = $"[Operator Aborted] {reason}";
+                    mission.UpdatedAt = DateTime.UtcNow;
+
+                    // Reset incident to Verified so Operator can re-dispatch
+                    incident.Status = SnakebiteIncidentStatus.Verified;
+                    incident.AssignedRescuerId = null;
+                    incident.AssignedAt = null;
+                    incident.DispatchedAt = null;
+
+                    // Append operator note
+                    var abortNote = $"[Hủy cứu hộ] Điều phối viên hủy ca cứu hộ của Rescuer. Lý do: {reason}";
+                    incident.OperatorNotes = string.IsNullOrWhiteSpace(incident.OperatorNotes)
+                        ? abortNote
+                        : $"{incident.OperatorNotes}\n{abortNote}";
+
+                    _unitOfWork.GetRepository<RescueMission>().Update(mission);
+                    _unitOfWork.GetRepository<SnakebiteIncident>().Update(incident);
+
+                    return mission.IncidentId;
+                });
+
+                _unitOfWork.ClearChangeTracker();
+
+                var missionSnapshot = await GetMissionByIdAsync(missionId);
+
+                // 1. Notify Member: informs them that the rescuer has been changed
+                await _notificationService.NotifyMissionAbortedAsync(
+                    incidentId,
+                    missionSnapshot.Incident.UserId,
+                    missionSnapshot.RescuerId,
+                    "Điều phối viên", // Inform member it was the operator who intervened
+                    reason);
+
+                // 2. Notify Rescuer: informs them their mission was aborted by operator
+                if (rescuerId.HasValue)
+                {
+                    await _rescueNotificationService.NotifyMissionAbortedByOperatorAsync(
+                        rescuerId.Value.ToString(),
+                        incidentId,
+                        reason);
+                }
+
+                // 3. Notify Operator dashboard: updates UI to show incident is back in Verified
+                await _operatorRealtimeNotificationService.NotifyRescuerAbortedAsync(
+                    incidentId,
+                    rescuerId ?? Guid.Empty,
+                    operatorId,
+                    reason);
+
+                _logger.LogInformation("Operator {OperatorId} successfully aborted mission {MissionId}. Incident {IncidentId} reset to Verified.",
+                    operatorId, missionId, incidentId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error in operator aborting mission {MissionId}: {Message}", missionId, ex.Message);
                 throw;
             }
         }

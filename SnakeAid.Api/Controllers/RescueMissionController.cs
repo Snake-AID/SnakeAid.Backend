@@ -212,6 +212,28 @@ namespace SnakeAid.Api.Controllers
         }
 
         /// <summary>
+        /// Abort mission (Operator) - used when rescuer is non-responsive
+        /// </summary>
+        [HttpPatch("{missionId}/operator-abort")]
+        [SwaggerOperation(
+            Summary = "Abort Mission (Operator)",
+            Description = "Operator forces mission abort with a reason (Preparing/EnRoute → MissionAborted). Incident is reset to Verified so the operator can re-dispatch another rescuer.")]
+        [SwaggerResponse(200, "Mission aborted by operator", typeof(ApiResponse<object>))]
+        [SwaggerResponse(400, "Invalid status transition or missing reason", typeof(ApiResponse<object>))]
+        [SwaggerResponse(403, "Not authorized to handle this incident", typeof(ApiResponse<object>))]
+        [SwaggerResponse(404, "Mission not found")]
+        [Authorize(Roles = "Operator, Admin")]
+        [ValidateModel]
+        public async Task<IActionResult> OperatorAbortMission(
+            Guid missionId,
+            [FromBody] AbortMissionRequest request)
+        {
+            var operatorId = GetCurrentUserId();
+            await _missionService.OperatorAbortMissionAsync(missionId, operatorId, request.CancellationReason);
+            return Ok(ApiResponseBuilder.BuildSuccessResponse<object>(null, "Mission aborted by operator. Incident is now ready for re-dispatch."));
+        }
+
+        /// <summary>
         /// Cancel mission - user cancels before rescuer starts
         /// No new session is created
         /// </summary>

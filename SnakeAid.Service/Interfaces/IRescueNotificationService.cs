@@ -21,5 +21,6 @@ namespace SnakeAid.Service.Interfaces
         Task NotifyRequestExpiredAsync(string rescuerId, Guid requestId);
 
         Task ForceDisconnectRescuerAsync(string rescuerId, string reason);
+        Task NotifyMissionAbortedByOperatorAsync(string rescuerId, Guid incidentId, string reason);
     }
 }

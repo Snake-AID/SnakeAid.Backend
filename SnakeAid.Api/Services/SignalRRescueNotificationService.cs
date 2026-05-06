@@ -153,6 +153,42 @@ namespace SnakeAid.Api.Services
                 _logger.LogWarning("Cannot force disconnect rescuer {RescuerId} - not connected", rescuerId);
             }
         }
+ 
+        public async Task NotifyMissionAbortedByOperatorAsync(string rescuerId, Guid incidentId, string reason)
+            => await SafeExecuteAsync(async () =>
+            {
+                var message = $"Nhiệm vụ của bạn đã bị điều phối viên hủy. Lý do: {reason}";
+ 
+                if (ConnectedRescuers.TryGetValue(rescuerId, out var connectionId))
+                {
+                    await _hubContext.Clients.Client(connectionId).SendAsync("MissionAbortedByOperator", new
+                    {
+                        IncidentId = incidentId,
+                        Reason = reason,
+                        Message = message
+                    });
+                }
+ 
+                await _notificationQueueService.PublishAsync(new NotificationMessage
+                {
+                    UserId = Guid.Parse(rescuerId),
+                    Title = "Nhiệm vụ đã bị hủy bởi điều phối viên",
+                    Body = message,
+                    Type = "SNAKE_RESCUE_MISSION_ABORTED_BY_OPERATOR",
+                    Data = new Dictionary<string, string>
+                    {
+                        ["incidentId"] = incidentId.ToString()
+                    }
+                });
+ 
+                // Notify monitors
+                await _hubContext.Clients.Group("Monitors").SendAsync("MissionAbortedByOperator", new
+                {
+                    RescuerId = rescuerId,
+                    IncidentId = incidentId,
+                    Reason = reason
+                });
+            }, "MissionAbortedByOperator", rescuerId);
 
         #region Helper methods
         private async Task NotifyRescuerAndMonitorsAsync(string rescuerId, string actionName, Func<string, Task> rescuerAction, object monitorData)

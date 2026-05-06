@@ -25,6 +25,9 @@ namespace SnakeAid.Service.Interfaces
         // Rescuer abort mission: Set status to MissionAborted, create new session with increased radius
         Task RescuerAbortMissionAsync(Guid missionId, string reason);
 
+        // Operator abort mission: Set status to MissionAborted, reset incident to Verified for re-dispatch
+        Task OperatorAbortMissionAsync(Guid missionId, Guid operatorId, string reason);
+
         // Get mission by ID (domain entity)
         Task<RescueMission> GetMissionByIdAsync(Guid missionId);
 
