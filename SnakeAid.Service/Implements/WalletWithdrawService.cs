@@ -126,8 +126,8 @@ namespace SnakeAid.Service.Implements
 
             await TryBroadcastAdminNotificationAsync(new AdminBroadcastNotificationRequest
             {
-                Title = "New withdrawal request",
-                Body = $"A user submitted a withdrawal request of {withdrawal.Amount:N0} VND.",
+                Title = "Có yêu cầu rút tiền mới",
+                Body = $"Người dùng đã gửi yêu cầu rút tiền {withdrawal.Amount:N0} VND.",
                 Type = "WITHDRAWAL_REQUEST_CREATED",
                 TargetRoles = new List<AccountRole> { AccountRole.Admin },
                 Data = BuildNotificationData(withdrawal.Id, withdrawal.Status, withdrawal.UserId)
@@ -193,8 +193,8 @@ namespace SnakeAid.Service.Implements
 
             await TryBroadcastAdminNotificationAsync(new AdminBroadcastNotificationRequest
             {
-                Title = "Withdrawal cancelled",
-                Body = $"User cancelled withdrawal request {withdrawal.Id}.",
+                Title = "Yêu cầu rút tiền đã bị hủy",
+                Body = $"Người dùng đã hủy yêu cầu rút tiền {withdrawal.Id}.",
                 Type = "WITHDRAWAL_CANCELLED",
                 TargetRoles = new List<AccountRole> { AccountRole.Admin },
                 Data = BuildNotificationData(withdrawal.Id, withdrawal.Status, withdrawal.UserId)
@@ -256,8 +256,8 @@ namespace SnakeAid.Service.Implements
 
             await TryPublishUserNotificationAsync(
                 withdrawal.UserId,
-                "Withdrawal approved",
-                $"Your withdrawal request of {withdrawal.Amount:N0} VND has been approved.",
+                "Yêu cầu rút tiền được phê duyệt",
+                $"Yêu cầu rút {withdrawal.Amount:N0} VND của bạn đã được phê duyệt.",
                 "WITHDRAWAL_APPROVED",
                 BuildNotificationData(withdrawal.Id, withdrawal.Status, withdrawal.UserId));
 
@@ -307,8 +307,8 @@ namespace SnakeAid.Service.Implements
 
             await TryPublishUserNotificationAsync(
                 withdrawal.UserId,
-                "Withdrawal rejected",
-                $"Your withdrawal request of {withdrawal.Amount:N0} VND was rejected.",
+                "Yêu cầu rút tiền bị từ chối",
+                $"Yêu cầu rút {withdrawal.Amount:N0} VND của bạn đã bị từ chối.",
                 "WITHDRAWAL_REJECTED",
                 BuildNotificationData(withdrawal.Id, withdrawal.Status, withdrawal.UserId, reason));
 
@@ -352,8 +352,8 @@ namespace SnakeAid.Service.Implements
 
             await TryPublishUserNotificationAsync(
                 withdrawal.UserId,
-                "Withdrawal completed",
-                $"Your withdrawal request of {withdrawal.Amount:N0} VND has been completed.",
+                "Yêu cầu rút tiền đã hoàn tất",
+                $"Yêu cầu rút {withdrawal.Amount:N0} VND của bạn đã được hoàn tất.",
                 "WITHDRAWAL_COMPLETED",
                 BuildNotificationData(withdrawal.Id, withdrawal.Status, withdrawal.UserId));
 
@@ -402,8 +402,8 @@ namespace SnakeAid.Service.Implements
 
             await TryPublishUserNotificationAsync(
                 withdrawal.UserId,
-                "Withdrawal failed",
-                $"Your withdrawal request of {withdrawal.Amount:N0} VND failed during processing.",
+                "Yêu cầu rút tiền thất bại",
+                $"Yêu cầu rút {withdrawal.Amount:N0} VND của bạn đã thất bại trong quá trình xử lý.",
                 "WITHDRAWAL_FAILED",
                 BuildNotificationData(withdrawal.Id, withdrawal.Status, withdrawal.UserId, reason));
 
