@@ -44,7 +44,9 @@ namespace SnakeAid.Service.Implements
 
                 var snakeSpecies = await _unitOfWork.GetRepository<SnakeSpecies>()
                     .GetListAsync(
-                        predicate: s => s.IsActive
+                        predicate: s => s.IsActive,
+                        include: query => query
+                            .Include(s => s.PrimaryVenomTypeDefinition)
                     );
 
                 _logger.LogInformation("Retrieved {Count} snake species", snakeSpecies.Count);
