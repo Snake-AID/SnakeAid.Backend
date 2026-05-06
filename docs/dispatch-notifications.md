@@ -142,6 +142,7 @@ Tài liệu này mô tả toàn bộ **luồng sự kiện realtime** hiện đa
 | `RescuerAccepted` | Rescuer accept | `Operators` | Operator biết rescuer nhận |
 | `RequestDeclined` | Rescuer decline | `Rescuer` | Xác nhận từ chối |
 | `RescuerDeclined` | Rescuer decline | `Operators` | Operator biết rescuer từ chối |
+| `MissionAbortedByOperator` | Operator abort | `Rescuer` + `Operators` | Ép hủy khi rescuer không phản hồi |
 
 ---
 

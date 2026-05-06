@@ -499,6 +499,9 @@ public class ConsultationPaymentService : IConsultationPaymentService
             "publishing scheduled consultation wallet payment success notification",
             userId);
 
+        // Notify Expert via FCM push that member has paid and the booking is confirmed
+        await NotifyExpertBookingConfirmedAsync(bookingId, response.Amount, cancellationToken);
+
         return response;
     }
 
@@ -894,6 +897,8 @@ public class ConsultationPaymentService : IConsultationPaymentService
                         PaymentLinkId = webhook.PaymentLinkId,
                         ExternalTransactionId = transaction.ExternalTransactionId
                     },
+                    // Set ExpertId so post-transaction block can notify expert via FCM
+                    ExpertId = booking.ExpertId,
                     UserId = payerUserId,
                     IsNewlyConfirmed = true
                 };
@@ -961,16 +966,25 @@ public class ConsultationPaymentService : IConsultationPaymentService
 
         if (context.ExpertId.HasValue)
         {
-            await _notificationService.SendEmergencyRequestAsync(
-                context.ExpertId.Value.ToString(),
-                new
-                {
-                    requestId = context.Response.ReferenceId,
-                    requesterId = await GetRequesterIdAsync(context.Response.ReferenceId, cancellationToken),
-                    expertId = context.ExpertId.Value,
-                    requestedAt = context.RequestedAt,
-                    expiresAt = context.ExpiresAt
-                });
+            if (context.Response.ReferenceType == ConsultationPaymentReferenceType.EmergencyRequest)
+            {
+                // Emergency: Expert must be online — notify via SignalR realtime
+                await _notificationService.SendEmergencyRequestAsync(
+                    context.ExpertId.Value.ToString(),
+                    new
+                    {
+                        requestId = context.Response.ReferenceId,
+                        requesterId = await GetRequesterIdAsync(context.Response.ReferenceId, cancellationToken),
+                        expertId = context.ExpertId.Value,
+                        requestedAt = context.RequestedAt,
+                        expiresAt = context.ExpiresAt
+                    });
+            }
+            else
+            {
+                // Scheduled Booking: Expert already knows the slot — notify via FCM push
+                await NotifyExpertBookingConfirmedAsync(context.Response.ReferenceId, context.Response.Amount, cancellationToken);
+            }
         }
 
         if (context.IsNewlyConfirmed)
@@ -1516,6 +1530,51 @@ public class ConsultationPaymentService : IConsultationPaymentService
 
         await _unitOfWork.GetRepository<Wallet>().InsertAsync(wallet);
         return wallet;
+    }
+
+    /// <summary>
+    /// Notifies the Expert via FCM push that a Scheduled Booking has been confirmed by Member payment.
+    /// Used for both Wallet and PayOS payment flows.
+    /// Expert does not need to be online (unlike Emergency) — push is sufficient.
+    /// </summary>
+    private async Task NotifyExpertBookingConfirmedAsync(
+        Guid bookingId,
+        decimal amount,
+        CancellationToken cancellationToken)
+    {
+        var booking = await _unitOfWork.GetRepository<ConsultationBooking>().FirstOrDefaultAsync(
+            predicate: b => b.Id == bookingId,
+            include: q => q.Include(b => b.TimeSlot),
+            asNoTracking: true,
+            cancellationToken: cancellationToken);
+
+        if (booking == null)
+        {
+            _logger.LogWarning("NotifyExpertBookingConfirmedAsync: booking {BookingId} not found, skipping expert notification.", bookingId);
+            return;
+        }
+
+        var slotDisplay = booking.TimeSlot != null
+            ? booking.TimeSlot.StartTime.ToString("HH:mm") + " - " + booking.TimeSlot.EndTime.ToString("HH:mm")
+            : "đã đặt";
+
+        await TryPublishNotificationAsync(
+            new NotificationMessage
+            {
+                UserId = booking.ExpertId,
+                Title = "Lịch tư vấn được xác nhận",
+                Body = $"Thành viên đã thanh toán {FormatVnd(amount)} cho buổi tư vấn lúc {slotDisplay}. Lịch hẹn đã được xác nhận.",
+                Type = "SCHEDULED_BOOKING_PAYMENT_CONFIRMED",
+                Data = new Dictionary<string, string>
+                {
+                    ["bookingId"] = bookingId.ToString(),
+                    ["memberId"] = booking.UserId.ToString(),
+                    ["amount"] = amount.ToString()
+                }
+            },
+            cancellationToken,
+            "publishing scheduled booking confirmed notification to expert",
+            booking.ExpertId);
     }
 
     private async Task TryPublishNotificationAsync(
