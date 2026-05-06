@@ -531,6 +531,9 @@ public class BookingService : IBookingService
         ConsultationBookingResponse booking,
         CancellationToken cancellationToken)
     {
+        var slotDisplay = booking.SlotStartTime.ToString("dd/MM/yyyy HH:mm");
+
+        // Notify Member: remind them to pay within the deadline
         try
         {
             var minutesRemaining = (booking.PaymentDeadline - DateTime.UtcNow)?.TotalMinutes ?? 0;
@@ -538,7 +541,7 @@ public class BookingService : IBookingService
             {
                 UserId = booking.UserId,
                 Title = "Lịch tư vấn đã được tạo",
-                Body = $"Lịch tư vấn với {booking.ExpertName ?? "chuyên gia"} sẽ diễn ra vào {booking.SlotStartTime:dd/MM/yyyy HH:mm}. Vui lòng thanh toán trong {minutesRemaining:F0} phút.",
+                Body = $"Lịch tư vấn với {booking.ExpertName ?? "chuyên gia"} sẽ diễn ra vào {slotDisplay}. Vui lòng thanh toán trong {minutesRemaining:F0} phút.",
                 Type = "CONSULTATION_SCHEDULED_BOOKING_CREATED",
                 Data = new Dictionary<string, string>
                 {
@@ -555,6 +558,32 @@ public class BookingService : IBookingService
                 "Failed to publish scheduled booking created notification for bookingId={BookingId}, userId={UserId}",
                 booking.Id,
                 booking.UserId);
+        }
+
+        // Notify Expert: a member has reserved their time slot and is pending payment
+        try
+        {
+            await _notificationQueueService.PublishAsync(new NotificationMessage
+            {
+                UserId = booking.ExpertId,
+                Title = "Có lịch hẹn mới đang chờ xác nhận",
+                Body = $"Thành viên vừa đặt lịch tư vấn lúc {slotDisplay}. Lịch hẹn sẽ được xác nhận sau khi thanh toán.",
+                Type = "CONSULTATION_SCHEDULED_BOOKING_CREATED_FOR_EXPERT",
+                Data = new Dictionary<string, string>
+                {
+                    ["bookingId"] = booking.Id.ToString(),
+                    ["memberId"] = booking.UserId.ToString(),
+                    ["consultationId"] = booking.ConsultationId.ToString()
+                }
+            }, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(
+                ex,
+                "Failed to publish scheduled booking created notification to expert for bookingId={BookingId}, expertId={ExpertId}",
+                booking.Id,
+                booking.ExpertId);
         }
     }
 
